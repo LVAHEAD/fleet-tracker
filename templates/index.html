@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fleet ETA Tracker</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Fleet ETA Tracker</h1>
+  <button id="refresh-btn">Обновить всё</button>
+</div>
+
+<table id="fleet-table">
+  <thead>
+    <tr>
+      <th>Машина</th>
+      <th>Статус</th>
+      <th>Таргет</th>
+      <th>Delivery</th>
+      <th>Осталось км</th>
+      <th>ETA</th>
+      <th>Примечание</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody id="fleet-tbody"></tbody>
+</table>
+
+<button id="add-row-btn">+ Добавить строку</button>
+
+<div id="map"></div>
+
+<datalist id="units-list"></datalist>
+
+<div class="version-tag">v{{ app_version }}</div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_js_key }}&libraries=geometry&callback=initMap" async defer></script>
+</body>
+</html>

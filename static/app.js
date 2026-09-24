@@ -1,0 +1,411 @@
+/*
+Fleet ETA Tracker — фронтенд
+Версия: 1.12 (подсветка статуса, ETA dd/mm HH:mm, статус в две строки)
+
+Хранение состояния: localStorage браузера (ключ "fleet-rows"), переживает
+закрытие вкладки. Каждая строка: { id, unit, target, delivery, note }.
+Статус/км/ETA не хранятся — пересчитываются заново при каждом обновлении.
+*/
+
+const STORAGE_KEY = "fleet-rows";
+let rows = [];
+let unitsCache = [];
+let lastCalcText = {}; // rowId -> {status, dist, eta} — чтобы renderRows не стирал уже посчитанное
+
+// --- Карта ---
+let map = null;
+let markers = {}; // rowId -> google.maps.Marker (машина)
+let targetMarkers = {}; // rowId -> google.maps.Marker (таргет, зелёный флажок)
+let pendingPositions = {}; // rowId -> {lat, lng, label, status} — на случай если карта ещё грузится
+let rowPositions = {}; // rowId -> {unitLat, unitLng, targetLat, targetLng, polyline}
+let routePolyline = null; // текущая нарисованная линия маршрута (одна за раз)
+
+function initMap() {
+  map = new google.maps.Map(document.getElementById("map"), {
+    center: { lat: 50.5, lng: 10.0 }, // примерно центр Европы
+    zoom: 4,
+  });
+
+  Object.keys(pendingPositions).forEach((rowId) => {
+    const p = pendingPositions[rowId];
+    updateMarker(Number(rowId), p.lat, p.lng, p.label, p.status);
+  });
+  pendingPositions = {};
+}
+
+function updateMarker(rowId, lat, lng, label, status) {
+  if (lat == null || lng == null) return;
+  if (!map) {
+    pendingPositions[rowId] = { lat, lng, label, status };
+    return;
+  }
+  const pos = { lat, lng };
+  const icon = markerIcon(status);
+  if (markers[rowId]) {
+    markers[rowId].setPosition(pos);
+    markers[rowId].setLabel(labelOpts(label, status));
+    markers[rowId].setIcon(icon);
+  } else {
+    markers[rowId] = new google.maps.Marker({
+      position: pos,
+      map: map,
+      icon: icon,
+      label: labelOpts(label, status),
+      title: label,
+    });
+    markers[rowId].addListener("click", () => {
+      map.panTo(pos);
+      map.setZoom(9);
+    });
+  }
+}
+
+function markerIcon(status) {
+  const fill = status === "driving" ? "#1D9E75" : "#E24B4A"; // едет — зелёный, стоит — красный
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">
+    <circle cx="13" cy="13" r="10" fill="${fill}" stroke="white" stroke-width="2"/>
+  </svg>`;
+  return {
+    url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+    scaledSize: new google.maps.Size(26, 26),
+    anchor: new google.maps.Point(13, 13),
+    labelOrigin: new google.maps.Point(13, -8),
+  };
+}
+
+function labelOpts(text, status) {
+  const color = status === "driving" ? "#0F6E56" : "#791F1F";
+  return { text: text || "", fontSize: "13px", fontWeight: "600", color: color, className: "marker-label" };
+}
+
+function removeMarker(rowId) {
+  if (markers[rowId]) {
+    markers[rowId].setMap(null);
+    delete markers[rowId];
+  }
+}
+
+function centerMapOn(rowId) {
+  const m = markers[rowId];
+  if (m && map) {
+    map.panTo(m.getPosition());
+    map.setZoom(9);
+  }
+}
+
+function flagIcon() {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="30">
+    <line x1="4" y1="2" x2="4" y2="28" stroke="#2E7D46" stroke-width="2.5"/>
+    <path d="M4,3 L22,8 L4,13 Z" fill="#1D9E75" stroke="#2E7D46" stroke-width="1"/>
+  </svg>`;
+  return {
+    url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+    scaledSize: new google.maps.Size(26, 30),
+    anchor: new google.maps.Point(4, 28),
+    labelOrigin: new google.maps.Point(13, -6),
+  };
+}
+
+function updateTargetMarker(rowId, lat, lng, label) {
+  if (lat == null || lng == null) return;
+  if (!map) return; // таргет-маркер не критичен при ранней загрузке, пропускаем
+  const pos = { lat, lng };
+  if (targetMarkers[rowId]) {
+    targetMarkers[rowId].setPosition(pos);
+    targetMarkers[rowId].setLabel({ text: label || "", fontSize: "12px", fontWeight: "600", color: "#2E7D46" });
+  } else {
+    targetMarkers[rowId] = new google.maps.Marker({
+      position: pos,
+      map: map,
+      icon: flagIcon(),
+      label: { text: label || "", fontSize: "12px", fontWeight: "600", color: "#2E7D46" },
+      title: `Таргет: ${label || ""}`,
+    });
+  }
+}
+
+function removeTargetMarker(rowId) {
+  if (targetMarkers[rowId]) {
+    targetMarkers[rowId].setMap(null);
+    delete targetMarkers[rowId];
+  }
+}
+
+function drawRoute(rowId) {
+  const pos = rowPositions[rowId];
+
+  if (routePolyline) {
+    routePolyline.setMap(null);
+    routePolyline = null;
+  }
+
+  if (!pos || pos.targetLat == null || pos.targetLng == null) {
+    centerMapOn(rowId);
+    return;
+  }
+
+  if (!pos.polyline) {
+    // координаты таргета есть, а линии нет (например, Routes API не вернул её) — просто центрируем
+    centerMapOn(rowId);
+    return;
+  }
+
+  const path = google.maps.geometry.encoding.decodePath(pos.polyline);
+  routePolyline = new google.maps.Polyline({
+    path: path,
+    strokeColor: "#4285F4",
+    strokeOpacity: 0.85,
+    strokeWeight: 4,
+    map: map,
+  });
+
+  const bounds = new google.maps.LatLngBounds();
+  path.forEach((p) => bounds.extend(p));
+  map.fitBounds(bounds, 40);
+}
+
+let rowIdCounter = 1;
+
+function loadRows() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    rows = raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    rows = [];
+  }
+  // Счётчик id должен продолжаться после максимального загруженного id,
+  // иначе новая строка может получить id, совпадающий с уже существующей
+  // (например, оба — 1), и тогда правки/удаление начинают путать строки.
+  const maxId = rows.reduce((max, r) => (r.id > max ? r.id : max), 0);
+  rowIdCounter = maxId + 1;
+
+  if (rows.length === 0) {
+    rows.push(emptyRow());
+  }
+}
+
+function saveRows() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+  } catch (e) {
+    // localStorage недоступен — молча продолжаем без сохранения
+  }
+}
+
+function emptyRow() {
+  return { id: rowIdCounter++, unit: "", target: "", delivery: "", note: "" };
+}
+
+async function loadUnitsList() {
+  try {
+    const res = await fetch("/api/units");
+    const data = await res.json();
+    if (data.units) {
+      unitsCache = data.units;
+      const datalist = document.getElementById("units-list");
+      datalist.innerHTML = "";
+      unitsCache.forEach((u) => {
+        const opt = document.createElement("option");
+        opt.value = u.number;
+        datalist.appendChild(opt);
+      });
+    }
+  } catch (e) {
+    console.error("Не удалось загрузить список машин", e);
+  }
+}
+
+function renderRows() {
+  const tbody = document.getElementById("fleet-tbody");
+  tbody.innerHTML = "";
+  rows.forEach((row) => {
+    const tr = document.createElement("tr");
+    tr.dataset.id = row.id;
+    const cached = lastCalcText[row.id];
+    const statusHtml = cached ? cached.status : "—";
+    const statusClass = cached ? cached.statusClass : "muted";
+    const distHtml = cached ? cached.dist : "—";
+    const distMuted = cached ? "" : "muted";
+    const etaHtml = cached ? cached.eta : "—";
+    const etaMuted = cached ? "" : "muted";
+    tr.innerHTML = `
+      <td><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" placeholder="номер" /></td>
+      <td class="status-cell ${statusClass}">${statusHtml}</td>
+      <td><input class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" placeholder="ГПС, город или код" /></td>
+      <td><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" placeholder="дата, время" /></td>
+      <td class="dist-cell ${distMuted}" style="text-align:right">${distHtml}</td>
+      <td class="eta-cell ${etaMuted}">${etaHtml}</td>
+      <td><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" placeholder="примечание" /></td>
+      <td class="row-actions">
+        <button class="refresh-row-btn" title="Обновить строку">↻</button>
+        <button class="add-btn" title="Добавить строку">+</button>
+        <button class="del-btn" title="Удалить строку">✕</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  attachRowHandlers();
+}
+
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function attachRowHandlers() {
+  document.querySelectorAll("#fleet-tbody tr").forEach((tr) => {
+    const id = Number(tr.dataset.id);
+
+    tr.querySelector(".unit-input").addEventListener("change", (e) => {
+      updateRowField(id, "unit", e.target.value);
+    });
+    tr.querySelector(".target-input").addEventListener("change", (e) => {
+      updateRowField(id, "target", e.target.value);
+    });
+    tr.querySelector(".delivery-input").addEventListener("change", (e) => {
+      updateRowField(id, "delivery", e.target.value);
+    });
+    tr.querySelector(".note-input").addEventListener("change", (e) => {
+      updateRowField(id, "note", e.target.value);
+    });
+
+    tr.querySelector(".refresh-row-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      calcRow(id);
+    });
+
+    tr.querySelector(".add-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const idx = rows.findIndex((r) => r.id === id);
+      rows.splice(idx + 1, 0, emptyRow());
+      saveRows();
+      renderRows();
+    });
+
+    tr.querySelector(".del-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      rows = rows.filter((r) => r.id !== id);
+      removeMarker(id);
+      removeTargetMarker(id);
+      delete rowPositions[id];
+      delete lastCalcText[id];
+      if (rows.length === 0) rows.push(emptyRow());
+      saveRows();
+      renderRows();
+    });
+
+    tr.addEventListener("click", (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
+      drawRoute(id);
+    });
+  });
+}
+
+function updateRowField(id, field, value) {
+  const row = rows.find((r) => r.id === id);
+  if (row) {
+    row[field] = value;
+    saveRows();
+    calcRow(id);
+  }
+}
+
+async function calcRow(id) {
+  const row = rows.find((r) => r.id === id);
+  if (!row || !row.unit) return;
+
+  const tr = document.querySelector(`#fleet-tbody tr[data-id="${id}"]`);
+  if (!tr) return;
+
+  const statusCell = tr.querySelector(".status-cell");
+  const distCell = tr.querySelector(".dist-cell");
+  const etaCell = tr.querySelector(".eta-cell");
+
+  statusCell.textContent = "…";
+  statusCell.className = "status-cell muted";
+
+  try {
+    const res = await fetch("/api/calc", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unit: row.unit, target: row.target }),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      statusCell.textContent = data.error;
+      statusCell.className = "status-cell";
+      distCell.textContent = "—";
+      etaCell.textContent = "—";
+      delete lastCalcText[id];
+      return;
+    }
+
+    const statusLine1 = escapeHtml(data.status_ru + " " + data.duration_str);
+    const statusLine2 = data.status === "driving" && data.speed != null
+      ? escapeHtml(`${Math.round(data.speed)} км/ч`)
+      : "";
+    const statusHtml = statusLine2
+      ? `${statusLine1}<br>${statusLine2}`
+      : statusLine1;
+    const statusClass = data.status === "driving" ? "status-driving" : "status-standing";
+
+    statusCell.innerHTML = statusHtml;
+    statusCell.className = `status-cell ${statusClass}`;
+
+    let distText = "—";
+    let etaText = "—";
+    if (data.dist_km != null) {
+      distText = data.dist_km.toFixed(1);
+      distCell.textContent = distText;
+      distCell.classList.remove("muted");
+      etaText = data.eta_local;
+      etaCell.textContent = etaText;
+      etaCell.classList.remove("muted");
+    } else {
+      distCell.textContent = "—";
+      etaCell.textContent = "—";
+    }
+
+    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText };
+
+    if (data.unit_lat != null && data.unit_lng != null) {
+      updateMarker(id, data.unit_lat, data.unit_lng, data.number, data.status);
+      rowPositions[id] = {
+        unitLat: data.unit_lat,
+        unitLng: data.unit_lng,
+        targetLat: data.target_lat != null ? data.target_lat : null,
+        targetLng: data.target_lng != null ? data.target_lng : null,
+        polyline: data.route_polyline || null,
+      };
+
+      if (data.target_lat != null && data.target_lng != null) {
+        updateTargetMarker(id, data.target_lat, data.target_lng, row.unit);
+      } else {
+        removeTargetMarker(id);
+      }
+    }
+  } catch (e) {
+    statusCell.textContent = "Ошибка запроса";
+  }
+}
+
+function calcAllRows() {
+  rows.forEach((r) => {
+    if (r.unit) calcRow(r.id);
+  });
+}
+
+document.getElementById("add-row-btn").addEventListener("click", () => {
+  rows.push(emptyRow());
+  saveRows();
+  renderRows();
+});
+
+document.getElementById("refresh-btn").addEventListener("click", calcAllRows);
+
+loadRows();
+renderRows();
+loadUnitsList();
+calcAllRows();
