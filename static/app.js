@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.31 (плашки страны в Статусе и кода региона в Таргете).
+Версия: 1.33 (ETA по тахографу во второй строке ETA, ⏸ в Статусе).
+Ранее 1.31 (плашки страны в Статусе и кода региона в Таргете).
 Ранее 1.30 (плашки машин и таргетов на карте, стрелка курса).
 Ранее 1.28 (адресная база: подсказки points-list, L/O из Type, цвета port/customs/misc).
 Ранее 1.23 (Таргет может быть номером другой машины — перецеп; подсказки номеров в Таргет).
@@ -449,7 +450,7 @@ function renderRows() {
       </td>
       <td><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" placeholder="${deliveryPlaceholder(row.lo)}" /></td>
       <td class="dist-cell ${distMuted}" style="text-align:right">${distHtml}</td>
-      <td class="eta-cell ${etaMuted}">${etaHtml}</td>
+      <td class="eta-cell ${etaMuted}" title="${escapeHtml(cached && cached.etaTip ? cached.etaTip : "")}">${etaHtml}</td>
       <td><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" placeholder="примечание" /></td>
       <td class="row-actions">
         <button class="refresh-row-btn" title="Обновить строку">↻</button>
@@ -594,9 +595,13 @@ async function calcRow(id) {
       ? `<span class="cc-badge" title="${escapeHtml(data.unit_code_hint || data.unit_country)}">${escapeHtml(data.unit_country)}</span>`
       : "";
     const statusLine1 = ccBadge + escapeHtml(data.status_ru + " " + data.duration_str);
-    const statusLine2 = data.status === "driving" && data.speed != null
-      ? escapeHtml(`${Math.round(data.speed)} км/ч`)
-      : "";
+    // v1.33: ⏸ — впереди обязательный отдых по тахографу или водитель сейчас отдыхает
+    const tachoTip = (data.tacho_summary || []).join("\n");
+    const pause = (data.tacho_rest_ahead || data.tacho_resting_now)
+      ? `<span class="tacho-pause" title="${escapeHtml(tachoTip)}"></span>${data.tacho_resting_now && data.status !== "driving" ? "отдых " : ""}` : "";
+    const speedTxt = data.status === "driving" && data.speed != null
+      ? escapeHtml(`${Math.round(data.speed)} км/ч`) : "";
+    const statusLine2 = pause || speedTxt ? `${pause}${speedTxt}` : "";
     // Каждая строка статуса — в своём nowrap-блоке: максимум две строки
     const statusHtml = statusLine2
       ? `<div class="status-line">${statusLine1}</div><div class="status-line">${statusLine2}</div>`
@@ -608,12 +613,20 @@ async function calcRow(id) {
 
     let distText = "—";
     let etaText = "—";
+    let etaTip = "";
     if (data.dist_km != null) {
       distText = data.dist_km.toFixed(1);
       distCell.textContent = distText;
       distCell.classList.remove("muted");
-      etaText = data.eta_local;
-      etaCell.textContent = etaText;
+      // v1.33: две строки — простой ETA и ⏱ по тахографу; подробности в подсказке
+      const tip = ["Простой ETA: км ÷ 70, без остановок"]
+        .concat(data.eta_tacho ? ["⏱ По тахографу: " + data.eta_tacho].concat(data.tacho_summary || []) : [])
+        .concat(data.tacho_error ? ["Тахограф: " + data.tacho_error] : []);
+      etaText = `<div class="eta-simple">${escapeHtml(data.eta_local)}</div>`
+        + (data.eta_tacho ? `<div class="eta-tacho">⏱ ${escapeHtml(data.eta_tacho)}</div>` : "");
+      etaCell.innerHTML = etaText;
+      etaTip = tip.join("\n");
+      etaCell.title = etaTip;
       etaCell.classList.remove("muted");
     } else {
       distCell.textContent = "—";
@@ -627,7 +640,7 @@ async function calcRow(id) {
     const oldTb = tr.querySelector(".target-cc");
     if (oldTb) oldTb.outerHTML = targetBadge;
 
-    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, targetBadge };
+    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge };
 
     if (data.unit_lat != null && data.unit_lng != null) {
       // ошибка отрисовки на карте не должна ломать строку таблицы

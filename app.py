@@ -1,8 +1,26 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.31
+Версия: 1.33
 
 История изменений:
+1.33 (2026-09-25) — тахограф и ETA по режиму труда и отдыха, кеш Mapon:
+    - Mapon: список машин кешируется на 45 с (все строки "Обновить всё" — один
+      запрос), параллельных запросов к Mapon не больше 3 (лимит Mapon — 5);
+      исправляет "Request limit reached"
+    - тахограф: unit_data/driving_time_extended, кеш 5 минут на машину
+    - ETA по тахографу (рядом с простым ETA): 70 км/ч; одиночка — перерыв 45 мин
+      после 4:30, суточный отдых 9 ч (пока есть сокращения) или 11 ч, день 10 ч
+      (пока есть продления) или 9 ч; экипаж — без перерывов, день до суммы
+      остатков обоих в окне смены, отдых 9 ч; к каждому суточному отдыху +1 ч
+      запаса, к недельному +30 мин
+    - таблица Флот: в ETA две строки (простой и ⏱ по тахографу), подсказка с
+      подробностями; в Статусе значок ⏸, если впереди обязательный отдых или
+      водитель сейчас отдыхает
+
+1.32 (2026-09-25) — указание источника GeoNames:
+    - под картой Локатора строка "Коды регионов AT, CH, HU и др.: © GeoNames
+      (CC BY 4.0)" со ссылками — требование лицензии данных из v1.27
+
 1.31 (2026-09-25) — контрактные клиенты, плашки страны в таблице:
     - лист "Настройки", колонка "Контрактные клиенты" (SeaBorn, Kesko,
       GreenFood, Bama); сравнение по началу названия, пометки в скобках
@@ -298,7 +316,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.31"
+APP_VERSION = "1.33"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1460,13 +1478,225 @@ def calc_eta(dist_km):
     return duration_h, eta_local
 
 
-def fetch_units(api_key):
-    resp = requests.get(MAPON_API_URL, params={"key": api_key}, timeout=20)
+# ---------- v1.33: Mapon — кеш списка машин и ограничение параллельных запросов ----------
+# Mapon допускает максимум 5 одновременных запросов (ошибка 1011 "Request limit reached").
+# Раньше каждая строка Флота при "Обновить всё" запрашивала весь список машин —
+# теперь список берётся один раз и живёт в памяти MAPON_UNITS_TTL секунд.
+import threading
+MAPON_UNITS_TTL = 45
+MAPON_SEM = threading.BoundedSemaphore(3)   # наши одновременные запросы к Mapon (запас до лимита 5)
+_units_lock = threading.Lock()
+_units_cache = {"units": None, "at": 0.0}
+
+
+def mapon_get(url, params, timeout=20):
+    """GET к Mapon с ограничением параллельности. Возвращает data или бросает RuntimeError
+    с кодом ошибки Mapon в тексте."""
+    with MAPON_SEM:
+        resp = requests.get(url, params=params, timeout=timeout)
     resp.raise_for_status()
     data = resp.json()
-    if "error" in data:
-        raise RuntimeError(data["error"].get("msg", "Mapon API error"))
-    return data["data"]["units"]
+    if isinstance(data, dict) and "error" in data:
+        err = data["error"] or {}
+        raise RuntimeError(f"Mapon {err.get('code', '')}: {err.get('msg', 'API error')}")
+    return data
+
+
+def _fetch_units_raw(api_key):
+    return mapon_get(MAPON_API_URL, {"key": api_key})["data"]["units"]
+
+
+def fetch_units(api_key, force=False):
+    """Список машин Mapon из кеша (MAPON_UNITS_TTL сек). Параллельные запросы ждут
+    одну общую загрузку, а не шлют каждый свою."""
+    import time
+    with _units_lock:
+        if force or _units_cache["units"] is None or time.time() - _units_cache["at"] > MAPON_UNITS_TTL:
+            _units_cache["units"] = _fetch_units_raw(api_key)
+            _units_cache["at"] = time.time()
+        return _units_cache["units"]
+
+
+# ---------- v1.33: тахограф (Mapon unit_data/driving_time_extended) и ETA по нему ----------
+MAPON_TACHO_URL = "https://mapon.com/api/v1/unit_data/driving_time_extended.json"
+TACHO_TTL = 300                 # данные тахографа обновляем не чаще раза в 5 минут на машину
+TACHO_SPEED_KMH = 70
+REST_MARGIN_DAILY = 3600        # запас к каждому суточному отдыху (смена, осмотр, заправка) — 1 ч
+REST_MARGIN_WEEKLY = 1800       # запас к недельному отдыху — 30 мин
+BREAK_SEC = 2700                # перерыв 45 мин (одиночка), без запаса
+CONT_DRIVE_SEC = 16200          # 4:30 непрерывного вождения
+_tacho_cache = {}               # unit_id -> {"at": ts, "data": dict|None, "error": str|None}
+_tacho_lock = threading.Lock()
+
+
+def get_tacho(unit_id):
+    """Данные тахографа по машине (кеш TACHO_TTL). Возвращает (data, error)."""
+    import time
+    now = time.time()
+    with _tacho_lock:
+        c = _tacho_cache.get(unit_id)
+        if c and now - c["at"] < TACHO_TTL:
+            return c["data"], c["error"]
+    try:
+        d = mapon_get(MAPON_TACHO_URL, {"key": MAPON_API_KEY, "unit_id": unit_id}).get("data") or {}
+        drivers = [v for k, v in sorted(d.items()) if k.startswith("driver") and isinstance(v, dict)]
+        data, err = ({"drivers": drivers} if drivers else None), (None if drivers else "нет данных водителя")
+    except Exception as e:
+        data, err = None, str(e)
+    with _tacho_lock:
+        _tacho_cache[unit_id] = {"at": now, "data": data, "error": err}
+    return data, err
+
+
+def _hm(sec):
+    sec = max(0, int(sec))
+    return f"{sec // 3600}:{sec % 3600 // 60:02d}"
+
+
+def tacho_eta(tacho, dist_km, now_ts=None):
+    """Симуляция рейса по данным тахографа.
+    Одиночка: вождение до 4:30 -> перерыв 45 мин; до конца дневного лимита / окна смены ->
+    суточный отдых (ближайший — daily_rest_min из API, дальше 9 ч пока есть сокращения,
+    иначе 11 ч) + 1 ч запаса; день 10 ч пока есть продления, иначе 9 ч.
+    Экипаж (два водителя): ведут по очереди, без перерывов; день = сумма остатков обоих,
+    но в пределах окна смены; суточный отдых 9 ч + 1 ч.
+    Недельный лимит -> недельный отдых weekly_rest_min + 30 мин.
+    Возвращает dict: eta_ts, stops [{kind, start, end}], team, first_limit_sec."""
+    import time
+    t = float(now_ts or time.time())
+    v = TACHO_SPEED_KMH / 3600.0
+    km_left = max(0.0, float(dist_km or 0))
+    drivers = tacho["drivers"]
+    team = len(drivers) >= 2
+    d0 = next((d for d in drivers if d.get("current_state") == "DRIVING"), drivers[0])
+    today = d0.get("today", {}) or {}
+    week = d0.get("week", {}) or {}
+    nowd = d0.get("now", {}) or {}
+
+    ext_left = int(week.get("10h_driving_extensions_remaining") or 0)
+    short_left = int(week.get("9h_rest_shortening_remaining") or 0)
+    shift_end = t + float(today.get("shift_remaining") or 0)
+    weekly_at = float(week.get("weekly_rest_start") or 0) or None
+    weekly_min = float(week.get("weekly_rest_min") or 45 * 3600)
+    next_week_drive = float(week.get("next_fixed_week_driving_remaining") or 56 * 3600)
+    stops = []
+
+    if team:
+        day_left = sum(float((d.get("today") or {}).get("driving_remaining") or 0) for d in drivers)
+        week_left = sum(float((d.get("week") or {}).get("driving_remaining") or 0) for d in drivers)
+        until_break = float("inf")
+    else:
+        day_left = float(today.get("driving_remaining") or 0)
+        week_left = float(week.get("driving_remaining") or 0)
+        cont = float(nowd.get("driving") or 0)
+        until_break = max(0.0, CONT_DRIVE_SEC - cont)
+        rest_now = float(nowd.get("rest") or 0)
+        if d0.get("current_state") == "REST" and 0 < rest_now < BREAK_SEC:
+            # идёт перерыв 45 мин — дождаться конца, потом полный счётчик 4:30
+            stops.append({"kind": "break", "start": t, "end": t + BREAK_SEC - rest_now})
+            t += BREAK_SEC - rest_now
+            until_break = CONT_DRIVE_SEC
+        elif d0.get("current_state") == "REST" and rest_now >= BREAK_SEC:
+            until_break = CONT_DRIVE_SEC  # перерыв уже отбыт
+    # водитель уже на суточном отдыхе (отдыхает 3 ч+, следующая смена ещё не началась)
+    nss = float(d0.get("next_shift_start") or 0)
+    if (d0.get("current_state") == "REST" and float(nowd.get("rest") or 0) >= 3 * 3600
+            and nss > t):
+        stops.append({"kind": "daily", "start": t, "end": nss + REST_MARGIN_DAILY})
+        t = nss + REST_MARGIN_DAILY
+        per_driver = 10 * 3600 if ext_left > 0 else 9 * 3600
+        day_left = min(2 * per_driver, 20 * 3600) if team else per_driver
+        shift_end = t + (21 if team else (15 if short_left > 0 else 13)) * 3600
+        until_break = float("inf") if team else CONT_DRIVE_SEC
+
+    first_rest = True
+    first_limit = None
+    for _ in range(400):
+        if km_left <= 1e-6:
+            break
+        seg_limits = {
+            "km": km_left / v,
+            "day": max(0.0, day_left),
+            "shift": max(0.0, shift_end - t),
+            "week": max(0.0, week_left),
+            "break": until_break,
+        }
+        if weekly_at and weekly_at > t:
+            seg_limits["weekly_at"] = weekly_at - t
+        kind = min(seg_limits, key=seg_limits.get)
+        seg = seg_limits[kind]
+        if first_limit is None and kind != "km":
+            first_limit = seg
+        t += seg
+        km_left -= seg * v
+        day_left -= seg
+        week_left -= seg
+        until_break -= seg
+        if kind == "km":
+            break
+        if kind == "break":
+            stops.append({"kind": "break", "start": t, "end": t + BREAK_SEC})
+            t += BREAK_SEC
+            until_break = CONT_DRIVE_SEC
+            continue
+        if kind in ("week", "weekly_at"):
+            rest = weekly_min + REST_MARGIN_WEEKLY
+            stops.append({"kind": "weekly", "start": t, "end": t + rest})
+            t += rest
+            week_left = next_week_drive * (2 if team else 1)
+            ext_left, short_left = 2, 3
+            weekly_at = None
+            weekly_min = 45 * 3600
+        else:  # дневной лимит или окно смены -> суточный отдых
+            if team:
+                rest = 9 * 3600
+            elif first_rest:
+                rest = float(today.get("daily_rest_min") or 11 * 3600)
+                if rest <= 9 * 3600 and short_left > 0:
+                    short_left -= 1
+            elif short_left > 0:
+                rest = 9 * 3600
+                short_left -= 1
+            else:
+                rest = 11 * 3600
+            first_rest = False
+            stops.append({"kind": "daily", "start": t, "end": t + rest + REST_MARGIN_DAILY})
+            t += rest + REST_MARGIN_DAILY
+        # новые сутки
+        per_driver = 10 * 3600 if ext_left > 0 else 9 * 3600
+        if ext_left > 0:
+            ext_left -= 1
+        if team:
+            day_left = min(2 * per_driver, 20 * 3600)
+            shift_end = t + 21 * 3600
+        else:
+            day_left = per_driver
+            shift_end = t + (15 if short_left > 0 else 13) * 3600
+        until_break = float("inf") if team else CONT_DRIVE_SEC
+    return {"eta_ts": t, "stops": stops, "team": team, "first_limit_sec": first_limit}
+
+
+def tacho_summary(tacho, sim=None):
+    """Короткие строки для подсказки: "до перерыва 3:24", "отдых 26/09 01:15–11:15", "экипаж"."""
+    d0 = next((d for d in tacho["drivers"] if d.get("current_state") == "DRIVING"), tacho["drivers"][0])
+    nowd, today = d0.get("now", {}) or {}, d0.get("today", {}) or {}
+    loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M")
+    parts = []
+    state = {"DRIVING": "едет", "REST": "отдыхает", "AVAILABLE": "готовность", "WORK": "работа"}.get(d0.get("current_state"), d0.get("current_state") or "")
+    if len(tacho["drivers"]) >= 2:
+        parts.append("экипаж")
+    if state:
+        parts.append(state)
+    if d0.get("current_state") == "DRIVING" and nowd.get("driving_remaining") is not None:
+        parts.append(f"до остановки {_hm(nowd.get('driving_remaining'))}")
+    parts.append(f"сегодня осталось {_hm(today.get('driving_remaining'))}")
+    parts.append(f"смена до {loc(float(today.get('daily_rest_start') or 0))}" if today.get("daily_rest_start") else "")
+    if sim:
+        rests = [st for st in sim["stops"] if st["kind"] in ("daily", "weekly")]
+        for st in rests[:3]:
+            label = "отдых" if st["kind"] == "daily" else "недельный отдых"
+            parts.append(f"{label} {loc(st['start'])}–{loc(st['end'])[-5:]}")
+    return [p for p in parts if p]
 
 
 def fetch_group_unit_ids(api_key, group_id):
@@ -2344,6 +2574,26 @@ def api_calc():
             result["target_lat"] = target_lat
             result["target_lng"] = target_lng
             result["route_polyline"] = polyline
+
+        # v1.33: тахограф — ETA по режиму труда и отдыха + подробности
+        try:
+            tacho, terr = get_tacho(unit.get("unit_id"))
+            if tacho:
+                sim = None
+                if result.get("dist_km") is not None:
+                    sim = tacho_eta(tacho, result["dist_km"])
+                    eta_t = round_to_15min(datetime.fromtimestamp(sim["eta_ts"], timezone.utc)
+                                           + timedelta(hours=WEST_EUROPE_OFFSET))
+                    result["eta_tacho"] = eta_t.strftime("%d/%m %H:%M")
+                    result["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weekly") for st in sim["stops"])
+                d0 = next((d for d in tacho["drivers"] if d.get("current_state") == "DRIVING"), tacho["drivers"][0])
+                result["tacho_resting_now"] = d0.get("current_state") == "REST"
+                result["tacho_team"] = len(tacho["drivers"]) >= 2
+                result["tacho_summary"] = tacho_summary(tacho, sim)
+            else:
+                result["tacho_error"] = terr
+        except Exception as e:
+            result["tacho_error"] = str(e)
 
         # v1.31: страна машины и код региона таргета (плашки в таблице)
         try:

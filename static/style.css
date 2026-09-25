@@ -185,7 +185,7 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 #fleet-table .col-target   { width: 240px; }
 #fleet-table .col-delivery { width: 170px; }
 #fleet-table .col-dist     { width: 75px; }
-#fleet-table .col-eta      { width: 75px; }
+#fleet-table .col-eta      { width: 112px; }
 /* .col-note — без ширины: получает всё оставшееся место */
 #fleet-table .col-actions  { width: 132px; }
 #fleet-table td input { min-width: 0; }
@@ -342,3 +342,16 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .target-wrap .cc-badge { flex: 0 0 auto; }
 .frt-contract { background: #EEE; color: #555; border-radius: 3px; padding: 0 4px; }
 .frt-row-contract td { color: #888; }
+
+/* ---------- v1.32: указание источника GeoNames под Локатором ---------- */
+.locator-credit { padding: 5px 12px; font-size: 11px; color: #999; border-top: 1px solid #eee; }
+.locator-credit a { color: #999; }
+
+/* ---------- v1.33: ETA по тахографу, значок ⏸ ---------- */
+.eta-cell { white-space: nowrap; cursor: help; }
+.eta-simple { color: #888; font-size: 12px; }
+.eta-tacho { font-weight: 600; }
+.tacho-pause {
+  display: inline-block; width: 4px; height: 11px; margin: 0 7px 0 1px; vertical-align: -1px;
+  border-left: 3px solid #b3541e; border-right: 3px solid #b3541e; cursor: help;
+}
