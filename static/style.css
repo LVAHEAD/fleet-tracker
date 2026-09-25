@@ -123,23 +123,17 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .tab-panel[hidden] { display: none; }
 
 /* ===== Вкладка: Карты стран ===== */
-.pc-layout { display: flex; gap: 14px; align-items: flex-start; }
+.pc-layout { display: flex; flex-direction: column; gap: 10px; }
 .pc-tabs {
-  flex: none; width: 170px; display: flex; flex-direction: column; gap: 5px;
-  max-height: 480px; overflow-y: auto;
+  display: flex; flex-wrap: wrap; gap: 6px;
 }
 .pc-tab {
-  display: flex; align-items: center; gap: 8px; text-align: left;
-  border: 1px solid #ddd; background: #fff; color: #1a1a1a;
-  border-radius: 6px; padding: 6px 10px 6px 6px; cursor: pointer;
-  font-size: 14px;
-}
-.pc-tab[aria-selected="true"] { background: #4285F4; color: #fff; border-color: #4285F4; }
-.pc-code {
-  display: inline-grid; place-items: center; min-width: 30px; height: 24px;
-  border-radius: 4px; border: 1.5px solid currentColor;
+  display: inline-grid; place-items: center; min-width: 40px; height: 32px;
+  border: 1.5px solid #ddd; background: #fff; color: #1a1a1a;
+  border-radius: 6px; padding: 0 8px; cursor: pointer;
   font-weight: 700; font-size: 13px;
 }
+.pc-tab[aria-selected="true"] { background: #4285F4; color: #fff; border-color: #4285F4; }
 .pc-main {
   flex: 1; min-width: 0; background: #fff; border: 1px solid #e0e0e0;
   border-radius: 8px; display: flex; flex-direction: column; min-height: 480px;
@@ -164,11 +158,6 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .pc-zones th { font-size: 13px; color: #888; font-weight: 600; }
 .pc-zones td:first-child { font-weight: 700; color: #4285F4; white-space: nowrap; width: 80px; }
 .pc-status { color: #888; text-align: center; padding: 24px; }
-
-@media (max-width: 600px) {
-  .pc-layout { flex-direction: column; }
-  .pc-tabs { width: auto; flex-direction: row; overflow-x: auto; overflow-y: visible; }
-}
 
 /* ===== Вкладка: From → To ===== */
 .route-form {

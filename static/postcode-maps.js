@@ -1,6 +1,6 @@
 /*
 Fleet ETA Tracker — вкладка "Карты стран"
-Версия: 1.19
+Версия: 1.20
 
 Карты почтовых зон (2-значный код индекса, как в кодах BE10, NO01, SE25).
 Не зависит от Google Maps — обычные картинки (Wikimedia Commons или свои,
@@ -53,7 +53,8 @@ PC_MAPS.forEach((m, i) => {
   b.type = "button";
   b.className = "pc-tab";
   b.setAttribute("role", "tab");
-  b.innerHTML = `<span class="pc-code">${m.code}</span>${m.name}`;
+  b.title = m.name;
+  b.textContent = m.code;
   b.addEventListener("click", () => pcShow(i));
   pcTabsEl.appendChild(b);
 });
