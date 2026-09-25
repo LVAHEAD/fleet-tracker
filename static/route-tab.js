@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — вкладка "From → To"
-Версия: 1.13
+Версия: 1.16 (можно вводить только одно из полей From/To — тогда просто
+показываем эту точку на карте без расчёта расстояния)
 
 Отдельная Google Map (window.routeMap), создаётся лениво при первом открытии
 вкладки (initRouteTab, вызывается из app.js). Использует те же приёмы, что и
@@ -48,8 +49,8 @@ async function calcRouteTab() {
   errorEl.hidden = true;
   resultEl.hidden = true;
 
-  if (!fromVal || !toVal) {
-    errorEl.textContent = "Заполните оба поля — From и To.";
+  if (!fromVal && !toVal) {
+    errorEl.textContent = "Заполните хотя бы одно поле — From или To.";
     errorEl.hidden = false;
     return;
   }
@@ -71,11 +72,13 @@ async function calcRouteTab() {
       return;
     }
 
-    document.getElementById("route-from-label").textContent = data.from_label;
-    document.getElementById("route-to-label").textContent = data.to_label;
-    document.getElementById("route-dist").textContent = data.dist_km.toFixed(1);
-    document.getElementById("route-duration").textContent = data.duration_h.toFixed(1);
-    resultEl.hidden = false;
+    if (data.dist_km != null) {
+      document.getElementById("route-from-label").textContent = data.from_label;
+      document.getElementById("route-to-label").textContent = data.to_label;
+      document.getElementById("route-dist").textContent = data.dist_km.toFixed(1);
+      document.getElementById("route-duration").textContent = data.duration_h.toFixed(1);
+      resultEl.hidden = false;
+    }
 
     drawRouteOnMap(data);
   } catch (e) {
@@ -93,25 +96,31 @@ function drawRouteOnMap(data) {
   if (routeFromMarker) routeFromMarker.setMap(null);
   if (routeToMarker) routeToMarker.setMap(null);
   if (routeLine) routeLine.setMap(null);
-
-  routeFromMarker = new google.maps.Marker({
-    position: { lat: data.from_lat, lng: data.from_lng },
-    map: map,
-    icon: routeMarkerIcon("#4285F4"),
-    label: { text: "A", fontSize: "12px", fontWeight: "600", color: "#fff" },
-    title: data.from_label,
-  });
-  routeToMarker = new google.maps.Marker({
-    position: { lat: data.to_lat, lng: data.to_lng },
-    map: map,
-    icon: routeMarkerIcon("#1D9E75"),
-    label: { text: "B", fontSize: "12px", fontWeight: "600", color: "#fff" },
-    title: data.to_label,
-  });
+  routeFromMarker = routeToMarker = routeLine = null;
 
   const bounds = new google.maps.LatLngBounds();
-  bounds.extend(routeFromMarker.getPosition());
-  bounds.extend(routeToMarker.getPosition());
+
+  if (data.from_lat != null) {
+    routeFromMarker = new google.maps.Marker({
+      position: { lat: data.from_lat, lng: data.from_lng },
+      map: map,
+      icon: routeMarkerIcon("#4285F4"),
+      label: { text: "A", fontSize: "12px", fontWeight: "600", color: "#fff" },
+      title: data.from_label,
+    });
+    bounds.extend(routeFromMarker.getPosition());
+  }
+
+  if (data.to_lat != null) {
+    routeToMarker = new google.maps.Marker({
+      position: { lat: data.to_lat, lng: data.to_lng },
+      map: map,
+      icon: routeMarkerIcon("#1D9E75"),
+      label: { text: "B", fontSize: "12px", fontWeight: "600", color: "#fff" },
+      title: data.to_label,
+    });
+    bounds.extend(routeToMarker.getPosition());
+  }
 
   if (data.route_polyline) {
     const path = google.maps.geometry.encoding.decodePath(data.route_polyline);
@@ -123,9 +132,12 @@ function drawRouteOnMap(data) {
       map: map,
     });
     path.forEach((p) => bounds.extend(p));
+    map.fitBounds(bounds, 40);
+  } else if (data.from_lat != null || data.to_lat != null) {
+    // только одна точка — центрируем на ней вместо fitBounds (которое было бы слишком крупным зумом)
+    map.setCenter(bounds.getCenter());
+    map.setZoom(9);
   }
-
-  map.fitBounds(bounds, 40);
 }
 
 window.initRouteTab = initRouteTab;

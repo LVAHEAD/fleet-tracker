@@ -1,8 +1,32 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.13
+Версия: 1.16
 
 История изменений:
+1.16 (2026-09-25) — From → To: можно вводить только одно поле:
+    - /api/route больше не требует оба поля; если задано только From или
+      только To — возвращает координаты и лейбл этой точки без расстояния/
+      маршрута (считать нечего)
+    - фронтенд: если данных по обеим точкам нет, просто ставит маркер
+      на карте и центрирует её, без попытки нарисовать маршрут
+
+1.15 (2026-09-25) — откат avoidFerries:
+    - v1.14 полностью запрещала паромы, но это была слишком грубая мера:
+      выяснилось, что для маршрутов через Данию нужны именно два коротких
+      парома (Puttgarden–Rødby, Helsingør–Helsingborg), а не длинный
+      Kiel–Oslo, который выбрал Google. "Запретить все паромы" тут не
+      решение — нужен принудительный маршрут через конкретные точки
+      (waypoints), та же идея, что и обход Швейцарии (пока не реализовано,
+      см. TODO в 1.13)
+
+1.14 (2026-09-25) — без паромов:
+    - в запрос к Routes API добавлен routeModifiers.avoidFerries: true —
+      раньше Google иногда выбирал реальный грузовой паром (например
+      Kiel–Oslo) вместо сухопутного пути через мосты Дании, что давало
+      нереалистичный для вас маршрут/расстояние. Теперь маршрут всегда
+      строится по земле. Затрагивает и вкладку "Флот", и "From → To" —
+      обе используют одну и ту же функцию расчёта
+
 1.13 (2026-09-25) — вкладки "Карты стран" и "From → To":
     - интерфейс разбит на три вкладки: Флот (прежняя таблица), Карты стран
       (почтовые зоны по странам, картинки с Wikimedia + таблица зон для
@@ -109,7 +133,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.13"
+APP_VERSION = "1.16"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1458,8 +1482,8 @@ def api_calc():
 def api_route():
     """
     body: {"from": "ES30", "to": "SE25"} (каждое поле — GPS / город / код региона)
-    Возвращает расстояние по дорогам, ориентировочное время в пути (70 км/ч)
-    и полилинию маршрута для отрисовки на карте.
+    Если задано только одно из полей — просто показываем эту точку (без
+    расстояния/маршрута, потому что считать не от чего).
     """
     if not GOOGLE_API_KEY:
         return jsonify({"error": "GOOGLE_API_KEY не настроен на сервере"}), 500
@@ -1468,32 +1492,43 @@ def api_route():
     from_str = payload.get("from", "")
     to_str = payload.get("to", "")
 
-    if not from_str or not to_str:
-        return jsonify({"error": "Укажите оба поля — From и To"}), 400
+    if not from_str and not to_str:
+        return jsonify({"error": "Укажите хотя бы одно поле — From или To"}), 400
 
     try:
-        from_lat, from_lng, from_label = resolve_place_label(from_str)
-        if from_lat is None:
-            return jsonify({"error": f"Не удалось распознать From: {from_str}"}), 400
+        from_lat = from_lng = from_label = None
+        to_lat = to_lng = to_label = None
 
-        to_lat, to_lng, to_label = resolve_place_label(to_str)
-        if to_lat is None:
-            return jsonify({"error": f"Не удалось распознать To: {to_str}"}), 400
+        if from_str:
+            from_lat, from_lng, from_label = resolve_place_label(from_str)
+            if from_lat is None:
+                return jsonify({"error": f"Не удалось распознать From: {from_str}"}), 400
 
-        dist_km, polyline = road_distance_km_google(from_lat, from_lng, to_lat, to_lng, GOOGLE_API_KEY)
-        duration_h = dist_km / 70  # тот же ориентир скорости, что и в остальном приложении
+        if to_str:
+            to_lat, to_lng, to_label = resolve_place_label(to_str)
+            if to_lat is None:
+                return jsonify({"error": f"Не удалось распознать To: {to_str}"}), 400
 
-        return jsonify({
+        result = {
             "from_label": from_label,
             "to_label": to_label,
             "from_lat": from_lat,
             "from_lng": from_lng,
             "to_lat": to_lat,
             "to_lng": to_lng,
-            "dist_km": round(dist_km, 1),
-            "duration_h": round(duration_h, 1),
-            "route_polyline": polyline,
-        })
+            "dist_km": None,
+            "duration_h": None,
+            "route_polyline": None,
+        }
+
+        if from_str and to_str:
+            dist_km, polyline = road_distance_km_google(from_lat, from_lng, to_lat, to_lng, GOOGLE_API_KEY)
+            duration_h = dist_km / 70  # тот же ориентир скорости, что и в остальном приложении
+            result["dist_km"] = round(dist_km, 1)
+            result["duration_h"] = round(duration_h, 1)
+            result["route_polyline"] = polyline
+
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 502
 
