@@ -1,0 +1,4535 @@
+{
+"source": "GeoNames postal codes, https://www.geonames.org (CC BY 4.0)",
+"codes": {
+"AT10": {
+"lat": 48.206,
+"lng": 16.3692,
+"place": "Wien, Innere Stadt"
+},
+"AT11": {
+"lat": 48.2013,
+"lng": 16.3336,
+"place": "Wien"
+},
+"AT12": {
+"lat": 48.2271,
+"lng": 16.3934,
+"place": "Wien"
+},
+"AT13": {
+"lat": 48.177,
+"lng": 16.4429,
+"place": "Mannswörth"
+},
+"AT14": {
+"lat": 48.2085,
+"lng": 16.3721,
+"place": "Wien-Vereinte Nationen"
+},
+"AT16": {
+"lat": 48.2085,
+"lng": 16.3721,
+"place": "Wien"
+},
+"AT20": {
+"lat": 48.6355,
+"lng": 16.0345,
+"place": "Ober-Steinabrunn"
+},
+"AT21": {
+"lat": 48.5544,
+"lng": 16.4801,
+"place": "Garmanns"
+},
+"AT22": {
+"lat": 48.3845,
+"lng": 16.7188,
+"place": "Prottes"
+},
+"AT23": {
+"lat": 48.1121,
+"lng": 16.3771,
+"place": "Hennersdorf"
+},
+"AT24": {
+"lat": 48.0053,
+"lng": 16.6382,
+"place": "Trautmannsdorf an der Leitha"
+},
+"AT25": {
+"lat": 47.9932,
+"lng": 16.1076,
+"place": "Rohrbach"
+},
+"AT26": {
+"lat": 47.6869,
+"lng": 15.9476,
+"place": "Stuppachgraben"
+},
+"AT27": {
+"lat": 47.8268,
+"lng": 16.0547,
+"place": "Maiersdorf"
+},
+"AT28": {
+"lat": 47.5956,
+"lng": 16.1701,
+"place": "Pregart"
+},
+"AT30": {
+"lat": 48.1769,
+"lng": 15.879,
+"place": "Unterdambach"
+},
+"AT31": {
+"lat": 48.1785,
+"lng": 15.6558,
+"place": "Brunn"
+},
+"AT32": {
+"lat": 48.067,
+"lng": 15.2639,
+"place": "Unterhub"
+},
+"AT33": {
+"lat": 48.0945,
+"lng": 15.0584,
+"place": "Keppelberg"
+},
+"AT34": {
+"lat": 48.3482,
+"lng": 15.944,
+"place": "Kleinschönbichl"
+},
+"AT35": {
+"lat": 48.5319,
+"lng": 15.5029,
+"place": "Jaidhof"
+},
+"AT36": {
+"lat": 48.3289,
+"lng": 15.2295,
+"place": "Troibetsberg"
+},
+"AT37": {
+"lat": 48.6424,
+"lng": 15.7753,
+"place": "Kühnring"
+},
+"AT38": {
+"lat": 48.8601,
+"lng": 15.2781,
+"place": "Thaya"
+},
+"AT39": {
+"lat": 48.63,
+"lng": 15.0266,
+"place": "Bernhards"
+},
+"AT40": {
+"lat": 48.3407,
+"lng": 14.0107,
+"place": "Linz, Donau"
+},
+"AT41": {
+"lat": 48.52,
+"lng": 14.0136,
+"place": "Schörsching"
+},
+"AT42": {
+"lat": 48.4248,
+"lng": 14.5317,
+"place": "Wittinghof"
+},
+"AT43": {
+"lat": 48.2623,
+"lng": 14.7167,
+"place": "Mollnegg"
+},
+"AT44": {
+"lat": 48.0834,
+"lng": 14.43,
+"place": "Dietachdorf"
+},
+"AT45": {
+"lat": 47.9589,
+"lng": 14.2272,
+"place": "Wagenhub"
+},
+"AT46": {
+"lat": 48.118,
+"lng": 13.8673,
+"place": "Oberzeiling"
+},
+"AT47": {
+"lat": 48.3355,
+"lng": 13.6906,
+"place": "Altenseng"
+},
+"AT48": {
+"lat": 47.9764,
+"lng": 13.5492,
+"place": "Stötten"
+},
+"AT49": {
+"lat": 48.1977,
+"lng": 13.4526,
+"place": "Gobrechtsham"
+},
+"AT50": {
+"lat": 47.7794,
+"lng": 13.0409,
+"place": "Salzburg"
+},
+"AT51": {
+"lat": 48.0695,
+"lng": 12.9734,
+"place": "Autmannsdorf"
+},
+"AT52": {
+"lat": 48.1007,
+"lng": 13.1771,
+"place": "Langwiedmoos"
+},
+"AT53": {
+"lat": 47.8013,
+"lng": 13.2851,
+"place": "Fuschl am See"
+},
+"AT54": {
+"lat": 47.5991,
+"lng": 13.2197,
+"place": "Scheffau am Tennengebirge"
+},
+"AT55": {
+"lat": 47.2983,
+"lng": 13.5099,
+"place": "Untertauern"
+},
+"AT56": {
+"lat": 47.2733,
+"lng": 13.0577,
+"place": "Teufenbach"
+},
+"AT57": {
+"lat": 47.338,
+"lng": 12.621,
+"place": "Pölsen"
+},
+"AT60": {
+"lat": 47.2531,
+"lng": 11.4125,
+"place": "Amras"
+},
+"AT61": {
+"lat": 47.2228,
+"lng": 11.4334,
+"place": "Schönberg im Stubaital"
+},
+"AT62": {
+"lat": 47.3453,
+"lng": 11.8598,
+"place": "Hart im Zillertal"
+},
+"AT63": {
+"lat": 47.5418,
+"lng": 12.2157,
+"place": "Scheffau am Wilden Kaiser"
+},
+"AT64": {
+"lat": 47.2078,
+"lng": 10.943,
+"place": "Ochsengarten"
+},
+"AT65": {
+"lat": 47.0772,
+"lng": 10.5149,
+"place": "Tobadill"
+},
+"AT66": {
+"lat": 47.4097,
+"lng": 10.595,
+"place": "Forchach"
+},
+"AT67": {
+"lat": 47.1846,
+"lng": 9.8917,
+"place": "Marul"
+},
+"AT68": {
+"lat": 47.3166,
+"lng": 9.7415,
+"place": "Dafins"
+},
+"AT69": {
+"lat": 47.4961,
+"lng": 9.8156,
+"place": "Buch"
+},
+"AT70": {
+"lat": 47.8065,
+"lng": 16.5166,
+"place": "Wulkaprodersdorf / Vulkaprodrštof"
+},
+"AT71": {
+"lat": 47.828,
+"lng": 16.8953,
+"place": "Frauenkirchen"
+},
+"AT72": {
+"lat": 47.7433,
+"lng": 16.3534,
+"place": "Wiesen"
+},
+"AT73": {
+"lat": 47.5419,
+"lng": 16.4884,
+"place": "Stoob"
+},
+"AT74": {
+"lat": 47.3568,
+"lng": 16.2912,
+"place": "Goberling"
+},
+"AT75": {
+"lat": 47.1216,
+"lng": 16.2883,
+"place": "Sankt Michael im Burgenland"
+},
+"AT80": {
+"lat": 47.0357,
+"lng": 15.511,
+"place": "Lamberg"
+},
+"AT81": {
+"lat": 47.1782,
+"lng": 15.4473,
+"place": "Windhof"
+},
+"AT82": {
+"lat": 47.2416,
+"lng": 15.9144,
+"place": "Hofkirchen bei Hartberg"
+},
+"AT83": {
+"lat": 46.9471,
+"lng": 15.8835,
+"place": "Feldbach"
+},
+"AT84": {
+"lat": 46.7857,
+"lng": 15.5332,
+"place": "Grottenhof"
+},
+"AT85": {
+"lat": 46.8742,
+"lng": 15.2318,
+"place": "Bad Gams"
+},
+"AT86": {
+"lat": 47.533,
+"lng": 15.437,
+"place": "Kindberg"
+},
+"AT87": {
+"lat": 47.2828,
+"lng": 14.7656,
+"place": "Hart"
+},
+"AT88": {
+"lat": 47.1243,
+"lng": 14.2427,
+"place": "Triebendorf"
+},
+"AT89": {
+"lat": 47.5236,
+"lng": 14.0677,
+"place": "Pürgg"
+},
+"AT90": {
+"lat": 46.6365,
+"lng": 14.3013,
+"place": "Klagenfurt,13.Bez.:Viktring"
+},
+"AT91": {
+"lat": 46.6099,
+"lng": 14.5786,
+"place": "Klopein"
+},
+"AT92": {
+"lat": 46.6165,
+"lng": 14.0199,
+"place": "Duel"
+},
+"AT93": {
+"lat": 46.8613,
+"lng": 14.3744,
+"place": "Kogl"
+},
+"AT94": {
+"lat": 46.805,
+"lng": 14.8496,
+"place": "St. Stefan"
+},
+"AT95": {
+"lat": 46.7185,
+"lng": 14.0109,
+"place": "Tschriet"
+},
+"AT96": {
+"lat": 46.6381,
+"lng": 13.2584,
+"place": "Kreuth ob Rattendorf"
+},
+"AT97": {
+"lat": 46.7413,
+"lng": 13.3757,
+"place": "Althaus"
+},
+"AT98": {
+"lat": 46.8974,
+"lng": 13.4166,
+"place": "Aich"
+},
+"AT99": {
+"lat": 46.8719,
+"lng": 12.5858,
+"place": "Kienburg"
+},
+"BG10": {
+"lat": 42.6833,
+"lng": 23.3167,
+"place": "София / Sofija"
+},
+"BG11": {
+"lat": 42.6,
+"lng": 23.45,
+"place": "Панчарево / Pancharevo"
+},
+"BG12": {
+"lat": 42.8004,
+"lng": 23.4216,
+"place": "Войнеговци / Vojnegovci"
+},
+"BG13": {
+"lat": 42.7084,
+"lng": 23.1166,
+"place": "Банкя / Bankja"
+},
+"BG16": {
+"lat": 42.6,
+"lng": 23.1833,
+"place": "Мърчаево / Murchaevo"
+},
+"BG17": {
+"lat": 42.7102,
+"lng": 23.3575,
+"place": "Кубратово / Kubratovo"
+},
+"BG20": {
+"lat": 42.4752,
+"lng": 23.7541,
+"place": "Веринско / Verinsko"
+},
+"BG21": {
+"lat": 42.8099,
+"lng": 23.7878,
+"place": "Осоица / Osoica"
+},
+"BG22": {
+"lat": 42.934,
+"lng": 23.0989,
+"place": "Цръклевци / Cruklevci"
+},
+"BG23": {
+"lat": 42.688,
+"lng": 22.9122,
+"place": "Слаковци / Slakovci"
+},
+"BG24": {
+"lat": 42.6387,
+"lng": 22.744,
+"place": "Еловдол / Elovdol"
+},
+"BG25": {
+"lat": 42.3266,
+"lng": 22.6592,
+"place": "Соволяно / Sovoljano"
+},
+"BG26": {
+"lat": 42.2251,
+"lng": 23.0477,
+"place": "Грамаде / Gramade"
+},
+"BG27": {
+"lat": 41.9256,
+"lng": 23.3295,
+"place": "Долно Осеново / Dolno Osenovo"
+},
+"BG28": {
+"lat": 41.5192,
+"lng": 23.232,
+"place": "Лебница / Lebnica"
+},
+"BG29": {
+"lat": 41.5708,
+"lng": 23.8394,
+"place": "Дъбница / Dubnica"
+},
+"BG30": {
+"lat": 43.3251,
+"lng": 23.552,
+"place": "Чирен / Chiren"
+},
+"BG31": {
+"lat": 43.1329,
+"lng": 23.7642,
+"place": "Брусен / Brusen"
+},
+"BG32": {
+"lat": 43.4256,
+"lng": 23.9122,
+"place": "Бъркачево / Burkachevo"
+},
+"BG33": {
+"lat": 43.655,
+"lng": 23.8583,
+"place": "Войводово / Vojvodovo"
+},
+"BG34": {
+"lat": 43.438,
+"lng": 23.1457,
+"place": "Долна Вереница / Dolna Verenica"
+},
+"BG35": {
+"lat": 43.2569,
+"lng": 23.2071,
+"place": "Песочница / Pesochnica"
+},
+"BG36": {
+"lat": 43.7055,
+"lng": 23.2523,
+"place": "Расово / Rasovo"
+},
+"BG37": {
+"lat": 43.9559,
+"lng": 22.764,
+"place": "Бела Рада / Bela Rada"
+},
+"BG38": {
+"lat": 43.8964,
+"lng": 22.538,
+"place": "Кула / Kula"
+},
+"BG39": {
+"lat": 43.6246,
+"lng": 22.7319,
+"place": "Орешец / Oreshec"
+},
+"BG40": {
+"lat": 42.1834,
+"lng": 24.6916,
+"place": "Войсил / Vojsil"
+},
+"BG41": {
+"lat": 42.2531,
+"lng": 24.8204,
+"place": "Калековец / Kalekovec"
+},
+"BG42": {
+"lat": 41.9949,
+"lng": 24.939,
+"place": "Цалапица / Calapica"
+},
+"BG43": {
+"lat": 42.5843,
+"lng": 24.7736,
+"place": "Дъбене / Dubene"
+},
+"BG44": {
+"lat": 42.231,
+"lng": 24.2215,
+"place": "Величково / Velichkovo"
+},
+"BG45": {
+"lat": 42.2448,
+"lng": 24.2798,
+"place": "Сбор / Sbor"
+},
+"BG46": {
+"lat": 41.9962,
+"lng": 23.8505,
+"place": "Цветино / Cvetino"
+},
+"BG47": {
+"lat": 41.5341,
+"lng": 24.7388,
+"place": "Чокманово / Chokmanovo"
+},
+"BG48": {
+"lat": 41.7199,
+"lng": 24.537,
+"place": "Брезе / Breze"
+},
+"BG49": {
+"lat": 41.5164,
+"lng": 24.9738,
+"place": "Митовска / Mitovska"
+},
+"BG50": {
+"lat": 42.9326,
+"lng": 25.807,
+"place": "Бръчковци / Bruchkovci"
+},
+"BG51": {
+"lat": 43.2383,
+"lng": 25.7985,
+"place": "Сушица / Sushica"
+},
+"BG52": {
+"lat": 43.336,
+"lng": 25.3079,
+"place": "Батак / Batak"
+},
+"BG53": {
+"lat": 42.8935,
+"lng": 25.4215,
+"place": "Съботковци / Subotkovci"
+},
+"BG54": {
+"lat": 42.9503,
+"lng": 25.0656,
+"place": "Шумата / Shumata"
+},
+"BG55": {
+"lat": 43.1402,
+"lng": 24.7479,
+"place": "Пресяка / Presjaka"
+},
+"BG56": {
+"lat": 42.9022,
+"lng": 24.7403,
+"place": "Атолово / Atolovo"
+},
+"BG57": {
+"lat": 43.0448,
+"lng": 24.2216,
+"place": "Брестница / Brestnica"
+},
+"BG58": {
+"lat": 43.4376,
+"lng": 24.566,
+"place": "Опанец / Opanec"
+},
+"BG59": {
+"lat": 43.5528,
+"lng": 24.8975,
+"place": "Дебово / Debovo"
+},
+"BG60": {
+"lat": 42.3425,
+"lng": 25.6582,
+"place": "Загоре / Zagore"
+},
+"BG61": {
+"lat": 42.6341,
+"lng": 25.4689,
+"place": "Долно изворово / Dolno izvorovo"
+},
+"BG62": {
+"lat": 42.2545,
+"lng": 25.5597,
+"place": "Осларка / Oslarka"
+},
+"BG63": {
+"lat": 41.8157,
+"lng": 25.5747,
+"place": "Долно Войводино / Dolno Vojvodino"
+},
+"BG64": {
+"lat": 41.9244,
+"lng": 25.7929,
+"place": "Поляново / Poljanovo"
+},
+"BG65": {
+"lat": 41.7869,
+"lng": 26.1849,
+"place": "Свиленград / Svilengrad"
+},
+"BG66": {
+"lat": 41.6943,
+"lng": 25.4147,
+"place": "Звезден / Zvezden"
+},
+"BG67": {
+"lat": 41.6618,
+"lng": 25.2396,
+"place": "Рибарци / Ribarci"
+},
+"BG68": {
+"lat": 41.443,
+"lng": 25.3652,
+"place": "Великденче / Velikdenche"
+},
+"BG69": {
+"lat": 41.4648,
+"lng": 25.7869,
+"place": "Багрилци / Bagrilci"
+},
+"BG70": {
+"lat": 43.7879,
+"lng": 26.1286,
+"place": "Червена вода / Chervena voda"
+},
+"BG71": {
+"lat": 43.5172,
+"lng": 25.786,
+"place": "Волово / Volovo"
+},
+"BG72": {
+"lat": 43.5116,
+"lng": 26.5442,
+"place": "Гецово / Gecovo"
+},
+"BG73": {
+"lat": 43.8256,
+"lng": 26.5096,
+"place": "Задруга / Zadruga"
+},
+"BG74": {
+"lat": 43.671,
+"lng": 26.85,
+"place": "Лъвино / Luvino"
+},
+"BG75": {
+"lat": 43.9789,
+"lng": 27.2926,
+"place": "Алфатар / Alfatar"
+},
+"BG76": {
+"lat": 43.8866,
+"lng": 26.92,
+"place": "Падина / Padina"
+},
+"BG77": {
+"lat": 43.2463,
+"lng": 26.5949,
+"place": "Търговище / Turgovishhe"
+},
+"BG78": {
+"lat": 43.3508,
+"lng": 26.2421,
+"place": "Попово / Popovo"
+},
+"BG79": {
+"lat": 43.0797,
+"lng": 26.3086,
+"place": "Илийно / Ilijno"
+},
+"BG80": {
+"lat": 42.5,
+"lng": 27.4667,
+"place": "Бургас / Burgas"
+},
+"BG81": {
+"lat": 42.4506,
+"lng": 27.4031,
+"place": "Росен / Rosen"
+},
+"BG82": {
+"lat": 42.5945,
+"lng": 27.6606,
+"place": "Поморие / Pomorie"
+},
+"BG83": {
+"lat": 42.2336,
+"lng": 27.2126,
+"place": "Варовник / Varovnik"
+},
+"BG84": {
+"lat": 42.7075,
+"lng": 26.9016,
+"place": "Мъдрино / Mudrino"
+},
+"BG85": {
+"lat": 42.8087,
+"lng": 27.2453,
+"place": "Ябълчево / Jabulchevo"
+},
+"BG86": {
+"lat": 42.4108,
+"lng": 26.5672,
+"place": "Окоп / Okop"
+},
+"BG87": {
+"lat": 42.1212,
+"lng": 26.6199,
+"place": "Маломирово / Malomirovo"
+},
+"BG88": {
+"lat": 42.6602,
+"lng": 26.2682,
+"place": "Чинтулово / Chintulovo"
+},
+"BG89": {
+"lat": 42.6043,
+"lng": 26.1854,
+"place": "Младово / Mladovo"
+},
+"BG90": {
+"lat": 43.2084,
+"lng": 27.8333,
+"place": "Тополи / Topoli"
+},
+"BG91": {
+"lat": 43.1724,
+"lng": 27.7416,
+"place": "Езерово / Ezerovo"
+},
+"BG92": {
+"lat": 43.2107,
+"lng": 27.3996,
+"place": "Кривня / Krivnja"
+},
+"BG93": {
+"lat": 43.5717,
+"lng": 27.7612,
+"place": "Хърсово / Khursovo"
+},
+"BG94": {
+"lat": 43.7804,
+"lng": 27.5738,
+"place": "Хитово / Khitovo"
+},
+"BG95": {
+"lat": 43.7195,
+"lng": 28.0825,
+"place": "Генерал Тошево / General Toshevo"
+},
+"BG96": {
+"lat": 43.5249,
+"lng": 28.2982,
+"place": "Вранино / Vranino"
+},
+"BG97": {
+"lat": 43.4553,
+"lng": 26.9241,
+"place": "Сливак / Slivak"
+},
+"BG98": {
+"lat": 43.1217,
+"lng": 26.8865,
+"place": "Мокреш / Mokresh"
+},
+"BG99": {
+"lat": 43.4649,
+"lng": 27.1877,
+"place": "Църквица / Curkvica"
+},
+"CH10": {
+"lat": 46.5653,
+"lng": 6.6631,
+"place": "Epalinges"
+},
+"CH11": {
+"lat": 46.5256,
+"lng": 6.4025,
+"place": "Yens"
+},
+"CH12": {
+"lat": 46.238,
+"lng": 6.1431,
+"place": "Genève 27"
+},
+"CH13": {
+"lat": 46.6741,
+"lng": 6.4831,
+"place": "Croy"
+},
+"CH14": {
+"lat": 46.7923,
+"lng": 6.6861,
+"place": "Cheseaux-Noréaz"
+},
+"CH15": {
+"lat": 46.8048,
+"lng": 6.9128,
+"place": "Fétigny"
+},
+"CH16": {
+"lat": 46.6139,
+"lng": 6.9698,
+"place": "Vaulruz"
+},
+"CH17": {
+"lat": 46.8027,
+"lng": 7.1133,
+"place": "Villars-sur-Glâne 1"
+},
+"CH18": {
+"lat": 46.3477,
+"lng": 6.9447,
+"place": "Yvorne"
+},
+"CH19": {
+"lat": 46.1585,
+"lng": 7.2724,
+"place": "Isérables"
+},
+"CH20": {
+"lat": 47.0027,
+"lng": 6.9026,
+"place": "Valangin"
+},
+"CH21": {
+"lat": 46.9204,
+"lng": 6.6168,
+"place": "Môtiers NE"
+},
+"CH22": {
+"lat": 47.023,
+"lng": 6.8538,
+"place": "Coffrane"
+},
+"CH23": {
+"lat": 47.1691,
+"lng": 6.9175,
+"place": "La Ferrière"
+},
+"CH24": {
+"lat": 47.0121,
+"lng": 6.6654,
+"place": "Le Cerneux-Péquignot"
+},
+"CH25": {
+"lat": 47.1261,
+"lng": 7.2372,
+"place": "Nidau"
+},
+"CH26": {
+"lat": 47.1578,
+"lng": 7.0372,
+"place": "Villeret"
+},
+"CH27": {
+"lat": 47.2583,
+"lng": 7.2457,
+"place": "Pontenet"
+},
+"CH28": {
+"lat": 47.3551,
+"lng": 7.2954,
+"place": "Develier"
+},
+"CH29": {
+"lat": 47.4238,
+"lng": 7.0721,
+"place": "Porrentruy 1"
+},
+"CH30": {
+"lat": 46.9508,
+"lng": 7.4278,
+"place": "Bern"
+},
+"CH31": {
+"lat": 46.8499,
+"lng": 7.414,
+"place": "Helgisried-Rohrbach"
+},
+"CH32": {
+"lat": 47.0201,
+"lng": 7.2594,
+"place": "Radelfingen b. Aarberg"
+},
+"CH33": {
+"lat": 47.1167,
+"lng": 7.5877,
+"place": "Fraubrunnen"
+},
+"CH34": {
+"lat": 47.059,
+"lng": 7.669,
+"place": "Heimiswil"
+},
+"CH35": {
+"lat": 46.9148,
+"lng": 7.7172,
+"place": "Signau"
+},
+"CH36": {
+"lat": 46.7643,
+"lng": 7.6347,
+"place": "Thun"
+},
+"CH37": {
+"lat": 46.5712,
+"lng": 7.5365,
+"place": "Schwenden im Diemtigtal"
+},
+"CH38": {
+"lat": 46.6667,
+"lng": 7.966,
+"place": "Lütschental"
+},
+"CH39": {
+"lat": 46.3123,
+"lng": 7.8439,
+"place": "Ausserberg"
+},
+"CH40": {
+"lat": 47.5537,
+"lng": 7.5876,
+"place": "Basel"
+},
+"CH41": {
+"lat": 47.5073,
+"lng": 7.5755,
+"place": "Bottmingen"
+},
+"CH42": {
+"lat": 47.4094,
+"lng": 7.5383,
+"place": "Breitenbach"
+},
+"CH43": {
+"lat": 47.5353,
+"lng": 7.8608,
+"place": "Zeiningen"
+},
+"CH44": {
+"lat": 47.4427,
+"lng": 7.8014,
+"place": "Zunzgen"
+},
+"CH45": {
+"lat": 47.1901,
+"lng": 7.5539,
+"place": "Biberist"
+},
+"CH46": {
+"lat": 47.3379,
+"lng": 7.8812,
+"place": "Wangen b. Olten"
+},
+"CH47": {
+"lat": 47.3029,
+"lng": 7.6608,
+"place": "Laupersdorf"
+},
+"CH48": {
+"lat": 47.2864,
+"lng": 7.9646,
+"place": "Zofingen"
+},
+"CH49": {
+"lat": 47.1703,
+"lng": 7.8037,
+"place": "Madiswil"
+},
+"CH50": {
+"lat": 47.4003,
+"lng": 8.0484,
+"place": "Rombach"
+},
+"CH51": {
+"lat": 47.4303,
+"lng": 8.1456,
+"place": "Veltheim AG"
+},
+"CH52": {
+"lat": 47.4972,
+"lng": 8.1853,
+"place": "Riniken"
+},
+"CH53": {
+"lat": 47.5639,
+"lng": 8.2489,
+"place": "Döttingen"
+},
+"CH54": {
+"lat": 47.4774,
+"lng": 8.3205,
+"place": "Ennetbaden"
+},
+"CH55": {
+"lat": 47.3981,
+"lng": 8.2514,
+"place": "Wohlenschwil"
+},
+"CH56": {
+"lat": 47.2985,
+"lng": 8.3011,
+"place": "Boswil"
+},
+"CH57": {
+"lat": 47.3041,
+"lng": 8.159,
+"place": "Leutwil"
+},
+"CH60": {
+"lat": 47.0273,
+"lng": 8.2787,
+"place": "Kriens"
+},
+"CH61": {
+"lat": 47.0262,
+"lng": 8.0049,
+"place": "Romoos"
+},
+"CH62": {
+"lat": 47.1984,
+"lng": 8.1303,
+"place": "Geuensee"
+},
+"CH63": {
+"lat": 47.06,
+"lng": 8.4703,
+"place": "Rigi Kaltbad"
+},
+"CH64": {
+"lat": 46.9317,
+"lng": 8.6131,
+"place": "Sisikon"
+},
+"CH65": {
+"lat": 46.2183,
+"lng": 9.0165,
+"place": "Bellinzona"
+},
+"CH66": {
+"lat": 46.2395,
+"lng": 8.6889,
+"place": "Moghegno"
+},
+"CH67": {
+"lat": 46.4564,
+"lng": 8.8829,
+"place": "Prugiasco"
+},
+"CH68": {
+"lat": 45.899,
+"lng": 8.9888,
+"place": "Capolago"
+},
+"CH69": {
+"lat": 46.0251,
+"lng": 8.9367,
+"place": "Vezia"
+},
+"CH70": {
+"lat": 46.8163,
+"lng": 9.53,
+"place": "Malix"
+},
+"CH71": {
+"lat": 46.7428,
+"lng": 9.147,
+"place": "Surcuolm"
+},
+"CH72": {
+"lat": 46.9124,
+"lng": 9.7364,
+"place": "Putz"
+},
+"CH73": {
+"lat": 46.9889,
+"lng": 9.4728,
+"place": "Bad Ragaz"
+},
+"CH74": {
+"lat": 46.6466,
+"lng": 9.4943,
+"place": "Obermutten"
+},
+"CH75": {
+"lat": 46.6407,
+"lng": 10.0825,
+"place": "Cinuos-chel"
+},
+"CH76": {
+"lat": 46.3465,
+"lng": 9.5853,
+"place": "Stampa"
+},
+"CH77": {
+"lat": 46.3183,
+"lng": 10.0849,
+"place": "Le Prese"
+},
+"CH80": {
+"lat": 47.3773,
+"lng": 8.5373,
+"place": "Zürich"
+},
+"CH81": {
+"lat": 47.439,
+"lng": 8.5104,
+"place": "Rümlang"
+},
+"CH82": {
+"lat": 47.6992,
+"lng": 8.702,
+"place": "Dörflingen"
+},
+"CH83": {
+"lat": 47.4281,
+"lng": 8.8065,
+"place": "Madetswil"
+},
+"CH84": {
+"lat": 47.5269,
+"lng": 8.7233,
+"place": "Seuzach"
+},
+"CH85": {
+"lat": 47.5801,
+"lng": 9.0745,
+"place": "Märstetten"
+},
+"CH86": {
+"lat": 47.3157,
+"lng": 8.7641,
+"place": "Bertschikon (Gossau ZH)"
+},
+"CH87": {
+"lat": 47.1283,
+"lng": 8.9679,
+"place": "Näfels"
+},
+"CH88": {
+"lat": 47.1429,
+"lng": 8.9556,
+"place": "Reichenburg"
+},
+"CH89": {
+"lat": 47.3237,
+"lng": 8.4349,
+"place": "Islisberg"
+},
+"CH90": {
+"lat": 47.4074,
+"lng": 9.3874,
+"place": "St. Gallen"
+},
+"CH91": {
+"lat": 47.3484,
+"lng": 9.225,
+"place": "Schwellbrunn"
+},
+"CH92": {
+"lat": 47.4576,
+"lng": 9.1938,
+"place": "Niederbüren"
+},
+"CH93": {
+"lat": 47.5047,
+"lng": 9.3927,
+"place": "Roggwil TG"
+},
+"CH94": {
+"lat": 47.3382,
+"lng": 9.5317,
+"place": "Eichberg"
+},
+"CH95": {
+"lat": 47.4943,
+"lng": 9.0493,
+"place": "Wil SG 1"
+},
+"CH96": {
+"lat": 47.3141,
+"lng": 9.1196,
+"place": "Ulisbach"
+},
+"EE10": {
+"lat": 59.4336,
+"lng": 24.7379,
+"place": "Kesklinna"
+},
+"EE11": {
+"lat": 59.4023,
+"lng": 24.7229,
+"place": "Kristiine"
+},
+"EE12": {
+"lat": 59.4021,
+"lng": 24.6663,
+"place": "Mustamäe"
+},
+"EE13": {
+"lat": 59.4263,
+"lng": 24.7589,
+"place": "Kesklinna"
+},
+"EE15": {
+"lat": 59.4344,
+"lng": 24.7494,
+"place": "Kesklinna"
+},
+"EE19": {
+"lat": 59.3946,
+"lng": 24.6705,
+"place": "Mustamäe"
+},
+"EE29": {
+"lat": 59.4361,
+"lng": 28.0191,
+"place": "Narva-Jõesuu"
+},
+"EE30": {
+"lat": 59.3846,
+"lng": 27.2767,
+"place": "Mõisamaa"
+},
+"EE31": {
+"lat": 59.3265,
+"lng": 27.4239,
+"place": "Ahtme"
+},
+"EE40": {
+"lat": 59.3733,
+"lng": 27.8977,
+"place": "Hundinurga"
+},
+"EE41": {
+"lat": 59.2542,
+"lng": 27.4069,
+"place": "Tarakuse"
+},
+"EE42": {
+"lat": 59.1028,
+"lng": 26.98,
+"place": "Oonurme"
+},
+"EE43": {
+"lat": 59.3904,
+"lng": 26.9541,
+"place": "Vainu"
+},
+"EE44": {
+"lat": 59.4115,
+"lng": 26.4995,
+"place": "Kohala-Eesküla"
+},
+"EE45": {
+"lat": 59.4336,
+"lng": 26.098,
+"place": "Kärmu"
+},
+"EE46": {
+"lat": 59.13,
+"lng": 26.3732,
+"place": "Avispea"
+},
+"EE48": {
+"lat": 58.7505,
+"lng": 26.2867,
+"place": "Viruvere"
+},
+"EE49": {
+"lat": 58.6693,
+"lng": 26.7319,
+"place": "Rahivere"
+},
+"EE50": {
+"lat": 58.3684,
+"lng": 26.7222,
+"place": "Tartu"
+},
+"EE51": {
+"lat": 58.3833,
+"lng": 26.718,
+"place": "Tartu"
+},
+"EE60": {
+"lat": 58.5272,
+"lng": 26.9195,
+"place": "Matjama"
+},
+"EE61": {
+"lat": 58.2768,
+"lng": 26.4055,
+"place": "Külaaseme"
+},
+"EE62": {
+"lat": 58.2933,
+"lng": 26.8803,
+"place": "Päkste"
+},
+"EE63": {
+"lat": 58.0642,
+"lng": 26.9238,
+"place": "Ihamaru"
+},
+"EE64": {
+"lat": 57.9898,
+"lng": 27.4463,
+"place": "Kahkva"
+},
+"EE65": {
+"lat": 57.7367,
+"lng": 27.2255,
+"place": "Vana-Saaluse"
+},
+"EE66": {
+"lat": 57.7469,
+"lng": 26.7757,
+"place": "Paeboja"
+},
+"EE67": {
+"lat": 58.0347,
+"lng": 26.3602,
+"place": "Arula"
+},
+"EE68": {
+"lat": 57.8849,
+"lng": 26.1019,
+"place": "Sooru"
+},
+"EE69": {
+"lat": 58.1833,
+"lng": 25.5812,
+"place": "Kalvre"
+},
+"EE70": {
+"lat": 58.4948,
+"lng": 25.749,
+"place": "Kuhjavere"
+},
+"EE71": {
+"lat": 58.412,
+"lng": 25.4618,
+"place": "Savikoti"
+},
+"EE72": {
+"lat": 58.8376,
+"lng": 25.5807,
+"place": "Seinapalu"
+},
+"EE73": {
+"lat": 59.066,
+"lng": 25.8345,
+"place": "Seliküla"
+},
+"EE74": {
+"lat": 59.4597,
+"lng": 25.3374,
+"place": "Valkla"
+},
+"EE75": {
+"lat": 59.2482,
+"lng": 25.044,
+"place": "Aruvalla"
+},
+"EE76": {
+"lat": 59.2772,
+"lng": 24.3369,
+"place": "Lehola"
+},
+"EE78": {
+"lat": 58.8616,
+"lng": 24.4589,
+"place": "Kunsu"
+},
+"EE79": {
+"lat": 59.0329,
+"lng": 24.8359,
+"place": "Aranküla"
+},
+"EE80": {
+"lat": 58.3853,
+"lng": 24.5127,
+"place": "Pärnu"
+},
+"EE85": {
+"lat": 58.425,
+"lng": 24.5884,
+"place": "Kilksama"
+},
+"EE86": {
+"lat": 58.2295,
+"lng": 24.7461,
+"place": "Jaamaküla"
+},
+"EE87": {
+"lat": 58.6201,
+"lng": 24.728,
+"place": "Metsaküla"
+},
+"EE88": {
+"lat": 58.4584,
+"lng": 24.0324,
+"place": "Alu"
+},
+"EE90": {
+"lat": 58.8127,
+"lng": 23.7425,
+"place": "Keravere"
+},
+"EE91": {
+"lat": 59.0445,
+"lng": 23.5558,
+"place": "Hosby"
+},
+"EE92": {
+"lat": 58.8775,
+"lng": 22.6406,
+"place": "Leigri"
+},
+"EE93": {
+"lat": 58.2968,
+"lng": 22.2538,
+"place": "Arandi"
+},
+"EE94": {
+"lat": 58.49,
+"lng": 22.931,
+"place": "Kareda"
+},
+"HR10": {
+"lat": 45.7898,
+"lng": 16.0072,
+"place": "Zagreb-Maksimir"
+},
+"HR20": {
+"lat": 42.8214,
+"lng": 17.7265,
+"place": "Broce"
+},
+"HR21": {
+"lat": 43.458,
+"lng": 16.6888,
+"place": "Omiš"
+},
+"HR22": {
+"lat": 43.8338,
+"lng": 16.0289,
+"place": "Ključ"
+},
+"HR23": {
+"lat": 44.1414,
+"lng": 15.4739,
+"place": "Donji Kašić"
+},
+"HR31": {
+"lat": 45.5517,
+"lng": 18.3896,
+"place": "Cret Bizovački"
+},
+"HR32": {
+"lat": 45.2243,
+"lng": 18.8878,
+"place": "Novi Jankovci"
+},
+"HR33": {
+"lat": 45.7297,
+"lng": 17.6328,
+"place": "Donji Meljani"
+},
+"HR34": {
+"lat": 45.3864,
+"lng": 17.6142,
+"place": "Štitnjak"
+},
+"HR35": {
+"lat": 45.209,
+"lng": 17.7266,
+"place": "Dragovci"
+},
+"HR40": {
+"lat": 46.4289,
+"lng": 16.4437,
+"place": "Mačkovec"
+},
+"HR42": {
+"lat": 46.2474,
+"lng": 16.2806,
+"place": "Škriljevec"
+},
+"HR43": {
+"lat": 45.7568,
+"lng": 16.9609,
+"place": "Orlovac"
+},
+"HR44": {
+"lat": 45.3521,
+"lng": 16.3888,
+"place": "Bijelnik"
+},
+"HR47": {
+"lat": 45.3572,
+"lng": 15.5235,
+"place": "Žabljak"
+},
+"HR48": {
+"lat": 46.0851,
+"lng": 16.6626,
+"place": "Lepavina"
+},
+"HR49": {
+"lat": 46.0906,
+"lng": 15.8895,
+"place": "Donja Pačetina"
+},
+"HR51": {
+"lat": 45.3016,
+"lng": 14.6904,
+"place": "Benkovac Fužinski"
+},
+"HR52": {
+"lat": 45.2237,
+"lng": 13.8543,
+"place": "Ježenj"
+},
+"HR53": {
+"lat": 44.6962,
+"lng": 15.4335,
+"place": "Kosa Janjačka"
+},
+"HU10": {
+"lat": 47.4984,
+"lng": 19.0404,
+"place": "Budapest"
+},
+"HU11": {
+"lat": 47.4984,
+"lng": 19.0404,
+"place": "Budapest"
+},
+"HU12": {
+"lat": 47.4984,
+"lng": 19.0404,
+"place": "Budapest"
+},
+"HU20": {
+"lat": 47.5966,
+"lng": 18.872,
+"place": "Nagykovácsi"
+},
+"HU21": {
+"lat": 47.6479,
+"lng": 19.3538,
+"place": "Vácegres"
+},
+"HU22": {
+"lat": 47.4074,
+"lng": 19.5097,
+"place": "Úri"
+},
+"HU23": {
+"lat": 47.2267,
+"lng": 19.1456,
+"place": "Bugyi"
+},
+"HU24": {
+"lat": 47.1316,
+"lng": 18.7867,
+"place": "Pusztaszabolcs"
+},
+"HU25": {
+"lat": 47.7099,
+"lng": 18.6703,
+"place": "Tokod"
+},
+"HU26": {
+"lat": 47.9283,
+"lng": 19.1858,
+"place": "Bánk"
+},
+"HU27": {
+"lat": 47.2159,
+"lng": 19.776,
+"place": "Cegléd"
+},
+"HU28": {
+"lat": 47.5422,
+"lng": 18.229,
+"place": "Dad"
+},
+"HU29": {
+"lat": 47.6604,
+"lng": 18.0748,
+"place": "Nagyigmánd"
+},
+"HU30": {
+"lat": 47.8494,
+"lng": 19.6763,
+"place": "Jobbágyi"
+},
+"HU31": {
+"lat": 48.09,
+"lng": 19.7474,
+"place": "Etes"
+},
+"HU32": {
+"lat": 47.8386,
+"lng": 20.042,
+"place": "Markaz"
+},
+"HU33": {
+"lat": 47.822,
+"lng": 20.3513,
+"place": "Demjén"
+},
+"HU34": {
+"lat": 47.8501,
+"lng": 20.7157,
+"place": "Mezőkeresztes"
+},
+"HU35": {
+"lat": 48.0271,
+"lng": 20.8768,
+"place": "Sajópetri"
+},
+"HU36": {
+"lat": 48.213,
+"lng": 20.3695,
+"place": "Borsodbóta"
+},
+"HU37": {
+"lat": 48.3433,
+"lng": 20.7124,
+"place": "Szendrőlád"
+},
+"HU38": {
+"lat": 48.3831,
+"lng": 21.0971,
+"place": "Szalaszend"
+},
+"HU39": {
+"lat": 48.2983,
+"lng": 21.5179,
+"place": "Bodrogolaszi"
+},
+"HU40": {
+"lat": 47.5948,
+"lng": 21.5507,
+"place": "Hajdúböszörmény"
+},
+"HU41": {
+"lat": 47.1944,
+"lng": 21.4967,
+"place": "Bakonszeg"
+},
+"HU42": {
+"lat": 47.5833,
+"lng": 21.7954,
+"place": "Hajdúsámson"
+},
+"HU43": {
+"lat": 47.8341,
+"lng": 22.1681,
+"place": "Nyírvasvári"
+},
+"HU44": {
+"lat": 48.0906,
+"lng": 21.6416,
+"place": "Buj"
+},
+"HU45": {
+"lat": 48.0601,
+"lng": 21.9995,
+"place": "Ramocsaháza"
+},
+"HU46": {
+"lat": 48.2959,
+"lng": 22.1806,
+"place": "Mándok"
+},
+"HU47": {
+"lat": 47.905,
+"lng": 22.5775,
+"place": "Szamosújlak"
+},
+"HU48": {
+"lat": 48.1452,
+"lng": 22.3341,
+"place": "Vásárosnamény"
+},
+"HU49": {
+"lat": 48.0365,
+"lng": 22.6529,
+"place": "Túristvándi"
+},
+"HU50": {
+"lat": 47.2051,
+"lng": 20.2493,
+"place": "Szolnok"
+},
+"HU51": {
+"lat": 47.5111,
+"lng": 19.9932,
+"place": "Jászjákóhalma"
+},
+"HU52": {
+"lat": 47.3377,
+"lng": 20.5143,
+"place": "Tiszagyenda"
+},
+"HU53": {
+"lat": 47.4375,
+"lng": 20.775,
+"place": "Kunmadaras"
+},
+"HU54": {
+"lat": 46.9325,
+"lng": 20.2886,
+"place": "Tiszaföldvár"
+},
+"HU55": {
+"lat": 46.9529,
+"lng": 21.0311,
+"place": "Körösladány"
+},
+"HU56": {
+"lat": 46.6746,
+"lng": 21.0333,
+"place": "Csabaszabadi"
+},
+"HU57": {
+"lat": 46.6175,
+"lng": 21.2763,
+"place": "Gyula"
+},
+"HU58": {
+"lat": 46.3524,
+"lng": 20.9881,
+"place": "Battonya"
+},
+"HU59": {
+"lat": 46.5513,
+"lng": 20.7154,
+"place": "Orosháza"
+},
+"HU60": {
+"lat": 46.8991,
+"lng": 19.5378,
+"place": "Ballószög"
+},
+"HU61": {
+"lat": 46.608,
+"lng": 19.7701,
+"place": "Jászszentlászló"
+},
+"HU62": {
+"lat": 46.6096,
+"lng": 19.3249,
+"place": "Kiskőrös"
+},
+"HU63": {
+"lat": 46.5466,
+"lng": 19.0105,
+"place": "Kalocsa"
+},
+"HU64": {
+"lat": 46.2268,
+"lng": 19.357,
+"place": "Mélykút"
+},
+"HU65": {
+"lat": 46.0672,
+"lng": 18.954,
+"place": "Dunafalva"
+},
+"HU66": {
+"lat": 46.6263,
+"lng": 20.2799,
+"place": "Szentes"
+},
+"HU67": {
+"lat": 46.2952,
+"lng": 20.0882,
+"place": "Szeged"
+},
+"HU68": {
+"lat": 46.4167,
+"lng": 20.3333,
+"place": "Hódmezővásárhely"
+},
+"HU69": {
+"lat": 46.2611,
+"lng": 20.6089,
+"place": "Királyhegyes"
+},
+"HU70": {
+"lat": 46.6719,
+"lng": 18.5349,
+"place": "Kisszékely"
+},
+"HU71": {
+"lat": 46.3595,
+"lng": 18.5973,
+"place": "Kakasd"
+},
+"HU72": {
+"lat": 46.47,
+"lng": 18.0444,
+"place": "Nak"
+},
+"HU73": {
+"lat": 46.273,
+"lng": 18.1994,
+"place": "Ág"
+},
+"HU74": {
+"lat": 46.4064,
+"lng": 17.7869,
+"place": "Kaposvár"
+},
+"HU75": {
+"lat": 46.1972,
+"lng": 17.4607,
+"place": "Lábod"
+},
+"HU76": {
+"lat": 46.0943,
+"lng": 18.2243,
+"place": "Pécs"
+},
+"HU77": {
+"lat": 45.9971,
+"lng": 18.4909,
+"place": "Monyoród"
+},
+"HU78": {
+"lat": 45.8663,
+"lng": 18.1521,
+"place": "Diósviszló"
+},
+"HU79": {
+"lat": 46.0031,
+"lng": 17.8117,
+"place": "Dencsháza"
+},
+"HU80": {
+"lat": 47.3171,
+"lng": 18.3693,
+"place": "Zámoly"
+},
+"HU81": {
+"lat": 47.0521,
+"lng": 18.2568,
+"place": "Füle"
+},
+"HU82": {
+"lat": 46.9196,
+"lng": 17.685,
+"place": "Szentantalfa"
+},
+"HU83": {
+"lat": 46.8939,
+"lng": 17.2412,
+"place": "Zalaszántó"
+},
+"HU84": {
+"lat": 47.1886,
+"lng": 17.5697,
+"place": "Magyarpolány"
+},
+"HU85": {
+"lat": 47.3414,
+"lng": 17.497,
+"place": "Pápa"
+},
+"HU86": {
+"lat": 46.7393,
+"lng": 17.8525,
+"place": "Kötcse"
+},
+"HU87": {
+"lat": 46.6303,
+"lng": 17.1586,
+"place": "Balatonmagyaród"
+},
+"HU88": {
+"lat": 46.4501,
+"lng": 16.8577,
+"place": "Petrivente"
+},
+"HU89": {
+"lat": 46.7702,
+"lng": 16.7205,
+"place": "Pálfiszeg"
+},
+"HU90": {
+"lat": 47.6308,
+"lng": 17.7295,
+"place": "Győr"
+},
+"HU91": {
+"lat": 47.6436,
+"lng": 17.441,
+"place": "Enese"
+},
+"HU92": {
+"lat": 47.8769,
+"lng": 17.2655,
+"place": "Mosonmagyaróvár"
+},
+"HU93": {
+"lat": 47.5152,
+"lng": 17.1248,
+"place": "Vadosfa"
+},
+"HU94": {
+"lat": 47.5813,
+"lng": 16.7511,
+"place": "Pinnye"
+},
+"HU95": {
+"lat": 47.2416,
+"lng": 17.1524,
+"place": "Celldömölk"
+},
+"HU96": {
+"lat": 47.2921,
+"lng": 16.9124,
+"place": "Rábapaty"
+},
+"HU97": {
+"lat": 47.2367,
+"lng": 16.6578,
+"place": "Szombathely"
+},
+"HU98": {
+"lat": 47.0087,
+"lng": 16.8523,
+"place": "Pácsony"
+},
+"HU99": {
+"lat": 46.9241,
+"lng": 16.4651,
+"place": "Hegyhátszentmárton"
+},
+"IE01": {
+"lat": 53.354,
+"lng": -6.2545,
+"place": "Dublin 1"
+},
+"IE02": {
+"lat": 53.34,
+"lng": -6.2543,
+"place": "Dublin 2"
+},
+"IE03": {
+"lat": 53.3645,
+"lng": -6.2378,
+"place": "Dublin 3"
+},
+"IE04": {
+"lat": 53.3334,
+"lng": -6.2335,
+"place": "Dublin 4"
+},
+"IE05": {
+"lat": 53.3842,
+"lng": -6.1921,
+"place": "Dublin 5"
+},
+"IE06": {
+"lat": 53.3088,
+"lng": -6.2631,
+"place": "Dublin 6"
+},
+"IE07": {
+"lat": 53.3615,
+"lng": -6.2918,
+"place": "Dublin 7"
+},
+"IE08": {
+"lat": 53.3346,
+"lng": -6.2733,
+"place": "Dublin 8"
+},
+"IE09": {
+"lat": 53.3818,
+"lng": -6.2465,
+"place": "Dublin 9"
+},
+"IE10": {
+"lat": 53.3409,
+"lng": -6.3545,
+"place": "Dublin 10"
+},
+"IE11": {
+"lat": 53.3899,
+"lng": -6.293,
+"place": "Dublin 11"
+},
+"IE12": {
+"lat": 53.0102,
+"lng": -7.8056,
+"place": "Newbridge"
+},
+"IE13": {
+"lat": 53.3946,
+"lng": -6.1495,
+"place": "Dublin 13"
+},
+"IE14": {
+"lat": 53.1499,
+"lng": -7.0843,
+"place": "Athy"
+},
+"IE15": {
+"lat": 53.4691,
+"lng": -6.6041,
+"place": "Dublin 15"
+},
+"IE16": {
+"lat": 53.7072,
+"lng": -6.6805,
+"place": "Cootehill"
+},
+"IE17": {
+"lat": 52.5541,
+"lng": -7.3682,
+"place": "Dublin 17"
+},
+"IE18": {
+"lat": 53.7484,
+"lng": -6.572,
+"place": "Dublin 18"
+},
+"IE20": {
+"lat": 53.3518,
+"lng": -6.3693,
+"place": "Dublin 20"
+},
+"IE21": {
+"lat": 52.526,
+"lng": -7.1471,
+"place": "Bagenalstown"
+},
+"IE22": {
+"lat": 53.3275,
+"lng": -6.4006,
+"place": "Dublin 22"
+},
+"IE23": {
+"lat": 53.0528,
+"lng": -8.3639,
+"place": "Cork city northside"
+},
+"IE24": {
+"lat": 52.5712,
+"lng": -7.3353,
+"place": "Dublin 24"
+},
+"IE25": {
+"lat": 52.3686,
+"lng": -7.4529,
+"place": "Cashel"
+},
+"IE26": {
+"lat": 54.1167,
+"lng": -9.1667,
+"place": "Ballina"
+},
+"IE28": {
+"lat": 53.8,
+"lng": -9.5167,
+"place": "Westport"
+},
+"IE31": {
+"lat": 52.6543,
+"lng": -9.1005,
+"place": "Listowel"
+},
+"IE32": {
+"lat": 52.7449,
+"lng": -7.432,
+"place": "Portlaoise"
+},
+"IE34": {
+"lat": 52.7164,
+"lng": -7.3494,
+"place": "Monasterevin"
+},
+"IE35": {
+"lat": 52.7726,
+"lng": -7.7831,
+"place": "Tullamore"
+},
+"IE36": {
+"lat": 52.7004,
+"lng": -7.0025,
+"place": "Malahide"
+},
+"IE37": {
+"lat": 53.4228,
+"lng": -7.9372,
+"place": "Athlone"
+},
+"IE39": {
+"lat": 53.7254,
+"lng": -7.7982,
+"place": "Longford"
+},
+"IE41": {
+"lat": 53.3828,
+"lng": -7.3863,
+"place": "Thurles"
+},
+"IE42": {
+"lat": 52.9899,
+"lng": -7.7938,
+"place": "Birr"
+},
+"IE43": {
+"lat": 51.8117,
+"lng": -8.3986,
+"place": "Carrigaline"
+},
+"IE45": {
+"lat": 53.1571,
+"lng": -7.4377,
+"place": "Edenderry"
+},
+"IE47": {
+"lat": 51.7167,
+"lng": -9.1167,
+"place": "Dunmanway"
+},
+"IE51": {
+"lat": 52.6447,
+"lng": -7.7738,
+"place": "Kildare"
+},
+"IE52": {
+"lat": 53.9667,
+"lng": -8.3,
+"place": "Boyle"
+},
+"IE53": {
+"lat": 53.1393,
+"lng": -8.0106,
+"place": "Ballinasloe"
+},
+"IE54": {
+"lat": 53.5167,
+"lng": -8.85,
+"place": "Tuam"
+},
+"IE56": {
+"lat": 53.0232,
+"lng": -7.6959,
+"place": "Curragh"
+},
+"IE61": {
+"lat": 52.1358,
+"lng": -8.2758,
+"place": "Fermoy"
+},
+"IE62": {
+"lat": 53.1969,
+"lng": -8.5669,
+"place": "Loughrea"
+},
+"IE63": {
+"lat": 53.1408,
+"lng": -6.0631,
+"place": "Greystones"
+},
+"IE65": {
+"lat": 53.2964,
+"lng": -8.7431,
+"place": "Athenry"
+},
+"IE67": {
+"lat": 53.2173,
+"lng": -6.1338,
+"place": "Wicklow"
+},
+"IE71": {
+"lat": 53.4891,
+"lng": -10.0191,
+"place": "Clifden"
+},
+"IE72": {
+"lat": 51.7469,
+"lng": -8.7425,
+"place": "Bandon"
+},
+"IE75": {
+"lat": 52.9,
+"lng": -8.0916,
+"place": "Castleblayney"
+},
+"IE78": {
+"lat": 53.3574,
+"lng": -6.4486,
+"place": "Lucan"
+},
+"IE81": {
+"lat": 52.7614,
+"lng": -7.9928,
+"place": "Skibbereen"
+},
+"IE82": {
+"lat": 53.7264,
+"lng": -6.8792,
+"place": "Kells"
+},
+"IE83": {
+"lat": 53.4142,
+"lng": -6.8323,
+"place": "Enfield"
+},
+"IE84": {
+"lat": 53.5116,
+"lng": -6.3982,
+"place": "Ashbourne"
+},
+"IE85": {
+"lat": 52.5678,
+"lng": -7.7053,
+"place": "Dunshaughlin"
+},
+"IE86": {
+"lat": 53.4,
+"lng": -6.4667,
+"place": "Dunboyne"
+},
+"IE91": {
+"lat": 53.272,
+"lng": -7.5382,
+"place": "Mullingar"
+},
+"IE92": {
+"lat": 53.6464,
+"lng": -7.9279,
+"place": "Letterkenny"
+},
+"IE93": {
+"lat": 53.1853,
+"lng": -7.9977,
+"place": "Carlow"
+},
+"IE94": {
+"lat": 53.4813,
+"lng": -7.6939,
+"place": "Bundoran"
+},
+"IE95": {
+"lat": 52.7548,
+"lng": -8.3253,
+"place": "Kilkenny"
+},
+"IE96": {
+"lat": 53.294,
+"lng": -6.1359,
+"place": "Dun Laoghaire"
+},
+"IE98": {
+"lat": 53.2028,
+"lng": -6.0983,
+"place": "Bray"
+},
+"LI94": {
+"lat": 47.1965,
+"lng": 9.5425,
+"place": "Nendeln"
+},
+"LT00": {
+"lat": 55.9175,
+"lng": 21.0686,
+"place": "SB „Bočiai“"
+},
+"LT01": {
+"lat": 54.6824,
+"lng": 25.2864,
+"place": "Vilnius"
+},
+"LT02": {
+"lat": 54.663,
+"lng": 25.275,
+"place": "Vilnius"
+},
+"LT03": {
+"lat": 54.6747,
+"lng": 25.259,
+"place": "Vilnius"
+},
+"LT04": {
+"lat": 54.6824,
+"lng": 25.2105,
+"place": "Vilnius"
+},
+"LT05": {
+"lat": 54.715,
+"lng": 25.22,
+"place": "Vilnius"
+},
+"LT06": {
+"lat": 54.7232,
+"lng": 25.2115,
+"place": "Vilnius"
+},
+"LT07": {
+"lat": 54.7181,
+"lng": 25.2487,
+"place": "Vilnius"
+},
+"LT08": {
+"lat": 54.7198,
+"lng": 25.2752,
+"place": "Vilnius"
+},
+"LT09": {
+"lat": 54.7057,
+"lng": 25.2939,
+"place": "Vilnius"
+},
+"LT10": {
+"lat": 54.7085,
+"lng": 25.3146,
+"place": "Vilnius"
+},
+"LT11": {
+"lat": 54.6858,
+"lng": 25.3577,
+"place": "Vilnius"
+},
+"LT12": {
+"lat": 54.7408,
+"lng": 25.2229,
+"place": "Vilnius"
+},
+"LT13": {
+"lat": 54.6589,
+"lng": 25.4801,
+"place": "Pikčiūnų k."
+},
+"LT14": {
+"lat": 54.6938,
+"lng": 25.2743,
+"place": "Vilnius"
+},
+"LT15": {
+"lat": 54.8253,
+"lng": 25.508,
+"place": "Unguriškių k."
+},
+"LT17": {
+"lat": 54.2878,
+"lng": 25.3068,
+"place": "Bandiškių k."
+},
+"LT18": {
+"lat": 55.1198,
+"lng": 25.9696,
+"place": "Santakos k."
+},
+"LT19": {
+"lat": 55.0366,
+"lng": 24.8866,
+"place": "Širvintos"
+},
+"LT20": {
+"lat": 55.2454,
+"lng": 24.8397,
+"place": "Naujasodžio k."
+},
+"LT21": {
+"lat": 54.6285,
+"lng": 24.748,
+"place": "Puzinavos k."
+},
+"LT25": {
+"lat": 54.6696,
+"lng": 25.1649,
+"place": "Račkūnų k."
+},
+"LT26": {
+"lat": 54.7854,
+"lng": 24.663,
+"place": "Alinkos k."
+},
+"LT27": {
+"lat": 54.6862,
+"lng": 25.1816,
+"place": "SB „Vokė“"
+},
+"LT28": {
+"lat": 55.5269,
+"lng": 25.6943,
+"place": "Alkų k."
+},
+"LT29": {
+"lat": 55.5301,
+"lng": 25.0749,
+"place": "Ažuožerių k."
+},
+"LT30": {
+"lat": 55.3868,
+"lng": 26.4008,
+"place": "Subiškio k."
+},
+"LT31": {
+"lat": 55.6,
+"lng": 26.4167,
+"place": "Visaginas"
+},
+"LT32": {
+"lat": 55.7053,
+"lng": 26.0527,
+"place": "Pašvintės k."
+},
+"LT33": {
+"lat": 55.1724,
+"lng": 25.4286,
+"place": "Mažeikių k."
+},
+"LT35": {
+"lat": 55.7083,
+"lng": 24.4417,
+"place": "Miežiškių k."
+},
+"LT36": {
+"lat": 55.7333,
+"lng": 24.35,
+"place": "Panevėžys"
+},
+"LT37": {
+"lat": 55.7333,
+"lng": 24.35,
+"place": "SB „Klevas“"
+},
+"LT38": {
+"lat": 55.648,
+"lng": 24.4046,
+"place": "SB „Svajonė“"
+},
+"LT39": {
+"lat": 56.0559,
+"lng": 24.3702,
+"place": "Balsių k."
+},
+"LT40": {
+"lat": 55.8648,
+"lng": 24.8957,
+"place": "Pamiškės k."
+},
+"LT41": {
+"lat": 56.0436,
+"lng": 24.931,
+"place": "Upės Sėtos k."
+},
+"LT42": {
+"lat": 55.9541,
+"lng": 25.5213,
+"place": "Žilių k."
+},
+"LT44": {
+"lat": 54.9,
+"lng": 23.9,
+"place": "Kaunas"
+},
+"LT45": {
+"lat": 54.9,
+"lng": 23.9,
+"place": "Kaunas"
+},
+"LT46": {
+"lat": 54.9,
+"lng": 23.9,
+"place": "Kaunas"
+},
+"LT47": {
+"lat": 54.9,
+"lng": 23.9,
+"place": "Kaunas"
+},
+"LT48": {
+"lat": 54.9,
+"lng": 23.9,
+"place": "Kaunas"
+},
+"LT49": {
+"lat": 54.9,
+"lng": 23.9,
+"place": "Kaunas"
+},
+"LT50": {
+"lat": 54.9,
+"lng": 23.9,
+"place": "Kaunas"
+},
+"LT51": {
+"lat": 54.9,
+"lng": 23.9,
+"place": "Kaunas"
+},
+"LT52": {
+"lat": 54.9,
+"lng": 23.9,
+"place": "SB „Amaliai“"
+},
+"LT53": {
+"lat": 54.9223,
+"lng": 23.7642,
+"place": "Kluoniškių k."
+},
+"LT54": {
+"lat": 55.0686,
+"lng": 23.8064,
+"place": "Senųjų Bernatonių k."
+},
+"LT55": {
+"lat": 55.1343,
+"lng": 24.2945,
+"place": "SB „Baravykas“"
+},
+"LT56": {
+"lat": 54.8349,
+"lng": 24.3752,
+"place": "Plaskūnų Būdos k."
+},
+"LT57": {
+"lat": 55.2883,
+"lng": 23.9747,
+"place": "Keleriškių k."
+},
+"LT58": {
+"lat": 55.3557,
+"lng": 23.9017,
+"place": "Noreikių k."
+},
+"LT59": {
+"lat": 54.6481,
+"lng": 23.9927,
+"place": "SB „Vandenys“"
+},
+"LT60": {
+"lat": 55.3982,
+"lng": 23.1292,
+"place": "Lenčių k."
+},
+"LT62": {
+"lat": 54.4,
+"lng": 24.05,
+"place": "Alytus"
+},
+"LT63": {
+"lat": 54.4,
+"lng": 24.05,
+"place": "Alytus"
+},
+"LT64": {
+"lat": 54.4034,
+"lng": 24.0924,
+"place": "Makniūnų k."
+},
+"LT65": {
+"lat": 54.2524,
+"lng": 24.5195,
+"place": "Strėžiūnų k."
+},
+"LT66": {
+"lat": 54.0167,
+"lng": 23.9667,
+"place": "Miciūnų k."
+},
+"LT67": {
+"lat": 54.1861,
+"lng": 23.6547,
+"place": "Bulotiškės k."
+},
+"LT68": {
+"lat": 54.5667,
+"lng": 23.35,
+"place": "Vidgirių k."
+},
+"LT69": {
+"lat": 54.6189,
+"lng": 23.4269,
+"place": "Pridotkų k."
+},
+"LT70": {
+"lat": 54.671,
+"lng": 23.0397,
+"place": "Vilkaviškis"
+},
+"LT71": {
+"lat": 54.9585,
+"lng": 23.1488,
+"place": "Patamošupių k."
+},
+"LT72": {
+"lat": 55.2333,
+"lng": 22.2667,
+"place": "Grineidžių k."
+},
+"LT73": {
+"lat": 55.3667,
+"lng": 22.4908,
+"place": "Batakiai"
+},
+"LT74": {
+"lat": 55.1314,
+"lng": 22.8396,
+"place": "Vencloviškių k."
+},
+"LT75": {
+"lat": 55.5225,
+"lng": 22.2629,
+"place": "Vaičių k."
+},
+"LT76": {
+"lat": 55.9333,
+"lng": 23.3167,
+"place": "SB „Gubernija“"
+},
+"LT78": {
+"lat": 55.9333,
+"lng": 23.3167,
+"place": "Šiauliai"
+},
+"LT79": {
+"lat": 55.9333,
+"lng": 23.3167,
+"place": "Šiauliai"
+},
+"LT80": {
+"lat": 55.924,
+"lng": 23.2286,
+"place": "Daubakiškių k."
+},
+"LT81": {
+"lat": 56.0032,
+"lng": 22.9366,
+"place": "Klaipėda"
+},
+"LT82": {
+"lat": 55.7201,
+"lng": 23.661,
+"place": "Paberžėlių k."
+},
+"LT83": {
+"lat": 56.0804,
+"lng": 23.8833,
+"place": "Rozalimo"
+},
+"LT84": {
+"lat": 56.2927,
+"lng": 23.5567,
+"place": "Kirnaičių k."
+},
+"LT85": {
+"lat": 56.2437,
+"lng": 22.8153,
+"place": "Kivylių k."
+},
+"LT86": {
+"lat": 55.6507,
+"lng": 22.8633,
+"place": "Grimzių k."
+},
+"LT87": {
+"lat": 55.9814,
+"lng": 22.2472,
+"place": "SB „Dobilas“"
+},
+"LT88": {
+"lat": 55.9033,
+"lng": 22.3794,
+"place": "Dirvonėnų k."
+},
+"LT89": {
+"lat": 56.2852,
+"lng": 22.3311,
+"place": "SB „Linelis“"
+},
+"LT90": {
+"lat": 55.8959,
+"lng": 21.8889,
+"place": "Božių k."
+},
+"LT91": {
+"lat": 55.7172,
+"lng": 21.1175,
+"place": "Klaipėda"
+},
+"LT93": {
+"lat": 55.3719,
+"lng": 21.0647,
+"place": "Neringa"
+},
+"LT94": {
+"lat": 55.7172,
+"lng": 21.1175,
+"place": "Žardės k."
+},
+"LT96": {
+"lat": 55.6398,
+"lng": 21.488,
+"place": "Pajuodupio k."
+},
+"LT97": {
+"lat": 55.9865,
+"lng": 21.3819,
+"place": "Parąžės k."
+},
+"LT98": {
+"lat": 56.2057,
+"lng": 21.5343,
+"place": "SB „Pavasaris“"
+},
+"LT99": {
+"lat": 55.3448,
+"lng": 21.6477,
+"place": "Juodžių k."
+},
+"LU11": {
+"lat": 49.6124,
+"lng": 6.1272,
+"place": "Luxembourg"
+},
+"LU12": {
+"lat": 49.6088,
+"lng": 6.1304,
+"place": "Luxembourg"
+},
+"LU13": {
+"lat": 49.609,
+"lng": 6.1329,
+"place": "Luxembourg"
+},
+"LU14": {
+"lat": 49.613,
+"lng": 6.1288,
+"place": "Luxembourg"
+},
+"LU15": {
+"lat": 49.6114,
+"lng": 6.1242,
+"place": "Luxembourg"
+},
+"LU16": {
+"lat": 49.6068,
+"lng": 6.1326,
+"place": "Luxembourg"
+},
+"LU17": {
+"lat": 49.6148,
+"lng": 6.1382,
+"place": "Luxembourg"
+},
+"LU18": {
+"lat": 49.6027,
+"lng": 6.1323,
+"place": "Luxembourg"
+},
+"LU19": {
+"lat": 49.6084,
+"lng": 6.1305,
+"place": "Luxembourg"
+},
+"LU21": {
+"lat": 49.6125,
+"lng": 6.1358,
+"place": "Luxembourg"
+},
+"LU22": {
+"lat": 49.6112,
+"lng": 6.1285,
+"place": "Luxembourg"
+},
+"LU23": {
+"lat": 49.6086,
+"lng": 6.1323,
+"place": "Luxembourg"
+},
+"LU24": {
+"lat": 49.6094,
+"lng": 6.1269,
+"place": "Luxembourg"
+},
+"LU25": {
+"lat": 49.6103,
+"lng": 6.1288,
+"place": "Luxembourg"
+},
+"LU26": {
+"lat": 49.6096,
+"lng": 6.1304,
+"place": "Luxembourg"
+},
+"LU27": {
+"lat": 49.6064,
+"lng": 6.1318,
+"place": "Luxembourg"
+},
+"LU32": {
+"lat": 49.5177,
+"lng": 6.1032,
+"place": "Bettembourg"
+},
+"LU33": {
+"lat": 49.546,
+"lng": 6.0884,
+"place": "Abweiler"
+},
+"LU34": {
+"lat": 49.484,
+"lng": 6.0858,
+"place": "Dudelange"
+},
+"LU35": {
+"lat": 49.484,
+"lng": 6.0864,
+"place": "Dudelange"
+},
+"LU36": {
+"lat": 49.4866,
+"lng": 6.0379,
+"place": "Kayl"
+},
+"LU37": {
+"lat": 49.4655,
+"lng": 6.0314,
+"place": "Rumelange"
+},
+"LU38": {
+"lat": 49.5078,
+"lng": 6.0132,
+"place": "Schifflange"
+},
+"LU39": {
+"lat": 49.5333,
+"lng": 5.99,
+"place": "Mondercange"
+},
+"LU40": {
+"lat": 49.499,
+"lng": 5.9789,
+"place": "Esch-sur-Alzette"
+},
+"LU41": {
+"lat": 49.5004,
+"lng": 5.9794,
+"place": "Esch-sur-Alzette"
+},
+"LU42": {
+"lat": 49.5018,
+"lng": 5.9805,
+"place": "Esch-sur-Alzette"
+},
+"LU43": {
+"lat": 49.5048,
+"lng": 5.9696,
+"place": "Esch-sur-Alzette"
+},
+"LU44": {
+"lat": 49.5162,
+"lng": 5.9359,
+"place": "Belvaux"
+},
+"LU45": {
+"lat": 49.5234,
+"lng": 5.8945,
+"place": "Differdange"
+},
+"LU46": {
+"lat": 49.5231,
+"lng": 5.8967,
+"place": "Differdange"
+},
+"LU47": {
+"lat": 49.5575,
+"lng": 5.8756,
+"place": "Pétange"
+},
+"LU48": {
+"lat": 49.547,
+"lng": 5.8452,
+"place": "Rodange"
+},
+"LU49": {
+"lat": 49.5706,
+"lng": 5.9123,
+"place": "Bascharage"
+},
+"LU52": {
+"lat": 49.6155,
+"lng": 6.2184,
+"place": "Sandweiler"
+},
+"LU53": {
+"lat": 49.6047,
+"lng": 6.2533,
+"place": "Oetrange"
+},
+"LU54": {
+"lat": 49.5727,
+"lng": 6.3537,
+"place": "Stadtbredimus"
+},
+"LU55": {
+"lat": 49.5467,
+"lng": 6.3675,
+"place": "Remich"
+},
+"LU56": {
+"lat": 49.5129,
+"lng": 6.2769,
+"place": "Mondorf-les-Bains"
+},
+"LU57": {
+"lat": 49.5281,
+"lng": 6.2115,
+"place": "Aspelt"
+},
+"LU58": {
+"lat": 49.5712,
+"lng": 6.1557,
+"place": "Hesperange"
+},
+"LU59": {
+"lat": 49.5862,
+"lng": 6.1714,
+"place": "Itzig"
+},
+"LU61": {
+"lat": 49.7091,
+"lng": 6.2444,
+"place": "Junglinster"
+},
+"LU62": {
+"lat": 49.7661,
+"lng": 6.3365,
+"place": "Consdorf"
+},
+"LU63": {
+"lat": 49.8343,
+"lng": 6.2842,
+"place": "Beaufort"
+},
+"LU64": {
+"lat": 49.8105,
+"lng": 6.4207,
+"place": "Echternach"
+},
+"LU65": {
+"lat": 49.8004,
+"lng": 6.4661,
+"place": "Dickweiler"
+},
+"LU66": {
+"lat": 49.7152,
+"lng": 6.4914,
+"place": "Wasserbillig"
+},
+"LU67": {
+"lat": 49.6799,
+"lng": 6.4404,
+"place": "Grevenmacher"
+},
+"LU68": {
+"lat": 49.7027,
+"lng": 6.3871,
+"place": "Wecker-Gare"
+},
+"LU69": {
+"lat": 49.6597,
+"lng": 6.2535,
+"place": "Oberanven"
+},
+"LU72": {
+"lat": 49.6579,
+"lng": 6.1294,
+"place": "Bereldange"
+},
+"LU73": {
+"lat": 49.6849,
+"lng": 6.1367,
+"place": "Bofferdange"
+},
+"LU74": {
+"lat": 49.7383,
+"lng": 6.0927,
+"place": "Schoenfels"
+},
+"LU75": {
+"lat": 49.7484,
+"lng": 6.1031,
+"place": "Mersch"
+},
+"LU76": {
+"lat": 49.7872,
+"lng": 6.2287,
+"place": "Heffingen"
+},
+"LU77": {
+"lat": 49.7985,
+"lng": 6.0805,
+"place": "Bissen"
+},
+"LU80": {
+"lat": 49.6149,
+"lng": 6.0624,
+"place": "Bertrange"
+},
+"LU81": {
+"lat": 49.6567,
+"lng": 6.0796,
+"place": "Bridel"
+},
+"LU82": {
+"lat": 49.634,
+"lng": 6.0245,
+"place": "Mamer"
+},
+"LU83": {
+"lat": 49.6525,
+"lng": 5.9729,
+"place": "Capellen"
+},
+"LU84": {
+"lat": 49.6701,
+"lng": 5.9016,
+"place": "Steinfort"
+},
+"LU85": {
+"lat": 49.7574,
+"lng": 5.8878,
+"place": "Redange/Attert"
+},
+"LU86": {
+"lat": 49.7989,
+"lng": 5.944,
+"place": "Bettborn"
+},
+"LU87": {
+"lat": 49.7686,
+"lng": 5.9834,
+"place": "Useldange"
+},
+"LU88": {
+"lat": 49.8362,
+"lng": 5.8316,
+"place": "Koetschette"
+},
+"LU90": {
+"lat": 49.8484,
+"lng": 6.096,
+"place": "Ettelbruck"
+},
+"LU91": {
+"lat": 49.8604,
+"lng": 6.058,
+"place": "Niederfeulen"
+},
+"LU92": {
+"lat": 49.8676,
+"lng": 6.1583,
+"place": "Diekirch"
+},
+"LU93": {
+"lat": 49.8845,
+"lng": 6.1762,
+"place": "Seltz"
+},
+"LU94": {
+"lat": 49.9313,
+"lng": 6.2064,
+"place": "Vianden"
+},
+"LU95": {
+"lat": 49.9673,
+"lng": 5.9311,
+"place": "Wiltz"
+},
+"LU96": {
+"lat": 49.9474,
+"lng": 5.89,
+"place": "Nothum"
+},
+"LU97": {
+"lat": 50.0551,
+"lng": 6.0102,
+"place": "Eselborn"
+},
+"LU98": {
+"lat": 50.0074,
+"lng": 6.0867,
+"place": "Hosingen"
+},
+"LU99": {
+"lat": 50.1261,
+"lng": 6.0245,
+"place": "Drinklange"
+},
+"LV10": {
+"lat": 56.9456,
+"lng": 24.1063,
+"place": "Riga"
+},
+"LV20": {
+"lat": 56.968,
+"lng": 23.7704,
+"place": "Jurmala"
+},
+"LV21": {
+"lat": 56.9952,
+"lng": 24.3177,
+"place": "Langstiņi"
+},
+"LV30": {
+"lat": 56.6139,
+"lng": 23.7238,
+"place": "Jelgava"
+},
+"LV31": {
+"lat": 56.9365,
+"lng": 23.1087,
+"place": "Tume"
+},
+"LV32": {
+"lat": 57.3621,
+"lng": 22.5796,
+"place": "Kroņmuiža"
+},
+"LV33": {
+"lat": 56.8599,
+"lng": 21.9283,
+"place": "Snēpele"
+},
+"LV34": {
+"lat": 56.5246,
+"lng": 21.3199,
+"place": "Gavieze"
+},
+"LV36": {
+"lat": 57.3506,
+"lng": 21.7873,
+"place": "Desciems"
+},
+"LV37": {
+"lat": 56.5554,
+"lng": 23.209,
+"place": "Īle"
+},
+"LV38": {
+"lat": 56.6166,
+"lng": 22.4601,
+"place": "Draudzība"
+},
+"LV39": {
+"lat": 56.4299,
+"lng": 24.2265,
+"place": "Mūsa"
+},
+"LV40": {
+"lat": 57.5321,
+"lng": 24.6339,
+"place": "Staiceles"
+},
+"LV41": {
+"lat": 57.2488,
+"lng": 25.3209,
+"place": "Krīvi"
+},
+"LV42": {
+"lat": 57.7195,
+"lng": 25.2954,
+"place": "Jeri"
+},
+"LV43": {
+"lat": 57.4139,
+"lng": 27.0406,
+"place": "Aizupītes"
+},
+"LV44": {
+"lat": 57.1729,
+"lng": 26.6753,
+"place": "Ozolkalns"
+},
+"LV45": {
+"lat": 57.0578,
+"lng": 27.4727,
+"place": "Egļuciems"
+},
+"LV46": {
+"lat": 56.5099,
+"lng": 27.2578,
+"place": "Kozori"
+},
+"LV47": {
+"lat": 57.5671,
+"lng": 25.9148,
+"place": "Ūdriņas"
+},
+"LV48": {
+"lat": 56.8057,
+"lng": 26.3006,
+"place": "Prauliena"
+},
+"LV50": {
+"lat": 56.8054,
+"lng": 24.8064,
+"place": "Ozolkalni"
+},
+"LV51": {
+"lat": 56.5594,
+"lng": 25.4077,
+"place": "Bitāni"
+},
+"LV52": {
+"lat": 56.3574,
+"lng": 25.9315,
+"place": "Leimaņi"
+},
+"LV53": {
+"lat": 56.298,
+"lng": 26.6698,
+"place": "Moskvina"
+},
+"LV54": {
+"lat": 55.9838,
+"lng": 26.622,
+"place": "Zaļā Pušča"
+},
+"LV56": {
+"lat": 56.0219,
+"lng": 27.3789,
+"place": "Stoli"
+},
+"LV57": {
+"lat": 56.5047,
+"lng": 27.8055,
+"place": "Ivdri"
+},
+"MD20": {
+"lat": 47.0454,
+"lng": 28.8952,
+"place": "Cheltuitori"
+},
+"MD30": {
+"lat": 48.1394,
+"lng": 28.2058,
+"place": "Hristici"
+},
+"MD31": {
+"lat": 47.7729,
+"lng": 27.9757,
+"place": "Balti"
+},
+"MD32": {
+"lat": 46.8384,
+"lng": 29.4607,
+"place": "Bender"
+},
+"MD33": {
+"lat": 46.7507,
+"lng": 29.7018,
+"place": "Cremenciug"
+},
+"MD34": {
+"lat": 46.8362,
+"lng": 28.3677,
+"place": "Sofia"
+},
+"MD35": {
+"lat": 47.4164,
+"lng": 28.7914,
+"place": "Pelivan"
+},
+"MD36": {
+"lat": 47.3059,
+"lng": 27.8895,
+"place": "Pirlita"
+},
+"MD37": {
+"lat": 47.1877,
+"lng": 28.5811,
+"place": "Ghelauza"
+},
+"MD38": {
+"lat": 46.2364,
+"lng": 28.6182,
+"place": "Chirsova"
+},
+"MD39": {
+"lat": 45.971,
+"lng": 28.2872,
+"place": "Lucesti"
+},
+"MD40": {
+"lat": 47.143,
+"lng": 29.4385,
+"place": "Sipca"
+},
+"MD41": {
+"lat": 46.6098,
+"lng": 28.734,
+"place": "Valea Perjei"
+},
+"MD42": {
+"lat": 46.5288,
+"lng": 29.7129,
+"place": "Slobozia"
+},
+"MD43": {
+"lat": 46.6535,
+"lng": 29.3687,
+"place": "Zaim"
+},
+"MD44": {
+"lat": 47.2975,
+"lng": 28.2774,
+"place": "Mindra"
+},
+"MD45": {
+"lat": 47.3139,
+"lng": 29.1965,
+"place": "Calinovca"
+},
+"MD46": {
+"lat": 48.1335,
+"lng": 27.2594,
+"place": "Alexandreni"
+},
+"MD47": {
+"lat": 48.2826,
+"lng": 27.0012,
+"place": "Caracusenii Noi"
+},
+"MD48": {
+"lat": 47.1462,
+"lng": 28.9912,
+"place": "Boscana"
+},
+"MD49": {
+"lat": 47.7353,
+"lng": 27.4773,
+"place": "Dusmani"
+},
+"MD50": {
+"lat": 47.8612,
+"lng": 28.2881,
+"place": "Varvareuca"
+},
+"MD51": {
+"lat": 48.2388,
+"lng": 27.7247,
+"place": "Plop"
+},
+"MD52": {
+"lat": 48.0394,
+"lng": 27.8827,
+"place": "Baroncea"
+},
+"MD53": {
+"lat": 45.6755,
+"lng": 28.3397,
+"place": "Vulcanesti"
+},
+"MD54": {
+"lat": 47.6836,
+"lng": 28.8573,
+"place": "Ciniseuti"
+},
+"MD55": {
+"lat": 47.7482,
+"lng": 29.0902,
+"place": "Ulmu"
+},
+"MD56": {
+"lat": 47.9124,
+"lng": 27.4811,
+"place": "Sturzeni"
+},
+"MD57": {
+"lat": 46.7716,
+"lng": 29.7758,
+"place": "Slobozia 1"
+},
+"MD58": {
+"lat": 47.5537,
+"lng": 28.4311,
+"place": "Banestii Noi"
+},
+"MD59": {
+"lat": 47.5592,
+"lng": 27.7274,
+"place": "Falestii Noi"
+},
+"MD61": {
+"lat": 46.0812,
+"lng": 28.7981,
+"place": "Gaidar"
+},
+"MD62": {
+"lat": 47.6624,
+"lng": 28.1379,
+"place": "Singerei"
+},
+"MD63": {
+"lat": 46.5318,
+"lng": 28.4296,
+"place": "Seliste"
+},
+"MD64": {
+"lat": 47.0744,
+"lng": 28.1687,
+"place": "Nisporeni"
+},
+"MD65": {
+"lat": 46.9143,
+"lng": 29.2152,
+"place": "Cobusca Noua"
+},
+"MD66": {
+"lat": 48.0097,
+"lng": 28.6671,
+"place": "Sanatauca"
+},
+"MD67": {
+"lat": 46.4526,
+"lng": 28.942,
+"place": "Iserlia"
+},
+"MD68": {
+"lat": 46.9067,
+"lng": 28.7706,
+"place": "Milestii Mici"
+},
+"MD71": {
+"lat": 48.3648,
+"lng": 27.5146,
+"place": "Lipnic"
+},
+"MD72": {
+"lat": 47.8462,
+"lng": 28.6989,
+"place": "Cobilea Loc.C.F."
+},
+"MD73": {
+"lat": 46.2309,
+"lng": 28.3156,
+"place": "Lingura"
+},
+"MD74": {
+"lat": 45.9077,
+"lng": 28.5473,
+"place": "Orehovca"
+},
+"MD77": {
+"lat": 46.7,
+"lng": 29.0453,
+"place": "Cainari"
+},
+"MK10": {
+"lat": 41.98,
+"lng": 21.5035,
+"place": "Skopje-Karpos 3"
+},
+"MK12": {
+"lat": 41.9378,
+"lng": 20.9707,
+"place": "Brvenica"
+},
+"MK13": {
+"lat": 42.1566,
+"lng": 21.9065,
+"place": "Oblavce"
+},
+"MK14": {
+"lat": 41.4466,
+"lng": 22.0786,
+"place": "Dolni Disan"
+},
+"MK20": {
+"lat": 41.7458,
+"lng": 22.1958,
+"place": "Stip"
+},
+"MK22": {
+"lat": 41.8721,
+"lng": 22.0758,
+"place": "Erdzelija"
+},
+"MK23": {
+"lat": 41.8544,
+"lng": 22.6,
+"place": "Blatec"
+},
+"MK24": {
+"lat": 41.4492,
+"lng": 22.6175,
+"place": "Strumica"
+},
+"MK60": {
+"lat": 41.1172,
+"lng": 20.8019,
+"place": "Ohrid"
+},
+"MK62": {
+"lat": 41.5047,
+"lng": 20.9728,
+"place": "Kicevo"
+},
+"MK63": {
+"lat": 41.2251,
+"lng": 20.7113,
+"place": "Delgozda"
+},
+"MK65": {
+"lat": 41.5722,
+"lng": 21.1657,
+"place": "Dolni Manastirec"
+},
+"MK70": {
+"lat": 41.0311,
+"lng": 21.3403,
+"place": "Bitola"
+},
+"MK72": {
+"lat": 41.0902,
+"lng": 21.3844,
+"place": "Mogila"
+},
+"MK73": {
+"lat": 41.0186,
+"lng": 21.0637,
+"place": "Asamati"
+},
+"MK75": {
+"lat": 41.3388,
+"lng": 21.451,
+"place": "Golemo Konjari"
+},
+"RO01": {
+"lat": 44.4914,
+"lng": 26.0602,
+"place": "Bucureşti 15"
+},
+"RO02": {
+"lat": 44.418,
+"lng": 26.1691,
+"place": "Bucureşti 22"
+},
+"RO03": {
+"lat": 44.418,
+"lng": 26.1691,
+"place": "Bucureşti 15"
+},
+"RO04": {
+"lat": 44.3819,
+"lng": 26.1227,
+"place": "Bucureşti 5"
+},
+"RO05": {
+"lat": 44.4022,
+"lng": 26.0624,
+"place": "Bucureşti 15"
+},
+"RO06": {
+"lat": 44.4378,
+"lng": 26.0174,
+"place": "Bucureşti 12"
+},
+"RO07": {
+"lat": 44.5174,
+"lng": 26.136,
+"place": "Pipera (Voluntari)"
+},
+"RO08": {
+"lat": 43.8833,
+"lng": 25.9667,
+"place": "Giurgiu"
+},
+"RO10": {
+"lat": 44.9598,
+"lng": 26.0278,
+"place": "Ţânţăreni"
+},
+"RO11": {
+"lat": 44.9095,
+"lng": 24.8504,
+"place": "Argeşelu"
+},
+"RO12": {
+"lat": 45.2394,
+"lng": 26.7339,
+"place": "Valea Nucului"
+},
+"RO13": {
+"lat": 44.8699,
+"lng": 25.4833,
+"place": "Udreşti"
+},
+"RO14": {
+"lat": 44.0691,
+"lng": 25.2172,
+"place": "Călineşti"
+},
+"RO20": {
+"lat": 44.3165,
+"lng": 23.8,
+"place": "Craiova"
+},
+"RO21": {
+"lat": 44.9506,
+"lng": 23.3407,
+"place": "Dăneşti"
+},
+"RO22": {
+"lat": 44.6395,
+"lng": 22.7946,
+"place": "Marmanu"
+},
+"RO23": {
+"lat": 44.3938,
+"lng": 24.3989,
+"place": "Milcovu din Deal"
+},
+"RO24": {
+"lat": 45.09,
+"lng": 24.3282,
+"place": "Poenari"
+},
+"RO30": {
+"lat": 45.7537,
+"lng": 21.2257,
+"place": "Timişoara"
+},
+"RO31": {
+"lat": 46.1833,
+"lng": 21.3167,
+"place": "Arad"
+},
+"RO32": {
+"lat": 45.1777,
+"lng": 21.9792,
+"place": "Iabalcea"
+},
+"RO33": {
+"lat": 45.7949,
+"lng": 22.927,
+"place": "Peştişu Mare"
+},
+"RO40": {
+"lat": 46.7667,
+"lng": 23.6,
+"place": "Cluj-Napoca"
+},
+"RO41": {
+"lat": 47.0376,
+"lng": 21.9387,
+"place": "Oradea"
+},
+"RO42": {
+"lat": 47.1245,
+"lng": 24.4421,
+"place": "Sigmir"
+},
+"RO43": {
+"lat": 47.6396,
+"lng": 23.5655,
+"place": "Baia Mare"
+},
+"RO44": {
+"lat": 47.7696,
+"lng": 22.8849,
+"place": "Păuleşti"
+},
+"RO45": {
+"lat": 47.2016,
+"lng": 23.1111,
+"place": "Ortelec"
+},
+"RO50": {
+"lat": 45.6486,
+"lng": 25.6061,
+"place": "Braşov"
+},
+"RO51": {
+"lat": 46.2036,
+"lng": 23.3912,
+"place": "Ivăniş"
+},
+"RO52": {
+"lat": 45.8907,
+"lng": 25.8789,
+"place": "Fotoş"
+},
+"RO53": {
+"lat": 46.4449,
+"lng": 25.5432,
+"place": "Izvoare"
+},
+"RO54": {
+"lat": 46.5495,
+"lng": 24.5505,
+"place": "Târgu Mureş"
+},
+"RO55": {
+"lat": 45.8024,
+"lng": 24.1544,
+"place": "Sibiu"
+},
+"RO60": {
+"lat": 46.4628,
+"lng": 26.9124,
+"place": "Nicolae Bălcescu"
+},
+"RO61": {
+"lat": 46.951,
+"lng": 26.5482,
+"place": "Girov"
+},
+"RO62": {
+"lat": 45.7618,
+"lng": 27.0704,
+"place": "Odobeşti"
+},
+"RO70": {
+"lat": 47.1668,
+"lng": 27.6,
+"place": "Iaşi"
+},
+"RO71": {
+"lat": 47.8208,
+"lng": 26.7138,
+"place": "Dacia"
+},
+"RO72": {
+"lat": 47.6203,
+"lng": 26.1993,
+"place": "Sfântu Ilie"
+},
+"RO73": {
+"lat": 46.5146,
+"lng": 27.7039,
+"place": "Căpuşneni"
+},
+"RO80": {
+"lat": 45.45,
+"lng": 28.05,
+"place": "Galaţi"
+},
+"RO81": {
+"lat": 45.2667,
+"lng": 27.9833,
+"place": "Brăila"
+},
+"RO82": {
+"lat": 45.1667,
+"lng": 28.8002,
+"place": "Tulcea"
+},
+"RO90": {
+"lat": 44.1808,
+"lng": 28.6343,
+"place": "Constanţa"
+},
+"RO91": {
+"lat": 44.2749,
+"lng": 27.1206,
+"place": "Gălăţui"
+},
+"RO92": {
+"lat": 44.6052,
+"lng": 27.259,
+"place": "Fundata"
+},
+"RS11": {
+"lat": 44.5817,
+"lng": 20.5834,
+"place": "Ralja"
+},
+"RS12": {
+"lat": 44.4934,
+"lng": 21.4774,
+"place": "Ranovac"
+},
+"RS14": {
+"lat": 44.3085,
+"lng": 19.9726,
+"place": "Popučke"
+},
+"RS15": {
+"lat": 44.5897,
+"lng": 19.4874,
+"place": "Tekeriš"
+},
+"RS16": {
+"lat": 42.934,
+"lng": 21.8957,
+"place": "Turekovac"
+},
+"RS17": {
+"lat": 42.5509,
+"lng": 22.0946,
+"place": "Kriva Feja"
+},
+"RS18": {
+"lat": 43.3054,
+"lng": 21.8337,
+"place": "Donje Međurovo"
+},
+"RS19": {
+"lat": 44.0621,
+"lng": 22.2787,
+"place": "Koprivnica"
+},
+"RS21": {
+"lat": 45.3578,
+"lng": 19.7057,
+"place": "Kisač"
+},
+"RS22": {
+"lat": 44.9967,
+"lng": 19.7389,
+"place": "Voganj"
+},
+"RS23": {
+"lat": 45.5772,
+"lng": 20.4864,
+"place": "Torda"
+},
+"RS24": {
+"lat": 45.9204,
+"lng": 19.7565,
+"place": "Čantavir"
+},
+"RS25": {
+"lat": 45.7019,
+"lng": 19.2063,
+"place": "Stapar"
+},
+"RS26": {
+"lat": 45.0278,
+"lng": 20.9932,
+"place": "Banatski Karlovac"
+},
+"RS31": {
+"lat": 43.7625,
+"lng": 19.7978,
+"place": "Mačkat"
+},
+"RS32": {
+"lat": 43.8254,
+"lng": 20.3477,
+"place": "Goračići"
+},
+"RS34": {
+"lat": 44.1195,
+"lng": 20.7962,
+"place": "Lužnice"
+},
+"RS35": {
+"lat": 43.9658,
+"lng": 21.301,
+"place": "Končarevo"
+},
+"RS36": {
+"lat": 43.4545,
+"lng": 20.5749,
+"place": "Ušće"
+},
+"RS37": {
+"lat": 43.5538,
+"lng": 21.2343,
+"place": "Pepeljevac"
+},
+"SI10": {
+"lat": 46.0511,
+"lng": 14.5051,
+"place": "Ljubljana - dostava"
+},
+"SI12": {
+"lat": 46.0994,
+"lng": 14.6939,
+"place": "Moravče"
+},
+"SI13": {
+"lat": 45.8311,
+"lng": 14.5316,
+"place": "Rob"
+},
+"SI14": {
+"lat": 46.1201,
+"lng": 15.0626,
+"place": "Dobovec"
+},
+"SI15": {
+"lat": 46.0511,
+"lng": 14.5051,
+"place": "Ljubljana"
+},
+"SI16": {
+"lat": 46.0511,
+"lng": 14.5051,
+"place": "Ljubljana"
+},
+"SI20": {
+"lat": 46.5547,
+"lng": 15.6467,
+"place": "Maribor - dostava"
+},
+"SI22": {
+"lat": 46.496,
+"lng": 15.8805,
+"place": "Destrnik"
+},
+"SI23": {
+"lat": 46.4877,
+"lng": 15.3805,
+"place": "Lovrenc na Pohorju"
+},
+"SI25": {
+"lat": 46.5547,
+"lng": 15.6467,
+"place": "Maribor"
+},
+"SI26": {
+"lat": 46.5547,
+"lng": 15.6467,
+"place": "Maribor"
+},
+"SI30": {
+"lat": 45.5916,
+"lng": 14.1546,
+"place": "Celje - dostava"
+},
+"SI32": {
+"lat": 46.2128,
+"lng": 15.4198,
+"place": "Šentjur"
+},
+"SI33": {
+"lat": 46.2992,
+"lng": 15.0161,
+"place": "Braslovče"
+},
+"SI35": {
+"lat": 46.2951,
+"lng": 15.1853,
+"place": "Velenje"
+},
+"SI36": {
+"lat": 46.2309,
+"lng": 15.2604,
+"place": "Celje"
+},
+"SI40": {
+"lat": 46.2389,
+"lng": 14.3556,
+"place": "Kranj - dostava"
+},
+"SI42": {
+"lat": 46.3043,
+"lng": 14.1812,
+"place": "Kropa"
+},
+"SI45": {
+"lat": 46.2558,
+"lng": 14.3364,
+"place": "Kranj"
+},
+"SI46": {
+"lat": 46.2389,
+"lng": 14.3556,
+"place": "Kranj"
+},
+"SI50": {
+"lat": 45.9505,
+"lng": 13.6431,
+"place": "Nova Gorica - dostava"
+},
+"SI52": {
+"lat": 46.0308,
+"lng": 13.7526,
+"place": "Čepovan"
+},
+"SI56": {
+"lat": 45.956,
+"lng": 13.6484,
+"place": "Nova Gorica"
+},
+"SI60": {
+"lat": 45.5505,
+"lng": 13.7348,
+"place": "Koper/Capodistria - dostava"
+},
+"SI62": {
+"lat": 45.6321,
+"lng": 14.0067,
+"place": "Vremski Britof"
+},
+"SI63": {
+"lat": 45.4955,
+"lng": 13.6077,
+"place": "Izola/Isola"
+},
+"SI65": {
+"lat": 45.5469,
+"lng": 13.7294,
+"place": "Koper"
+},
+"SI66": {
+"lat": 45.5469,
+"lng": 13.7294,
+"place": "Koper"
+},
+"SI80": {
+"lat": 45.8329,
+"lng": 15.1948,
+"place": "Novo mesto - poštni predali"
+},
+"SI82": {
+"lat": 45.9475,
+"lng": 15.3621,
+"place": "Studenec"
+},
+"SI83": {
+"lat": 45.6882,
+"lng": 15.1637,
+"place": "Semič"
+},
+"SI85": {
+"lat": 45.804,
+"lng": 15.1689,
+"place": "Novo mesto"
+},
+"SI86": {
+"lat": 45.804,
+"lng": 15.1689,
+"place": "Novo mesto"
+},
+"SI90": {
+"lat": 46.6599,
+"lng": 16.1636,
+"place": "Murska Sobota - poštni predali"
+},
+"SI92": {
+"lat": 46.6797,
+"lng": 16.1781,
+"place": "Martjanci"
+},
+"SI95": {
+"lat": 46.6523,
+"lng": 16.1021,
+"place": "Murska Sobota"
+},
+"SI96": {
+"lat": 46.6625,
+"lng": 16.1664,
+"place": "Murska Sobota"
+},
+"TR01": {
+"lat": 37.3329,
+"lng": 35.6164,
+"place": "Camili"
+},
+"TR02": {
+"lat": 37.7938,
+"lng": 38.3542,
+"place": "Yenice"
+},
+"TR03": {
+"lat": 38.6068,
+"lng": 30.5445,
+"place": "Ağzikara"
+},
+"TR04": {
+"lat": 39.541,
+"lng": 43.1592,
+"place": "Kazimkarabekir"
+},
+"TR05": {
+"lat": 40.7048,
+"lng": 35.7249,
+"place": "Gökmedrese"
+},
+"TR06": {
+"lat": 39.9568,
+"lng": 32.5415,
+"place": "Sincan"
+},
+"TR07": {
+"lat": 36.7494,
+"lng": 31.0259,
+"place": "Belek"
+},
+"TR08": {
+"lat": 41.2005,
+"lng": 41.8324,
+"place": "Seyitler"
+},
+"TR09": {
+"lat": 37.758,
+"lng": 28.0351,
+"place": "Yeniköy"
+},
+"TR10": {
+"lat": 39.6954,
+"lng": 27.8725,
+"place": "Altieylül"
+},
+"TR11": {
+"lat": 40.1163,
+"lng": 30.1344,
+"place": "Küre"
+},
+"TR12": {
+"lat": 39.0361,
+"lng": 40.5712,
+"place": "Ortaçanak"
+},
+"TR13": {
+"lat": 38.4655,
+"lng": 42.2858,
+"place": "Dalda"
+},
+"TR14": {
+"lat": 40.6385,
+"lng": 31.6876,
+"place": "Karamanli"
+},
+"TR15": {
+"lat": 37.4416,
+"lng": 30.0847,
+"place": "Bahçelievler"
+},
+"TR16": {
+"lat": 40.1214,
+"lng": 29.0519,
+"place": "Süleymaniye"
+},
+"TR17": {
+"lat": 39.9943,
+"lng": 26.772,
+"place": "Karaibrahimler"
+},
+"TR18": {
+"lat": 40.7488,
+"lng": 33.4299,
+"place": "Demirçevre"
+},
+"TR19": {
+"lat": 40.5361,
+"lng": 34.713,
+"place": "Gülabibey"
+},
+"TR20": {
+"lat": 37.7714,
+"lng": 29.2587,
+"place": "Emirazizli"
+},
+"TR21": {
+"lat": 38.1071,
+"lng": 40.3122,
+"place": "Balikçilarbaşi"
+},
+"TR22": {
+"lat": 41.2575,
+"lng": 26.6085,
+"place": "Londraasfalti"
+},
+"TR23": {
+"lat": 38.6524,
+"lng": 39.4227,
+"place": "Hoşköy"
+},
+"TR24": {
+"lat": 39.6429,
+"lng": 39.3777,
+"place": "Küplü"
+},
+"TR25": {
+"lat": 40.0691,
+"lng": 41.5924,
+"place": "Yakutiye"
+},
+"TR26": {
+"lat": 39.614,
+"lng": 30.9827,
+"place": "Şirintepe"
+},
+"TR27": {
+"lat": 37.1057,
+"lng": 37.4329,
+"place": "Perilikaya"
+},
+"TR28": {
+"lat": 40.7232,
+"lng": 38.6085,
+"place": "Hisarcik"
+},
+"TR29": {
+"lat": 40.2937,
+"lng": 39.4041,
+"place": "Kurtoğlu"
+},
+"TR30": {
+"lat": 37.4825,
+"lng": 44.0308,
+"place": "Yeşiltaş"
+},
+"TR31": {
+"lat": 36.411,
+"lng": 36.297,
+"place": "Topboğazi"
+},
+"TR32": {
+"lat": 37.9259,
+"lng": 30.9472,
+"place": "Sorkuncak"
+},
+"TR33": {
+"lat": 36.6821,
+"lng": 34.0193,
+"place": "Kizilgeçit"
+},
+"TR34": {
+"lat": 41.0266,
+"lng": 28.996,
+"place": "Cihangir"
+},
+"TR35": {
+"lat": 38.4798,
+"lng": 27.4266,
+"place": "Yenmiş"
+},
+"TR36": {
+"lat": 40.4862,
+"lng": 43.1065,
+"place": "Gelirli"
+},
+"TR37": {
+"lat": 41.5789,
+"lng": 33.6701,
+"place": "Ericek"
+},
+"TR38": {
+"lat": 38.6275,
+"lng": 35.8736,
+"place": "Kiliçaslan"
+},
+"TR39": {
+"lat": 41.6265,
+"lng": 27.3759,
+"place": "Bayramdere"
+},
+"TR40": {
+"lat": 39.3428,
+"lng": 34.1083,
+"place": "Çarşi"
+},
+"TR41": {
+"lat": 40.8814,
+"lng": 29.9255,
+"place": "Himmetli"
+},
+"TR42": {
+"lat": 37.9339,
+"lng": 32.4662,
+"place": "Lalebahçe"
+},
+"TR43": {
+"lat": 39.295,
+"lng": 29.5484,
+"place": "Alipaşa"
+},
+"TR44": {
+"lat": 38.5148,
+"lng": 38.1562,
+"place": "Kömüşhan"
+},
+"TR45": {
+"lat": 38.7656,
+"lng": 28.1957,
+"place": "Malkoca"
+},
+"TR46": {
+"lat": 37.8804,
+"lng": 36.9367,
+"place": "Sütçüimam"
+},
+"TR47": {
+"lat": 37.3705,
+"lng": 40.8785,
+"place": "Kocasirt"
+},
+"TR48": {
+"lat": 37.0991,
+"lng": 28.1494,
+"place": "Yeniköy"
+},
+"TR49": {
+"lat": 39.0102,
+"lng": 41.7303,
+"place": "Mescitli"
+},
+"TR50": {
+"lat": 38.8091,
+"lng": 34.695,
+"place": "Gümüşyazi"
+},
+"TR51": {
+"lat": 37.9,
+"lng": 34.6779,
+"place": "Sazlica"
+},
+"TR52": {
+"lat": 40.8614,
+"lng": 37.5296,
+"place": "Kumbaşi"
+},
+"TR53": {
+"lat": 41.0141,
+"lng": 40.7495,
+"place": "Kemerköy"
+},
+"TR54": {
+"lat": 40.7592,
+"lng": 30.5002,
+"place": "Küçükesence"
+},
+"TR55": {
+"lat": 41.2038,
+"lng": 36.0821,
+"place": "Aşağiavdan"
+},
+"TR56": {
+"lat": 37.9277,
+"lng": 42.0129,
+"place": "Çinarlisu"
+},
+"TR57": {
+"lat": 41.6563,
+"lng": 34.8466,
+"place": "Yeşilçam"
+},
+"TR58": {
+"lat": 39.6545,
+"lng": 37.3875,
+"place": "Cumhuriyetüniversitesi"
+},
+"TR59": {
+"lat": 41.0151,
+"lng": 27.2793,
+"place": "Altinova"
+},
+"TR60": {
+"lat": 40.3914,
+"lng": 36.6094,
+"place": "Geyras"
+},
+"TR61": {
+"lat": 40.8879,
+"lng": 39.769,
+"place": "Yeşilyurt"
+},
+"TR62": {
+"lat": 39.1495,
+"lng": 39.4926,
+"place": "Babaocaği"
+},
+"TR63": {
+"lat": 37.187,
+"lng": 38.9641,
+"place": "Eyyübiye"
+},
+"TR64": {
+"lat": 38.5678,
+"lng": 29.3771,
+"place": "Karahasan"
+},
+"TR65": {
+"lat": 38.624,
+"lng": 43.6477,
+"place": "Süphan"
+},
+"TR66": {
+"lat": 39.7297,
+"lng": 35.2239,
+"place": "Çayözü"
+},
+"TR67": {
+"lat": 41.2718,
+"lng": 31.841,
+"place": "Velibeyler"
+},
+"TR68": {
+"lat": 38.533,
+"lng": 34.0237,
+"place": "Yağan"
+},
+"TR69": {
+"lat": 40.2778,
+"lng": 40.1389,
+"place": "Yolalti"
+},
+"TR70": {
+"lat": 37.0327,
+"lng": 33.1449,
+"place": "Erenkavak"
+},
+"TR71": {
+"lat": 39.8631,
+"lng": 33.7285,
+"place": "Fabrikalar"
+},
+"TR72": {
+"lat": 37.9621,
+"lng": 41.3744,
+"place": "Ilica"
+},
+"TR73": {
+"lat": 37.4131,
+"lng": 42.3184,
+"place": "İkizce"
+},
+"TR74": {
+"lat": 41.5721,
+"lng": 32.4687,
+"place": "Çamlik"
+},
+"TR75": {
+"lat": 41.1547,
+"lng": 42.7862,
+"place": "Kartalpinar"
+},
+"TR76": {
+"lat": 39.9406,
+"lng": 43.8293,
+"place": "Alibeyköy"
+},
+"TR77": {
+"lat": 40.6408,
+"lng": 29.4073,
+"place": "Alan"
+},
+"TR78": {
+"lat": 41.1866,
+"lng": 32.7569,
+"place": "Kuzyakaköseler"
+},
+"TR79": {
+"lat": 36.8195,
+"lng": 37.1128,
+"place": "Eğlen"
+},
+"TR80": {
+"lat": 37.2778,
+"lng": 36.2348,
+"place": "Karatepe"
+},
+"TR81": {
+"lat": 40.8817,
+"lng": 31.1576,
+"place": "Çamköy"
+},
+"TR99": {
+"lat": 39.6433,
+"lng": 36.5283,
+"place": "Gökhan"
+}
+}
+}

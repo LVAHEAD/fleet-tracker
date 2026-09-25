@@ -48,3 +48,14 @@ Firestore — код был написан (v2.01), но решили пока �
 Если понадобится вернуться — потребуется заново: создать базу Firestore,
 дать сервису права roles/datastore.user, настроить OAuth consent screen
 и создать OAuth Client ID.
+
+## Коды регионов из GeoNames (v1.27)
+
+Для стран, которых нет в GPS_Codes.xlsx, коды 2-значных зон строятся из
+открытого справочника GeoNames (CC BY 4.0). Один раз (и при желании обновить):
+
+    cd ~/fleet-tracker
+    python3 tools/build_region_codes.py        # создаёт region_codes_geonames.json
+    git add region_codes_geonames.json && git commit -m "GeoNames codes" && git push
+
+Коды из GPS_Codes.xlsx главнее — совпадающие коды из GeoNames не используются.

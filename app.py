@@ -1,8 +1,17 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.26
+Версия: 1.27
 
 История изменений:
+1.27 (2026-09-25) — коды регионов из GeoNames:
+    - скрипт tools/build_region_codes.py скачивает открытый справочник индексов
+      GeoNames (CC BY 4.0) и считает центры 2-значных зон для стран, которых
+      нет в GPS_Codes.xlsx (AT, CH, LU, HU, SI, HR, BG, RO, LT, LV, EE, ...)
+    - результат — region_codes_geonames.json; при старте коды добавляются к
+      REGION_CODES, существующие коды из GPS_Codes.xlsx не перезаписываются
+    - новые коды сразу работают везде: Таргет, From → To, Локатор, ближайший
+      код и правила маршрутов (страна точки определяется точнее)
+
 1.26 (2026-09-25) — Карты стран: новые страны, поиск Локатора:
     - "Карты стран": добавлены FI, EE, LV, LT, RO, BG, LU (Wikimedia Commons,
       серия "2 digit postcode"; у LU карта 2025 г. другого стиля — регионы по
@@ -239,7 +248,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.26"
+APP_VERSION = "1.27"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1519,6 +1528,29 @@ HELSINGBORG = (56.0465, 12.6945)
 BENELUX_FR = {"BE", "NL", "LU", "FR"}
 ES_PT = {"ES", "PT"}
 SCANDI = {"NO", "SE"}
+
+
+# v1.27: дополнительные коды из GeoNames (region_codes_geonames.json, строится
+# скриптом tools/build_region_codes.py). Добавляются только коды, которых нет в
+# GPS_Codes.xlsx — ваши коды главнее. Нет файла — работаем как раньше.
+def _load_geonames_codes():
+    import json as _json
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "region_codes_geonames.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            extra = _json.load(f).get("codes", {})
+    except (OSError, ValueError):
+        return 0
+    added = 0
+    for code, v in extra.items():
+        code = code.upper()
+        if code not in REGION_CODES and "lat" in v and "lng" in v:
+            REGION_CODES[code] = {"lat": v["lat"], "lng": v["lng"], "place": v.get("place", ""), "src": "geonames"}
+            added += 1
+    return added
+
+
+GEONAMES_CODES_ADDED = _load_geonames_codes()
 
 
 def get_region_country(code_str):
