@@ -18,6 +18,7 @@
   <span class="main-tabs-spacer"></span>
   <button class="main-tab-btn ref-tab" data-tab="ferries">Паромы</button>
   <button class="main-tab-btn ref-tab" data-tab="maps">Карты стран</button>
+  <button class="main-tab-btn ref-tab" data-tab="notes" title="Блокнот">[.]</button>
 </nav>
 
 <!-- ==================== Вкладка: Флот ==================== -->
@@ -57,6 +58,7 @@
 <div id="map"></div>
 
 <datalist id="units-list"></datalist>
+<datalist id="points-list"></datalist>
 
 </div>
 
@@ -67,7 +69,7 @@
       <nav class="pc-tabs" role="tablist" aria-orientation="vertical" id="pcTabs"></nav>
       <div class="locator-bar">
         <button type="button" id="locatorBtn" class="locator-btn">Локатор</button>
-        <input id="locatorInput" list="units-list" autocomplete="off" placeholder="код, город, GPS или машина">
+        <input id="locatorInput" list="points-list" autocomplete="off" placeholder="код, город, GPS или машина">
       </div>
     </div>
     <div id="locatorView" class="locator-view" hidden>
@@ -86,6 +88,28 @@
         <div class="pc-zones" id="pcZones" hidden></div>
       </div>
     </main>
+  </div>
+</div>
+
+<!-- ==================== Вкладка: [.] блокнот (справочная) ==================== -->
+<div id="tab-notes" class="tab-panel" hidden>
+  <div class="notes-layout">
+    <div class="notes-main">
+      <div class="notes-head">
+        <b>Блокнот</b>
+        <span class="notes-hint">сохраняется автоматически в этом браузере</span>
+        <span id="notesSaved" class="notes-saved"></span>
+      </div>
+      <textarea id="notesText" class="notes-text" spellcheck="false" placeholder="Заметки, ссылки, номера…"></textarea>
+      <div class="notes-links-title">Ссылки из заметок</div>
+      <div id="notesLinks" class="notes-links"></div>
+    </div>
+    <aside class="notes-side">
+      <div class="notes-side-title">Адресная база</div>
+      <div id="addrStatus" class="addr-status">Загрузка…</div>
+      <button type="button" id="addrRefreshBtn">↻ Обновить базу</button>
+      <div id="addrProblems" class="addr-problems"></div>
+    </aside>
   </div>
 </div>
 
@@ -131,6 +155,7 @@
 <script src="{{ url_for('static', filename='postcode-maps.js') }}"></script>
 <script src="{{ url_for('static', filename='route-tab.js') }}"></script>
 <script src="{{ url_for('static', filename='locator.js') }}"></script>
+<script src="{{ url_for('static', filename='notes.js') }}"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_js_key }}&libraries=geometry&callback=initMap" async defer></script>
 </body>
 </html>

@@ -101,7 +101,7 @@ function makeRouteField(listId, kind) {
   const tag = document.createElement("span");
   tag.className = `route-tag tag-${kind}`;
   const input = document.createElement("input");
-  input.setAttribute("list", "units-list");
+  input.setAttribute("list", "points-list");
   input.autocomplete = "off";
   input.addEventListener("input", () => {
     syncRouteFields(listId, kind);
@@ -223,12 +223,19 @@ function routeEscape(s) {
   }[c]));
 }
 
+// v1.28: у точки из адресной базы — часы работы и заметки
+function addrExtra(a) {
+  if (!a) return "";
+  const bits = [a.open && `🕒 ${a.open}`, a.notes && `📝 ${a.notes}`].filter(Boolean);
+  return bits.length ? ` <span class="route-addr-extra">${routeEscape(bits.join("   "))}</span>` : "";
+}
+
 function renderRoutePoints(points) {
   const el = document.getElementById("route-points");
   el.innerHTML = points.map((p) => `
     <div class="route-point">
       <span class="route-tag tag-${p.kind}">${p.kind}${p.num}</span>
-      <span>${routeEscape(p.label)}</span>
+      <span>${routeEscape(p.label)}${addrExtra(p.address)}</span>
     </div>`).join("");
   el.hidden = points.length === 0;
 }

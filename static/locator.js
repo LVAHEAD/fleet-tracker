@@ -259,6 +259,11 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
         });
         info.innerHTML = `${esc(d.label)} &nbsp;→&nbsp; ближайший код <b>${esc(d.code)}</b> — ${esc(d.code_place)}`
           + ` <span style="color:#888">(${d.dist_km} км до центра зоны)</span>`;
+        if (d.address) {
+          const a = d.address;
+          const bits = [a.open && `🕒 ${a.open}`, a.notes && `📝 ${a.notes}`].filter(Boolean).map(esc);
+          if (bits.length) info.innerHTML += `<div class="loc-addr">${bits.join(" &nbsp; ")}</div>`;
+        }
       }
 
       map.setZoom(8);
@@ -284,7 +289,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     if (!picked) return;
     const q = input.value.trim();
     if (!q) return;
-    const inList = [...document.querySelectorAll("#units-list option")].some((o) => o.value === q);
+    const inList = [...document.querySelectorAll("#points-list option")].some((o) => o.value === q);
     if (!inList) return;
     showLocator();
     locate(q);

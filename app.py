@@ -1,8 +1,22 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.27
+Версия: 1.28
 
 История изменений:
+1.28 (2026-09-25) — адресная база из Google-таблицы, вкладка-блокнот [.]:
+    - лист "Адреса" таблицы "Fleet Tracker — данные" (SHEET_ID) читается через
+      сервисный аккаунт Cloud Run (Sheets API, только чтение), кеш 10 минут
+    - поиск точки по Name / Alias / Supplier (Supplier — если склад один) в
+      Таргет, From → To и Локаторе; приоритет: машина -> адрес -> код -> GPS -> город
+    - GPS берётся из колонки GPS, иначе из Full address; строки без GPS
+      пропускаются и показываются во вкладке [.] как "проблемные"
+    - Флот: Type load/unload сам ставит L/O (если отметка пустая); port /
+      customs / misc — свой цвет флажка таргета
+    - From → To и Локатор: у точек из базы показываются Open и Notes
+    - вкладка [.]: блокнот (localStorage) + состояние адресной базы и кнопка
+      "обновить базу"
+    - новый эндпоинт GET /api/addresses (?refresh=1)
+
 1.27 (2026-09-25) — коды регионов из GeoNames:
     - скрипт tools/build_region_codes.py скачивает открытый справочник индексов
       GeoNames (CC BY 4.0) и считает центры 2-значных зон для стран, которых
@@ -233,6 +247,7 @@ Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
 """
 
 import math
+import re
 import os
 from datetime import datetime, timezone, timedelta
 
@@ -248,7 +263,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.27"
+APP_VERSION = "1.28"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1638,6 +1653,144 @@ def find_unit_exact(units, query):
     return None
 
 
+# ---------- v1.28: адресная база из Google-таблицы ----------
+# Таблица "Fleet Tracker — данные", лист "Адреса". Доступ — сервисный аккаунт
+# Cloud Run (таблица расшарена на него "Читателем"), ключи не нужны.
+SHEET_ID = os.environ.get("SHEET_ID", "1m0oM8cNixVDM1kgQKCZKPgF-aSQN-0loqdLc-dWkD7g")
+ADDRESS_SHEET = os.environ.get("ADDRESS_SHEET", "Адреса")
+ADDRESS_TTL_SEC = 600  # перечитываем лист не чаще раза в 10 минут
+ADDRESS_TYPES = {"load", "unload", "port", "customs", "misc"}
+
+_addr_cache = {"items": [], "problems": [], "loaded_at": 0.0, "error": None}
+
+
+def _sheets_token():
+    import google.auth
+    import google.auth.transport.requests
+    creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"])
+    creds.refresh(google.auth.transport.requests.Request())
+    return creds.token
+
+
+def read_sheet_values(sheet_name):
+    """Все значения листа как список строк (как видно в таблице)."""
+    from urllib.parse import quote
+    rng = quote(f"'{sheet_name}'", safe="")
+    url = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID}/values/{rng}"
+    resp = requests.get(url, headers={"Authorization": f"Bearer {_sheets_token()}"},
+                        params={"valueRenderOption": "FORMATTED_VALUE"}, timeout=30)
+    if resp.status_code == 403:
+        raise RuntimeError("Нет доступа к таблице: расшарьте её на сервисный аккаунт приложения (Читатель)")
+    resp.raise_for_status()
+    return resp.json().get("values", [])
+
+
+_GPS_RE = re.compile(r"(-?\d{1,2}\.\d+)\s*[,;]\s*(-?\d{1,3}\.\d+)")
+
+
+def parse_gps(text):
+    """Первая пара "lat, lng" в тексте -> (lat, lng) или None."""
+    m = _GPS_RE.search(str(text or ""))
+    if not m:
+        return None
+    lat, lng = float(m.group(1)), float(m.group(2))
+    if -90 <= lat <= 90 and -180 <= lng <= 180:
+        return lat, lng
+    return None
+
+
+def _hkey(h):
+    """Заголовок колонки -> ключ: "Full address" -> "fulladdress", "Notes," -> "notes"."""
+    return re.sub(r"[^a-z0-9]", "", str(h or "").lower())
+
+
+def parse_address_rows(values):
+    """values — строки листа "Адреса" (первая — заголовки). -> (items, problems)."""
+    if not values:
+        return [], []
+    head = [_hkey(h) for h in values[0]]
+    col = {k: i for i, k in enumerate(head) if k}
+    alias_map = {"supplier": ("supplier", "suplier"), "notes": ("notes",), "fulladdress": ("fulladdress", "address")}
+
+    def get(row, key):
+        for k in alias_map.get(key, (key,)):
+            i = col.get(k)
+            if i is not None and i < len(row):
+                return str(row[i] or "").strip()
+        return ""
+
+    items, problems = [], []
+    for n, row in enumerate(values[1:], start=2):
+        name = get(row, "name")
+        if not name:
+            continue
+        gps = parse_gps(get(row, "gps")) or parse_gps(get(row, "fulladdress"))
+        if not gps:
+            problems.append(f"строка {n}: {name} — нет GPS")
+            continue
+        typ = get(row, "type").lower()
+        full = get(row, "fulladdress")
+        # "город" для подсказки: строка адреса с запятой и индексом/страной, иначе ничего
+        city = ""
+        for line in full.splitlines():
+            if "," in line and not parse_gps(line):
+                city = line.split(",")[0].strip()
+        items.append({
+            "name": name,
+            "alias": get(row, "alias"),
+            "type": typ if typ in ADDRESS_TYPES else ("misc" if typ else ""),
+            "open": get(row, "open"),
+            "notes": get(row, "notes"),
+            "client": get(row, "client"),
+            "supplier": get(row, "supplier"),
+            "country": get(row, "country").upper()[:2],
+            "city": city,
+            "lat": gps[0], "lng": gps[1],
+        })
+    return items, problems
+
+
+def get_addresses(force=False):
+    """Адреса из таблицы с кешем на ADDRESS_TTL_SEC. Ошибка чтения не ломает
+    приложение: остаётся последняя удачная копия, текст ошибки — в _addr_cache."""
+    import time
+    now = time.time()
+    if force or now - _addr_cache["loaded_at"] > ADDRESS_TTL_SEC:
+        try:
+            items, problems = parse_address_rows(read_sheet_values(ADDRESS_SHEET))
+            _addr_cache.update(items=items, problems=problems, loaded_at=now, error=None)
+        except Exception as e:
+            _addr_cache["error"] = str(e)
+            _addr_cache["loaded_at"] = now - ADDRESS_TTL_SEC + 60  # повторить через минуту
+    return _addr_cache["items"]
+
+
+def find_address(query):
+    """Точное совпадение по Name или Alias (без регистра/пробелов/дефисов).
+    Если совпал только Supplier и склад у него один — тоже он."""
+    q = normalize(query)
+    if not q:
+        return None
+    try:
+        items = get_addresses()
+    except Exception:
+        return None
+    for a in items:
+        if q == normalize(a["name"]) or (a["alias"] and q == normalize(a["alias"])):
+            return a
+    by_supplier = [a for a in items if a["supplier"] and q == normalize(a["supplier"])]
+    if len(by_supplier) == 1:
+        return by_supplier[0]
+    if len(by_supplier) > 1:
+        names = ", ".join(a["name"] for a in by_supplier[:6])
+        raise ValueError(f"У {query} несколько складов — выберите конкретный: {names}")
+    return None
+
+
+def address_public(a):
+    return {k: a[k] for k in ("name", "alias", "type", "open", "notes", "client", "supplier", "country", "city")}
+
+
 def looks_like_gps_or_code(s):
     s = (s or "").strip()
     if s.upper().replace(" ", "") in REGION_CODES:
@@ -1676,6 +1829,22 @@ def resolve_point(raw, units_getter):
             "near_code": code,
             "code": code if d <= NEAR_LABEL_MAX_KM else None,
             "is_truck": True,
+        }
+
+    # v1.28: точка из адресной базы
+    addr = None if looks_like_gps_or_code(raw) else find_address(raw)
+    if addr is not None:
+        lat, lng = addr["lat"], addr["lng"]
+        code, d = nearest_region_code(lat, lng)
+        near = f" (около {code})" if code and d <= NEAR_LABEL_MAX_KM else ""
+        return {
+            "lat": lat, "lng": lng,
+            "label": f"{addr['name']}{near}",
+            "country": addr["country"] or (code[:2] if code else None),
+            "near_code": code,
+            "code": code if d <= NEAR_LABEL_MAX_KM else None,
+            "is_truck": False,
+            "address": address_public(addr),
         }
 
     lat, lng, label = resolve_place_label(raw)
@@ -1835,7 +2004,17 @@ def api_calc():
             result["target_is_truck"] = True
             result["target_unit"] = target_unit.get("number")
         else:
-            target_lat, target_lng = resolve_target(target_str)
+            addr = None
+            if target_str and not looks_like_gps_or_code(target_str):
+                try:
+                    addr = find_address(target_str)
+                except ValueError as e:
+                    return jsonify({"error": str(e)}), 400
+            if addr is not None:
+                target_lat, target_lng = addr["lat"], addr["lng"]
+                result["target_address"] = address_public(addr)
+            else:
+                target_lat, target_lng = resolve_target(target_str)
         if target_lat is not None and not GOOGLE_API_KEY:
             return jsonify({"error": "GOOGLE_API_KEY не настроен на сервере"}), 500
 
@@ -1901,7 +2080,8 @@ def api_route():
 
         result = {
             "points": [
-                {k: p[k] for k in ("kind", "num", "label", "lat", "lng", "is_truck", "code")}
+                {**{k: p[k] for k in ("kind", "num", "label", "lat", "lng", "is_truck", "code")},
+                 "address": p.get("address")}
                 for p in points
             ],
             "legs": [],
@@ -1983,9 +2163,24 @@ def api_locate():
             "code_place": info.get("place", ""),
             "code_lat": info.get("lat"), "code_lng": info.get("lng"),
             "dist_km": round(dist, 1),
+            "address": pt.get("address"),
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 502
+
+
+@app.route("/api/addresses")
+def api_addresses():
+    """v1.28: адресная база для подсказок. ?refresh=1 — перечитать таблицу сейчас."""
+    import time
+    items = get_addresses(force=request.args.get("refresh") == "1")
+    return jsonify({
+        "addresses": [{**address_public(a), "lat": a["lat"], "lng": a["lng"]} for a in items],
+        "problems": _addr_cache["problems"],
+        "error": _addr_cache["error"],
+        "loaded_at": (datetime.fromtimestamp(_addr_cache["loaded_at"], timezone.utc)
+                      + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M") if _addr_cache["loaded_at"] else None,
+    })
 
 
 if __name__ == "__main__":

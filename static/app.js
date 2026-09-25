@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.23 (Таргет может быть номером другой машины — перецеп; подсказки номеров в Таргет).
+Версия: 1.28 (адресная база: подсказки points-list, L/O из Type, цвета port/customs/misc).
+Ранее 1.23 (Таргет может быть номером другой машины — перецеп; подсказки номеров в Таргет).
 Ранее 1.22 (подсветка всей строки по L/O, кроме ячейки Статус).
 Ранее 1.21 (кнопка L/O перед Таргетом: погрузка / выгрузка — цвет кнопки,
 цвет флажка таргета на карте и подсказка в поле Delivery; статус строго в две строки)
@@ -115,7 +116,16 @@ const TARGET_COLORS = {
   "":  { fill: "#1D9E75", stroke: "#2E7D46", label: "#2E7D46" },
   "L": { fill: "#4A90D9", stroke: "#1F5A99", label: "#1F5A99" },
   "O": { fill: "#E0B000", stroke: "#7A5C00", label: "#7A5C00" },
+  // v1.28: таргет из адресной базы с типом port / customs / misc (если L/O не отмечен)
+  "port":    { fill: "#8A8F98", stroke: "#4B5058", label: "#4B5058" },
+  "customs": { fill: "#8E5BD0", stroke: "#5B2E9A", label: "#5B2E9A" },
+  "misc":    { fill: "#2AA7A0", stroke: "#18706B", label: "#18706B" },
 };
+// тип таргета из адресной базы по id строки (в памяти, для цвета флажка)
+const targetTypeByRow = {};
+function markerKind(row) {
+  return row.lo || targetTypeByRow[row.id] || "";
+}
 
 function targetColors(lo) {
   return TARGET_COLORS[lo || ""] || TARGET_COLORS[""];
@@ -251,10 +261,69 @@ async function loadUnitsList() {
         opt.value = u.number;
         datalist.appendChild(opt);
       });
+      rebuildPointsList();
     }
   } catch (e) {
     console.error("Не удалось загрузить список машин", e);
   }
+}
+
+// --- v1.28: адресная база (Google-таблица) и общий список подсказок points-list ---
+window.addressList = [];
+const ADDR_TYPE_RU = { load: "погрузка", unload: "выгрузка", port: "порт", customs: "таможня", misc: "прочее" };
+
+async function loadAddressList(refresh) {
+  try {
+    const res = await fetch("/api/addresses" + (refresh ? "?refresh=1" : ""));
+    const data = await res.json();
+    window.addressList = data.addresses || [];
+    window.addressStatus = data;
+    rebuildPointsList();
+    if (window.onAddressStatus) window.onAddressStatus(data);
+    return data;
+  } catch (e) {
+    console.error("Не удалось загрузить адресную базу", e);
+    return null;
+  }
+}
+
+// Подсказки для Таргет / From → To / Локатора: машины + склады из базы
+function rebuildPointsList() {
+  const dl = document.getElementById("points-list");
+  if (!dl) return;
+  dl.innerHTML = "";
+  (unitsCache || []).forEach((u) => {
+    const o = document.createElement("option");
+    o.value = u.number;
+    o.label = "машина";
+    dl.appendChild(o);
+  });
+  (window.addressList || []).forEach((a) => {
+    const extra = [a.supplier, ADDR_TYPE_RU[a.type] || a.type, a.city, a.country].filter(Boolean).join(" · ");
+    [a.name, a.alias].filter(Boolean).forEach((v) => {
+      const o = document.createElement("option");
+      o.value = v;
+      o.label = extra;
+      dl.appendChild(o);
+    });
+  });
+}
+
+function addressTooltip(a) {
+  if (!a) return "";
+  return [a.name, a.open && `Open: ${a.open}`, a.notes && `Notes: ${a.notes}`].filter(Boolean).join("\n");
+}
+
+// Обновить всё, что зависит от L/O в строке таблицы
+function applyLoToRow(tr, row) {
+  const btn = tr.querySelector(".lo-btn");
+  btn.className = `lo-btn ${loClass(row.lo)}`;
+  btn.textContent = loText(row.lo);
+  btn.title = loTitle(row.lo);
+  tr.querySelector(".delivery-input").placeholder = deliveryPlaceholder(row.lo);
+  tr.classList.remove("lo-row-L", "lo-row-O");
+  if (row.lo) tr.classList.add(`lo-row-${row.lo}`);
+  recolorTargetMarker(row.id, row.unit, markerKind(row));
 }
 
 function renderRows() {
@@ -277,7 +346,7 @@ function renderRows() {
       <td>
         <div class="target-wrap">
           <button class="lo-btn ${loClass(row.lo)}" title="${loTitle(row.lo)}">${loText(row.lo)}</button>
-          <input list="units-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" placeholder="ГПС, город, код или машина" />
+          <input list="points-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" placeholder="ГПС, город, код или машина" />
         </div>
       </td>
       <td><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" placeholder="${deliveryPlaceholder(row.lo)}" /></td>
@@ -347,14 +416,7 @@ function attachRowHandlers() {
       if (!row) return;
       row.lo = LO_CYCLE[row.lo || ""];
       saveRows();
-      const btn = e.currentTarget;
-      btn.className = `lo-btn ${loClass(row.lo)}`;
-      btn.textContent = loText(row.lo);
-      btn.title = loTitle(row.lo);
-      tr.querySelector(".delivery-input").placeholder = deliveryPlaceholder(row.lo);
-      tr.classList.remove("lo-row-L", "lo-row-O");
-      if (row.lo) tr.classList.add(`lo-row-${row.lo}`);
-      recolorTargetMarker(id, row.unit, row.lo);
+      applyLoToRow(tr, row);
     });
 
     tr.querySelector(".refresh-row-btn").addEventListener("click", (e) => {
@@ -468,13 +530,30 @@ async function calcRow(id) {
         polyline: data.route_polyline || null,
       };
 
+      // v1.28: таргет из адресной базы — L/O из Type (только если отметка пустая),
+      // цвет флажка для port/customs/misc, Open/Notes — подсказкой на поле
+      const tInput = tr ? tr.querySelector(".target-input") : null;
+      if (data.target_address) {
+        const t = data.target_address.type;
+        targetTypeByRow[id] = ["port", "customs", "misc"].includes(t) ? t : "";
+        if (!row.lo && (t === "load" || t === "unload")) {
+          row.lo = t === "load" ? "L" : "O";
+          saveRows();
+          if (tr) applyLoToRow(tr, row);
+        }
+        if (tInput) tInput.title = addressTooltip(data.target_address);
+      } else {
+        delete targetTypeByRow[id];
+        if (tInput) tInput.title = "";
+      }
+
       if (data.target_is_truck && truckInTable(data.target_unit)) {
         // перецеп: цель — машина, которая и так есть в таблице и видна своим маркером
         removeTargetMarker(id);
       } else if (data.target_lat != null && data.target_lng != null) {
         // если машина-цель не в таблице — флажок в её позиции, подпись "→ номер"
         const label = data.target_is_truck ? `${row.unit} → ${data.target_unit}` : row.unit;
-        updateTargetMarker(id, data.target_lat, data.target_lng, label, row.lo);
+        updateTargetMarker(id, data.target_lat, data.target_lng, label, markerKind(row));
       } else {
         removeTargetMarker(id);
       }
@@ -526,4 +605,5 @@ document.querySelectorAll(".main-tab-btn").forEach((btn) => {
 loadRows();
 renderRows();
 loadUnitsList();
+loadAddressList(false);
 calcAllRows();

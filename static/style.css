@@ -276,3 +276,26 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .loc-iw .loc-code { font-size: 15px; font-weight: 700; }
 .loc-iw button { margin-top: 4px; font-size: 12px; padding: 2px 8px; cursor: pointer; }
 .pc-main[hidden] { display: none; }
+
+/* ---------- v1.28: адреса в From → To и Локаторе ---------- */
+.route-addr-extra, .loc-addr { color: #7a6a3a; font-size: 12px; }
+.loc-addr { margin-top: 3px; }
+
+/* ---------- v1.28: вкладка [.] — блокнот ---------- */
+.notes-layout { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.notes-main { flex: 1 1 520px; min-width: 0; }
+.notes-side { flex: 0 0 260px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; font-size: 13px; }
+.notes-head { display: flex; gap: 10px; align-items: baseline; margin-bottom: 6px; }
+.notes-hint { color: #999; font-size: 12px; }
+.notes-saved { color: #3BB273; font-size: 12px; margin-left: auto; }
+.notes-text {
+  width: 100%; min-height: 380px; box-sizing: border-box; resize: vertical;
+  border: 1px solid #ddd; border-radius: 8px; padding: 12px; font: 14px/1.5 ui-monospace, Consolas, monospace;
+  background: #fffef8;
+}
+.notes-links-title { margin: 12px 0 4px; font-size: 12px; color: #777; }
+.notes-links { display: flex; flex-direction: column; gap: 4px; font-size: 13px; word-break: break-all; }
+.notes-side-title { font-weight: 600; margin-bottom: 6px; }
+.addr-status { color: #444; margin-bottom: 8px; line-height: 1.5; }
+.addr-status .err { color: #c0392b; }
+.addr-problems { margin-top: 8px; color: #a05a00; font-size: 12px; line-height: 1.5; }
