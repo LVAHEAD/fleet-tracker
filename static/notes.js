@@ -1,6 +1,6 @@
 /*
 Fleet ETA Tracker — вкладка [.] (блокнот)
-Версия: 1.28
+Версия: 1.29 (+ состояние базы фрахтов)
   - свободный текст, автосохранение в localStorage браузера ("notes-text");
   - ссылки из текста выводятся ниже кликабельным списком;
   - справа — состояние адресной базы (Google-таблица) и кнопка "обновить базу".
@@ -67,6 +67,34 @@ Fleet ETA Tracker — вкладка [.] (блокнот)
   }
   window.onAddressStatus = showStatus;
   if (window.addressStatus) showStatus(window.addressStatus);
+
+  // --- v1.29: состояние базы фрахтов ---
+  const frtEl = document.getElementById("frtStatus");
+  const frtBtn = document.getElementById("frtRefreshBtn");
+  async function loadFrt(refresh) {
+    try {
+      const res = await fetch("/api/freights" + (refresh ? "?refresh=1" : ""));
+      const d = await res.json();
+      const s = d.stats || {};
+      let html = `Рейсов разобрано: <b>${s.ok || 0}</b> из ${s.rows || 0}`;
+      if (s.no_price || s.no_region) html += `<br><span style="color:#a05a00">пропущено: без цены ${s.no_price || 0}, без региона ${s.no_region || 0}</span>`;
+      if (d.loaded_at) html += `<br>Обновлено: ${esc(d.loaded_at)}`;
+      if (d.error) html += `<br><span class="err">${esc(d.error)}</span>`;
+      frtEl.innerHTML = html;
+    } catch (e) {
+      frtEl.innerHTML = `<span class="err">Не удалось получить состояние базы фрахтов.</span>`;
+    }
+  }
+  // грузим лениво — при первом открытии вкладки [.]
+  let frtLoaded = false;
+  document.querySelector('.main-tab-btn[data-tab="notes"]').addEventListener("click", () => {
+    if (!frtLoaded) { frtLoaded = true; loadFrt(false); }
+  });
+  frtBtn.addEventListener("click", async () => {
+    frtBtn.disabled = true; frtBtn.textContent = "Обновляю…";
+    await loadFrt(true);
+    frtBtn.disabled = false; frtBtn.textContent = "↻ Обновить фрахты";
+  });
 
   refreshBtn.addEventListener("click", async () => {
     refreshBtn.disabled = true;

@@ -299,3 +299,15 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .addr-status { color: #444; margin-bottom: 8px; line-height: 1.5; }
 .addr-status .err { color: #c0392b; }
 .addr-problems { margin-top: 8px; color: #a05a00; font-size: 12px; line-height: 1.5; }
+
+/* ---------- v1.29: похожие рейсы во From → To ---------- */
+.route-freights { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px 14px; margin: 0 0 14px; font-size: 13px; }
+.route-freights[hidden] { display: none; }
+.frt-head { font-weight: 600; margin-bottom: 6px; }
+.frt-muted { color: #888; font-weight: 400; font-size: 12px; }
+.frt-est { background: #F0F6FD; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
+.frt-table { border-collapse: collapse; width: auto; background: transparent; }
+.frt-table td { padding: 3px 14px 3px 0; border: none; background: transparent; white-space: nowrap; }
+.frt-table td.num { text-align: right; }
+.frt-tag { color: #7a5c00; font-size: 12px; }
+.frt-err { color: #c0392b; }

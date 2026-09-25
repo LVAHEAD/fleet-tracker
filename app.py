@@ -1,8 +1,22 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.28
+Версия: 1.29
 
 История изменений:
+1.29 (2026-09-25) — похожие рейсы и ориентир цены из базы фрахтов:
+    - лист "Фрахты" читается как адреса (кеш 10 минут, UNFORMATTED_VALUE)
+    - разбор: "3xES30" -> ES30, "ES30+ES04" -> первый (погрузка) / последний
+      (выгрузка), "FIN"/"LV" -> только страна, "SE(ST)" -> SE; фрахт
+      "2650+400" -> 2650, "6729/5500" -> 6729 + метка "аутсорс"
+    - From → To: блок "Похожие рейсы" (до 10, свежие первыми) по первой погрузке
+      и последней выгрузке; уровни: те же коды -> соседние регионы (<=150 км)
+      -> пара стран
+    - ориентир: P25–P75, медиана, €/км (история — по прямой x1.25; текущий
+      маршрут — км Google); по последним 12 мес., если рейсов >= 3, иначе все годы
+    - адреса: пустой Name берётся из первой строки Full address; строки без
+      названия и адреса — в "пропущенных"
+    - вкладка [.]: состояние базы фрахтов; эндпоинт GET /api/freights
+
 1.28 (2026-09-25) — адресная база из Google-таблицы, вкладка-блокнот [.]:
     - лист "Адреса" таблицы "Fleet Tracker — данные" (SHEET_ID) читается через
       сервисный аккаунт Cloud Run (Sheets API, только чтение), кеш 10 минут
@@ -263,7 +277,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.28"
+APP_VERSION = "1.29"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1672,13 +1686,14 @@ def _sheets_token():
     return creds.token
 
 
-def read_sheet_values(sheet_name):
-    """Все значения листа как список строк (как видно в таблице)."""
+def read_sheet_values(sheet_name, render="FORMATTED_VALUE"):
+    """Все значения листа как список строк. render: FORMATTED_VALUE (как видно
+    в таблице) или UNFORMATTED_VALUE (числа — числами)."""
     from urllib.parse import quote
     rng = quote(f"'{sheet_name}'", safe="")
     url = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID}/values/{rng}"
     resp = requests.get(url, headers={"Authorization": f"Bearer {_sheets_token()}"},
-                        params={"valueRenderOption": "FORMATTED_VALUE"}, timeout=30)
+                        params={"valueRenderOption": render}, timeout=60)
     if resp.status_code == 403:
         raise RuntimeError("Нет доступа к таблице: расшарьте её на сервисный аккаунт приложения (Читатель)")
     resp.raise_for_status()
@@ -1721,8 +1736,18 @@ def parse_address_rows(values):
 
     items, problems = [], []
     for n, row in enumerate(values[1:], start=2):
+        if not any(str(c or "").strip() for c in row):
+            continue  # пустая строка
         name = get(row, "name")
         if not name:
+            # v1.29: пустой Name — берём первую строку Full address (не GPS)
+            for line in get(row, "fulladdress").splitlines():
+                line = line.strip()
+                if line and not parse_gps(line):
+                    name = line
+                    break
+        if not name:
+            problems.append(f"строка {n}: нет Name и адреса")
             continue
         gps = parse_gps(get(row, "gps")) or parse_gps(get(row, "fulladdress"))
         if not gps:
@@ -1789,6 +1814,210 @@ def find_address(query):
 
 def address_public(a):
     return {k: a[k] for k in ("name", "alias", "type", "open", "notes", "client", "supplier", "country", "city")}
+
+
+# ---------- v1.29: база фрахтов (лист "Фрахты") ----------
+FREIGHT_SHEET = os.environ.get("FREIGHT_SHEET", "Фрахты")
+FREIGHT_ROAD_FACTOR = 1.25   # км по дорогам ~ км по прямой x 1.25 (для €/км старых рейсов)
+FREIGHT_NEAR_KM = 150        # "соседний регион" — центры в пределах 150 км
+COUNTRY_ALIASES = {"FIN": "FI", "EST": "EE", "LAT": "LV", "LTU": "LT", "SWE": "SE", "NOR": "NO",
+                   "GER": "DE", "DEN": "DK", "ESP": "ES", "POL": "PL", "ITA": "IT", "UK": "GB"}
+
+_frt_cache = {"items": [], "stats": {}, "loaded_at": 0.0, "error": None}
+
+
+def parse_region_cell(text, pick_last):
+    """"3xES30+ES46" / "FIN" / "SE(ST)" / "2xFIN" -> (code|None, country|None).
+    Для погрузки берём первый регион, для выгрузки — последний."""
+    t = re.sub(r"\([^)]*\)", "", str(text or "")).upper().replace(" ", "")
+    tokens = [re.sub(r"^\d+X", "", tok) for tok in re.split(r"[+&,]", t) if tok]
+    parsed = []
+    for tok in tokens:
+        m = re.match(r"^([A-Z]{2})(\d{2})", tok)
+        if m:
+            parsed.append((m.group(1) + m.group(2), m.group(1)))
+            continue
+        m = re.match(r"^([A-Z]{2,3})$", tok)
+        if m:
+            cc = COUNTRY_ALIASES.get(m.group(1), m.group(1))
+            if len(cc) == 2:
+                parsed.append((None, cc))
+    if not parsed:
+        return None, None
+    return parsed[-1] if pick_last else parsed[0]
+
+
+def parse_freight_value(v):
+    """2400 / "2650+400" / "6729/5500" / "6200+" -> (цена|None, аутсорс?)."""
+    if isinstance(v, (int, float)):
+        return (float(v), False) if v > 0 else (None, False)
+    t = str(v or "").strip().replace(" ", "")
+    m = re.match(r"^(\d+(?:[.,]\d+)?)", t)
+    if not m:
+        return None, False
+    price = float(m.group(1).replace(",", "."))
+    return (price if price > 0 else None), ("/" in t)
+
+
+def parse_trip_date(v, year):
+    """"03.08." / "02+03.08." / "05.08.at 08:00" / serial -> date (последняя дата в ячейке)."""
+    from datetime import date
+    if isinstance(v, (int, float)) and v > 30000:
+        return (datetime(1899, 12, 30) + timedelta(days=int(v))).date()
+    found = re.findall(r"(\d{1,2})\.(\d{1,2})", str(v or ""))
+    if not found or not year:
+        return None
+    d, mth = int(found[-1][0]), int(found[-1][1])
+    try:
+        return date(int(year), mth, d)
+    except ValueError:
+        return None
+
+
+def _region_ll(code):
+    v = REGION_CODES.get(code or "")
+    return (v["lat"], v["lng"]) if v else (None, None)
+
+
+def parse_freight_rows(values):
+    if not values:
+        return [], {}
+    head = [_hkey(h) for h in values[0]]
+
+    def find(pred):
+        for i, k in enumerate(head):
+            if pred(k):
+                return i
+        return None
+    c_unl = find(lambda k: k.startswith("unloading") and "reg" in k)
+    c_lod = find(lambda k: k.startswith("loading") and "reg" in k)
+    c_ldt = find(lambda k: k.startswith("loadingdate"))
+    c_ddt = find(lambda k: k.startswith("deliverydate"))
+    c_frt = find(lambda k: k.startswith("freight"))
+    c_cli = find(lambda k: k == "client")
+    c_yr = find(lambda k: k == "year")
+
+    def cell(row, i):
+        return row[i] if i is not None and i < len(row) else ""
+
+    items = []
+    stats = {"rows": 0, "ok": 0, "no_price": 0, "no_region": 0}
+    for row in values[1:]:
+        if not any(str(c or "").strip() for c in row):
+            continue
+        stats["rows"] += 1
+        price, outsourced = parse_freight_value(cell(row, c_frt))
+        if not price or price > 50000:
+            stats["no_price"] += 1
+            continue
+        fcode, fcc = parse_region_cell(cell(row, c_lod), pick_last=False)
+        tcode, tcc = parse_region_cell(cell(row, c_unl), pick_last=True)
+        if not fcc or not tcc:
+            stats["no_region"] += 1
+            continue
+        year = cell(row, c_yr)
+        try:
+            year = int(float(year)) if str(year).strip() else None
+        except ValueError:
+            year = None
+        d = parse_trip_date(cell(row, c_ldt), year) or parse_trip_date(cell(row, c_ddt), year)
+        flat, flng = _region_ll(fcode)
+        tlat, tlng = _region_ll(tcode)
+        km = None
+        if flat is not None and tlat is not None:
+            km = haversine_km(flat, flng, tlat, tlng) * FREIGHT_ROAD_FACTOR
+        items.append({
+            "from_raw": str(cell(row, c_lod)).strip(), "to_raw": str(cell(row, c_unl)).strip(),
+            "from_code": fcode, "from_cc": fcc, "to_code": tcode, "to_cc": tcc,
+            "flat": flat, "flng": flng, "tlat": tlat, "tlng": tlng,
+            "price": price, "outsourced": outsourced,
+            "client": str(cell(row, c_cli)).strip(), "date": d, "km": km,
+        })
+        stats["ok"] += 1
+    return items, stats
+
+
+def get_freights(force=False):
+    import time
+    now = time.time()
+    if force or now - _frt_cache["loaded_at"] > ADDRESS_TTL_SEC:
+        try:
+            items, stats = parse_freight_rows(read_sheet_values(FREIGHT_SHEET, "UNFORMATTED_VALUE"))
+            _frt_cache.update(items=items, stats=stats, loaded_at=now, error=None)
+        except Exception as e:
+            _frt_cache["error"] = str(e)
+            _frt_cache["loaded_at"] = now - ADDRESS_TTL_SEC + 60
+    return _frt_cache["items"]
+
+
+def _pct(sorted_vals, q):
+    if not sorted_vals:
+        return None
+    i = (len(sorted_vals) - 1) * q
+    lo, hi = int(i), min(int(i) + 1, len(sorted_vals) - 1)
+    return sorted_vals[lo] + (sorted_vals[hi] - sorted_vals[lo]) * (i - lo)
+
+
+def similar_freights(a, b, route_km=None, limit=10):
+    """a, b — точки начала и конца (dict с code/near_code/country/lat/lng).
+    Уровни: 1 — те же коды, 2 — соседние регионы (<= FREIGHT_NEAR_KM), 3 — пара стран."""
+    from datetime import date
+    items = get_freights()
+    fcode = a.get("code") or a.get("near_code")
+    tcode = b.get("code") or b.get("near_code")
+    fcc, tcc = a.get("country"), b.get("country")
+    found = {}
+    for i, t in enumerate(items):
+        lvl = None
+        if fcode and tcode and t["from_code"] == fcode and t["to_code"] == tcode:
+            lvl = 1
+        elif (t["flat"] is not None and t["tlat"] is not None
+              and haversine_km(t["flat"], t["flng"], a["lat"], a["lng"]) <= FREIGHT_NEAR_KM
+              and haversine_km(t["tlat"], t["tlng"], b["lat"], b["lng"]) <= FREIGHT_NEAR_KM):
+            lvl = 2
+        elif fcc and tcc and t["from_cc"] == fcc and t["to_cc"] == tcc:
+            lvl = 3
+        if lvl:
+            found[i] = lvl
+    # берём лучшие уровни: 1; если мало — добавляем 2; если всё ещё мало — 3
+    chosen = [i for i, l in found.items() if l == 1]
+    if len(chosen) < 5:
+        chosen += [i for i, l in found.items() if l == 2]
+    if len(chosen) < 3:
+        chosen += [i for i, l in found.items() if l == 3]
+    levels_used = sorted({found[i] for i in chosen})
+
+    trips = [items[i] | {"level": found[i]} for i in chosen]
+    trips.sort(key=lambda t: (t["date"] or date(1900, 1, 1)), reverse=True)  # свежие первыми
+
+    today = datetime.now(timezone.utc).date()
+    recent = [t for t in trips if t["date"] and (today - t["date"]).days <= 365]
+    basis, basis_label = (recent, "последние 12 мес.") if len(recent) >= 3 else (trips, "все годы")
+    prices = sorted(t["price"] for t in basis)
+    per_km = sorted(t["price"] / t["km"] for t in basis if t["km"])
+    estimate = None
+    if prices:
+        med = _pct(prices, 0.5)
+        estimate = {
+            "n": len(prices), "basis": basis_label,
+            "low": round(_pct(prices, 0.25)), "high": round(_pct(prices, 0.75)), "median": round(med),
+            "eur_km_hist": round(_pct(per_km, 0.5), 2) if per_km else None,
+            "eur_km_route": round(med / route_km, 2) if route_km else None,
+        }
+
+    def pub(t):
+        return {
+            "from": t["from_raw"], "to": t["to_raw"], "client": t["client"],
+            "price": round(t["price"]), "outsourced": t["outsourced"],
+            "eur_km": round(t["price"] / t["km"], 2) if t["km"] else None,
+            "date": t["date"].strftime("%d.%m.%y") if t["date"] else "", "level": t["level"],
+        }
+    return {
+        "query": f"{fcode or fcc or '?'} → {tcode or tcc or '?'}",
+        "total": len(trips), "levels": levels_used,
+        "trips": [pub(t) for t in trips[:limit]],
+        "estimate": estimate,
+    }
 
 
 def looks_like_gps_or_code(s):
@@ -2111,6 +2340,13 @@ def api_route():
             result["route_polyline"] = polyline
             result["waypoints_applied"] = any(l["waypoints_applied"] for l in legs)
 
+        # v1.29: похожие рейсы из базы фрахтов — первая погрузка -> последняя выгрузка
+        if len(points) >= 2:
+            try:
+                result["freights"] = similar_freights(points[0], points[-1], result["dist_km"])
+            except Exception as e:
+                result["freights"] = {"error": str(e)}
+
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 502
@@ -2180,6 +2416,18 @@ def api_addresses():
         "error": _addr_cache["error"],
         "loaded_at": (datetime.fromtimestamp(_addr_cache["loaded_at"], timezone.utc)
                       + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M") if _addr_cache["loaded_at"] else None,
+    })
+
+
+@app.route("/api/freights")
+def api_freights():
+    """v1.29: состояние базы фрахтов (для вкладки [.]). ?refresh=1 — перечитать сейчас."""
+    get_freights(force=request.args.get("refresh") == "1")
+    la = _frt_cache["loaded_at"]
+    return jsonify({
+        "stats": _frt_cache["stats"],
+        "error": _frt_cache["error"],
+        "loaded_at": (datetime.fromtimestamp(la, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M") if la else None,
     })
 
 

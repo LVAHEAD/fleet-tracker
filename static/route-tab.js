@@ -75,6 +75,7 @@ function clearRouteTab() {
 
   document.getElementById("route-result").hidden = true;
   document.getElementById("route-points").hidden = true;
+  document.getElementById("route-freights").hidden = true;
   document.getElementById("route-error").hidden = true;
   document.getElementById("route-legs").innerHTML = "";
   drawRouteOnMap({ points: [] });
@@ -173,6 +174,7 @@ async function calcRouteTab() {
   errorEl.hidden = true;
   resultEl.hidden = true;
   pointsEl.hidden = true;
+  document.getElementById("route-freights").hidden = true;
 
   if (froms.length === 0 && tos.length === 0) {
     errorEl.textContent = "Заполните хотя бы одно поле — From или To.";
@@ -198,6 +200,7 @@ async function calcRouteTab() {
     }
 
     renderRoutePoints(data.points || []);
+    renderFreights(data.freights);
 
     if (data.dist_km != null) {
       document.getElementById("route-dist").textContent = data.dist_km.toFixed(1);
@@ -221,6 +224,52 @@ function routeEscape(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[c]));
+}
+
+// v1.29: похожие рейсы из базы фрахтов и ориентир цены
+const FREIGHT_LEVEL_RU = { 1: "те же регионы", 2: "соседние регионы (до 150 км)", 3: "та же пара стран" };
+
+function fmtEur(n) {
+  return n == null ? "—" : `${Math.round(n).toLocaleString("ru-RU")} €`;
+}
+
+function renderFreights(f) {
+  const el = document.getElementById("route-freights");
+  if (!f) { el.hidden = true; return; }
+  if (f.error) {
+    el.innerHTML = `<div class="frt-err">База фрахтов недоступна: ${routeEscape(f.error)}</div>`;
+    el.hidden = false;
+    return;
+  }
+  if (!f.total) {
+    el.innerHTML = `<div class="frt-head">Похожие рейсы (${routeEscape(f.query)}): не найдено</div>`;
+    el.hidden = false;
+    return;
+  }
+  const levels = (f.levels || []).map((l) => FREIGHT_LEVEL_RU[l]).join(", ");
+  const rows = f.trips.map((t) => `
+    <tr>
+      <td>${routeEscape(t.from)} → ${routeEscape(t.to)}</td>
+      <td>${routeEscape(t.client)}</td>
+      <td class="num">${fmtEur(t.price)}</td>
+      <td class="num">${t.eur_km != null ? t.eur_km.toFixed(2) + " €/км" : ""}</td>
+      <td>${routeEscape(t.date)}</td>
+      <td class="frt-tag">${t.outsourced ? "аутсорс" : ""}${t.level > 1 ? ` <span title="${routeEscape(FREIGHT_LEVEL_RU[t.level])}">≈</span>` : ""}</td>
+    </tr>`).join("");
+  const e = f.estimate;
+  const est = e ? `
+    <div class="frt-est">
+      Ориентир: <b>${fmtEur(e.low)}–${fmtEur(e.high)}</b> · медиана <b>${fmtEur(e.median)}</b>
+      ${e.eur_km_route != null ? ` · <b>${e.eur_km_route.toFixed(2)} €/км</b> по этому маршруту` : ""}
+      ${e.eur_km_hist != null ? ` · ${e.eur_km_hist.toFixed(2)} €/км в истории` : ""}
+      <span class="frt-muted">(${e.n} рейсов, ${routeEscape(e.basis)})</span>
+    </div>` : "";
+  el.innerHTML = `
+    <div class="frt-head">Похожие рейсы (${routeEscape(f.query)}): ${f.total}
+      <span class="frt-muted">— ${routeEscape(levels)}${f.total > f.trips.length ? `, показаны ${f.trips.length} свежих` : ""}</span></div>
+    ${est}
+    <table class="frt-table">${rows}</table>`;
+  el.hidden = false;
 }
 
 // v1.28: у точки из адресной базы — часы работы и заметки
