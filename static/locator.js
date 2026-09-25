@@ -1,6 +1,6 @@
 /*
 Fleet ETA Tracker — Локатор (вкладка "Карты стран")
-Версия: 1.24
+Версия: 1.25 — точки рисуются одним canvas-слоем (раньше 1096 маркеров Google — тормозило)
 
 Кнопка "Локатор" вместо картинки страны показывает интерактивную Google-карту
 Европы со всеми кодами регионов (GET /api/region-codes):
@@ -30,8 +30,10 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
 
   let map = null;
   let infoWindow = null;
-  let codeMarkers = {}; // code -> Marker
-  let labelsOn = false;
+  let codes = [];          // [{code, lat, lng, place, latLng}]
+  let codeByKey = {};      // code -> объект из codes
+  let overlay = null;      // canvas-слой со всеми точками
+  let highlightCode = null;
   let resultMarker = null;
   let pendingQuery = null;
 
@@ -56,22 +58,6 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     btn.classList.remove("active");
   }
 
-  function dotIcon(code, big) {
-    return {
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: big ? 8 : 4.5,
-      fillColor: COUNTRY_COLORS[code.slice(0, 2)] || "#555",
-      fillOpacity: 0.9,
-      strokeColor: "#fff",
-      strokeWeight: big ? 2 : 1,
-      labelOrigin: new google.maps.Point(0, -3.2),
-    };
-  }
-
-  function codeLabel(code) {
-    return { text: code, fontSize: "10px", fontWeight: "600", color: "#222" };
-  }
-
   function iwHtml(c) {
     const coords = `${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`;
     return `<div class="loc-iw">
@@ -85,7 +71,103 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
 
   function openCodeInfo(c) {
     infoWindow.setContent(iwHtml(c));
-    infoWindow.open({ map, anchor: codeMarkers[c.code] });
+    infoWindow.setPosition(c.latLng);
+    infoWindow.setOptions({ pixelOffset: new google.maps.Size(0, -6) });
+    infoWindow.open(map);
+  }
+
+  // v1.25: все точки рисуются одним canvas-слоем вместо 1096 отдельных
+  // маркеров Google — иначе карта сильно тормозила при сдвиге и зуме.
+  function makeDotsOverlay() {
+    class DotsOverlay extends google.maps.OverlayView {
+      onAdd() {
+        this.canvas = document.createElement("canvas");
+        this.canvas.style.position = "absolute";
+        this.canvas.style.pointerEvents = "none";
+        this.getPanes().overlayLayer.appendChild(this.canvas);
+        this._raf = null;
+        this._listener = map.addListener("bounds_changed", () => this.scheduleDraw());
+      }
+      onRemove() {
+        google.maps.event.removeListener(this._listener);
+        this.canvas.remove();
+      }
+      scheduleDraw() {
+        if (this._raf) return;
+        this._raf = requestAnimationFrame(() => { this._raf = null; this.draw(); });
+      }
+      draw() {
+        const proj = this.getProjection();
+        const bounds = map.getBounds();
+        if (!proj || !bounds || !this.canvas) return;
+        const mapDiv = map.getDiv();
+        const w = mapDiv.clientWidth, h = mapDiv.clientHeight;
+        const ne = bounds.getNorthEast(), sw = bounds.getSouthWest();
+        const tl = proj.fromLatLngToDivPixel(new google.maps.LatLng(ne.lat(), sw.lng()));
+        const dpr = window.devicePixelRatio || 1;
+        const c = this.canvas;
+        c.style.left = `${tl.x}px`;
+        c.style.top = `${tl.y}px`;
+        c.style.width = `${w}px`;
+        c.style.height = `${h}px`;
+        if (c.width !== w * dpr || c.height !== h * dpr) { c.width = w * dpr; c.height = h * dpr; }
+        const ctx = c.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+
+        const zoom = map.getZoom();
+        const r = zoom >= 8 ? 5.5 : zoom >= 6 ? 4.5 : 3.5;
+        const labels = zoom >= LABEL_ZOOM;
+        ctx.font = "600 10px -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+
+        for (const p of codes) {
+          const px = proj.fromLatLngToDivPixel(p.latLng);
+          const x = px.x - tl.x, y = px.y - tl.y;
+          if (x < -20 || y < -20 || x > w + 20 || y > h + 20) continue;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fillStyle = COUNTRY_COLORS[p.code.slice(0, 2)] || "#555";
+          ctx.fill();
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = "#fff";
+          ctx.stroke();
+          if (labels) {
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "rgba(255,255,255,0.85)";
+            ctx.strokeText(p.code, x, y - r - 1);
+            ctx.fillStyle = "#222";
+            ctx.fillText(p.code, x, y - r - 1);
+          }
+        }
+
+        // подсвеченный код (результат поиска)
+        const hl = highlightCode && codeByKey[highlightCode];
+        if (hl) {
+          const px = proj.fromLatLngToDivPixel(hl.latLng);
+          ctx.beginPath();
+          ctx.arc(px.x - tl.x, px.y - tl.y, r + 6, 0, Math.PI * 2);
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = "#E24B4A";
+          ctx.stroke();
+        }
+      }
+      // ближайшая точка к пикселю контейнера (для клика и курсора)
+      hitTest(latLng, maxPx) {
+        const proj = this.getProjection();
+        if (!proj) return null;
+        const t = proj.fromLatLngToContainerPixel(latLng);
+        let best = null, bestD = maxPx * maxPx;
+        for (const p of codes) {
+          const q = proj.fromLatLngToContainerPixel(p.latLng);
+          const d = (q.x - t.x) ** 2 + (q.y - t.y) ** 2;
+          if (d <= bestD) { bestD = d; best = p; }
+        }
+        return best;
+      }
+    }
+    return new DotsOverlay();
   }
 
   async function initLocatorMap() {
@@ -93,6 +175,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
       center: { lat: 52, lng: 10 },
       zoom: 4,
       streetViewControl: false,
+      clickableIcons: false,
     });
     infoWindow = new google.maps.InfoWindow();
 
@@ -100,35 +183,36 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     document.getElementById("locatorMap").addEventListener("click", (e) => {
       const b = e.target.closest("button[data-copy]");
       if (!b) return;
-      const text = b.dataset.copy;
       const done = () => { b.textContent = "скопировано ✓"; };
-      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, () => {});
+      if (navigator.clipboard) navigator.clipboard.writeText(b.dataset.copy).then(done, () => {});
     });
 
     try {
       const res = await fetch("/api/region-codes");
       const data = await res.json();
-      (data.codes || []).forEach((c) => {
-        const m = new google.maps.Marker({
-          position: { lat: c.lat, lng: c.lng },
-          map: map,
-          icon: dotIcon(c.code, false),
-          title: `${c.code} — ${c.place}`,
-          optimized: true,
-        });
-        m._code = c;
-        m.addListener("click", () => openCodeInfo(c));
-        codeMarkers[c.code] = m;
-      });
+      codes = (data.codes || []).map((c) => ({ ...c, latLng: new google.maps.LatLng(c.lat, c.lng) }));
+      codes.forEach((c) => { codeByKey[c.code] = c; });
     } catch (e) {
       info.innerHTML = `<span class="loc-err">Не удалось загрузить коды регионов.</span>`;
     }
 
-    map.addListener("zoom_changed", () => {
-      const want = map.getZoom() >= LABEL_ZOOM;
-      if (want === labelsOn) return;
-      labelsOn = want;
-      Object.values(codeMarkers).forEach((m) => m.setLabel(want ? codeLabel(m._code.code) : null));
+    overlay = makeDotsOverlay();
+    overlay.setMap(map);
+
+    map.addListener("click", (e) => {
+      const p = overlay.hitTest(e.latLng, 10);
+      if (p) openCodeInfo(p);
+    });
+    // курсор-"рука" над точками (с троттлингом через rAF)
+    let moveRaf = null, lastMove = null;
+    map.addListener("mousemove", (e) => {
+      lastMove = e.latLng;
+      if (moveRaf) return;
+      moveRaf = requestAnimationFrame(() => {
+        moveRaf = null;
+        const hit = overlay.hitTest(lastMove, 10);
+        map.setOptions({ draggableCursor: hit ? "pointer" : null });
+      });
     });
 
     if (pendingQuery) {
@@ -155,7 +239,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
 
       if (resultMarker) resultMarker.setMap(null);
       resultMarker = null;
-      const codeM = codeMarkers[d.code];
+      const codeP = codeByKey[d.code];
 
       if (d.is_code) {
         info.innerHTML = `<b>${esc(d.code)}</b> — ${esc(d.code_place)}`;
@@ -173,11 +257,9 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
 
       map.setZoom(8);
       map.panTo({ lat: d.lat, lng: d.lng });
-      if (codeM) {
-        codeM.setIcon(dotIcon(d.code, true));
-        setTimeout(() => codeM.setIcon(dotIcon(d.code, false)), 4000);
-        openCodeInfo(codeM._code);
-      }
+      highlightCode = d.code;
+      if (overlay) overlay.scheduleDraw();
+      if (codeP) openCodeInfo(codeP);
     } catch (e) {
       info.innerHTML = `<span class="loc-err">Ошибка запроса. Попробуйте ещё раз.</span>`;
     }
