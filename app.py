@@ -1,8 +1,24 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.20
+Версия: 1.21
 
 История изменений:
+1.21 (2026-09-25) — фикс ошибки 'distanceMeters' у машин рядом с таргетом:
+    - когда машина стоит вплотную к таргету (расстояние ~0), Routes API не
+      возвращал поле distanceMeters, и в статусе показывалась сырая ошибка
+      'distanceMeters'; теперь отсутствующее поле трактуется как 0 → "0.0 км"
+    - вкладка "Флот": фиксированные ширины колонок (table-layout: fixed):
+      Машина 100, Статус 130, Таргет 200, Delivery 170, Осталось км 75, ETA 75,
+      Примечание — остаток, кнопки 132 px
+    - статус строго в две строки: "едет 2ч 24мин" не переносится, скорость — второй строкой
+    - кнопка L/O перед полем Таргет (пусто → L → O → пусто), сохраняется в
+      localStorage вместе со строкой (поле lo):
+        L — погрузка: кнопка бледно-синяя, флажок таргета на карте синий,
+            подсказка Delivery "окно погрузки"
+        O — выгрузка: кнопка бледно-жёлтая, флажок жёлто-горчичный,
+            подсказка Delivery "окно доставки"
+        без отметки — как раньше (зелёный флажок, "дата, время")
+
 1.20 (2026-09-25) — компактные вкладки стран (без скролла):
     - список стран на вкладке "Карты стран" был вертикальным со скроллом —
       заменён на горизontальный ряд коротких кнопок с кодом страны (AT, DE,
@@ -168,7 +184,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.20"
+APP_VERSION = "1.21"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1424,7 +1440,9 @@ def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None):
     if "routes" not in data or not data["routes"]:
         raise RuntimeError(f"Routes API вернул пустой ответ: {data}")
     route = data["routes"][0]
-    distance_km = route["distanceMeters"] / 1000
+    # Если точки совпадают или стоят вплотную, Routes API может опустить
+    # distanceMeters (поле с нулевым значением в ответе не передаётся) — считаем 0.
+    distance_km = route.get("distanceMeters", 0) / 1000
     polyline = route.get("polyline", {}).get("encodedPolyline")
     return distance_km, polyline
 

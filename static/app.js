@@ -1,10 +1,11 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.13 (вкладки: Флот / Карты стран / From → To; переключение вкладок и
-флаг googleMapsReady для ленивой инициализации карты во вкладке From → To)
+Версия: 1.21 (кнопка L/O перед Таргетом: погрузка / выгрузка — цвет кнопки,
+цвет флажка таргета на карте и подсказка в поле Delivery; статус строго в две строки)
 
 Хранение состояния: localStorage браузера (ключ "fleet-rows"), переживает
-закрытие вкладки. Каждая строка: { id, unit, target, delivery, note }.
+закрытие вкладки. Каждая строка: { id, unit, lo, target, delivery, note },
+lo — "" | "L" (погрузка) | "O" (выгрузка). У старых строк поля lo нет — считается "".
 Статус/км/ETA не хранятся — пересчитываются заново при каждом обновлении.
 */
 
@@ -97,10 +98,24 @@ function centerMapOn(rowId) {
   }
 }
 
-function flagIcon() {
+// Цвета флажка таргета: L — погрузка (синий), O — выгрузка (жёлто-горчичный),
+// без отметки — зелёный, как было. На карте цвета насыщеннее, чем бледные кнопки
+// в таблице, иначе маркер теряется на фоне.
+const TARGET_COLORS = {
+  "":  { fill: "#1D9E75", stroke: "#2E7D46", label: "#2E7D46" },
+  "L": { fill: "#4A90D9", stroke: "#1F5A99", label: "#1F5A99" },
+  "O": { fill: "#E0B000", stroke: "#7A5C00", label: "#7A5C00" },
+};
+
+function targetColors(lo) {
+  return TARGET_COLORS[lo || ""] || TARGET_COLORS[""];
+}
+
+function flagIcon(lo) {
+  const c = targetColors(lo);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="30">
-    <line x1="4" y1="2" x2="4" y2="28" stroke="#2E7D46" stroke-width="2.5"/>
-    <path d="M4,3 L22,8 L4,13 Z" fill="#1D9E75" stroke="#2E7D46" stroke-width="1"/>
+    <line x1="4" y1="2" x2="4" y2="28" stroke="${c.stroke}" stroke-width="2.5"/>
+    <path d="M4,3 L22,8 L4,13 Z" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1"/>
   </svg>`;
   return {
     url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
@@ -110,22 +125,35 @@ function flagIcon() {
   };
 }
 
-function updateTargetMarker(rowId, lat, lng, label) {
+function targetLabel(label, lo) {
+  return { text: label || "", fontSize: "12px", fontWeight: "600", color: targetColors(lo).label };
+}
+
+function updateTargetMarker(rowId, lat, lng, label, lo) {
   if (lat == null || lng == null) return;
   if (!map) return; // таргет-маркер не критичен при ранней загрузке, пропускаем
   const pos = { lat, lng };
   if (targetMarkers[rowId]) {
     targetMarkers[rowId].setPosition(pos);
-    targetMarkers[rowId].setLabel({ text: label || "", fontSize: "12px", fontWeight: "600", color: "#2E7D46" });
+    targetMarkers[rowId].setLabel(targetLabel(label, lo));
+    targetMarkers[rowId].setIcon(flagIcon(lo));
   } else {
     targetMarkers[rowId] = new google.maps.Marker({
       position: pos,
       map: map,
-      icon: flagIcon(),
-      label: { text: label || "", fontSize: "12px", fontWeight: "600", color: "#2E7D46" },
+      icon: flagIcon(lo),
+      label: targetLabel(label, lo),
       title: `Таргет: ${label || ""}`,
     });
   }
+}
+
+// Перекрасить уже стоящий флажок без пересчёта маршрута (после клика по L/O)
+function recolorTargetMarker(rowId, label, lo) {
+  const m = targetMarkers[rowId];
+  if (!m) return;
+  m.setIcon(flagIcon(lo));
+  m.setLabel(targetLabel(label, lo));
 }
 
 function removeTargetMarker(rowId) {
@@ -197,7 +225,7 @@ function saveRows() {
 }
 
 function emptyRow() {
-  return { id: rowIdCounter++, unit: "", target: "", delivery: "", note: "" };
+  return { id: rowIdCounter++, unit: "", lo: "", target: "", delivery: "", note: "" };
 }
 
 async function loadUnitsList() {
@@ -235,8 +263,13 @@ function renderRows() {
     tr.innerHTML = `
       <td><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" placeholder="номер" /></td>
       <td class="status-cell ${statusClass}">${statusHtml}</td>
-      <td><input class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" placeholder="ГПС, город или код" /></td>
-      <td><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" placeholder="дата, время" /></td>
+      <td>
+        <div class="target-wrap">
+          <button class="lo-btn ${loClass(row.lo)}" title="${loTitle(row.lo)}">${loText(row.lo)}</button>
+          <input class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" placeholder="ГПС, город или код" />
+        </div>
+      </td>
+      <td><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" placeholder="${deliveryPlaceholder(row.lo)}" /></td>
       <td class="dist-cell ${distMuted}" style="text-align:right">${distHtml}</td>
       <td class="eta-cell ${etaMuted}">${etaHtml}</td>
       <td><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" placeholder="примечание" /></td>
@@ -249,6 +282,22 @@ function renderRows() {
     tbody.appendChild(tr);
   });
   attachRowHandlers();
+}
+
+// --- L/O: погрузка / выгрузка ---
+const LO_CYCLE = { "": "L", "L": "O", "O": "" }; // пусто → L → O → пусто
+
+function loText(lo)  { return lo === "L" ? "L" : lo === "O" ? "O" : "L/O"; }
+function loClass(lo) { return lo === "L" ? "lo-L" : lo === "O" ? "lo-O" : ""; }
+function loTitle(lo) {
+  if (lo === "L") return "Погрузка (клик — сменить на выгрузку)";
+  if (lo === "O") return "Выгрузка (клик — снять отметку)";
+  return "Отметить таргет как погрузку (L) или выгрузку (O)";
+}
+function deliveryPlaceholder(lo) {
+  if (lo === "L") return "окно погрузки";
+  if (lo === "O") return "окно доставки";
+  return "дата, время";
 }
 
 function escapeHtml(s) {
@@ -272,6 +321,20 @@ function attachRowHandlers() {
     });
     tr.querySelector(".note-input").addEventListener("change", (e) => {
       updateRowField(id, "note", e.target.value);
+    });
+
+    tr.querySelector(".lo-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const row = rows.find((r) => r.id === id);
+      if (!row) return;
+      row.lo = LO_CYCLE[row.lo || ""];
+      saveRows();
+      const btn = e.currentTarget;
+      btn.className = `lo-btn ${loClass(row.lo)}`;
+      btn.textContent = loText(row.lo);
+      btn.title = loTitle(row.lo);
+      tr.querySelector(".delivery-input").placeholder = deliveryPlaceholder(row.lo);
+      recolorTargetMarker(id, row.unit, row.lo);
     });
 
     tr.querySelector(".refresh-row-btn").addEventListener("click", (e) => {
@@ -350,9 +413,10 @@ async function calcRow(id) {
     const statusLine2 = data.status === "driving" && data.speed != null
       ? escapeHtml(`${Math.round(data.speed)} км/ч`)
       : "";
+    // Каждая строка статуса — в своём nowrap-блоке: максимум две строки
     const statusHtml = statusLine2
-      ? `${statusLine1}<br>${statusLine2}`
-      : statusLine1;
+      ? `<div class="status-line">${statusLine1}</div><div class="status-line">${statusLine2}</div>`
+      : `<div class="status-line">${statusLine1}</div>`;
     const statusClass = data.status === "driving" ? "status-driving" : "status-standing";
 
     statusCell.innerHTML = statusHtml;
@@ -385,7 +449,7 @@ async function calcRow(id) {
       };
 
       if (data.target_lat != null && data.target_lng != null) {
-        updateTargetMarker(id, data.target_lat, data.target_lng, row.unit);
+        updateTargetMarker(id, data.target_lat, data.target_lng, row.unit, row.lo);
       } else {
         removeTargetMarker(id);
       }

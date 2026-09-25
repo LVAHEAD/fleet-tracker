@@ -175,3 +175,35 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .route-error { color: #c0392b; margin-bottom: 14px; font-size: 14px; }
 #route-map { height: 420px; width: 100%; border-radius: 8px; border: 1px solid #e0e0e0; background: #eee; }
 .route-waypoint-note { color: #7a5c00; font-size: 12px; margin-top: 4px; }
+
+/* ---------- v1.21: фиксированные ширины колонок таблицы "Флот" ---------- */
+#fleet-table { table-layout: fixed; }
+#fleet-table .col-unit     { width: 100px; }
+#fleet-table .col-status   { width: 130px; }
+#fleet-table .col-target   { width: 200px; }
+#fleet-table .col-delivery { width: 170px; }
+#fleet-table .col-dist     { width: 75px; }
+#fleet-table .col-eta      { width: 75px; }
+/* .col-note — без ширины: получает всё оставшееся место */
+#fleet-table .col-actions  { width: 132px; }
+#fleet-table td input { min-width: 0; }
+
+/* Статус — строго две строки: "едет 2ч 24мин" не переносится, скорость — второй строкой */
+.status-line { white-space: nowrap; }
+
+/* ---------- v1.21: кнопка L/O (погрузка / выгрузка) перед полем Таргет ---------- */
+.target-wrap { display: flex; align-items: center; gap: 4px; }
+.target-wrap .target-input { flex: 1; }
+.lo-btn {
+  flex: 0 0 30px;
+  height: 28px;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 4px;
+  color: #aaa;
+}
+.lo-btn.lo-L { background: #DCEBFB; border-color: #A9CBEF; color: #1F5A99; }
+.lo-btn.lo-O { background: #FFF4C2; border-color: #EBD37A; color: #7A5C00; }
+.lo-btn.lo-L:hover { background: #cde0f7; }
+.lo-btn.lo-O:hover { background: #fbeca8; }
