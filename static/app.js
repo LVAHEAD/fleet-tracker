@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.28 (адресная база: подсказки points-list, L/O из Type, цвета port/customs/misc).
+Версия: 1.30 (плашки машин и таргетов на карте, стрелка курса).
+Ранее 1.28 (адресная база: подсказки points-list, L/O из Type, цвета port/customs/misc).
 Ранее 1.23 (Таргет может быть номером другой машины — перецеп; подсказки номеров в Таргет).
 Ранее 1.22 (подсветка всей строки по L/O, кроме ячейки Статус).
 Ранее 1.21 (кнопка L/O перед Таргетом: погрузка / выгрузка — цвет кнопки,
@@ -39,7 +40,7 @@ function initMap() {
 
   Object.keys(pendingPositions).forEach((rowId) => {
     const p = pendingPositions[rowId];
-    updateMarker(Number(rowId), p.lat, p.lng, p.label, p.status);
+    updateMarker(Number(rowId), p.lat, p.lng, p.label, p.status, p.heading);
   });
   pendingPositions = {};
 
@@ -49,43 +50,105 @@ function initMap() {
   window._gmQueue = [];
 }
 
-function updateMarker(rowId, lat, lng, label, status) {
+// --- v1.30: плашки на карте (как в Mapon) — HTML-слой поверх карты ---
+// Плашка ставится над точкой lat/lng: низ плашки (с указателем) — на offsetY px выше точки.
+let BadgeOverlayClass = null;
+function makeBadge(lat, lng, html, className, offsetY, onClick) {
+  if (!BadgeOverlayClass) {
+    BadgeOverlayClass = class extends google.maps.OverlayView {
+      constructor(pos, html, cls, off, click) {
+        super();
+        this.pos = pos; this.html = html; this.cls = cls; this.off = off; this.click = click;
+      }
+      onAdd() {
+        this.div = document.createElement("div");
+        this.div.className = this.cls;
+        this.div.innerHTML = this.html;
+        this.div.style.position = "absolute";
+        if (this.click) {
+          this.div.style.cursor = "pointer";
+          this.div.addEventListener("click", (e) => { e.stopPropagation(); this.click(); });
+        }
+        this.getPanes().overlayMouseTarget.appendChild(this.div);
+      }
+      draw() {
+        const p = this.getProjection() && this.getProjection().fromLatLngToDivPixel(this.pos);
+        if (!p || !this.div) return;
+        this.div.style.left = `${p.x}px`;
+        this.div.style.top = `${p.y - this.off}px`;
+      }
+      onRemove() { if (this.div) this.div.remove(); this.div = null; }
+      update(pos, html, cls) {
+        this.pos = pos;
+        if (this.div) { this.div.innerHTML = html; this.div.className = cls; }
+        this.html = html; this.cls = cls;
+        this.draw();
+      }
+      getPosition() { return this.pos; }
+    };
+  }
+  const o = new BadgeOverlayClass(new google.maps.LatLng(lat, lng), html, className, offsetY, onClick);
+  o.setMap(map);
+  return o;
+}
+
+const truckBadges = {}; // rowId -> BadgeOverlay (плашка с номером)
+const lastTruckPos = {}; // rowId -> {lat, lng} — для курса, если Mapon его не отдал
+
+function bearingDeg(a, b) {
+  const toR = (d) => (d * Math.PI) / 180;
+  const y = Math.sin(toR(b.lng - a.lng)) * Math.cos(toR(b.lat));
+  const x = Math.cos(toR(a.lat)) * Math.sin(toR(b.lat)) -
+            Math.sin(toR(a.lat)) * Math.cos(toR(b.lat)) * Math.cos(toR(b.lng - a.lng));
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+function truckBadgeHtml(label, status, heading) {
+  const arrow = status === "driving" && heading != null
+    ? `<span class="mk-arrow" style="transform: rotate(${Math.round(heading)}deg)">↑</span>` : "";
+  return `${escapeHtml(label || "")}${arrow}`;
+}
+
+function updateMarker(rowId, lat, lng, label, status, heading) {
   if (lat == null || lng == null) return;
   if (!map) {
-    pendingPositions[rowId] = { lat, lng, label, status };
+    pendingPositions[rowId] = { lat, lng, label, status, heading };
     return;
   }
+  // курс: из Mapon, иначе по двум последним позициям (если сдвинулась заметно)
+  if (heading == null && lastTruckPos[rowId]) {
+    const prev = lastTruckPos[rowId];
+    if (Math.abs(prev.lat - lat) + Math.abs(prev.lng - lng) > 0.003) heading = bearingDeg(prev, { lat, lng });
+    else heading = prev.heading;
+  }
+  lastTruckPos[rowId] = { lat, lng, heading };
+
   const pos = { lat, lng };
   const icon = markerIcon(status);
   if (markers[rowId]) {
     markers[rowId].setPosition(pos);
-    markers[rowId].setLabel(labelOpts(label, status));
     markers[rowId].setIcon(icon);
+    markers[rowId].setTitle(label || "");
   } else {
-    markers[rowId] = new google.maps.Marker({
-      position: pos,
-      map: map,
-      icon: icon,
-      label: labelOpts(label, status),
-      title: label,
-    });
-    markers[rowId].addListener("click", () => {
-      map.panTo(pos);
-      map.setZoom(9);
-    });
+    markers[rowId] = new google.maps.Marker({ position: pos, map: map, icon: icon, title: label, zIndex: 20 });
+    markers[rowId].addListener("click", () => { map.panTo(markers[rowId].getPosition()); map.setZoom(9); });
   }
+  const cls = `mk-badge ${status === "driving" ? "mk-driving" : "mk-standing"}`;
+  const html = truckBadgeHtml(label, status, heading);
+  if (truckBadges[rowId]) truckBadges[rowId].update(new google.maps.LatLng(lat, lng), html, cls);
+  else truckBadges[rowId] = makeBadge(lat, lng, html, cls, 11, () => { map.panTo(pos); map.setZoom(9); });
 }
 
 function markerIcon(status) {
+  // v1.30: маленькая точка в позиции машины; номер — на плашке над ней
   const fill = status === "driving" ? "#1D9E75" : "#E24B4A"; // едет — зелёный, стоит — красный
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">
-    <circle cx="13" cy="13" r="10" fill="${fill}" stroke="white" stroke-width="2"/>
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14">
+    <circle cx="7" cy="7" r="5" fill="${fill}" stroke="white" stroke-width="2"/>
   </svg>`;
   return {
     url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
-    scaledSize: new google.maps.Size(26, 26),
-    anchor: new google.maps.Point(13, 13),
-    labelOrigin: new google.maps.Point(13, -8),
+    scaledSize: new google.maps.Size(14, 14),
+    anchor: new google.maps.Point(7, 7),
   };
 }
 
@@ -99,6 +162,11 @@ function removeMarker(rowId) {
     markers[rowId].setMap(null);
     delete markers[rowId];
   }
+  if (truckBadges[rowId]) {
+    truckBadges[rowId].setMap(null);
+    delete truckBadges[rowId];
+  }
+  delete lastTruckPos[rowId];
 }
 
 function centerMapOn(rowId) {
@@ -149,23 +217,45 @@ function targetLabel(label, lo) {
   return { text: label || "", fontSize: "12px", fontWeight: "600", color: targetColors(lo).label };
 }
 
+// v1.30: подпись таргета — белая плашка с рамкой цвета L/O над флажком
+const targetBadges = {}; // rowId -> BadgeOverlay
+function targetBadgeParts(label, lo) {
+  const c = targetColors(lo);
+  const text = String(label || "").includes("→") ? label : `→ ${label || ""}`;
+  return {
+    html: `<span style="color:${c.label}">${escapeHtml(text)}</span>`,
+    cls: "mk-tbadge",
+    border: c.fill,
+  };
+}
+
+function setTargetBadge(rowId, lat, lng, label, lo) {
+  const t = targetBadgeParts(label, lo);
+  if (targetBadges[rowId]) targetBadges[rowId].update(new google.maps.LatLng(lat, lng), t.html, t.cls);
+  else targetBadges[rowId] = makeBadge(lat, lng, t.html, t.cls, 34, null);
+  const b = targetBadges[rowId];
+  const applyBorder = () => { if (b.div) b.div.style.borderColor = t.border; };
+  applyBorder();
+  setTimeout(applyBorder, 0); // div создаётся в onAdd — после setMap
+}
+
 function updateTargetMarker(rowId, lat, lng, label, lo) {
   if (lat == null || lng == null) return;
   if (!map) return; // таргет-маркер не критичен при ранней загрузке, пропускаем
   const pos = { lat, lng };
   if (targetMarkers[rowId]) {
     targetMarkers[rowId].setPosition(pos);
-    targetMarkers[rowId].setLabel(targetLabel(label, lo));
     targetMarkers[rowId].setIcon(flagIcon(lo));
   } else {
     targetMarkers[rowId] = new google.maps.Marker({
       position: pos,
       map: map,
       icon: flagIcon(lo),
-      label: targetLabel(label, lo),
       title: `Таргет: ${label || ""}`,
     });
   }
+  targetMarkers[rowId]._label = label;
+  setTargetBadge(rowId, lat, lng, label, lo);
 }
 
 // Перекрасить уже стоящий флажок без пересчёта маршрута (после клика по L/O)
@@ -173,13 +263,18 @@ function recolorTargetMarker(rowId, label, lo) {
   const m = targetMarkers[rowId];
   if (!m) return;
   m.setIcon(flagIcon(lo));
-  m.setLabel(targetLabel(label, lo));
+  const p = m.getPosition();
+  setTargetBadge(rowId, p.lat(), p.lng(), m._label || label, lo);
 }
 
 function removeTargetMarker(rowId) {
   if (targetMarkers[rowId]) {
     targetMarkers[rowId].setMap(null);
     delete targetMarkers[rowId];
+  }
+  if (targetBadges[rowId]) {
+    targetBadges[rowId].setMap(null);
+    delete targetBadges[rowId];
   }
 }
 
@@ -521,7 +616,7 @@ async function calcRow(id) {
     lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText };
 
     if (data.unit_lat != null && data.unit_lng != null) {
-      updateMarker(id, data.unit_lat, data.unit_lng, data.number, data.status);
+      updateMarker(id, data.unit_lat, data.unit_lng, data.number, data.status, data.direction);
       rowPositions[id] = {
         unitLat: data.unit_lat,
         unitLng: data.unit_lng,

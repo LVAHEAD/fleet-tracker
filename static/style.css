@@ -311,3 +311,22 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .frt-table td.num { text-align: right; }
 .frt-tag { color: #7a5c00; font-size: 12px; }
 .frt-err { color: #c0392b; }
+
+/* ---------- v1.30: плашки на карте (как в Mapon) ---------- */
+.mk-badge, .mk-tbadge {
+  transform: translate(-50%, -100%);
+  white-space: nowrap; font: 600 12px/1 -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  padding: 5px 7px; border-radius: 6px; user-select: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.mk-badge { color: #fff; border: 1.5px solid #fff; }
+.mk-badge::after {
+  content: ""; position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%);
+  border: 6px solid transparent; border-bottom: 0; border-top-color: inherit;
+}
+.mk-driving  { background: #1D9E75; }
+.mk-standing { background: #E24B4A; }
+.mk-badge.mk-driving::after  { border-top-color: #1D9E75; }
+.mk-badge.mk-standing::after { border-top-color: #E24B4A; }
+.mk-badge .mk-arrow { display: inline-block; margin-left: 5px; font-size: 13px; line-height: 1; }
+.mk-tbadge { background: #fff; border: 2px solid #1D9E75; padding: 4px 7px; }

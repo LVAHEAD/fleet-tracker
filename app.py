@@ -1,8 +1,17 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.29
+Версия: 1.30
 
 История изменений:
+1.30 (2026-09-25) — маркеры на карте как в Mapon:
+    - машина: плашка цвета статуса (зелёная — едет, красная — стоит) с белым
+      номером и белой обводкой, под ней указатель и точка в позиции машины
+    - у едущей машины стрелка по курсу (direction/course из Mapon; если нет —
+      по двум последним позициям)
+    - таргет: флажок цвета L/O + белая плашка с рамкой того же цвета
+      ("→ OI-4310", для перецепа "OI-4310 → OI-3044")
+    - плашки — HTML-слой поверх карты (OverlayView), чёткий шрифт
+
 1.29 (2026-09-25) — похожие рейсы и ориентир цены из базы фрахтов:
     - лист "Фрахты" читается как адреса (кеш 10 минут, UNFORMATTED_VALUE)
     - разбор: "3xES30" -> ES30, "ES30+ES04" -> первый (погрузка) / последний
@@ -277,7 +286,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.29"
+APP_VERSION = "1.30"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -2212,6 +2221,9 @@ def api_calc():
             "status_ru": STATUS_RU.get(status_name, status_name),
             "duration_str": format_duration(duration_sec),
             "speed": unit.get("speed"),
+            # v1.30: курс (градусы) для стрелки на плашке, если Mapon его отдаёт
+            "direction": next((unit.get(k) for k in ("direction", "course", "heading", "angle")
+                               if isinstance(unit.get(k), (int, float))), None),
             "last_update": unit.get("last_update"),
             "unit_lat": unit.get("lat"),
             "unit_lng": unit.get("lng"),
