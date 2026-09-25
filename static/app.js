@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.12 (подсветка статуса, ETA dd/mm HH:mm, статус в две строки)
+Версия: 1.13 (вкладки: Флот / Карты стран / From → To; переключение вкладок и
+флаг googleMapsReady для ленивой инициализации карты во вкладке From → To)
 
 Хранение состояния: localStorage браузера (ключ "fleet-rows"), переживает
 закрытие вкладки. Каждая строка: { id, unit, target, delivery, note }.
@@ -10,7 +11,7 @@ Fleet ETA Tracker — фронтенд
 const STORAGE_KEY = "fleet-rows";
 let rows = [];
 let unitsCache = [];
-let lastCalcText = {}; // rowId -> {status, dist, eta} — чтобы renderRows не стирал уже посчитанное
+let lastCalcText = {}; // rowId -> {status, statusClass, dist, eta} — чтобы renderRows не стирал уже посчитанное
 
 // --- Карта ---
 let map = null;
@@ -31,6 +32,9 @@ function initMap() {
     updateMarker(Number(rowId), p.lat, p.lng, p.label, p.status);
   });
   pendingPositions = {};
+
+  window.googleMapsReady = true;
+  if (window.onGoogleMapsReady) window.onGoogleMapsReady();
 }
 
 function updateMarker(rowId, lat, lng, label, status) {
@@ -174,8 +178,8 @@ function loadRows() {
     rows = [];
   }
   // Счётчик id должен продолжаться после максимального загруженного id,
-  // иначе новая строка может получить id, совпадающий с уже существующей
-  // (например, оба — 1), и тогда правки/удаление начинают путать строки.
+  // иначе новая строка может получить id, совпадающий с уже существующей,
+  // и тогда правки/удаление начинают путать строки.
   const maxId = rows.reduce((max, r) => (r.id > max ? r.id : max), 0);
   rowIdCounter = maxId + 1;
 
@@ -404,6 +408,31 @@ document.getElementById("add-row-btn").addEventListener("click", () => {
 });
 
 document.getElementById("refresh-btn").addEventListener("click", calcAllRows);
+
+// --- Переключение вкладок (Флот / Карты стран / From → To) ---
+let routeTabShown = false;
+document.querySelectorAll(".main-tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".main-tab-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    const target = btn.dataset.tab;
+    document.querySelectorAll(".tab-panel").forEach((panel) => {
+      panel.hidden = panel.id !== `tab-${target}`;
+    });
+
+    if (target === "route" && !routeTabShown) {
+      routeTabShown = true;
+      if (window.googleMapsReady && window.initRouteTab) {
+        window.initRouteTab();
+      } else {
+        window.onGoogleMapsReady = () => { if (window.initRouteTab) window.initRouteTab(); };
+      }
+    } else if (target === "route" && window.google && window.routeMap) {
+      google.maps.event.trigger(window.routeMap, "resize");
+    }
+  });
+});
 
 loadRows();
 renderRows();

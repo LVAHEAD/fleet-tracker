@@ -97,3 +97,91 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
   font-size: 11px;
   color: #bbb;
 }
+
+/* ===== Вкладки (главная навигация) ===== */
+.main-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+.main-tab-btn {
+  border: none;
+  background: transparent;
+  padding: 8px 14px;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.main-tab-btn.active {
+  color: #1a1a1a;
+  font-weight: 600;
+  border-bottom-color: #4285F4;
+}
+.tab-panel[hidden] { display: none; }
+
+/* ===== Вкладка: Карты стран ===== */
+.pc-layout { display: flex; gap: 14px; align-items: flex-start; }
+.pc-tabs {
+  flex: none; width: 170px; display: flex; flex-direction: column; gap: 5px;
+  max-height: 480px; overflow-y: auto;
+}
+.pc-tab {
+  display: flex; align-items: center; gap: 8px; text-align: left;
+  border: 1px solid #ddd; background: #fff; color: #1a1a1a;
+  border-radius: 6px; padding: 6px 10px 6px 6px; cursor: pointer;
+  font-size: 14px;
+}
+.pc-tab[aria-selected="true"] { background: #4285F4; color: #fff; border-color: #4285F4; }
+.pc-code {
+  display: inline-grid; place-items: center; min-width: 30px; height: 24px;
+  border-radius: 4px; border: 1.5px solid currentColor;
+  font-weight: 700; font-size: 13px;
+}
+.pc-main {
+  flex: 1; min-width: 0; background: #fff; border: 1px solid #e0e0e0;
+  border-radius: 8px; display: flex; flex-direction: column; min-height: 480px;
+}
+.pc-toolbar {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-bottom: 1px solid #e0e0e0;
+}
+.pc-toolbar h2 { margin: 0 auto 0 0; font-size: 16px; font-weight: 600; }
+.pc-toolbar button, .pc-toolbar a {
+  border: 1px solid #ddd; background: transparent; color: #1a1a1a;
+  border-radius: 6px; padding: 5px 10px; font-size: 13px; cursor: pointer; text-decoration: none;
+}
+.pc-viewer { flex: 1; overflow: auto; display: grid; place-items: center; padding: 12px; }
+.pc-viewer img { display: block; max-width: 100%; max-height: 460px; object-fit: contain; cursor: zoom-in; background: #fff; }
+.pc-viewer.pc-zoomed { place-items: start; }
+.pc-viewer.pc-zoomed img { max-width: none; max-height: none; cursor: zoom-out; }
+.pc-zones { width: 100%; max-width: 480px; align-self: start; }
+.pc-zones-note { color: #888; margin: 4px 0 10px; font-size: 14px; }
+.pc-zones table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.pc-zones th, .pc-zones td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #eee; }
+.pc-zones th { font-size: 13px; color: #888; font-weight: 600; }
+.pc-zones td:first-child { font-weight: 700; color: #4285F4; white-space: nowrap; width: 80px; }
+.pc-status { color: #888; text-align: center; padding: 24px; }
+
+@media (max-width: 600px) {
+  .pc-layout { flex-direction: column; }
+  .pc-tabs { width: auto; flex-direction: row; overflow-x: auto; overflow-y: visible; }
+}
+
+/* ===== Вкладка: From → To ===== */
+.route-form {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;
+}
+.route-form input {
+  border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; font-size: 14px; width: 160px;
+}
+.route-arrow { color: #888; }
+.route-note { color: #888; font-size: 13px; margin: 0 0 14px; }
+.route-result {
+  background: #f5f7fa; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px;
+}
+.route-result-row { margin: 3px 0; }
+.route-error { color: #c0392b; margin-bottom: 14px; font-size: 14px; }
+#route-map { height: 420px; width: 100%; border-radius: 8px; border: 1px solid #e0e0e0; background: #eee; }

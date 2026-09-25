@@ -1,22 +1,22 @@
 # Деплой на Cloud Run
 
-## 1. Установите gcloud (если ещё нет)
-https://cloud.google.com/sdk/docs/install — или используйте Cloud Shell
-прямо в браузере (console.cloud.google.com → иконка терминала справа
-вверху), там gcloud уже есть.
+## Автодеплой (текущий способ)
 
-## 2. Выберите проект
+Подключён Continuous Deployment через Cloud Build к репозиторию
+`LVAHEAD/fleet-tracker` (ветка `main`). Весь процесс:
+
 ```bash
-gcloud config set project my-n8n-bot-496614
+git add .
+git commit -m "описание изменений"
+git push
 ```
 
-## 3. Распакуйте fleet-tracker.zip и перейдите в папку
-```bash
-unzip fleet-tracker.zip
-cd fleet-tracker
-```
+Cloud Build сам соберёт и выкатит новую версию на тот же URL, обычно
+за 1-2 минуты. Прогресс можно смотреть в Cloud Run → fleet-eta-tracker →
+вкладка Source.
 
-## 4. Разверните одной командой
+## Ручной деплой (запасной вариант, без git)
+
 ```bash
 gcloud run deploy fleet-eta-tracker \
   --source . \
@@ -25,37 +25,26 @@ gcloud run deploy fleet-eta-tracker \
   --set-env-vars MAPON_API_KEY=ваш_mapon_ключ,GOOGLE_API_KEY=ваш_google_ключ,HEAD_TRUCK_GROUP_ID=62269
 ```
 
-Первый деплой займёт пару минут (Cloud Run сам соберёт контейнер из
-requirements.txt + Procfile через buildpack — Dockerfile не нужен).
-В конце в терминале появится ссылка на сервис — по ней и открывается
-таблица.
+## Переменные окружения
 
-## Обновление после правок кода
-Та же команда `gcloud run deploy ...` — Cloud Run пересоберёт и
-выкатит новую версию по тому же URL.
+Заданы один раз в самом сервисе Cloud Run и сохраняются между
+деплоями (автодеплой их не трогает):
+- `MAPON_API_KEY`
+- `GOOGLE_API_KEY` — используется и для Routes API (сервер), и для
+  Maps JavaScript API (браузер)
+- `HEAD_TRUCK_GROUP_ID` (по умолчанию 62269)
 
-## Про ключи (важно)
-Через `--set-env-vars` ключи попадают в переменные окружения — рабочий
-вариант для старта, но их видно всем, кто может смотреть на настройки
-сервиса в консоли. Позже стоит перенести на **Secret Manager**:
+## Ограничения текущей версии (v1.12)
+- Коды регионов (NO01, SE25 и т.п.) работают — справочник зашит в код
+  (1096 записей из GPS_Codes.xlsx)
+- Карта и маршрут (через Routes API) работают
+- Состояние таблицы — localStorage браузера, не общее между устройствами
+- Delivery vs ETA — пока просто два независимых поля, без сравнения
+  "успевает/не успевает"
 
-```bash
-echo -n "ваш_mapon_ключ" | gcloud secrets create mapon-api-key --data-file=-
-echo -n "ваш_google_ключ" | gcloud secrets create google-api-key --data-file=-
-
-gcloud run deploy fleet-eta-tracker \
-  --source . \
-  --region europe-west1 \
-  --allow-unauthenticated \
-  --set-secrets MAPON_API_KEY=mapon-api-key:latest,GOOGLE_API_KEY=google-api-key:latest \
-  --set-env-vars HEAD_TRUCK_GROUP_ID=62269
-```
-
-## Ограничения текущей версии (v1.0)
-- Карта пока не реализована (отдельная задача на потом)
-- Коды регионов (NO01, SE25 и т.п.) пока не работают — таргет принимает
-  только GPS-координаты и названия городов; справочник кодов добавим,
-  когда пришлёте таблицу
-- Состояние таблицы хранится в localStorage браузера — то есть
-  привязано к конкретному браузеру/устройству, не общее между
-  несколькими людьми
+## Отложено (пробовали, откатили)
+Многопользовательский режим с входом через Google и хранением строк в
+Firestore — код был написан (v2.01), но решили пока не вводить.
+Если понадобится вернуться — потребуется заново: создать базу Firestore,
+дать сервису права roles/datastore.user, настроить OAuth consent screen
+и создать OAuth Client ID.

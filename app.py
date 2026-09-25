@@ -1,8 +1,21 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.12
+Версия: 1.13
 
 История изменений:
+1.13 (2026-09-25) — вкладки "Карты стран" и "From → To":
+    - интерфейс разбит на три вкладки: Флот (прежняя таблица), Карты стран
+      (почтовые зоны по странам, картинки с Wikimedia + таблица зон для
+      Норвегии, где картинки в этой серии нет), From → To (расчёт)
+    - /api/route (POST {"from": "ES30", "to": "SE25"}) — оба поля принимают
+      GPS/город/код региона (переиспользует resolve_target); возвращает
+      расстояние по дорогам, время в пути (70 км/ч) и полилинию маршрута
+    - маршрут рисуется на отдельной карте той же логикой, что и во вкладке
+      Флот (Routes API polyline, без легаси Directions)
+    - TODO: обход Швейцарии для маршрутов Италия↔Бенелюкс — решили делать
+      "всегда", но правило (когда именно подставлять waypoint) ещё не
+      реализовано — сейчас маршрут строится как есть, без объезда
+
 1.12 (2026-09-24) — визуальные правки статуса и ETA:
     - ETA в формате dd/mm HH:mm (без года) вместо dd.mm.yyyy HH:mm
     - ячейка "Статус" подсвечивается фоном: бледно-зелёный при "едет",
@@ -96,7 +109,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.12"
+APP_VERSION = "1.13"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1313,6 +1326,20 @@ def resolve_target(target_str):
     return float(results[0]["lat"]), float(results[0]["lon"])
 
 
+def resolve_place_label(target_str):
+    """Возвращает (lat, lng, label) — то же, что resolve_target, плюс человекочитаемое
+    название места (из REGION_CODES для кодов регионов, иначе сам ввод пользователя)."""
+    key = (target_str or "").strip().upper().replace(" ", "")
+    lat, lng = resolve_target(target_str)
+    if lat is None:
+        return None, None, None
+    if key in REGION_CODES:
+        label = f"{key} — {REGION_CODES[key]['place']}"
+    else:
+        label = target_str.strip()
+    return lat, lng, label
+
+
 def road_distance_km_google(lat1, lng1, lat2, lng2, api_key):
     headers = {
         "Content-Type": "application/json",
@@ -1423,6 +1450,50 @@ def api_calc():
 
         return jsonify(result)
 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
+@app.route("/api/route", methods=["POST"])
+def api_route():
+    """
+    body: {"from": "ES30", "to": "SE25"} (каждое поле — GPS / город / код региона)
+    Возвращает расстояние по дорогам, ориентировочное время в пути (70 км/ч)
+    и полилинию маршрута для отрисовки на карте.
+    """
+    if not GOOGLE_API_KEY:
+        return jsonify({"error": "GOOGLE_API_KEY не настроен на сервере"}), 500
+
+    payload = request.get_json(force=True, silent=True) or {}
+    from_str = payload.get("from", "")
+    to_str = payload.get("to", "")
+
+    if not from_str or not to_str:
+        return jsonify({"error": "Укажите оба поля — From и To"}), 400
+
+    try:
+        from_lat, from_lng, from_label = resolve_place_label(from_str)
+        if from_lat is None:
+            return jsonify({"error": f"Не удалось распознать From: {from_str}"}), 400
+
+        to_lat, to_lng, to_label = resolve_place_label(to_str)
+        if to_lat is None:
+            return jsonify({"error": f"Не удалось распознать To: {to_str}"}), 400
+
+        dist_km, polyline = road_distance_km_google(from_lat, from_lng, to_lat, to_lng, GOOGLE_API_KEY)
+        duration_h = dist_km / 70  # тот же ориентир скорости, что и в остальном приложении
+
+        return jsonify({
+            "from_label": from_label,
+            "to_label": to_label,
+            "from_lat": from_lat,
+            "from_lng": from_lng,
+            "to_lat": to_lat,
+            "to_lng": to_lng,
+            "dist_km": round(dist_km, 1),
+            "duration_h": round(duration_h, 1),
+            "route_polyline": polyline,
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 502
 

@@ -13,6 +13,15 @@
   <button id="refresh-btn">Обновить всё</button>
 </div>
 
+<nav class="main-tabs">
+  <button class="main-tab-btn active" data-tab="fleet">Флот</button>
+  <button class="main-tab-btn" data-tab="maps">Карты стран</button>
+  <button class="main-tab-btn" data-tab="route">From → To</button>
+</nav>
+
+<!-- ==================== Вкладка: Флот ==================== -->
+<div id="tab-fleet" class="tab-panel">
+
 <table id="fleet-table">
   <thead>
     <tr>
@@ -35,9 +44,49 @@
 
 <datalist id="units-list"></datalist>
 
+</div>
+
+<!-- ==================== Вкладка: Карты стран ==================== -->
+<div id="tab-maps" class="tab-panel" hidden>
+  <div class="pc-layout">
+    <nav class="pc-tabs" role="tablist" aria-orientation="vertical" id="pcTabs"></nav>
+    <main class="pc-main">
+      <div class="pc-toolbar">
+        <h2 id="pcTitle"></h2>
+        <button type="button" id="pcZoomBtn">Увеличить</button>
+        <a id="pcOrigLink" target="_blank" rel="noopener">Открыть оригинал</a>
+      </div>
+      <div class="pc-viewer" id="pcViewer" role="tabpanel">
+        <img id="pcImg" alt="">
+        <div class="pc-status" id="pcStatus" hidden></div>
+        <div class="pc-zones" id="pcZones" hidden></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ==================== Вкладка: From → To ==================== -->
+<div id="tab-route" class="tab-panel" hidden>
+  <div class="route-form">
+    <input id="route-from" placeholder="From (напр. ES30)" autocomplete="off">
+    <span class="route-arrow">→</span>
+    <input id="route-to" placeholder="To (напр. SE25)" autocomplete="off">
+    <button id="route-calc-btn">Рассчитать</button>
+  </div>
+  <p class="route-note">Оценка по центрам почтовых зон — для больших зон (север Швеции/Норвегии) погрешность может быть заметной.</p>
+  <div id="route-result" class="route-result" hidden>
+    <div class="route-result-row"><span id="route-from-label"></span> → <span id="route-to-label"></span></div>
+    <div class="route-result-row"><b id="route-dist"></b> км &nbsp;·&nbsp; в пути ~<b id="route-duration"></b> ч (при 70 км/ч)</div>
+  </div>
+  <div id="route-error" class="route-error" hidden></div>
+  <div id="route-map"></div>
+</div>
+
 <div class="version-tag">v{{ app_version }}</div>
 
 <script src="{{ url_for('static', filename='app.js') }}"></script>
+<script src="{{ url_for('static', filename='postcode-maps.js') }}"></script>
+<script src="{{ url_for('static', filename='route-tab.js') }}"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_js_key }}&libraries=geometry&callback=initMap" async defer></script>
 </body>
 </html>
