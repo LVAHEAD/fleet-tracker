@@ -1,6 +1,6 @@
 /*
 Fleet ETA Tracker — вкладка "Карты стран"
-Версия: 1.20
+Версия: 1.26 (добавлены FI, EE, LV, LT, RO, BG, LU)
 
 Карты почтовых зон (2-значный код индекса, как в кодах BE10, NO01, SE25).
 Не зависит от Google Maps — обычные картинки (Wikimedia Commons или свои,
@@ -33,7 +33,16 @@ const PC_MAPS = [
   { code: "AT", name: "Австрия",    url: "https://upload.wikimedia.org/wikipedia/commons/0/0f/2_digit_postcode_austria.png" },
   { code: "SK", name: "Словакия",   url: "/static/postcode-maps/sk.png" },
   { code: "HU", name: "Венгрия",    url: "/static/postcode-maps/hu.webp" },
-  { code: "CZ", name: "Чехия",      url: "/static/postcode-maps/cz.png" }
+  { code: "CZ", name: "Чехия",      url: "/static/postcode-maps/cz.png" },
+  // v1.26: Прибалтика, Финляндия, Балканы, Люксембург (Wikimedia Commons, серия GfK "2 digit postcode")
+  { code: "FI", name: "Финляндия",  url: "https://upload.wikimedia.org/wikipedia/commons/f/f6/2_digit_postcode_finland.png" },
+  { code: "EE", name: "Эстония",    url: "https://upload.wikimedia.org/wikipedia/commons/f/f7/2_digit_postcode_estonia.png" },
+  { code: "LV", name: "Латвия",     url: "https://upload.wikimedia.org/wikipedia/commons/a/ac/2_digit_postcode_latvia.png" },
+  { code: "LT", name: "Литва",      url: "https://upload.wikimedia.org/wikipedia/commons/2/25/2_digit_postcode_lithuania.png" },
+  { code: "RO", name: "Румыния",    url: "https://upload.wikimedia.org/wikipedia/commons/3/37/2_digit_postcode_romania.png" },
+  { code: "BG", name: "Болгария",   url: "https://upload.wikimedia.org/wikipedia/commons/b/b7/2_digit_postcode_bulgaria.png" },
+  // Люксембург: индексы 4-значные, регион задаёт первая цифра — карта другого стиля (2025)
+  { code: "LU", name: "Люксембург", url: "https://upload.wikimedia.org/wikipedia/commons/e/ef/2_digit_postcode_luxembourg.svg" }
 ];
 
 PC_MAPS.sort((a, b) => a.code.localeCompare(b.code));
@@ -104,7 +113,8 @@ pcImg.addEventListener("load", () => { pcStatusEl.hidden = true; pcImg.hidden = 
 pcImg.addEventListener("error", () => {
   pcImg.hidden = true;
   pcStatusEl.hidden = false;
-  pcStatusEl.textContent = "Карта не загрузилась. Проверьте интернет или откройте оригинал по ссылке выше.";
+  pcStatusEl.textContent = "Карта не загрузилась. Проверьте интернет или откройте оригинал по ссылке выше. "
+    + "Если карты нет в источнике — свою картинку можно положить в static/postcode-maps/ и указать её в PC_MAPS.";
 });
 
 pcImg.addEventListener("click", () => pcSetZoom(!pcViewer.classList.contains("pc-zoomed")));

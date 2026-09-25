@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — Локатор (вкладка "Карты стран")
-Версия: 1.25 — точки рисуются одним canvas-слоем (раньше 1096 маркеров Google — тормозило)
+Версия: 1.26 — поиск по Enter, по кнопке "Локатор" и по выбору из подсказок.
+Ранее 1.25 — точки рисуются одним canvas-слоем (раньше 1096 маркеров Google — тормозило)
 
 Кнопка "Локатор" вместо картинки страны показывает интерактивную Google-карту
 Европы со всеми кодами регионов (GET /api/region-codes):
@@ -265,7 +266,24 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     }
   }
 
-  btn.addEventListener("click", showLocator);
+  // v1.26: поиск тремя способами — Enter, кнопка "Локатор" (если поле заполнено),
+  // выбор значения из выпадающих подсказок
+  btn.addEventListener("click", () => {
+    showLocator();
+    const q = input.value.trim();
+    if (q) locate(q);
+  });
+  input.addEventListener("input", (e) => {
+    // выбор из datalist: Chrome/Edge — inputType "insertReplacementText", Firefox — без inputType
+    const picked = e.inputType === "insertReplacementText" || e.inputType === undefined;
+    if (!picked) return;
+    const q = input.value.trim();
+    if (!q) return;
+    const inList = [...document.querySelectorAll("#units-list option")].some((o) => o.value === q);
+    if (!inList) return;
+    showLocator();
+    locate(q);
+  });
   // клик по стране — вернуть обычную карту страны
   pcTabs.addEventListener("click", (e) => { if (e.target.closest(".pc-tab")) hideLocator(); }, true);
   input.addEventListener("keydown", (e) => {
