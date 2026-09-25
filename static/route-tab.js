@@ -1,6 +1,9 @@
 /*
 Fleet ETA Tracker — вкладка "From → To"
-Версия: 1.22 — несколько погрузок и выгрузок, машина как точка:
+Версия: 1.23 — кнопка "Очистить"; поля сохраняются в localStorage ("route-fields")
+и восстанавливаются после перезагрузки (без автопересчёта); коды регионов в
+разбивке по отрезкам; время в ч:мм с округлением до 15 мин (у отрезков минимум 0:15).
+Ранее 1.22 — несколько погрузок и выгрузок, машина как точка:
   - поля From1.., To1.. появляются по мере заполнения (всегда одно пустое в
     конце каждой группы), пустые поля при расчёте пропускаются;
   - в любое поле можно вписать номер машины (подсказки — тот же datalist
@@ -28,9 +31,66 @@ function initRouteTab() {
     zoom: 4,
   });
 
+  restoreRouteFields();
   syncRouteFields("route-from-list", "L");
   syncRouteFields("route-to-list", "O");
   document.getElementById("route-calc-btn").addEventListener("click", calcRouteTab);
+  document.getElementById("route-clear-btn").addEventListener("click", clearRouteTab);
+}
+
+// --- Сохранение полей в браузере ---
+const ROUTE_STORAGE_KEY = "route-fields";
+
+function saveRouteFields() {
+  try {
+    localStorage.setItem(ROUTE_STORAGE_KEY, JSON.stringify({
+      from: readRouteValues("route-from-list"),
+      to: readRouteValues("route-to-list"),
+    }));
+  } catch (e) { /* localStorage недоступен — просто не сохраняем */ }
+}
+
+function restoreRouteFields() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(ROUTE_STORAGE_KEY) || "null"); } catch (e) { saved = null; }
+  if (!saved) return;
+  [["route-from-list", "L", saved.from], ["route-to-list", "O", saved.to]].forEach(([listId, kind, values]) => {
+    const list = document.getElementById(listId);
+    list.innerHTML = "";
+    (Array.isArray(values) ? values : []).forEach((v) => {
+      const f = makeRouteField(listId, kind);
+      f.querySelector("input").value = v;
+      list.appendChild(f);
+    });
+  });
+}
+
+// --- Очистить ---
+function clearRouteTab() {
+  document.getElementById("route-from-list").innerHTML = "";
+  document.getElementById("route-to-list").innerHTML = "";
+  syncRouteFields("route-from-list", "L");
+  syncRouteFields("route-to-list", "O");
+  try { localStorage.removeItem(ROUTE_STORAGE_KEY); } catch (e) { /* ignore */ }
+
+  document.getElementById("route-result").hidden = true;
+  document.getElementById("route-points").hidden = true;
+  document.getElementById("route-error").hidden = true;
+  document.getElementById("route-legs").innerHTML = "";
+  drawRouteOnMap({ points: [] });
+
+  const first = document.querySelector("#route-from-list input");
+  if (first) first.focus();
+}
+
+// --- Время: ч:мм с округлением до 15 минут ---
+function formatHM(hours, minQuarter) {
+  let q = Math.round((hours * 60) / 15); // число четвертей часа
+  if (minQuarter && hours > 0 && q < 1) q = 1; // короткий отрезок — минимум 0:15
+  const total = q * 15;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return `${h}:${String(m).padStart(2, "0")}`;
 }
 
 // --- Динамические поля ---
@@ -43,7 +103,10 @@ function makeRouteField(listId, kind) {
   const input = document.createElement("input");
   input.setAttribute("list", "units-list");
   input.autocomplete = "off";
-  input.addEventListener("input", () => syncRouteFields(listId, kind));
+  input.addEventListener("input", () => {
+    syncRouteFields(listId, kind);
+    saveRouteFields();
+  });
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") calcRouteTab();
   });
@@ -138,7 +201,7 @@ async function calcRouteTab() {
 
     if (data.dist_km != null) {
       document.getElementById("route-dist").textContent = data.dist_km.toFixed(1);
-      document.getElementById("route-duration").textContent = data.duration_h.toFixed(1);
+      document.getElementById("route-duration").textContent = formatHM(data.duration_h, false);
       renderRouteLegs(data.legs || []);
       document.getElementById("route-waypoint-note").hidden = !data.waypoints_applied;
       resultEl.hidden = false;
@@ -170,6 +233,10 @@ function renderRoutePoints(points) {
   el.hidden = points.length === 0;
 }
 
+function legCode(code) {
+  return code ? `<span class="leg-code">${routeEscape(code)}</span>` : "";
+}
+
 function renderRouteLegs(legs) {
   const el = document.getElementById("route-legs");
   if (legs.length <= 1) {
@@ -179,9 +246,9 @@ function renderRouteLegs(legs) {
   }
   el.innerHTML = `<table class="route-legs">${legs.map((l) => `
     <tr>
-      <td>${routeEscape(l.from)} → ${routeEscape(l.to)}</td>
+      <td>${routeEscape(l.from)}${legCode(l.from_code)} → ${routeEscape(l.to)}${legCode(l.to_code)}</td>
       <td class="num">${l.dist_km.toFixed(1)} км</td>
-      <td class="num">~${l.duration_h.toFixed(1)} ч</td>
+      <td class="num">~${formatHM(l.duration_h, l.dist_km > 0)}</td>
       <td class="leg-rule">${l.waypoints_applied ? "обход/паромы" : ""}</td>
     </tr>`).join("")}</table>`;
 }

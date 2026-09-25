@@ -15,8 +15,10 @@
 
 <nav class="main-tabs">
   <button class="main-tab-btn active" data-tab="fleet">Флот</button>
-  <button class="main-tab-btn" data-tab="maps">Карты стран</button>
   <button class="main-tab-btn" data-tab="route">From → To</button>
+  <span class="main-tabs-spacer"></span>
+  <button class="main-tab-btn ref-tab" data-tab="ferries">Паромы</button>
+  <button class="main-tab-btn ref-tab" data-tab="maps">Карты стран</button>
 </nav>
 
 <!-- ==================== Вкладка: Флот ==================== -->
@@ -75,6 +77,14 @@
   </div>
 </div>
 
+<!-- ==================== Вкладка: Паромы (справочная) ==================== -->
+<div id="tab-ferries" class="tab-panel" hidden>
+  <p class="ferries-note">Расписания паромов. Клик по картинке — открыть в полный размер. Пометки терминалов: vuos — Vuosaari, Lansi — Länsisatama (West Harbour), TermA — Terminal A, muuga — Muuga.</p>
+  <a href="{{ url_for('static', filename='ferries/ferries.jpg') }}" target="_blank" rel="noopener" class="ferries-link">
+    <img src="{{ url_for('static', filename='ferries/ferries.jpg') }}" alt="Расписания паромов: Helsinki–Tallinn, Rostock–Gedser" class="ferries-img">
+  </a>
+</div>
+
 <!-- ==================== Вкладка: From → To ==================== -->
 <div id="tab-route" class="tab-panel" hidden>
   <div class="route-form">
@@ -87,11 +97,14 @@
       <div class="route-group-title">To — выгрузки</div>
       <div id="route-to-list" class="route-list"></div>
     </div>
-    <button id="route-calc-btn">Рассчитать</button>
+    <div class="route-buttons">
+      <button id="route-calc-btn">Рассчитать</button>
+      <button id="route-clear-btn" class="route-clear-btn">Очистить</button>
+    </div>
   </div>
   <p class="route-note">В поле можно вписать машину (номер), код региона, GPS или город. Маршрут строится строго по порядку: From1 → From2 → … → To1 → To2 → …. Оценка по центрам почтовых зон — для больших зон (север Швеции/Норвегии) погрешность может быть заметной.</p>
   <div id="route-result" class="route-result" hidden>
-    <div class="route-result-row route-total"><b id="route-dist"></b> км &nbsp;·&nbsp; в пути ~<b id="route-duration"></b> ч (при 70 км/ч)</div>
+    <div class="route-result-row route-total"><b id="route-dist"></b> км &nbsp;·&nbsp; в пути ~<b id="route-duration"></b> (при 70 км/ч)</div>
     <div id="route-legs"></div>
     <div class="route-result-row route-waypoint-note" id="route-waypoint-note" hidden>Маршрут скорректирован по вашему правилу (обход/паромы)</div>
   </div>

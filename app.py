@@ -1,8 +1,23 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.22
+Версия: 1.23
 
 История изменений:
+1.23 (2026-09-25) — перецеп, удобства From → To, вкладка Паромы:
+    - "Флот": в Таргет можно вписать номер другой машины (точное совпадение с
+      Mapon) — целью становится её текущий GPS, пересчитывается при каждом
+      обновлении; флажок таргета не ставится, цель видна маркером машины
+    - "From → To": кнопка "Очистить" (поля до L1/O1, результат и карта сброшены)
+    - "From → To": поля маршрута сохраняются в localStorage ("route-fields"),
+      восстанавливаются после перезагрузки, без автопересчёта
+    - "From → To": в разбивке по отрезкам — коды регионов (введённый код или
+      ближайший в пределах 80 км), напр. "L1 ES04 → L2 ES30"
+    - "From → To": время в формате ч:мм, округление до 15 мин (у отрезков
+      минимум 0:15), итог — от точной суммы
+    - вкладки: слева рабочие (Флот, From → To), справа справочные (Паромы, Карты стран)
+    - новая справочная вкладка "Паромы": картинка расписаний (Helsinki–Tallinn,
+      Rostock–Gedser), по клику — в полный размер
+
 1.22 (2026-09-25) — подсветка строк L/O, машина и несколько точек во вкладке From → To:
     - "Флот": строка с отметкой L подсвечивается бледно-синим, с O — бледно-жёлтым
       (кроме ячейки "Статус", она остаётся красной/зелёной); при наведении — чуть темнее
@@ -199,7 +214,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.22"
+APP_VERSION = "1.23"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1602,6 +1617,7 @@ def resolve_point(raw, units_getter):
             "label": f"{unit.get('number') or raw} ({status_txt}{near})",
             "country": code[:2] if code else None,
             "near_code": code,
+            "code": code if d <= NEAR_LABEL_MAX_KM else None,
             "is_truck": True,
         }
 
@@ -1610,13 +1626,17 @@ def resolve_point(raw, units_getter):
         raise ValueError(f"Не удалось распознать: {raw}")
     country = get_region_country(raw)
     near_code = None
-    if not country:
+    code = None
+    if country:
+        code = raw.strip().upper().replace(" ", "")  # введён сам код региона
+    else:
         near_code, d = nearest_region_code(lat, lng)
         country = near_code[:2] if near_code else None
         if near_code and d <= NEAR_LABEL_MAX_KM:
             label = f"{label} (около {near_code})"
+            code = near_code
     return {"lat": lat, "lng": lng, "label": label, "country": country,
-            "near_code": near_code, "is_truck": False}
+            "near_code": near_code, "code": code, "is_truck": False}
 
 
 def compute_multi_route(points, api_key):
@@ -1744,7 +1764,21 @@ def api_calc():
             "eta_local": None,
         }
 
-        target_lat, target_lng = resolve_target(target_str)
+        # v1.23: таргет — другая машина (перецеп). Точное совпадение номера из Mapon;
+        # позиция берётся из того же списка units, что уже загружен, — без лишних запросов.
+        target_unit = None
+        if target_str and not looks_like_gps_or_code(target_str):
+            target_unit = find_unit_exact(units, target_str)
+        if target_unit is not None:
+            if target_unit is unit or target_unit.get("unit_id") == unit.get("unit_id"):
+                return jsonify({"error": "Таргет — та же машина"}), 400
+            target_lat, target_lng = target_unit.get("lat"), target_unit.get("lng")
+            if target_lat is None or target_lng is None:
+                return jsonify({"error": f"У машины-таргета {target_str} нет координат в Mapon"}), 502
+            result["target_is_truck"] = True
+            result["target_unit"] = target_unit.get("number")
+        else:
+            target_lat, target_lng = resolve_target(target_str)
         if target_lat is not None and not GOOGLE_API_KEY:
             return jsonify({"error": "GOOGLE_API_KEY не настроен на сервере"}), 500
 
@@ -1810,7 +1844,7 @@ def api_route():
 
         result = {
             "points": [
-                {k: p[k] for k in ("kind", "num", "label", "lat", "lng", "is_truck")}
+                {k: p[k] for k in ("kind", "num", "label", "lat", "lng", "is_truck", "code")}
                 for p in points
             ],
             "legs": [],
@@ -1829,12 +1863,14 @@ def api_route():
                 result["legs"].append({
                     "from": f"{a['kind']}{a['num']}",
                     "to": f"{b['kind']}{b['num']}",
+                    "from_code": a.get("code"),
+                    "to_code": b.get("code"),
                     "dist_km": round(leg["dist_km"], 1),
-                    "duration_h": round(leg["dist_km"] / 70, 1),
+                    "duration_h": round(leg["dist_km"] / 70, 3),
                     "waypoints_applied": leg["waypoints_applied"],
                 })
             result["dist_km"] = round(total, 1)
-            result["duration_h"] = round(total / 70, 1)  # тот же ориентир скорости, что и везде
+            result["duration_h"] = round(total / 70, 3)  # 70 км/ч; в ч:мм форматирует фронт
             result["route_polyline"] = polyline
             result["waypoints_applied"] = any(l["waypoints_applied"] for l in legs)
 

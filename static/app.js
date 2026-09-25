@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.22 (подсветка всей строки по L/O, кроме ячейки Статус).
+Версия: 1.23 (Таргет может быть номером другой машины — перецеп; подсказки номеров в Таргет).
+Ранее 1.22 (подсветка всей строки по L/O, кроме ячейки Статус).
 Ранее 1.21 (кнопка L/O перед Таргетом: погрузка / выгрузка — цвет кнопки,
 цвет флажка таргета на карте и подсказка в поле Delivery; статус строго в две строки)
 
@@ -268,7 +269,7 @@ function renderRows() {
       <td>
         <div class="target-wrap">
           <button class="lo-btn ${loClass(row.lo)}" title="${loTitle(row.lo)}">${loText(row.lo)}</button>
-          <input class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" placeholder="ГПС, город или код" />
+          <input list="units-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" placeholder="ГПС, город, код или машина" />
         </div>
       </td>
       <td><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" placeholder="${deliveryPlaceholder(row.lo)}" /></td>
@@ -284,6 +285,13 @@ function renderRows() {
     tbody.appendChild(tr);
   });
   attachRowHandlers();
+}
+
+// Есть ли машина с таким номером в таблице (для перецепа: тогда флажок не нужен)
+function truckInTable(number) {
+  const norm = (s) => String(s || "").toUpperCase().replace(/[\s\-]/g, "");
+  const n = norm(number);
+  return !!n && rows.some((r) => norm(r.unit) === n);
 }
 
 // --- L/O: погрузка / выгрузка ---
@@ -452,8 +460,13 @@ async function calcRow(id) {
         polyline: data.route_polyline || null,
       };
 
-      if (data.target_lat != null && data.target_lng != null) {
-        updateTargetMarker(id, data.target_lat, data.target_lng, row.unit, row.lo);
+      if (data.target_is_truck && truckInTable(data.target_unit)) {
+        // перецеп: цель — машина, которая и так есть в таблице и видна своим маркером
+        removeTargetMarker(id);
+      } else if (data.target_lat != null && data.target_lng != null) {
+        // если машина-цель не в таблице — флажок в её позиции, подпись "→ номер"
+        const label = data.target_is_truck ? `${row.unit} → ${data.target_unit}` : row.unit;
+        updateTargetMarker(id, data.target_lat, data.target_lng, label, row.lo);
       } else {
         removeTargetMarker(id);
       }
