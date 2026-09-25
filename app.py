@@ -1,8 +1,20 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.30
+Версия: 1.31
 
 История изменений:
+1.31 (2026-09-25) — контрактные клиенты, плашки страны в таблице:
+    - лист "Настройки", колонка "Контрактные клиенты" (SeaBorn, Kesko,
+      GreenFood, Bama); сравнение по началу названия, пометки в скобках
+      вроде "(2k)" отбрасываются (GreenFoodIberica(2k) -> GreenFood)
+    - ориентир цены — только по рыночным рейсам; уровни поиска выбираются по
+      рыночным рейсам; в списке — по одному последнему рейсу на каждого
+      контрактника с меткой "контракт"
+    - Флот: серая плашка страны машины в Статусе ("DE"), плашка кода региона
+      таргета между L/O и полем ("DE23"; если ближайший код дальше 80 км —
+      только страна); подсказка "DE · около DE23"
+    - ширины: Статус 150, Таргет 240 px (за счёт Примечания)
+
 1.30 (2026-09-25) — маркеры на карте как в Mapon:
     - машина: плашка цвета статуса (зелёная — едет, красная — стоит) с белым
       номером и белой обводкой, под ней указатель и точка в позиции машины
@@ -286,7 +298,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.30"
+APP_VERSION = "1.31"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1959,6 +1971,49 @@ def get_freights(force=False):
     return _frt_cache["items"]
 
 
+# ---------- v1.31: лист "Настройки" (контрактные клиенты) ----------
+SETTINGS_SHEET = os.environ.get("SETTINGS_SHEET", "Настройки")
+_set_cache = {"contract": [], "loaded_at": 0.0, "error": None}
+
+
+def _client_key(name):
+    """"Bama(2k)" -> "bama", "GreenFoodIberica(2k)" -> "greenfoodiberica"."""
+    t = re.sub(r"\([^)]*\)", "", str(name or "")).lower()
+    return re.sub(r"[^0-9a-zа-яё]", "", t)
+
+
+def get_contract_clients(force=False):
+    """Ключи контрактных клиентов из колонки "Контрактные клиенты" листа "Настройки"."""
+    import time
+    now = time.time()
+    if force or now - _set_cache["loaded_at"] > ADDRESS_TTL_SEC:
+        try:
+            values = read_sheet_values(SETTINGS_SHEET)
+            col = None
+            if values:
+                for i, h in enumerate(values[0]):
+                    if "контракт" in str(h).lower():
+                        col = i
+                        break
+            names = []
+            if col is not None:
+                names = [_client_key(r[col]) for r in values[1:] if col < len(r) and str(r[col]).strip()]
+            _set_cache.update(contract=[n for n in names if n], loaded_at=now, error=None)
+        except Exception as e:
+            _set_cache["error"] = str(e)
+            _set_cache["loaded_at"] = now - ADDRESS_TTL_SEC + 60
+    return _set_cache["contract"]
+
+
+def contract_of(client, contract_keys):
+    """Ключ контрактника, если клиент контрактный (по началу названия), иначе None."""
+    k = _client_key(client)
+    for c in contract_keys:
+        if k.startswith(c):
+            return c
+    return None
+
+
 def _pct(sorted_vals, q):
     if not sorted_vals:
         return None
@@ -1988,16 +2043,36 @@ def similar_freights(a, b, route_km=None, limit=10):
             lvl = 3
         if lvl:
             found[i] = lvl
-    # берём лучшие уровни: 1; если мало — добавляем 2; если всё ещё мало — 3
-    chosen = [i for i, l in found.items() if l == 1]
+    # v1.31: контрактные клиенты (фиксированные цены) — не в ориентир
+    try:
+        contract_keys = get_contract_clients()
+    except Exception:
+        contract_keys = []
+    ctr = {i: contract_of(items[i]["client"], contract_keys) for i in found}
+    market_found = {i: l for i, l in found.items() if not ctr[i]}
+
+    # уровни выбираем по рыночным рейсам: 1; если мало — добавляем 2; если всё ещё мало — 3
+    chosen = [i for i, l in market_found.items() if l == 1]
     if len(chosen) < 5:
-        chosen += [i for i, l in found.items() if l == 2]
+        chosen += [i for i, l in market_found.items() if l == 2]
     if len(chosen) < 3:
-        chosen += [i for i, l in found.items() if l == 3]
+        chosen += [i for i, l in market_found.items() if l == 3]
     levels_used = sorted({found[i] for i in chosen})
 
-    trips = [items[i] | {"level": found[i]} for i in chosen]
+    trips = [items[i] | {"level": found[i], "contract": None} for i in chosen]
     trips.sort(key=lambda t: (t["date"] or date(1900, 1, 1)), reverse=True)  # свежие первыми
+
+    # по одному последнему рейсу на каждого контрактника (с лучшего доступного уровня)
+    by_client = {}
+    for i, l in found.items():
+        c = ctr[i]
+        if not c:
+            continue
+        key = (-l, items[i]["date"] or date(1900, 1, 1))  # сначала ближе по уровню, потом свежее
+        if c not in by_client or key > by_client[c][0]:
+            by_client[c] = (key, i)
+    contract_trips = [items[i] | {"level": found[i], "contract": c} for c, (key, i) in by_client.items()]
+    contract_trips.sort(key=lambda t: (t["date"] or date(1900, 1, 1)), reverse=True)
 
     today = datetime.now(timezone.utc).date()
     recent = [t for t in trips if t["date"] and (today - t["date"]).days <= 365]
@@ -2008,7 +2083,7 @@ def similar_freights(a, b, route_km=None, limit=10):
     if prices:
         med = _pct(prices, 0.5)
         estimate = {
-            "n": len(prices), "basis": basis_label,
+            "n": len(prices), "basis": basis_label + ", без контрактов",
             "low": round(_pct(prices, 0.25)), "high": round(_pct(prices, 0.75)), "median": round(med),
             "eur_km_hist": round(_pct(per_km, 0.5), 2) if per_km else None,
             "eur_km_route": round(med / route_km, 2) if route_km else None,
@@ -2020,11 +2095,12 @@ def similar_freights(a, b, route_km=None, limit=10):
             "price": round(t["price"]), "outsourced": t["outsourced"],
             "eur_km": round(t["price"] / t["km"], 2) if t["km"] else None,
             "date": t["date"].strftime("%d.%m.%y") if t["date"] else "", "level": t["level"],
+            "contract": bool(t.get("contract")),
         }
     return {
         "query": f"{fcode or fcc or '?'} → {tcode or tcc or '?'}",
         "total": len(trips), "levels": levels_used,
-        "trips": [pub(t) for t in trips[:limit]],
+        "trips": [pub(t) for t in contract_trips] + [pub(t) for t in trips[:limit]],
         "estimate": estimate,
     }
 
@@ -2269,6 +2345,25 @@ def api_calc():
             result["target_lng"] = target_lng
             result["route_polyline"] = polyline
 
+        # v1.31: страна машины и код региона таргета (плашки в таблице)
+        try:
+            if result.get("unit_lat") is not None:
+                code, d = nearest_region_code(result["unit_lat"], result["unit_lng"])
+                if code:
+                    result["unit_country"] = code[:2]
+                    result["unit_code_hint"] = f"{code[:2]} · около {code}" + (f" ({round(d)} км)" if d > NEAR_LABEL_MAX_KM else "")
+            if result.get("target_lat") is not None:
+                key = str(target_str or "").strip().upper().replace(" ", "")
+                if key in REGION_CODES:
+                    tcode, tcc, td = key, key[:2], 0.0
+                else:
+                    tcode, td = nearest_region_code(result["target_lat"], result["target_lng"])
+                    tcc = (result.get("target_address") or {}).get("country") or (tcode[:2] if tcode else None)
+                result["target_badge"] = tcode if tcode and td <= NEAR_LABEL_MAX_KM else tcc
+                result["target_code_hint"] = (f"{tcc} · около {tcode}" + (f" ({round(td)} км)" if td > NEAR_LABEL_MAX_KM else "")) if tcode else tcc
+        except Exception:
+            pass
+
         return jsonify(result)
 
     except Exception as e:
@@ -2438,6 +2533,8 @@ def api_freights():
     la = _frt_cache["loaded_at"]
     return jsonify({
         "stats": _frt_cache["stats"],
+        "contract_clients": get_contract_clients(force=request.args.get("refresh") == "1"),
+        "settings_error": _set_cache["error"],
         "error": _frt_cache["error"],
         "loaded_at": (datetime.fromtimestamp(la, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M") if la else None,
     })

@@ -248,13 +248,13 @@ function renderFreights(f) {
   }
   const levels = (f.levels || []).map((l) => FREIGHT_LEVEL_RU[l]).join(", ");
   const rows = f.trips.map((t) => `
-    <tr>
+    <tr class="${t.contract ? "frt-row-contract" : ""}">
       <td>${routeEscape(t.from)} → ${routeEscape(t.to)}</td>
       <td>${routeEscape(t.client)}</td>
       <td class="num">${fmtEur(t.price)}</td>
       <td class="num">${t.eur_km != null ? t.eur_km.toFixed(2) + " €/км" : ""}</td>
       <td>${routeEscape(t.date)}</td>
-      <td class="frt-tag">${t.outsourced ? "аутсорс" : ""}${t.level > 1 ? ` <span title="${routeEscape(FREIGHT_LEVEL_RU[t.level])}">≈</span>` : ""}</td>
+      <td class="frt-tag">${t.contract ? '<span class="frt-contract">контракт</span> ' : ""}${t.outsourced ? "аутсорс" : ""}${t.level > 1 ? ` <span title="${routeEscape(FREIGHT_LEVEL_RU[t.level])}">≈</span>` : ""}</td>
     </tr>`).join("");
   const e = f.estimate;
   const est = e ? `

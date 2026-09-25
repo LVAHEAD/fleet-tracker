@@ -80,6 +80,9 @@ Fleet ETA Tracker — вкладка [.] (блокнот)
       if (s.no_price || s.no_region) html += `<br><span style="color:#a05a00">пропущено: без цены ${s.no_price || 0}, без региона ${s.no_region || 0}</span>`;
       if (d.loaded_at) html += `<br>Обновлено: ${esc(d.loaded_at)}`;
       if (d.error) html += `<br><span class="err">${esc(d.error)}</span>`;
+      const cc = d.contract_clients || [];
+      html += `<br>Контрактные клиенты (лист «Настройки»): ${cc.length ? esc(cc.join(", ")) : "—"}`;
+      if (d.settings_error) html += `<br><span class="err">${esc(d.settings_error)}</span>`;
       frtEl.innerHTML = html;
     } catch (e) {
       frtEl.innerHTML = `<span class="err">Не удалось получить состояние базы фрахтов.</span>`;

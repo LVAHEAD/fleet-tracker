@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.30 (плашки машин и таргетов на карте, стрелка курса).
+Версия: 1.31 (плашки страны в Статусе и кода региона в Таргете).
+Ранее 1.30 (плашки машин и таргетов на карте, стрелка курса).
 Ранее 1.28 (адресная база: подсказки points-list, L/O из Type, цвета port/customs/misc).
 Ранее 1.23 (Таргет может быть номером другой машины — перецеп; подсказки номеров в Таргет).
 Ранее 1.22 (подсветка всей строки по L/O, кроме ячейки Статус).
@@ -72,7 +73,8 @@ function makeBadge(lat, lng, html, className, offsetY, onClick) {
         this.getPanes().overlayMouseTarget.appendChild(this.div);
       }
       draw() {
-        const p = this.getProjection() && this.getProjection().fromLatLngToDivPixel(this.pos);
+        const proj = typeof this.getProjection === "function" ? this.getProjection() : null;
+        const p = proj && proj.fromLatLngToDivPixel(this.pos);
         if (!p || !this.div) return;
         this.div.style.left = `${p.x}px`;
         this.div.style.top = `${p.y - this.off}px`;
@@ -441,6 +443,7 @@ function renderRows() {
       <td>
         <div class="target-wrap">
           <button class="lo-btn ${loClass(row.lo)}" title="${loTitle(row.lo)}">${loText(row.lo)}</button>
+          ${cached && cached.targetBadge ? cached.targetBadge : '<span class="cc-badge target-cc" hidden></span>'}
           <input list="points-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" placeholder="ГПС, город, код или машина" />
         </div>
       </td>
@@ -586,7 +589,11 @@ async function calcRow(id) {
       return;
     }
 
-    const statusLine1 = escapeHtml(data.status_ru + " " + data.duration_str);
+    // v1.31: плашка страны, где машина сейчас
+    const ccBadge = data.unit_country
+      ? `<span class="cc-badge" title="${escapeHtml(data.unit_code_hint || data.unit_country)}">${escapeHtml(data.unit_country)}</span>`
+      : "";
+    const statusLine1 = ccBadge + escapeHtml(data.status_ru + " " + data.duration_str);
     const statusLine2 = data.status === "driving" && data.speed != null
       ? escapeHtml(`${Math.round(data.speed)} км/ч`)
       : "";
@@ -613,10 +620,19 @@ async function calcRow(id) {
       etaCell.textContent = "—";
     }
 
-    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText };
+    // v1.31: плашка кода региона таргета (между L/O и полем)
+    const targetBadge = data.target_badge
+      ? `<span class="cc-badge target-cc" title="${escapeHtml(data.target_code_hint || data.target_badge)}">${escapeHtml(data.target_badge)}</span>`
+      : '<span class="cc-badge target-cc" hidden></span>';
+    const oldTb = tr.querySelector(".target-cc");
+    if (oldTb) oldTb.outerHTML = targetBadge;
+
+    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, targetBadge };
 
     if (data.unit_lat != null && data.unit_lng != null) {
-      updateMarker(id, data.unit_lat, data.unit_lng, data.number, data.status, data.direction);
+      // ошибка отрисовки на карте не должна ломать строку таблицы
+      try { updateMarker(id, data.unit_lat, data.unit_lng, data.number, data.status, data.direction); }
+      catch (err) { console.error("updateMarker", err); }
       rowPositions[id] = {
         unitLat: data.unit_lat,
         unitLng: data.unit_lng,
@@ -654,6 +670,7 @@ async function calcRow(id) {
       }
     }
   } catch (e) {
+    console.error("calcRow", e);
     statusCell.textContent = "Ошибка запроса";
   }
 }

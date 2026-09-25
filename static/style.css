@@ -181,8 +181,8 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 /* ---------- v1.21: фиксированные ширины колонок таблицы "Флот" ---------- */
 #fleet-table { table-layout: fixed; }
 #fleet-table .col-unit     { width: 100px; }
-#fleet-table .col-status   { width: 130px; }
-#fleet-table .col-target   { width: 200px; }
+#fleet-table .col-status   { width: 150px; }
+#fleet-table .col-target   { width: 240px; }
 #fleet-table .col-delivery { width: 170px; }
 #fleet-table .col-dist     { width: 75px; }
 #fleet-table .col-eta      { width: 75px; }
@@ -330,3 +330,15 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .mk-badge.mk-standing::after { border-top-color: #E24B4A; }
 .mk-badge .mk-arrow { display: inline-block; margin-left: 5px; font-size: 13px; line-height: 1; }
 .mk-tbadge { background: #fff; border: 2px solid #1D9E75; padding: 4px 7px; }
+
+/* ---------- v1.31: плашки страны / кода региона ---------- */
+.cc-badge {
+  display: inline-grid; place-items: center; height: 26px; min-width: 28px; padding: 0 5px;
+  box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; background: #eee;
+  color: #666; font-size: 12px; font-weight: 600; vertical-align: middle; cursor: default;
+}
+.cc-badge[hidden] { display: none; }
+.status-cell .cc-badge { margin-right: 6px; }
+.target-wrap .cc-badge { flex: 0 0 auto; }
+.frt-contract { background: #EEE; color: #555; border-radius: 3px; padding: 0 4px; }
+.frt-row-contract td { color: #888; }
