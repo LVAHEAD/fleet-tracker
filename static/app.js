@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.21 (кнопка L/O перед Таргетом: погрузка / выгрузка — цвет кнопки,
+Версия: 1.22 (подсветка всей строки по L/O, кроме ячейки Статус).
+Ранее 1.21 (кнопка L/O перед Таргетом: погрузка / выгрузка — цвет кнопки,
 цвет флажка таргета на карте и подсказка в поле Delivery; статус строго в две строки)
 
 Хранение состояния: localStorage браузера (ключ "fleet-rows"), переживает
@@ -253,6 +254,7 @@ function renderRows() {
   rows.forEach((row) => {
     const tr = document.createElement("tr");
     tr.dataset.id = row.id;
+    if (row.lo) tr.classList.add(`lo-row-${row.lo}`);
     const cached = lastCalcText[row.id];
     const statusHtml = cached ? cached.status : "—";
     const statusClass = cached ? cached.statusClass : "muted";
@@ -334,6 +336,8 @@ function attachRowHandlers() {
       btn.textContent = loText(row.lo);
       btn.title = loTitle(row.lo);
       tr.querySelector(".delivery-input").placeholder = deliveryPlaceholder(row.lo);
+      tr.classList.remove("lo-row-L", "lo-row-O");
+      if (row.lo) tr.classList.add(`lo-row-${row.lo}`);
       recolorTargetMarker(id, row.unit, row.lo);
     });
 

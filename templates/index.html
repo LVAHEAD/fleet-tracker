@@ -78,17 +78,24 @@
 <!-- ==================== Вкладка: From → To ==================== -->
 <div id="tab-route" class="tab-panel" hidden>
   <div class="route-form">
-    <input id="route-from" placeholder="From (напр. ES30)" autocomplete="off">
+    <div class="route-group">
+      <div class="route-group-title">From — погрузки</div>
+      <div id="route-from-list" class="route-list"></div>
+    </div>
     <span class="route-arrow">→</span>
-    <input id="route-to" placeholder="To (напр. SE25)" autocomplete="off">
+    <div class="route-group">
+      <div class="route-group-title">To — выгрузки</div>
+      <div id="route-to-list" class="route-list"></div>
+    </div>
     <button id="route-calc-btn">Рассчитать</button>
   </div>
-  <p class="route-note">Оценка по центрам почтовых зон — для больших зон (север Швеции/Норвегии) погрешность может быть заметной.</p>
+  <p class="route-note">В поле можно вписать машину (номер), код региона, GPS или город. Маршрут строится строго по порядку: From1 → From2 → … → To1 → To2 → …. Оценка по центрам почтовых зон — для больших зон (север Швеции/Норвегии) погрешность может быть заметной.</p>
   <div id="route-result" class="route-result" hidden>
-    <div class="route-result-row"><span id="route-from-label"></span> → <span id="route-to-label"></span></div>
-    <div class="route-result-row"><b id="route-dist"></b> км &nbsp;·&nbsp; в пути ~<b id="route-duration"></b> ч (при 70 км/ч)</div>
+    <div class="route-result-row route-total"><b id="route-dist"></b> км &nbsp;·&nbsp; в пути ~<b id="route-duration"></b> ч (при 70 км/ч)</div>
+    <div id="route-legs"></div>
     <div class="route-result-row route-waypoint-note" id="route-waypoint-note" hidden>Маршрут скорректирован по вашему правилу (обход/паромы)</div>
   </div>
+  <div id="route-points" class="route-points" hidden></div>
   <div id="route-error" class="route-error" hidden></div>
   <div id="route-map"></div>
 </div>

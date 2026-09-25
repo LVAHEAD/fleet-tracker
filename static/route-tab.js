@@ -1,17 +1,25 @@
 /*
 Fleet ETA Tracker — вкладка "From → To"
-Версия: 1.17 (правила принудительных маршрутов — Швейцария/паромы — теперь
-применяются автоматически, когда оба поля From/To — коды регионов)
+Версия: 1.22 — несколько погрузок и выгрузок, машина как точка:
+  - поля From1.., To1.. появляются по мере заполнения (всегда одно пустое в
+    конце каждой группы), пустые поля при расчёте пропускаются;
+  - в любое поле можно вписать номер машины (подсказки — тот же datalist
+    "units-list", что и во вкладке "Флот"), код региона, GPS или город;
+  - маршрут строго по порядку From1 → … → FromN → To1 → … → ToM, правила
+    (Инсбрук, паромы) — на сервере, на каждый отрезок;
+  - на карте маркеры L1, L2… (синие) и O1, O2… (жёлтые), как цвета L/O во "Флоте".
 
 Отдельная Google Map (window.routeMap), создаётся лениво при первом открытии
-вкладки (initRouteTab, вызывается из app.js). Использует те же приёмы, что и
-карта на вкладке "Флот": расстояние/полилиния — через /api/route (Routes API
-на сервере), линия рисуется декодированием encodedPolyline на клиенте.
+вкладки (initRouteTab, вызывается из app.js).
 */
 
-let routeFromMarker = null;
-let routeToMarker = null;
+let routeMarkers = [];
 let routeLine = null;
+
+const ROUTE_POINT_COLORS = {
+  L: { fill: "#4A90D9", text: "#ffffff" },
+  O: { fill: "#E0B000", text: "#3D2E00" },
+};
 
 function initRouteTab() {
   if (window.routeMap) return; // уже создана
@@ -20,36 +28,90 @@ function initRouteTab() {
     zoom: 4,
   });
 
+  syncRouteFields("route-from-list", "L");
+  syncRouteFields("route-to-list", "O");
   document.getElementById("route-calc-btn").addEventListener("click", calcRouteTab);
-  [document.getElementById("route-from"), document.getElementById("route-to")].forEach((input) => {
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") calcRouteTab();
-    });
+}
+
+// --- Динамические поля ---
+
+function makeRouteField(listId, kind) {
+  const wrap = document.createElement("div");
+  wrap.className = "route-field is-empty";
+  const tag = document.createElement("span");
+  tag.className = `route-tag tag-${kind}`;
+  const input = document.createElement("input");
+  input.setAttribute("list", "units-list");
+  input.autocomplete = "off";
+  input.addEventListener("input", () => syncRouteFields(listId, kind));
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") calcRouteTab();
+  });
+  wrap.appendChild(tag);
+  wrap.appendChild(input);
+  return wrap;
+}
+
+// Держим ровно одно пустое поле в конце группы; пустые поля в середине не трогаем
+// (пользователь может их дозаполнить), при расчёте они просто пропускаются.
+function syncRouteFields(listId, kind) {
+  const list = document.getElementById(listId);
+  let fields = Array.from(list.querySelectorAll(".route-field"));
+  if (fields.length === 0) {
+    list.appendChild(makeRouteField(listId, kind));
+    fields = Array.from(list.querySelectorAll(".route-field"));
+  }
+
+  const isEmpty = (f) => !f.querySelector("input").value.trim();
+
+  // лишние пустые в хвосте — убираем, оставляя одно
+  while (fields.length > 1 && isEmpty(fields[fields.length - 1]) && isEmpty(fields[fields.length - 2])) {
+    const last = fields.pop();
+    if (document.activeElement === last.querySelector("input")) {
+      fields[fields.length - 1].querySelector("input").focus();
+    }
+    last.remove();
+  }
+  // последнее заполнено — добавляем пустое
+  if (!isEmpty(fields[fields.length - 1])) {
+    const f = makeRouteField(listId, kind);
+    list.appendChild(f);
+    fields.push(f);
+  }
+
+  const name = kind === "L" ? "From" : "To";
+  const example = kind === "L" ? "напр. OI-4310 или ES30" : "напр. SE25";
+  fields.forEach((f, i) => {
+    const n = i + 1;
+    f.querySelector(".route-tag").textContent = `${kind}${n}`;
+    const input = f.querySelector("input");
+    input.name = `route-${kind}-${n}`;
+    input.placeholder = n === 1 ? `${name}${n} (${example})` : `${name}${n} (необязательно)`;
+    f.classList.toggle("is-empty", isEmpty(f));
   });
 }
 
-function routeMarkerIcon(fill) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">
-    <circle cx="13" cy="13" r="10" fill="${fill}" stroke="white" stroke-width="2"/>
-  </svg>`;
-  return {
-    url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
-    scaledSize: new google.maps.Size(26, 26),
-    anchor: new google.maps.Point(13, 13),
-  };
+function readRouteValues(listId) {
+  return Array.from(document.querySelectorAll(`#${listId} input`))
+    .map((i) => i.value.trim())
+    .filter(Boolean);
 }
 
+// --- Расчёт ---
+
 async function calcRouteTab() {
-  const fromVal = document.getElementById("route-from").value.trim();
-  const toVal = document.getElementById("route-to").value.trim();
+  const froms = readRouteValues("route-from-list");
+  const tos = readRouteValues("route-to-list");
   const resultEl = document.getElementById("route-result");
+  const pointsEl = document.getElementById("route-points");
   const errorEl = document.getElementById("route-error");
   const btn = document.getElementById("route-calc-btn");
 
   errorEl.hidden = true;
   resultEl.hidden = true;
+  pointsEl.hidden = true;
 
-  if (!fromVal && !toVal) {
+  if (froms.length === 0 && tos.length === 0) {
     errorEl.textContent = "Заполните хотя бы одно поле — From или To.";
     errorEl.hidden = false;
     return;
@@ -62,7 +124,7 @@ async function calcRouteTab() {
     const res = await fetch("/api/route", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ from: fromVal, to: toVal }),
+      body: JSON.stringify({ from: froms, to: tos }),
     });
     const data = await res.json();
 
@@ -72,11 +134,12 @@ async function calcRouteTab() {
       return;
     }
 
+    renderRoutePoints(data.points || []);
+
     if (data.dist_km != null) {
-      document.getElementById("route-from-label").textContent = data.from_label;
-      document.getElementById("route-to-label").textContent = data.to_label;
       document.getElementById("route-dist").textContent = data.dist_km.toFixed(1);
       document.getElementById("route-duration").textContent = data.duration_h.toFixed(1);
+      renderRouteLegs(data.legs || []);
       document.getElementById("route-waypoint-note").hidden = !data.waypoints_applied;
       resultEl.hidden = false;
     }
@@ -91,37 +154,77 @@ async function calcRouteTab() {
   }
 }
 
+function routeEscape(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function renderRoutePoints(points) {
+  const el = document.getElementById("route-points");
+  el.innerHTML = points.map((p) => `
+    <div class="route-point">
+      <span class="route-tag tag-${p.kind}">${p.kind}${p.num}</span>
+      <span>${routeEscape(p.label)}</span>
+    </div>`).join("");
+  el.hidden = points.length === 0;
+}
+
+function renderRouteLegs(legs) {
+  const el = document.getElementById("route-legs");
+  if (legs.length <= 1) {
+    // один отрезок — разбивка не нужна, итог и так его показывает
+    el.innerHTML = "";
+    return;
+  }
+  el.innerHTML = `<table class="route-legs">${legs.map((l) => `
+    <tr>
+      <td>${routeEscape(l.from)} → ${routeEscape(l.to)}</td>
+      <td class="num">${l.dist_km.toFixed(1)} км</td>
+      <td class="num">~${l.duration_h.toFixed(1)} ч</td>
+      <td class="leg-rule">${l.waypoints_applied ? "обход/паромы" : ""}</td>
+    </tr>`).join("")}</table>`;
+}
+
+// --- Карта ---
+
+function routePointIcon(kind) {
+  const c = ROUTE_POINT_COLORS[kind] || ROUTE_POINT_COLORS.L;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30">
+    <circle cx="15" cy="15" r="12" fill="${c.fill}" stroke="white" stroke-width="2"/>
+  </svg>`;
+  return {
+    url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+    scaledSize: new google.maps.Size(30, 30),
+    anchor: new google.maps.Point(15, 15),
+  };
+}
+
 function drawRouteOnMap(data) {
   const map = window.routeMap;
 
-  if (routeFromMarker) routeFromMarker.setMap(null);
-  if (routeToMarker) routeToMarker.setMap(null);
+  routeMarkers.forEach((m) => m.setMap(null));
+  routeMarkers = [];
   if (routeLine) routeLine.setMap(null);
-  routeFromMarker = routeToMarker = routeLine = null;
+  routeLine = null;
 
   const bounds = new google.maps.LatLngBounds();
+  const points = data.points || [];
 
-  if (data.from_lat != null) {
-    routeFromMarker = new google.maps.Marker({
-      position: { lat: data.from_lat, lng: data.from_lng },
+  points.forEach((p) => {
+    if (p.lat == null || p.lng == null) return;
+    const c = ROUTE_POINT_COLORS[p.kind] || ROUTE_POINT_COLORS.L;
+    const m = new google.maps.Marker({
+      position: { lat: p.lat, lng: p.lng },
       map: map,
-      icon: routeMarkerIcon("#4285F4"),
-      label: { text: "A", fontSize: "12px", fontWeight: "600", color: "#fff" },
-      title: data.from_label,
+      icon: routePointIcon(p.kind),
+      label: { text: `${p.kind}${p.num}`, fontSize: "11px", fontWeight: "700", color: c.text },
+      title: p.label,
+      zIndex: 10,
     });
-    bounds.extend(routeFromMarker.getPosition());
-  }
-
-  if (data.to_lat != null) {
-    routeToMarker = new google.maps.Marker({
-      position: { lat: data.to_lat, lng: data.to_lng },
-      map: map,
-      icon: routeMarkerIcon("#1D9E75"),
-      label: { text: "B", fontSize: "12px", fontWeight: "600", color: "#fff" },
-      title: data.to_label,
-    });
-    bounds.extend(routeToMarker.getPosition());
-  }
+    routeMarkers.push(m);
+    bounds.extend(m.getPosition());
+  });
 
   if (data.route_polyline) {
     const path = google.maps.geometry.encoding.decodePath(data.route_polyline);
@@ -132,10 +235,10 @@ function drawRouteOnMap(data) {
       strokeWeight: 4,
       map: map,
     });
-    path.forEach((p) => bounds.extend(p));
+    path.forEach((pt) => bounds.extend(pt));
     map.fitBounds(bounds, 40);
-  } else if (data.from_lat != null || data.to_lat != null) {
-    // только одна точка — центрируем на ней вместо fitBounds (которое было бы слишком крупным зумом)
+  } else if (routeMarkers.length > 0) {
+    // только одна точка — центрируем на ней вместо fitBounds (слишком крупный зум)
     map.setCenter(bounds.getCenter());
     map.setZoom(9);
   }

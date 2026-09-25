@@ -161,12 +161,13 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 
 /* ===== Вкладка: From → To ===== */
 .route-form {
-  display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;
+  display: flex; align-items: flex-start; gap: 14px; margin-bottom: 10px; flex-wrap: wrap;
 }
 .route-form input {
-  border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; font-size: 14px; width: 160px;
+  border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; font-size: 14px; width: 210px;
 }
-.route-arrow { color: #888; }
+.route-arrow { color: #888; padding-top: 30px; }
+#route-calc-btn { margin-top: 24px; padding: 8px 16px; font-size: 14px; }
 .route-note { color: #888; font-size: 13px; margin: 0 0 14px; }
 .route-result {
   background: #f5f7fa; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px;
@@ -207,3 +208,30 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .lo-btn.lo-O { background: #FFF4C2; border-color: #EBD37A; color: #7A5C00; }
 .lo-btn.lo-L:hover { background: #cde0f7; }
 .lo-btn.lo-O:hover { background: #fbeca8; }
+
+/* ---------- v1.22: подсветка строк L/O во вкладке "Флот" (кроме ячейки Статус) ---------- */
+#fleet-tbody tr.lo-row-L td:not(.status-cell) { background: #F0F6FD; }
+#fleet-tbody tr.lo-row-O td:not(.status-cell) { background: #FFFBE6; }
+#fleet-tbody tr.lo-row-L:hover td:not(.status-cell) { background: #E4EFFB; }
+#fleet-tbody tr.lo-row-O:hover td:not(.status-cell) { background: #FFF6D1; }
+
+/* ---------- v1.22: From → To — несколько погрузок и выгрузок ---------- */
+.route-group-title { font-size: 12px; color: #777; margin: 0 0 6px 32px; }
+.route-list { display: flex; flex-direction: column; gap: 6px; }
+.route-field { display: flex; align-items: center; gap: 6px; }
+.route-tag {
+  flex: 0 0 26px; height: 26px; border-radius: 50%;
+  display: inline-grid; place-items: center;
+  font-size: 11px; font-weight: 700;
+}
+.route-tag.tag-L { background: #DCEBFB; color: #1F5A99; }
+.route-tag.tag-O { background: #FFF4C2; color: #7A5C00; }
+.route-field.is-empty .route-tag { opacity: 0.45; }
+
+.route-legs { border-collapse: collapse; margin: 6px 0 2px; font-size: 13px; background: transparent; width: auto; border-radius: 0; }
+.route-legs td { padding: 3px 12px 3px 0; border: none; background: transparent; }
+.route-legs td.num { text-align: right; }
+.route-legs .leg-rule { color: #7a5c00; font-size: 12px; }
+
+.route-points { font-size: 13px; color: #444; margin: -4px 0 14px; display: flex; flex-direction: column; gap: 3px; }
+.route-point { display: flex; align-items: center; gap: 8px; }

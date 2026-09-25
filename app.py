@@ -1,8 +1,23 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.21
+Версия: 1.22
 
 История изменений:
+1.22 (2026-09-25) — подсветка строк L/O, машина и несколько точек во вкладке From → To:
+    - "Флот": строка с отметкой L подсвечивается бледно-синим, с O — бледно-жёлтым
+      (кроме ячейки "Статус", она остаётся красной/зелёной); при наведении — чуть темнее
+    - "From → To": в любое поле можно вписать номер машины (точное совпадение с
+      Mapon) — берётся её текущий GPS; подсказки номеров в полях
+    - страна точки для правил маршрутов: у кода региона — из кода, у машины/GPS/
+      города — по ближайшему коду региона из REGION_CODES (nearest_region_code);
+      правила теперь работают не только для пар кодов
+    - несколько погрузок и выгрузок: поля FROM1.., TO1.. появляются по мере
+      заполнения, пустые пропускаются; маршрут строго по порядку, один запрос к
+      Routes API (точки — intermediates, паромы/Инсбрук — via), правила — на каждый
+      отрезок; в результате итог + разбивка по отрезкам, на карте маркеры L1/L2
+      (синие) и O1/O2 (жёлтые)
+    - /api/route принимает списки from/to (старый формат строк тоже работает)
+
 1.21 (2026-09-25) — фикс ошибки 'distanceMeters' у машин рядом с таргетом:
     - когда машина стоит вплотную к таргету (расстояние ~0), Routes API не
       возвращал поле distanceMeters, и в статусе показывалась сырая ошибка
@@ -184,7 +199,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.21"
+APP_VERSION = "1.22"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1486,10 +1501,16 @@ def _ferry_pair_for_country(other_country, other_lat, other_lng):
 
 
 def pick_waypoints(from_str, from_lat, from_lng, to_str, to_lat, to_lng):
-    """Возвращает список [(lat,lng), ...] промежуточных точек по известным правилам,
-    или None, если ни одно правило не подходит."""
-    from_country = get_region_country(from_str)
-    to_country = get_region_country(to_str)
+    """Старый интерфейс (страна только из кода региона) — оставлен для совместимости."""
+    return pick_waypoints_by_country(
+        get_region_country(from_str), from_lat, from_lng,
+        get_region_country(to_str), to_lat, to_lng,
+    )
+
+
+def pick_waypoints_by_country(from_country, from_lat, from_lng, to_country, to_lat, to_lng):
+    """Возвращает список [(lat,lng), ...] промежуточных точек по известным правилам
+    для пары стран, или None, если ни одно правило не подходит."""
     if not from_country or not to_country:
         return None
 
@@ -1512,6 +1533,144 @@ def pick_waypoints(from_str, from_lat, from_lng, to_str, to_lat, to_lng):
             return [south_port, dk_port, HELSINGOR, HELSINGBORG]
 
     return None
+
+
+# ---------- v1.22: ближайший код региона, машина как точка, многоточечный маршрут ----------
+
+NEAR_LABEL_MAX_KM = 80      # дальше этого "около XX" в подписи не показываем (страну всё равно берём)
+MAX_INTERMEDIATES = 25      # лимит Routes API на промежуточные точки (вместе с паромами/Инсбруком)
+
+
+def nearest_region_code(lat, lng):
+    """Ближайший код региона из REGION_CODES по прямой: (code, dist_km).
+    Нужен, чтобы узнать страну точки, заданной GPS/городом/машиной, — по ней
+    выбираются правила маршрутов. Для стран без кодов в справочнике (AT, CH,
+    LU, HU...) вернётся код соседней страны."""
+    best_code, best_d = None, float("inf")
+    for code, v in REGION_CODES.items():
+        d = haversine_km(lat, lng, v["lat"], v["lng"])
+        if d < best_d:
+            best_code, best_d = code, d
+    return best_code, best_d
+
+
+def find_unit_exact(units, query):
+    """Точное совпадение номера/названия машины (без учёта регистра, пробелов и дефисов).
+    Точное — чтобы город вроде "Oslo" случайно не совпал с частью номера."""
+    q = normalize(query)
+    if not q:
+        return None
+    for u in units:
+        if q == normalize(u.get("number")) or q == normalize(u.get("label")):
+            return u
+    return None
+
+
+def looks_like_gps_or_code(s):
+    s = (s or "").strip()
+    if s.upper().replace(" ", "") in REGION_CODES:
+        return True
+    parts = s.split(",")
+    if len(parts) == 2:
+        try:
+            float(parts[0]); float(parts[1])
+            return True
+        except ValueError:
+            pass
+    return False
+
+
+def resolve_point(raw, units_getter):
+    """Разбирает одно поле From/To: машина / GPS / код региона / город.
+    Возвращает dict: lat, lng, label, country, near_code, is_truck."""
+    raw = (raw or "").strip()
+    unit = None
+    if not looks_like_gps_or_code(raw) and MAPON_API_KEY:
+        unit = find_unit_exact(units_getter(), raw)
+
+    if unit is not None:
+        lat, lng = unit.get("lat"), unit.get("lng")
+        if lat is None or lng is None:
+            raise ValueError(f"У машины {raw} нет текущих координат в Mapon")
+        state = unit.get("state", {}) or {}
+        status_name = state.get("name")
+        status_txt = f"{STATUS_RU.get(status_name, status_name or '')} {format_duration(state.get('duration', 0))}".strip()
+        code, d = nearest_region_code(lat, lng)
+        near = f", около {code}" if d <= NEAR_LABEL_MAX_KM else ""
+        return {
+            "lat": lat, "lng": lng,
+            "label": f"{unit.get('number') or raw} ({status_txt}{near})",
+            "country": code[:2] if code else None,
+            "near_code": code,
+            "is_truck": True,
+        }
+
+    lat, lng, label = resolve_place_label(raw)
+    if lat is None:
+        raise ValueError(f"Не удалось распознать: {raw}")
+    country = get_region_country(raw)
+    near_code = None
+    if not country:
+        near_code, d = nearest_region_code(lat, lng)
+        country = near_code[:2] if near_code else None
+        if near_code and d <= NEAR_LABEL_MAX_KM:
+            label = f"{label} (около {near_code})"
+    return {"lat": lat, "lng": lng, "label": label, "country": country,
+            "near_code": near_code, "is_truck": False}
+
+
+def compute_multi_route(points, api_key):
+    """points — список dict из resolve_point в порядке следования (минимум 2).
+    Один запрос к Routes API: точки пользователя — обычные intermediates (каждая
+    начинает новый leg), паромы/Инсбрук — via-точки (через них маршрут проходит,
+    но leg не разбивается). Так legs ответа = отрезкам между точками пользователя.
+    Возвращает (legs, polyline), legs = [{dist_km, waypoints_applied}, ...]."""
+    intermediates = []
+    leg_rules = []
+    for i in range(len(points) - 1):
+        a, b = points[i], points[i + 1]
+        wps = pick_waypoints_by_country(a["country"], a["lat"], a["lng"],
+                                        b["country"], b["lat"], b["lng"]) or []
+        leg_rules.append(bool(wps))
+        for wlat, wlng in wps:
+            intermediates.append({"via": True, "location": {"latLng": {"latitude": wlat, "longitude": wlng}}})
+        if i + 1 < len(points) - 1:  # следующая точка пользователя — не финальная
+            intermediates.append({"location": {"latLng": {"latitude": b["lat"], "longitude": b["lng"]}}})
+
+    if len(intermediates) > MAX_INTERMEDIATES:
+        raise ValueError(
+            f"Слишком много точек: {len(intermediates)} промежуточных (вместе с паромами/Инсбруком), "
+            f"Routes API допускает максимум {MAX_INTERMEDIATES}"
+        )
+
+    first, last = points[0], points[-1]
+    body = {
+        "origin": {"location": {"latLng": {"latitude": first["lat"], "longitude": first["lng"]}}},
+        "destination": {"location": {"latLng": {"latitude": last["lat"], "longitude": last["lng"]}}},
+        "travelMode": "DRIVE",
+        "routingPreference": "TRAFFIC_AWARE",
+    }
+    if intermediates:
+        body["intermediates"] = intermediates
+    headers = {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": api_key,
+        "X-Goog-FieldMask": "routes.distanceMeters,routes.legs.distanceMeters,routes.polyline.encodedPolyline",
+    }
+    resp = requests.post(ROUTES_API_URL, json=body, headers=headers, timeout=30)
+    resp.raise_for_status()
+    data = resp.json()
+    if "routes" not in data or not data["routes"]:
+        raise RuntimeError(f"Routes API вернул пустой ответ: {data}")
+    route = data["routes"][0]
+    api_legs = route.get("legs", [])
+    legs = []
+    for i in range(len(points) - 1):
+        # поле с нулём Routes API не передаёт (как в фиксе v1.21) — считаем 0
+        meters = api_legs[i].get("distanceMeters", 0) if i < len(api_legs) else 0
+        legs.append({"dist_km": meters / 1000, "waypoints_applied": leg_rules[i]})
+    polyline = route.get("polyline", {}).get("encodedPolyline")
+    return legs, polyline
 
 
 # ---------- Routes ----------
@@ -1608,56 +1767,76 @@ def api_calc():
 @app.route("/api/route", methods=["POST"])
 def api_route():
     """
-    body: {"from": "ES30", "to": "SE25"} (каждое поле — GPS / город / код региона)
-    Если задано только одно из полей — просто показываем эту точку (без
-    расстояния/маршрута, потому что считать не от чего).
+    body: {"from": ["OI-4310", "IT20", ...], "to": ["SE25", "59.9, 10.8", ...]}
+    (старый формат {"from": "ES30", "to": "SE25"} тоже принимается).
+    Каждое поле — машина (номер из Mapon) / GPS / код региона / город.
+    Пустые поля пропускаются. Маршрут строго по порядку: from1..fromN -> to1..toM.
+    Если точка всего одна — просто показываем её, без маршрута.
     """
     if not GOOGLE_API_KEY:
         return jsonify({"error": "GOOGLE_API_KEY не настроен на сервере"}), 500
 
     payload = request.get_json(force=True, silent=True) or {}
-    from_str = payload.get("from", "")
-    to_str = payload.get("to", "")
 
-    if not from_str and not to_str:
-        return jsonify({"error": "Укажите хотя бы одно поле — From или To"}), 400
+    def as_list(v):
+        if isinstance(v, list):
+            return [str(x).strip() for x in v if str(x or "").strip()]
+        v = str(v or "").strip()
+        return [v] if v else []
+
+    froms = as_list(payload.get("from"))
+    tos = as_list(payload.get("to"))
+    if not froms and not tos:
+        return jsonify({"error": "Заполните хотя бы одно поле — From или To"}), 400
+
+    # Список машин из Mapon запрашиваем максимум один раз и только если он нужен
+    units_cache = {}
+    def units_getter():
+        if "units" not in units_cache:
+            units_cache["units"] = fetch_units(MAPON_API_KEY)
+        return units_cache["units"]
 
     try:
-        from_lat = from_lng = from_label = None
-        to_lat = to_lng = to_label = None
-
-        if from_str:
-            from_lat, from_lng, from_label = resolve_place_label(from_str)
-            if from_lat is None:
-                return jsonify({"error": f"Не удалось распознать From: {from_str}"}), 400
-
-        if to_str:
-            to_lat, to_lng, to_label = resolve_place_label(to_str)
-            if to_lat is None:
-                return jsonify({"error": f"Не удалось распознать To: {to_str}"}), 400
+        points = []
+        for kind, values in (("L", froms), ("O", tos)):
+            for n, raw in enumerate(values, start=1):
+                try:
+                    pt = resolve_point(raw, units_getter)
+                except ValueError as e:
+                    field = "From" if kind == "L" else "To"
+                    return jsonify({"error": f"{field}{n}: {e}"}), 400
+                pt.update({"kind": kind, "num": n, "raw": raw})
+                points.append(pt)
 
         result = {
-            "from_label": from_label,
-            "to_label": to_label,
-            "from_lat": from_lat,
-            "from_lng": from_lng,
-            "to_lat": to_lat,
-            "to_lng": to_lng,
+            "points": [
+                {k: p[k] for k in ("kind", "num", "label", "lat", "lng", "is_truck")}
+                for p in points
+            ],
+            "legs": [],
             "dist_km": None,
             "duration_h": None,
             "route_polyline": None,
+            "waypoints_applied": False,
         }
 
-        if from_str and to_str:
-            waypoints = pick_waypoints(from_str, from_lat, from_lng, to_str, to_lat, to_lng)
-            dist_km, polyline = road_distance_km_google(
-                from_lat, from_lng, to_lat, to_lng, GOOGLE_API_KEY, waypoints=waypoints
-            )
-            duration_h = dist_km / 70  # тот же ориентир скорости, что и в остальном приложении
-            result["dist_km"] = round(dist_km, 1)
-            result["duration_h"] = round(duration_h, 1)
+        if len(points) >= 2:
+            legs, polyline = compute_multi_route(points, GOOGLE_API_KEY)
+            total = 0.0
+            for i, leg in enumerate(legs):
+                a, b = points[i], points[i + 1]
+                total += leg["dist_km"]
+                result["legs"].append({
+                    "from": f"{a['kind']}{a['num']}",
+                    "to": f"{b['kind']}{b['num']}",
+                    "dist_km": round(leg["dist_km"], 1),
+                    "duration_h": round(leg["dist_km"] / 70, 1),
+                    "waypoints_applied": leg["waypoints_applied"],
+                })
+            result["dist_km"] = round(total, 1)
+            result["duration_h"] = round(total / 70, 1)  # тот же ориентир скорости, что и везде
             result["route_polyline"] = polyline
-            result["waypoints_applied"] = bool(waypoints)
+            result["waypoints_applied"] = any(l["waypoints_applied"] for l in legs)
 
         return jsonify(result)
     except Exception as e:
