@@ -1,8 +1,19 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.23
+Версия: 1.24
 
 История изменений:
+1.24 (2026-09-25) — Локатор, кнопка "Обновить всё" под таблицей:
+    - "Флот": "Обновить всё" перенесена из шапки под таблицу, справа, на одной
+      линии с "+ Добавить строку" (относится только к вкладке Флот)
+    - "Карты стран": кнопка "Локатор" + поле ввода справа от кнопок стран;
+      Локатор — интерактивная Google-карта Европы со всеми кодами регионов
+      (точки по цветам стран, подписи кодов при приближении, клик — код,
+      место, координаты, "копировать")
+    - поле Локатора принимает код / город / GPS / машину: показывает точку и
+      ближайший код региона (по центрам зон — у границ зон возможна ошибка)
+    - новые эндпоинты: GET /api/region-codes, POST /api/locate
+
 1.23 (2026-09-25) — перецеп, удобства From → To, вкладка Паромы:
     - "Флот": в Таргет можно вписать номер другой машины (точное совпадение с
       Mapon) — целью становится её текущий GPS, пересчитывается при каждом
@@ -214,7 +225,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.23"
+APP_VERSION = "1.24"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1875,6 +1886,58 @@ def api_route():
             result["waypoints_applied"] = any(l["waypoints_applied"] for l in legs)
 
         return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
+@app.route("/api/region-codes")
+def api_region_codes():
+    """v1.24, Локатор: все коды регионов одним списком [{code, lat, lng, place}]."""
+    return jsonify({"codes": [
+        {"code": code, "lat": v["lat"], "lng": v["lng"], "place": v.get("place", "")}
+        for code, v in sorted(REGION_CODES.items())
+    ]})
+
+
+@app.route("/api/locate", methods=["POST"])
+def api_locate():
+    """
+    v1.24, Локатор. body: {"q": "SE25" | "Jönköping" | "59.93, 10.86" | "OI-3194"}
+    Возвращает точку и ближайший код региона (для кода — сам код).
+    """
+    payload = request.get_json(force=True, silent=True) or {}
+    q = str(payload.get("q", "")).strip()
+    if not q:
+        return jsonify({"error": "Введите код, город, GPS или машину"}), 400
+
+    units_cache = {}
+    def units_getter():
+        if "units" not in units_cache:
+            units_cache["units"] = fetch_units(MAPON_API_KEY)
+        return units_cache["units"]
+
+    try:
+        try:
+            pt = resolve_point(q, units_getter)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 404
+
+        exact = q.upper().replace(" ", "")
+        if exact in REGION_CODES:
+            code, dist = exact, 0.0
+        else:
+            code, dist = nearest_region_code(pt["lat"], pt["lng"])
+        info = REGION_CODES.get(code, {})
+        return jsonify({
+            "lat": pt["lat"], "lng": pt["lng"],
+            "label": pt["label"],
+            "is_truck": pt["is_truck"],
+            "is_code": exact in REGION_CODES,
+            "code": code,
+            "code_place": info.get("place", ""),
+            "code_lat": info.get("lat"), "code_lng": info.get("lng"),
+            "dist_km": round(dist, 1),
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 502
 

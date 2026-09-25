@@ -10,7 +10,6 @@
 
 <div class="topbar">
   <h1>Fleet ETA Tracker</h1>
-  <button id="refresh-btn">Обновить всё</button>
 </div>
 
 <nav class="main-tabs">
@@ -50,7 +49,10 @@
   <tbody id="fleet-tbody"></tbody>
 </table>
 
-<button id="add-row-btn">+ Добавить строку</button>
+<div class="table-actions">
+  <button id="add-row-btn">+ Добавить строку</button>
+  <button id="refresh-btn">↻ Обновить всё</button>
+</div>
 
 <div id="map"></div>
 
@@ -61,8 +63,18 @@
 <!-- ==================== Вкладка: Карты стран ==================== -->
 <div id="tab-maps" class="tab-panel" hidden>
   <div class="pc-layout">
-    <nav class="pc-tabs" role="tablist" aria-orientation="vertical" id="pcTabs"></nav>
-    <main class="pc-main">
+    <div class="pc-top">
+      <nav class="pc-tabs" role="tablist" aria-orientation="vertical" id="pcTabs"></nav>
+      <div class="locator-bar">
+        <button type="button" id="locatorBtn" class="locator-btn">Локатор</button>
+        <input id="locatorInput" list="units-list" autocomplete="off" placeholder="код, город, GPS или машина">
+      </div>
+    </div>
+    <div id="locatorView" class="locator-view" hidden>
+      <div id="locatorInfo" class="locator-info">Клик по точке — код региона. Или введите код, город, GPS или машину в поле выше и нажмите Enter.</div>
+      <div id="locatorMap" class="locator-map"></div>
+    </div>
+    <main class="pc-main" id="pcMain">
       <div class="pc-toolbar">
         <h2 id="pcTitle"></h2>
         <button type="button" id="pcZoomBtn">Увеличить</button>
@@ -118,6 +130,7 @@
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 <script src="{{ url_for('static', filename='postcode-maps.js') }}"></script>
 <script src="{{ url_for('static', filename='route-tab.js') }}"></script>
+<script src="{{ url_for('static', filename='locator.js') }}"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_js_key }}&libraries=geometry&callback=initMap" async defer></script>
 </body>
 </html>

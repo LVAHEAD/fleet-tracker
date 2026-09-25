@@ -251,3 +251,28 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .ferries-note { font-size: 13px; color: #666; margin: 0 0 10px; }
 .ferries-link { display: block; cursor: zoom-in; }
 .ferries-img { max-width: 100%; height: auto; border: 1px solid #e5e5e5; border-radius: 6px; background: #fff; }
+
+/* ---------- v1.24: кнопки под таблицей "Флот" ---------- */
+.table-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+.table-actions #add-row-btn { margin-top: 0; }
+
+/* ---------- v1.24: Локатор во вкладке "Карты стран" ---------- */
+.pc-top { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.pc-top .pc-tabs { flex: 1; }
+.locator-bar { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+.locator-btn {
+  height: 32px; padding: 0 12px; border: 1.5px solid #ddd; background: #fff;
+  border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer;
+}
+.locator-btn.active { background: #4285F4; color: #fff; border-color: #4285F4; }
+#locatorInput { height: 32px; width: 230px; border: 1px solid #ddd; border-radius: 6px; padding: 0 10px; font-size: 13px; }
+.locator-view { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; }
+.locator-view[hidden] { display: none; }
+.locator-info { padding: 10px 14px; font-size: 13px; color: #444; border-bottom: 1px solid #eee; min-height: 20px; }
+.locator-info b { color: #1a1a1a; }
+.locator-info .loc-err { color: #c0392b; }
+.locator-map { height: 620px; }
+.loc-iw { font-size: 13px; line-height: 1.5; }
+.loc-iw .loc-code { font-size: 15px; font-weight: 700; }
+.loc-iw button { margin-top: 4px; font-size: 12px; padding: 2px 8px; cursor: pointer; }
+.pc-main[hidden] { display: none; }

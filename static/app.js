@@ -24,6 +24,12 @@ let pendingPositions = {}; // rowId -> {lat, lng, label, status} — на слу
 let rowPositions = {}; // rowId -> {unitLat, unitLng, targetLat, targetLng, polyline}
 let routePolyline = null; // текущая нарисованная линия маршрута (одна за раз)
 
+// v1.24: несколько вкладок могут ждать загрузки Google Maps — очередь вместо одного колбэка
+window.whenGoogleMaps = function (fn) {
+  if (window.googleMapsReady) fn();
+  else (window._gmQueue = window._gmQueue || []).push(fn);
+};
+
 function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
     center: { lat: 50.5, lng: 10.0 }, // примерно центр Европы
@@ -38,6 +44,8 @@ function initMap() {
 
   window.googleMapsReady = true;
   if (window.onGoogleMapsReady) window.onGoogleMapsReady();
+  (window._gmQueue || []).forEach((fn) => fn());
+  window._gmQueue = [];
 }
 
 function updateMarker(rowId, lat, lng, label, status) {
