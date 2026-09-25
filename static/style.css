@@ -185,3 +185,4 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .route-result-row { margin: 3px 0; }
 .route-error { color: #c0392b; margin-bottom: 14px; font-size: 14px; }
 #route-map { height: 420px; width: 100%; border-radius: 8px; border: 1px solid #e0e0e0; background: #eee; }
+.route-waypoint-note { color: #7a5c00; font-size: 12px; margin-top: 4px; }

@@ -1,7 +1,7 @@
 /*
 Fleet ETA Tracker — вкладка "From → To"
-Версия: 1.16 (можно вводить только одно из полей From/To — тогда просто
-показываем эту точку на карте без расчёта расстояния)
+Версия: 1.17 (правила принудительных маршрутов — Швейцария/паромы — теперь
+применяются автоматически, когда оба поля From/To — коды регионов)
 
 Отдельная Google Map (window.routeMap), создаётся лениво при первом открытии
 вкладки (initRouteTab, вызывается из app.js). Использует те же приёмы, что и
@@ -77,6 +77,7 @@ async function calcRouteTab() {
       document.getElementById("route-to-label").textContent = data.to_label;
       document.getElementById("route-dist").textContent = data.dist_km.toFixed(1);
       document.getElementById("route-duration").textContent = data.duration_h.toFixed(1);
+      document.getElementById("route-waypoint-note").hidden = !data.waypoints_applied;
       resultEl.hidden = false;
     }
 

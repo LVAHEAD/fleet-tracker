@@ -1,8 +1,23 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.16
+Версия: 1.17
 
 История изменений:
+1.17 (2026-09-25) — принудительные маршруты (Швейцария, паромы), пока
+    только во вкладке From → To:
+    - IT ↔ DE: всегда через Австрию (Инсбрук)
+    - IT ↔ NO/SE: паромы Rostock–Gedser + Helsingør–Helsingborg
+    - ES/PT/Benelux/FR ↔ NO/SE: паромы Puttgarden–Rødby + Helsingør–Helsingborg
+    - DE ↔ NO/SE: тот же паром до Дании (Rostock или Puttgarden), выбирается
+      по тому, какой порт ближе к точке в Германии, + Helsingør–Helsingborg
+    - работает только когда оба поля From/To — коды регионов (страна
+      определяется по первым двум буквам кода); для вкладки "Флот" (позиция
+      машины из Mapon) правила пока не применяются — там страна отправления
+      неизвестна без обратного геокодинга
+    - road_distance_km_google получил параметр waypoints — промежуточные
+      точки маршрута через Routes API "intermediates"
+    - в интерфейсе появляется пометка, если правило применилось
+
 1.16 (2026-09-25) — From → To: можно вводить только одно поле:
     - /api/route больше не требует оба поля; если задано только From или
       только To — возвращает координаты и лейбл этой точки без расстояния/
@@ -133,7 +148,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.16"
+APP_VERSION = "1.17"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1364,7 +1379,9 @@ def resolve_place_label(target_str):
     return lat, lng, label
 
 
-def road_distance_km_google(lat1, lng1, lat2, lng2, api_key):
+def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None):
+    """waypoints — необязательный список [(lat, lng), ...] промежуточных точек,
+    через которые маршрут должен пройти в заданном порядке."""
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": api_key,
@@ -1376,6 +1393,11 @@ def road_distance_km_google(lat1, lng1, lat2, lng2, api_key):
         "travelMode": "DRIVE",
         "routingPreference": "TRAFFIC_AWARE",
     }
+    if waypoints:
+        body["intermediates"] = [
+            {"location": {"latLng": {"latitude": wlat, "longitude": wlng}}}
+            for wlat, wlng in waypoints
+        ]
     resp = requests.post(ROUTES_API_URL, json=body, headers=headers, timeout=20)
     resp.raise_for_status()
     data = resp.json()
@@ -1385,6 +1407,73 @@ def road_distance_km_google(lat1, lng1, lat2, lng2, api_key):
     distance_km = route["distanceMeters"] / 1000
     polyline = route.get("polyline", {}).get("encodedPolyline")
     return distance_km, polyline
+
+
+# ---------- Правила принудительных маршрутов (обход Швейцарии, паромы на Скандинавию) ----------
+# Пока применяются только во вкладке From -> To (/api/route), где обе точки заданы
+# кодами регионов — страна извлекается из первых двух букв кода. Для вкладки "Флот"
+# (текущая позиция машины из Mapon) страна отправления неизвестна без обратного
+# геокодинга, поэтому там правила пока не применяются.
+
+INNSBRUCK = (47.2692, 11.4041)
+PUTTGARDEN = (54.5008, 11.2158)
+RODBY = (54.6559, 11.3600)
+ROSTOCK_FERRY = (54.1766, 12.0894)   # Warnemünde, паромный терминал у Ростока
+GEDSER = (54.5730, 11.9250)
+HELSINGOR = (56.0360, 12.6136)
+HELSINGBORG = (56.0465, 12.6945)
+
+BENELUX_FR = {"BE", "NL", "LU", "FR"}
+ES_PT = {"ES", "PT"}
+SCANDI = {"NO", "SE"}
+
+
+def get_region_country(code_str):
+    """Возвращает код страны (первые 2 буквы), если строка — известный код региона."""
+    key = (code_str or "").strip().upper().replace(" ", "")
+    return key[:2] if key in REGION_CODES else None
+
+
+def _ferry_pair_for_country(other_country, other_lat, other_lng):
+    """Южная пара паромных портов (материк -> Дания) для страны other_country."""
+    if other_country == "IT":
+        return (ROSTOCK_FERRY, GEDSER)
+    if other_country in ES_PT or other_country in BENELUX_FR:
+        return (PUTTGARDEN, RODBY)
+    if other_country == "DE":
+        d_rostock = haversine_km(other_lat, other_lng, ROSTOCK_FERRY[0], ROSTOCK_FERRY[1])
+        d_puttgarden = haversine_km(other_lat, other_lng, PUTTGARDEN[0], PUTTGARDEN[1])
+        return (ROSTOCK_FERRY, GEDSER) if d_rostock < d_puttgarden else (PUTTGARDEN, RODBY)
+    return None
+
+
+def pick_waypoints(from_str, from_lat, from_lng, to_str, to_lat, to_lng):
+    """Возвращает список [(lat,lng), ...] промежуточных точек по известным правилам,
+    или None, если ни одно правило не подходит."""
+    from_country = get_region_country(from_str)
+    to_country = get_region_country(to_str)
+    if not from_country or not to_country:
+        return None
+
+    # Италия <-> Германия: всегда через Австрию (Инсбрук)
+    if {from_country, to_country} == {"IT", "DE"}:
+        return [INNSBRUCK]
+
+    # Паромы на/из Норвегии-Швеции
+    if from_country in SCANDI and to_country not in SCANDI:
+        pair = _ferry_pair_for_country(to_country, to_lat, to_lng)
+        if pair:
+            south_port, dk_port = pair
+            # едем с севера на юг — сначала датская сторона паромов, потом материковая
+            return [HELSINGBORG, HELSINGOR, dk_port, south_port]
+    elif to_country in SCANDI and from_country not in SCANDI:
+        pair = _ferry_pair_for_country(from_country, from_lat, from_lng)
+        if pair:
+            south_port, dk_port = pair
+            # едем с юга на север
+            return [south_port, dk_port, HELSINGOR, HELSINGBORG]
+
+    return None
 
 
 # ---------- Routes ----------
@@ -1522,11 +1611,15 @@ def api_route():
         }
 
         if from_str and to_str:
-            dist_km, polyline = road_distance_km_google(from_lat, from_lng, to_lat, to_lng, GOOGLE_API_KEY)
+            waypoints = pick_waypoints(from_str, from_lat, from_lng, to_str, to_lat, to_lng)
+            dist_km, polyline = road_distance_km_google(
+                from_lat, from_lng, to_lat, to_lng, GOOGLE_API_KEY, waypoints=waypoints
+            )
             duration_h = dist_km / 70  # тот же ориентир скорости, что и в остальном приложении
             result["dist_km"] = round(dist_km, 1)
             result["duration_h"] = round(duration_h, 1)
             result["route_polyline"] = polyline
+            result["waypoints_applied"] = bool(waypoints)
 
         return jsonify(result)
     except Exception as e:
