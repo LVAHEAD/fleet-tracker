@@ -1,9 +1,10 @@
 /*
 Fleet ETA Tracker — вкладка "Карты стран"
-Версия: 1.13
+Версия: 1.19
 
 Карты почтовых зон (2-значный код индекса, как в кодах BE10, NO01, SE25).
-Не зависит от Google Maps — обычные картинки с Wikimedia Commons.
+Не зависит от Google Maps — обычные картинки (Wikimedia Commons или свои,
+из static/postcode-maps/, когда внешний источник ненадёжен/недоступен напрямую).
 Добавить страну: новая строка в массиве PC_MAPS ниже.
 */
 
@@ -28,7 +29,11 @@ const PC_MAPS = [
       ["90–94", "Troms"], ["94", "Nordland и Troms"], ["95–99", "Finnmark"]
     ] },
   { code: "ES", name: "Испания",    url: "https://upload.wikimedia.org/wikipedia/commons/5/5c/2_digit_postcode_spain.png" },
-  { code: "PT", name: "Португалия", url: "https://upload.wikimedia.org/wikipedia/commons/7/79/2_digit_postcode_portugal.png" }
+  { code: "PT", name: "Португалия", url: "https://upload.wikimedia.org/wikipedia/commons/7/79/2_digit_postcode_portugal.png" },
+  { code: "AT", name: "Австрия",    url: "https://upload.wikimedia.org/wikipedia/commons/0/0f/2_digit_postcode_austria.png" },
+  { code: "SK", name: "Словакия",   url: "/static/postcode-maps/sk.png" },
+  { code: "HU", name: "Венгрия",    url: "/static/postcode-maps/hu.webp" },
+  { code: "CZ", name: "Чехия",      url: "/static/postcode-maps/cz.png" }
 ];
 
 PC_MAPS.sort((a, b) => a.code.localeCompare(b.code));

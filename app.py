@@ -1,8 +1,21 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.17
+Версия: 1.19
 
 История изменений:
+1.19 (2026-09-25) — Чехия на вкладке "Карты стран":
+    - CZ добавлена, картинка захостена в проекте (static/postcode-maps/cz.png),
+      файл прислан напрямую пользователем
+
+1.18 (2026-09-25) — ещё три страны на вкладке "Карты стран":
+    - Австрия (AT) — прямая ссылка на Wikimedia
+    - Словакия (SK) — картинка не с внешней ссылки (та вела на страницу
+      файла, не на саму картинку), а захостена в проекте
+      (static/postcode-maps/sk.png), пользователь прислал файл напрямую
+    - Венгрия (HU) — аналогично, захостена в проекте
+      (static/postcode-maps/hu.webp) вместо внешней ссылки с ResearchGate
+      (риск hotlink-блокировки)
+
 1.17 (2026-09-25) — принудительные маршруты (Швейцария, паромы), пока
     только во вкладке From → To:
     - IT ↔ DE: всегда через Австрию (Инсбрук)
@@ -148,7 +161,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.17"
+APP_VERSION = "1.19"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
