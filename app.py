@@ -1,8 +1,18 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.45
+Версия: 1.46
 
 История изменений:
+1.46 (2026-09-26) — тахо-ETA только по суточным нормам:
+    - недельные отдыхи 24/45 в ETA НЕ учитываются (решает диспетчер); строка про
+      недельный из подсказки убрана (история — только во вкладке Truck Info)
+    - стоит дольше суточного отдыха (11 ч соло / 9 ч при сокращении и экипаж) — едет сразу,
+      next_shift_start Mapon не ждём (ожидание погрузки/выгрузки не "добивается")
+    - одиночка: недельный лимит вождения — остаток из Mapon (правило 90 ч учтено);
+      кончился по пути — стоп до пн 00:00 UTC (02:00 CEST), новая неделя =
+      min(56, остаток след. недели Mapon − проеханное до конца этой); в ETA плашка "56"
+    - экипаж: недельный лимит не учитывается
+    - запреты по пути считаются по новому ETA
 1.45 (2026-09-26) — запреты по пути (только предупреждение, ETA не сдвигается):
     - маршрут режется на точки каждые 10 км, страна точки — по ближайшему коду региона;
       время в каждой стране — по тахо-симуляции (перерывы/отдыхи учтены: если на
@@ -404,7 +414,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.45"
+APP_VERSION = "1.46"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1773,17 +1783,28 @@ def _hm(sec):
     return f"{sec // 3600}:{sec % 3600 // 60:02d}"
 
 
+WEEK_MAX_SEC = 56 * 3600         # вождение за календарную неделю (пн 00:00 – вс 24:00 UTC)
+FORTNIGHT_MAX_SEC = 90 * 3600    # за две соседние недели
+
+
+def _next_monday_utc(ts):
+    """Ближайший понедельник 00:00 UTC после ts (граница недели тахографа)."""
+    d = datetime.fromtimestamp(ts, timezone.utc)
+    mon = (d - timedelta(days=d.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    return (mon + timedelta(days=7)).timestamp()
+
+
 def tacho_eta(tacho, dist_km, now_ts=None, weekly=None):
-    """Симуляция рейса по данным тахографа.
-    Одиночка: вождение до 4:30 -> перерыв 45 мин; до конца дневного лимита / окна смены ->
-    суточный отдых (ближайший — daily_rest_min из API, дальше 9 ч пока есть сокращения,
-    иначе 11 ч) + 1 ч запаса; день 10 ч пока есть продления, иначе 9 ч.
-    Экипаж (два водителя): ведут по очереди, без перерывов; день = сумма остатков обоих,
-    но в пределах окна смены; суточный отдых 9 ч + 1 ч.
-    Недельный лимит -> недельный отдых weekly_rest_min + 30 мин.
-    v1.42: weekly (из weekly_for_tacho) — срок и длина недельного по истории водителя
-    вместо weekly_rest_start Mapon; идущий недельный отдых дожидается can_go.
-    Возвращает dict: eta_ts, stops [{kind, start, end}], team, first_limit_sec."""
+    """Симуляция рейса по данным тахографа (v1.46: только суточные нормы + недельный
+    лимит вождения для одиночки; недельные отдыхи 24/45 НЕ учитываются — их решает диспетчер).
+    Одиночка: 4:30 -> перерыв 45 мин; дневной лимит / окно смены -> суточный отдых
+    (9 ч пока есть сокращения, иначе 11 ч) + 1 ч запаса; день 10 ч пока есть продления.
+    Если уже стоит дольше суточного отдыха — может ехать сразу.
+    Недельный лимит (одиночка): остаток недели из Mapon (правило 90 ч в нём учтено);
+    кончился — стоп до пн 00:00 UTC; новая неделя = min(56, 90 − наезжено за прошлую).
+    Экипаж: без перерывов, день = сумма остатков обоих (в пределах окна смены),
+    суточный отдых 9 ч + 1 ч; недельный лимит не учитывается.
+    Возвращает dict: eta_ts, stops [{kind, start, end}], team, first_limit_sec, week."""
     import time
     t = float(now_ts or time.time())
     v = TACHO_SPEED_KMH / 3600.0
@@ -1798,57 +1819,85 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None):
     ext_left = int(week.get("10h_driving_extensions_remaining") or 0)
     short_left = int(week.get("9h_rest_shortening_remaining") or 0)
     shift_end = t + float(today.get("shift_remaining") or 0)
-    weekly_at = float(week.get("weekly_rest_start") or 0) or None
-    weekly_min = float(week.get("weekly_rest_min") or 45 * 3600)
-    next_week_drive = float(week.get("next_fixed_week_driving_remaining") or 56 * 3600)
     stops = []
-    weekly_ongoing_until = None
-    if weekly and weekly.get("deadline"):
-        weekly_at = float(weekly["deadline"])
-        weekly_min = float(weekly.get("need_sec") or weekly_min)
-        if weekly.get("ongoing") and float(weekly.get("can_go") or 0) > t:
-            weekly_ongoing_until = float(weekly["can_go"]) + REST_MARGIN_WEEKLY
+    inf = float("inf")
+
+    # недельный лимит — только одиночка
+    if team:
+        week_left = inf
+        next_week_avail = inf
+    else:
+        week_left = float(week.get("driving_remaining") if week.get("driving_remaining") is not None else WEEK_MAX_SEC)
+        nfw = week.get("next_fixed_week_driving_remaining")
+        # нет данных Mapon — считаем, что на этой неделе уже наезжено (56 − остаток)
+        next_week_avail = float(nfw) if nfw is not None else FORTNIGHT_MAX_SEC - (WEEK_MAX_SEC - week_left)
+    week_end = _next_monday_utc(t)
+    driven_this_week = 0.0          # сколько симуляция проехала в текущей неделе
+    first_rollover = True
+    week_info = {"left": None if team else week_left, "need": km_left / v, "next": None, "hit": False}
+
+    def rollover():
+        nonlocal week_left, week_end, driven_this_week, first_rollover, ext_left
+        if not team:
+            if first_rollover:
+                avail = min(WEEK_MAX_SEC, next_week_avail - driven_this_week)
+                week_info["next"] = max(0.0, avail)
+            else:
+                avail = min(WEEK_MAX_SEC, FORTNIGHT_MAX_SEC - driven_this_week)
+            week_left = max(0.0, avail)
+        first_rollover = False
+        driven_this_week = 0.0
+        week_end += 7 * 86400
+        ext_left = 2
+
+    def new_day():
+        nonlocal day_left, shift_end, until_break, ext_left
+        per_driver = 10 * 3600 if ext_left > 0 else 9 * 3600
+        if not team and ext_left > 0:
+            ext_left -= 1
+        if team:
+            day_left = min(2 * per_driver, 20 * 3600)
+            shift_end = t + 21 * 3600
+            until_break = inf
+        else:
+            day_left = per_driver
+            shift_end = t + (15 if short_left > 0 else 13) * 3600
+            until_break = CONT_DRIVE_SEC
 
     if team:
         day_left = sum(float((d.get("today") or {}).get("driving_remaining") or 0) for d in drivers)
-        week_left = sum(float((d.get("week") or {}).get("driving_remaining") or 0) for d in drivers)
-        until_break = float("inf")
+        until_break = inf
     else:
         day_left = float(today.get("driving_remaining") or 0)
-        week_left = float(week.get("driving_remaining") or 0)
         cont = float(nowd.get("driving") or 0)
         until_break = max(0.0, CONT_DRIVE_SEC - cont)
-        rest_now = float(nowd.get("rest") or 0)
-        if d0.get("current_state") == "REST" and 0 < rest_now < BREAK_SEC:
-            # идёт перерыв 45 мин — дождаться конца, потом полный счётчик 4:30
-            stops.append({"kind": "break", "start": t, "end": t + BREAK_SEC - rest_now})
-            t += BREAK_SEC - rest_now
-            until_break = CONT_DRIVE_SEC
-        elif d0.get("current_state") == "REST" and rest_now >= BREAK_SEC:
-            until_break = CONT_DRIVE_SEC  # перерыв уже отбыт
-    # водитель уже на суточном отдыхе (отдыхает 3 ч+, следующая смена ещё не началась)
-    nss = float(d0.get("next_shift_start") or 0)
-    if weekly_ongoing_until:
-        # v1.42: идёт недельный отдых, который ещё не достаточен
-        stops.append({"kind": "weekly", "start": t, "end": weekly_ongoing_until})
-        t = weekly_ongoing_until
-        per_driver = 10 * 3600 if ext_left > 0 else 9 * 3600
-        day_left = min(2 * per_driver, 20 * 3600) if team else per_driver
-        shift_end = t + (21 if team else (15 if short_left > 0 else 13)) * 3600
-        until_break = float("inf") if team else CONT_DRIVE_SEC
-        week_left = max(week_left, next_week_drive * (2 if team else 1))
-    elif (d0.get("current_state") == "REST" and float(nowd.get("rest") or 0) >= 3 * 3600
-            and nss > t):
-        stops.append({"kind": "daily", "start": t, "end": nss + REST_MARGIN_DAILY})
-        t = nss + REST_MARGIN_DAILY
-        per_driver = 10 * 3600 if ext_left > 0 else 9 * 3600
-        day_left = min(2 * per_driver, 20 * 3600) if team else per_driver
-        shift_end = t + (21 if team else (15 if short_left > 0 else 13)) * 3600
-        until_break = float("inf") if team else CONT_DRIVE_SEC
+
+    rest_now = float(nowd.get("rest") or 0) if d0.get("current_state") == "REST" else 0.0
+    need_rest = 9 * 3600 if (team or short_left > 0) else 11 * 3600
+    if rest_now >= need_rest:
+        # v1.46: стоит дольше суточного отдыха (ожидание погрузки/выгрузки) — едет сразу
+        new_day()
+    elif not team and d0.get("current_state") == "REST" and 0 < rest_now < BREAK_SEC:
+        # идёт перерыв 45 мин — дождаться конца
+        stops.append({"kind": "break", "start": t, "end": t + BREAK_SEC - rest_now})
+        t += BREAK_SEC - rest_now
+        until_break = CONT_DRIVE_SEC
+    elif not team and rest_now >= BREAK_SEC:
+        until_break = CONT_DRIVE_SEC    # перерыв уже отбыт
+    if rest_now >= 3 * 3600 and rest_now < need_rest and day_left < 3600:
+        # на суточном отдыхе, дня не осталось — добыть отдых до нормы
+        end = t + (need_rest - rest_now) + REST_MARGIN_DAILY
+        stops.append({"kind": "daily", "start": t, "end": end})
+        if need_rest == 9 * 3600 and not team:
+            short_left -= 1
+        t = end
+        new_day()
+    while t >= week_end:
+        rollover()
 
     first_rest = True
     first_limit = None
-    for _ in range(400):
+    for _ in range(600):
         if km_left <= 1e-6:
             break
         seg_limits = {
@@ -1857,33 +1906,34 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None):
             "shift": max(0.0, shift_end - t),
             "week": max(0.0, week_left),
             "break": until_break,
+            "wk_boundary": max(0.0, week_end - t),
         }
-        if weekly_at and weekly_at > t:
-            seg_limits["weekly_at"] = weekly_at - t
         kind = min(seg_limits, key=seg_limits.get)
         seg = seg_limits[kind]
-        if first_limit is None and kind != "km":
+        if first_limit is None and kind not in ("km", "wk_boundary"):
             first_limit = seg
         t += seg
         km_left -= seg * v
         day_left -= seg
         week_left -= seg
         until_break -= seg
+        driven_this_week += seg
         if kind == "km":
             break
+        if kind == "wk_boundary":
+            rollover()
+            continue
         if kind == "break":
             stops.append({"kind": "break", "start": t, "end": t + BREAK_SEC})
             t += BREAK_SEC
             until_break = CONT_DRIVE_SEC
-            continue
-        if kind in ("week", "weekly_at"):
-            rest = weekly_min + REST_MARGIN_WEEKLY
-            stops.append({"kind": "weekly", "start": t, "end": t + rest})
-            t += rest
-            week_left = next_week_drive * (2 if team else 1)
-            ext_left, short_left = 2, 3
-            weekly_at = t + WEEKLY_PERIOD_SEC if weekly else None
-            weekly_min = 45 * 3600
+        elif kind == "week":
+            # недельный лимит вождения исчерпан — стоим до пн 00:00 UTC
+            week_info["hit"] = True
+            stops.append({"kind": "weeklimit", "start": t, "end": week_end})
+            t = week_end
+            rollover()
+            new_day()
         else:  # дневной лимит или окно смены -> суточный отдых
             if team:
                 rest = 9 * 3600
@@ -1899,51 +1949,48 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None):
             first_rest = False
             stops.append({"kind": "daily", "start": t, "end": t + rest + REST_MARGIN_DAILY})
             t += rest + REST_MARGIN_DAILY
-        # новые сутки
-        per_driver = 10 * 3600 if ext_left > 0 else 9 * 3600
-        if ext_left > 0:
-            ext_left -= 1
-        if team:
-            day_left = min(2 * per_driver, 20 * 3600)
-            shift_end = t + 21 * 3600
-        else:
-            day_left = per_driver
-            shift_end = t + (15 if short_left > 0 else 13) * 3600
-        until_break = float("inf") if team else CONT_DRIVE_SEC
-    return {"eta_ts": t, "stops": stops, "team": team, "first_limit_sec": first_limit}
+            new_day()
+        while t >= week_end:
+            rollover()
+    return {"eta_ts": t, "stops": stops, "team": team, "first_limit_sec": first_limit, "week": week_info}
 
 
 def tacho_summary(tacho, sim=None, weekly=None):
-    """Короткие строки для подсказки: "до перерыва 3:24", "отдых 26/09 01:15–11:15", "экипаж"."""
+    """Короткие строки для подсказки: "сегодня осталось 3:24", "отдых 26/09 01:15–11:15",
+    недельный лимит вождения (одиночка)."""
     d0 = next((d for d in tacho["drivers"] if d.get("current_state") == "DRIVING"), tacho["drivers"][0])
     nowd, today = d0.get("now", {}) or {}, d0.get("today", {}) or {}
     loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M")
     parts = []
     state = {"DRIVING": "едет", "REST": "отдыхает", "AVAILABLE": "готовность", "WORK": "работа"}.get(d0.get("current_state"), d0.get("current_state") or "")
-    if len(tacho["drivers"]) >= 2:
+    team = len(tacho["drivers"]) >= 2
+    if team:
         parts.append("экипаж")
     if state:
-        parts.append(state)
+        rest_now = float(nowd.get("rest") or 0)
+        parts.append(state + (f" {_hm(rest_now)}" if d0.get("current_state") == "REST" and rest_now >= 3600 else ""))
     if d0.get("current_state") == "DRIVING" and nowd.get("driving_remaining") is not None:
         parts.append(f"до остановки {_hm(nowd.get('driving_remaining'))}")
-    parts.append(f"сегодня осталось {_hm(today.get('driving_remaining'))}")
-    parts.append(f"смена до {loc(float(today.get('daily_rest_start') or 0))}" if today.get("daily_rest_start") else "")
-    if weekly and weekly.get("deadline"):
-        need = "45 ч" if weekly.get("need_sec", 0) >= WEEKLY_FULL_SEC else "24 ч"
-        if weekly.get("ongoing"):
-            parts.append(f"на недельном {_hm(weekly.get('resting_sec'))}"
-                         + (f", можно ехать с {loc(weekly['can_go'])}" if weekly.get("can_go", 0) > datetime.now(timezone.utc).timestamp() else ""))
-        parts.append(f"недельный ({need}) до {loc(weekly['deadline'])}")
-        mw = float(((d0.get("week") or {}).get("weekly_rest_start")) or 0)
-        if mw and abs(mw - weekly["deadline"]) > 3 * 3600 and not weekly.get("ongoing"):
-            parts.append(f"(Mapon: до {loc(mw)})")
+    rest_now = float(nowd.get("rest") or 0) if d0.get("current_state") == "REST" else 0.0
+    short_left = int((d0.get("week") or {}).get("9h_rest_shortening_remaining") or 0)
+    if rest_now >= (9 * 3600 if (team or short_left > 0) else 11 * 3600):
+        parts.append("суточный отдых выполнен — может ехать")
+    else:
+        parts.append(f"сегодня осталось {_hm(today.get('driving_remaining'))}")
+    if sim and not team and sim.get("week"):
+        w = sim["week"]
+        if w.get("left") is not None:
+            ok = w["left"] >= w["need"]
+            parts.append(f"неделя: осталось {_hm(w['left'])}, нужно {_hm(w['need'])}"
+                         + (" — хватает" if ok else f" — не хватает {_hm(w['need'] - w['left'])}"))
+        if w.get("next") is not None:
+            parts.append(f"с пн доступно {_hm(w['next'])} (правило 90 ч)")
     if sim:
-        rests = [st for st in sim["stops"] if st["kind"] in ("daily", "weekly")]
-        for st in rests[:3]:
-            label = "отдых" if st["kind"] == "daily" else "недельный отдых"
+        for st in [x for x in sim["stops"] if x["kind"] in ("daily", "weeklimit")][:3]:
             s_txt, e_txt = loc(st["start"]), loc(st["end"])
             same_day = s_txt[:5] == e_txt[:5]
-            parts.append(f"{label} {s_txt}–{e_txt[-5:] if same_day else e_txt}")
+            span = f"{s_txt}–{e_txt[-5:] if same_day else e_txt}"
+            parts.append(f"отдых {span}" if st["kind"] == "daily" else f"стоп {span}: исчерпан лимит недели")
     return [p for p in parts if p]
 
 
@@ -3200,21 +3247,18 @@ def api_calc():
             tacho, terr = get_tacho(unit.get("unit_id"))
             if tacho:
                 sim = None
-                try:
-                    weekly = weekly_for_tacho(tacho)
-                except Exception:
-                    weekly = None
                 if result.get("dist_km") is not None:
-                    sim = tacho_eta(tacho, result["dist_km"], weekly=weekly)
+                    sim = tacho_eta(tacho, result["dist_km"])
                     eta_t = round_to_15min(datetime.fromtimestamp(sim["eta_ts"], timezone.utc)
                                            + timedelta(hours=WEST_EUROPE_OFFSET))
                     result["eta_tacho"] = eta_t.strftime("%d/%m %H:%M")
-                    result["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weekly") for st in sim["stops"])
+                    result["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sim["stops"])
                     result["_sim_stops"] = sim["stops"]
                 d0 = next((d for d in tacho["drivers"] if d.get("current_state") == "DRIVING"), tacho["drivers"][0])
                 result["tacho_resting_now"] = d0.get("current_state") == "REST"
                 result["tacho_team"] = len(tacho["drivers"]) >= 2
-                result["tacho_summary"] = tacho_summary(tacho, sim, weekly)
+                result["tacho_summary"] = tacho_summary(tacho, sim)
+                result["tacho_weeklimit"] = bool(sim and sim.get("week", {}).get("hit"))
             else:
                 result["tacho_error"] = terr
         except Exception as e:

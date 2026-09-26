@@ -502,3 +502,6 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 .route-bans { margin-top: 8px; padding: 6px 10px; border-radius: 6px; background: #fdecea; color: #8a2a1f; font-size: 13px; line-height: 1.5; }
 .route-bans.route-bans-none { background: transparent; color: #888; padding: 0; }
 .route-bans[hidden] { display: none; }
+
+/* ---------- v1.46: недельный лимит вождения ---------- */
+.wk-mark { display: inline-block; margin-right: 4px; padding: 0 4px; border-radius: 3px; background: #c0392b; color: #fff; font-size: 10px; font-weight: 700; line-height: 15px; cursor: help; }

@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.45 (🚫 в ETA — полный запрет по пути).
+Версия: 1.46 (плашка 56 — недельный лимит одиночки).
+Ранее 1.45 (🚫 в ETA — полный запрет по пути).
 Ранее 1.44 (меню ⋯ поверх страницы, у нижних строк — вверх).
 Ранее 1.43 (Флот, вариант A: статус и ETA в одну строку, полоска L/O, меню ⋯, красный ETA при опоздании к Delivery).
 Ранее 1.33 (ETA по тахографу во второй строке ETA, ⏸ в Статусе).
@@ -695,6 +696,10 @@ async function calcRow(id) {
       if (bansR.length) {
         etaText = `<span class="ban-mark" title="${escapeHtml("Запрет по пути:\n" + bansR.join("\n"))}">🚫</span>` + etaText;
         tip.push("🚫 Запрет по пути (ETA не сдвинут):", ...bansR);
+      }
+      // v1.46: "56" — одиночка упирается в недельный лимит вождения, стоп до пн 00:00 UTC
+      if (data.tacho_weeklimit) {
+        etaText = `<span class="wk-mark" title="Недельный лимит вождения кончится по пути — стоп до пн 00:00 UTC (02:00 CEST), учтено в ⏱ ETA">56</span>` + etaText;
       }
       etaCell.innerHTML = etaText;
       const delD = parseDelivery(row.delivery);
