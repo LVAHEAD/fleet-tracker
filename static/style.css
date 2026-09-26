@@ -2,7 +2,7 @@
 
 body {
   font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-  max-width: 1100px;
+  max-width: 1320px;   /* v1.43: шире — место для Примечания */
   margin: 0 auto;
   padding: 1.5rem 1rem;
   color: #1a1a1a;
@@ -451,3 +451,48 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 .ti-err { color: #b33; font-size: 13px; margin: 4px 0; }
 .ti-loading { color: #888; padding: 12px; }
 @media (max-width: 600px) { .ti-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---------- v1.43: Флот, вариант A — компактная таблица ---------- */
+#fleet-table .col-unit     { width: 100px; }
+#fleet-table .col-status   { width: 190px; }
+#fleet-table .col-target   { width: 270px; }
+#fleet-table .col-delivery { width: 125px; }
+#fleet-table .col-dist     { width: 70px; }
+#fleet-table .col-eta      { width: 185px; }
+#fleet-table .col-actions  { width: 76px; }
+/* L/O — полоска слева вместо заливки всей строки */
+#fleet-tbody tr.lo-row-L td:not(.status-cell),
+#fleet-tbody tr.lo-row-O td:not(.status-cell),
+#fleet-tbody tr.lo-row-L:hover td:not(.status-cell),
+#fleet-tbody tr.lo-row-O:hover td:not(.status-cell) { background: transparent; }
+#fleet-tbody tr td:first-child { box-shadow: inset 4px 0 0 transparent; }
+#fleet-tbody tr.lo-row-L td:first-child { box-shadow: inset 4px 0 0 #6FA6E0; }
+#fleet-tbody tr.lo-row-O td:first-child { box-shadow: inset 4px 0 0 #E3B62E; }
+#fleet-tbody tr:hover td { background: #f6f7fa !important; }
+/* статус — одна строка, без цветной заливки */
+.status-cell.status-driving, .status-cell.status-standing { background: transparent; }
+.status-cell .status-line { display: flex; align-items: center; white-space: nowrap; overflow: hidden; }
+.st-ic { font-size: 11px; margin-right: 5px; }
+.st-stop { color: #c0392b; }
+.st-go { color: #2e8b57; }
+.st-speed { color: #888; margin-left: 4px; }
+.status-cell .tacho-pause { margin: 0 0 0 8px; }
+/* ETA — одна строка */
+.eta-cell { overflow: hidden; }
+.eta-cell .eta-tacho { font-weight: 600; }
+.eta-cell .eta-simple { margin-left: 6px; }
+.eta-cell.eta-late .eta-tacho { color: #c0392b; }
+.eta-cell.eta-late { box-shadow: inset 0 -2px 0 #f3c1bb; }
+/* действия: ↻ и меню ⋯ */
+.row-actions { position: relative; }
+.row-actions > button, .row-menu-wrap > .more-btn { padding: 2px 8px; margin: 0 2px; }
+.row-menu-wrap { position: relative; display: inline-block; }
+.row-menu {
+  position: absolute; right: 0; top: 100%; z-index: 20; margin-top: 3px;
+  display: flex; flex-direction: column; background: #fff; border: 1px solid #ddd;
+  border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.12); padding: 4px; min-width: 150px;
+}
+.row-menu[hidden] { display: none; }
+.row-menu button { border: 0; text-align: left; margin: 0; padding: 6px 10px; white-space: nowrap; }
+.row-menu .del-btn { color: #c0392b; }
+.ti-warn { color: #c0392b; font-weight: 600; font-size: 13px; margin: 0 0 10px; }

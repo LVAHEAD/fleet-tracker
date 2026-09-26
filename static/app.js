@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.33 (ETA по тахографу во второй строке ETA, ⏸ в Статусе).
+Версия: 1.43 (Флот, вариант A: статус и ETA в одну строку, полоска L/O, меню ⋯, красный ETA при опоздании к Delivery).
+Ранее 1.33 (ETA по тахографу во второй строке ETA, ⏸ в Статусе).
 Ранее 1.31 (плашки страны в Статусе и кода региона в Таргете).
 Ранее 1.30 (плашки машин и таргетов на карте, стрелка курса).
 Ранее 1.28 (адресная база: подсказки points-list, L/O из Type, цвета port/customs/misc).
@@ -445,17 +446,22 @@ function renderRows() {
         <div class="target-wrap">
           <button class="lo-btn ${loClass(row.lo)}" title="${loTitle(row.lo)}">${loText(row.lo)}</button>
           ${cached && cached.targetBadge ? cached.targetBadge : '<span class="cc-badge target-cc" hidden></span>'}
-          <input list="points-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" placeholder="ГПС, город, код или машина" />
+          <input list="points-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" title="${escapeHtml(row.target)}" placeholder="ГПС, город, код или машина" />
         </div>
       </td>
-      <td><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" placeholder="${deliveryPlaceholder(row.lo)}" /></td>
+      <td><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" title="${escapeHtml(row.delivery)}" placeholder="${deliveryPlaceholder(row.lo)}" /></td>
       <td class="dist-cell ${distMuted}" style="text-align:right">${distHtml}</td>
-      <td class="eta-cell ${etaMuted}" title="${escapeHtml(cached && cached.etaTip ? cached.etaTip : "")}">${etaHtml}</td>
-      <td><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" placeholder="примечание" /></td>
+      <td class="eta-cell ${etaMuted}${cached && cached.late ? " eta-late" : ""}" title="${escapeHtml(cached && cached.etaTip ? cached.etaTip : "")}">${etaHtml}</td>
+      <td><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" title="${escapeHtml(row.note)}" placeholder="примечание" /></td>
       <td class="row-actions">
         <button class="refresh-row-btn" title="Обновить строку">↻</button>
-        <button class="add-btn" title="Добавить строку">+</button>
-        <button class="del-btn" title="Удалить строку">✕</button>
+        <span class="row-menu-wrap">
+          <button class="more-btn" title="Ещё">⋯</button>
+          <span class="row-menu" hidden>
+            <button class="add-btn">+ строка ниже</button>
+            <button class="del-btn">✕ удалить строку</button>
+          </span>
+        </span>
       </td>
     `;
     tbody.appendChild(tr);
@@ -503,9 +509,11 @@ function attachRowHandlers() {
       updateRowField(id, "target", e.target.value);
     });
     tr.querySelector(".delivery-input").addEventListener("change", (e) => {
+      e.target.title = e.target.value;
       updateRowField(id, "delivery", e.target.value);
     });
     tr.querySelector(".note-input").addEventListener("change", (e) => {
+      e.target.title = e.target.value;
       updateRowField(id, "note", e.target.value);
     });
 
@@ -521,6 +529,14 @@ function attachRowHandlers() {
     tr.querySelector(".refresh-row-btn").addEventListener("click", (e) => {
       e.stopPropagation();
       calcRow(id);
+    });
+
+    tr.querySelector(".more-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const menu = tr.querySelector(".row-menu");
+      const open = menu.hidden;
+      closeRowMenus();
+      menu.hidden = !open;
     });
 
     tr.querySelector(".add-btn").addEventListener("click", (e) => {
@@ -548,6 +564,40 @@ function attachRowHandlers() {
       drawRoute(id);
     });
   });
+}
+
+function closeRowMenus() {
+  document.querySelectorAll("#fleet-tbody .row-menu").forEach((m) => { m.hidden = true; });
+}
+document.addEventListener("click", closeRowMenus);
+
+// v1.43: Delivery (свободный текст) -> Date для сравнения с ETA.
+// Понимает "28/09 06.00", "29/09 at 01.30", "27/09 09am", "*Date: 29/09 06.00*", "29/09"
+// (без времени — конец дня). Не распознано — null (без подсветки).
+function parseDelivery(txt) {
+  const d = String(txt || "").match(/(\d{1,2})[\/.](\d{1,2})(?:[\/.]\d{2,4})?(.*)$/);
+  if (!d) return null;
+  const day = +d[1], mon = +d[2];
+  if (day < 1 || day > 31 || mon < 1 || mon > 12) return null;
+  let hh = 23, mm = 59;
+  const rest = d[3] || "";
+  const t = rest.match(/(\d{1,2})[.:](\d{2})/);
+  const ap = rest.match(/(\d{1,2})\s*(am|pm)/i);
+  if (t) { hh = +t[1]; mm = +t[2]; }
+  else if (ap) { hh = (+ap[1] % 12) + (ap[2].toLowerCase() === "pm" ? 12 : 0); mm = 0; }
+  return mkDate(day, mon, hh, mm);
+}
+// "dd/mm HH:MM" (ETA с сервера) -> Date
+function parseEta(txt) {
+  const d = String(txt || "").match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+  return d ? mkDate(+d[1], +d[2], +d[3], +d[4]) : null;
+}
+function mkDate(day, mon, hh, mm) {
+  const now = new Date();
+  let y = now.getFullYear();
+  if (mon - (now.getMonth() + 1) > 6) y -= 1;       // декабрь при январе
+  else if ((now.getMonth() + 1) - mon > 6) y += 1;  // январь при декабре
+  return new Date(y, mon - 1, day, hh, mm);
 }
 
 function updateRowField(id, field, value) {
@@ -594,18 +644,18 @@ async function calcRow(id) {
     const ccBadge = data.unit_country
       ? `<span class="cc-badge" title="${escapeHtml(data.unit_code_hint || data.unit_country)}">${escapeHtml(data.unit_country)}</span>`
       : "";
-    const statusLine1 = ccBadge + escapeHtml(data.status_ru + " " + data.duration_str);
+    // v1.43: одна строка — страна, ■/▶, время, скорость, ⏸
+    const icon = data.status === "driving"
+      ? '<span class="st-ic st-go">▶</span>' : '<span class="st-ic st-stop">■</span>';
+    const statusLine1 = ccBadge + icon + escapeHtml(data.duration_str);
     // v1.33: ⏸ — впереди обязательный отдых по тахографу или водитель сейчас отдыхает
     const tachoTip = (data.tacho_summary || []).join("\n");
-    const pause = (data.tacho_rest_ahead || data.tacho_resting_now)
-      ? `<span class="tacho-pause" title="${escapeHtml(tachoTip)}"></span>${data.tacho_resting_now && data.status !== "driving" ? "отдых " : ""}` : "";
     const speedTxt = data.status === "driving" && data.speed != null
       ? escapeHtml(`${Math.round(data.speed)} км/ч`) : "";
-    const statusLine2 = pause || speedTxt ? `${pause}${speedTxt}` : "";
-    // Каждая строка статуса — в своём nowrap-блоке: максимум две строки
-    const statusHtml = statusLine2
-      ? `<div class="status-line">${statusLine1}</div><div class="status-line">${statusLine2}</div>`
-      : `<div class="status-line">${statusLine1}</div>`;
+    const extra = speedTxt ? `<span class="st-speed"> · ${speedTxt}</span>` : "";
+    const pauseIc = (data.tacho_rest_ahead || data.tacho_resting_now)
+      ? `<span class="tacho-pause" title="${escapeHtml(tachoTip)}"></span>` : "";
+    const statusHtml = `<div class="status-line" title="${escapeHtml(data.status_ru + " " + data.duration_str + (tachoTip ? "\n" + tachoTip : ""))}">${statusLine1}${extra}${pauseIc}</div>`;
     const statusClass = data.status === "driving" ? "status-driving" : "status-standing";
 
     statusCell.innerHTML = statusHtml;
@@ -614,6 +664,7 @@ async function calcRow(id) {
     let distText = "—";
     let etaText = "—";
     let etaTip = "";
+    let late = false;
     if (data.dist_km != null) {
       distText = data.dist_km.toFixed(1);
       distCell.textContent = distText;
@@ -622,9 +673,16 @@ async function calcRow(id) {
       const tip = ["Простой ETA: км ÷ 70, без остановок"]
         .concat(data.eta_tacho ? ["⏱ По тахографу: " + data.eta_tacho].concat(data.tacho_summary || []) : [])
         .concat(data.tacho_error ? ["Тахограф: " + data.tacho_error] : []);
-      etaText = `<div class="eta-simple">${escapeHtml(data.eta_local)}</div>`
-        + (data.eta_tacho ? `<div class="eta-tacho">⏱ ${escapeHtml(data.eta_tacho)}</div>` : "");
+      // v1.43: одна строка — ⏱ по тахографу крупно, простой мелко серым
+      etaText = data.eta_tacho
+        ? `<span class="eta-tacho">⏱ ${escapeHtml(data.eta_tacho)}</span><span class="eta-simple">${escapeHtml(data.eta_local)}</span>`
+        : `<span class="eta-tacho eta-only">${escapeHtml(data.eta_local)}</span>`;
       etaCell.innerHTML = etaText;
+      const delD = parseDelivery(row.delivery);
+      const etaD = parseEta(data.eta_tacho || data.eta_local);
+      late = !!(delD && etaD && etaD > delD);
+      etaCell.classList.toggle("eta-late", late);
+      if (late) tip.unshift("Позже Delivery (" + row.delivery + ")");
       etaTip = tip.join("\n");
       etaCell.title = etaTip;
       etaCell.classList.remove("muted");
@@ -648,7 +706,7 @@ async function calcRow(id) {
     const oldTb = tr.querySelector(".target-cc");
     if (oldTb) oldTb.outerHTML = targetBadge;
 
-    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge };
+    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late };
 
     if (data.unit_lat != null && data.unit_lng != null) {
       // ошибка отрисовки на карте не должна ломать строку таблицы
@@ -676,7 +734,7 @@ async function calcRow(id) {
         if (tInput) tInput.title = addressTooltip(data.target_address);
       } else {
         delete targetTypeByRow[id];
-        if (tInput) tInput.title = "";
+        if (tInput) tInput.title = row.target || "";
       }
 
       if (data.target_is_truck && truckInTable(data.target_unit)) {

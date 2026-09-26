@@ -1,8 +1,16 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.42
+Версия: 1.43
 
 История изменений:
+1.43 (2026-09-26) — Флот, редизайн (вариант A):
+    - L/O — цветная полоска слева вместо заливки строки; статус в одну строку
+      (страна, ■ стоит / ▶ едет, время, скорость, ⏸) без цветной заливки
+    - ETA в одну строку: ⏱ по тахографу жирно + простой серым; красный, если позже
+      Delivery (Delivery разбирается из текста: "28/09 06.00", "29/09 at 01.30", "27/09 09am")
+    - Delivery уже, Примечание шире (страница до 1320 px); полный текст — при наведении
+    - кнопки строки: ↻ и меню ⋯ (добавить ниже / удалить)
+    - Truck Info: красная пометка "Информация носит информативный характер…"
 1.42 (2026-09-26) — недельный отдых по истории водителя (Mapon driver/daily_activities):
     - отдыхи склеиваются из REST, включая время без карты (Mapon пишет его с CAN) —
       вынутая перед 45-кой карта не "ломает" отдых; отдых считается по водителю, а не
@@ -386,7 +394,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.42"
+APP_VERSION = "1.43"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
