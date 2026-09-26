@@ -412,3 +412,12 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 .truckinfo-empty { background: #fff; border: 1px dashed #ccc; border-radius: 8px; padding: 28px; color: #777; font-size: 14px; }
 .truckinfo-empty b { color: #444; }
 .truckinfo-empty p { margin: 8px 0 0; }
+
+/* ---------- v1.40: плашка "+довоз FI/EE" ---------- */
+.target-cc-wrap { display: inline-flex; gap: 3px; align-items: center; flex: 0 0 auto; }
+.dovoz-badge {
+  display: inline-grid; place-items: center; height: 26px; padding: 0 5px; box-sizing: border-box;
+  border: 1px solid #A9CBEF; border-radius: 4px; background: #EEF5FD; color: #1F5A99;
+  font-size: 11px; font-weight: 600; white-space: nowrap; cursor: help;
+}
+.route-point .dovoz-badge { height: 20px; }

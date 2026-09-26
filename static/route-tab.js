@@ -299,7 +299,7 @@ function renderRoutePoints(points) {
   el.innerHTML = points.map((p) => `
     <div class="route-point">
       <span class="route-tag tag-${p.kind}">${p.kind}${p.num}</span>
-      <span>${routeEscape(p.label)}${addrExtra(p.address)}</span>
+      <span>${routeEscape(p.label)}${p.dovoz ? ` <span class="dovoz-badge">+довоз ${routeEscape(p.dovoz)}</span>` : ""}${addrExtra(p.address)}</span>
     </div>`).join("");
   el.hidden = points.length === 0;
 }

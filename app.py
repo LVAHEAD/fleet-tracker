@@ -1,8 +1,17 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.39
+Версия: 1.40
 
 История изменений:
+1.40 (2026-09-26) — FIN/EE -> База:
+    - ввод страной (fin / FI / Финляндия / ee / EE / Эстония) в Таргет и
+      From → To = маршрут до Базы (Baza Parking из адресной базы, иначе
+      56.94643, 24.03196) + плашка "+довоз FI/EE"; конкретная точка в Эстонии
+      (код, GPS, город, склад) — напрямую
+    - база фрахтов: рейсы "FIN"/"EE" без кода считаются до Базы (появился €/км);
+      похожие рейсы для To = FIN/EE ищутся по рейсам в эту страну
+    - первая версия, задеплоенная напрямую (git push из сессии Claude)
+
 1.39 (2026-09-26) — фикс "Запретов" (400), версия у заголовка, вкладка Truck Info:
     - фид nakordoni принимает не больше 3 стран за запрос (4+ -> 400): группы по 3
       (17 стран = 6 запросов с паузой); на 400 группа делится, незнакомая фиду
@@ -365,7 +374,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.39"
+APP_VERSION = "1.40"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -2199,6 +2208,38 @@ def parse_trip_date(v, year):
         return None
 
 
+# ---------- v1.40: FIN/EE -> База ----------
+# ~99% грузов в Финляндию и ~70% в Эстонию основная машина везёт до Базы (Рига),
+# дальше отдельный довоз. Ввод страной (fin / FI / Финляндия / ee / Эстония)
+# = маршрут до Базы + плашка "+довоз FI/EE". Конкретная точка в EE — напрямую.
+BASE_FALLBACK = (56.94643, 24.03196)
+BASE_NAME_KEYS = ("bazaparking", "baza", "база")
+DOVOZ_COUNTRY_WORDS = {
+    "FI": {"fi", "fin", "finland", "finnland", "suomi", "финляндия", "фин"},
+    "EE": {"ee", "est", "estonia", "eesti", "эстония", "эст"},
+}
+
+
+def dovoz_country(raw):
+    """"fin" / "FI" / "Финляндия" -> "FI"; "ee" / "Эстония" -> "EE"; иначе None."""
+    k = re.sub(r"[\s.\-_]", "", str(raw or "")).lower()
+    for cc, words in DOVOZ_COUNTRY_WORDS.items():
+        if k in words:
+            return cc
+    return None
+
+
+def base_point():
+    """Координаты и имя Базы: из адресной базы (строка "Baza Parking"), иначе константа."""
+    try:
+        for a in get_addresses():
+            if any(k in normalize(a["name"]) or k in normalize(a.get("alias")) for k in BASE_NAME_KEYS):
+                return a["lat"], a["lng"], a["name"]
+    except Exception:
+        pass
+    return BASE_FALLBACK[0], BASE_FALLBACK[1], "Baza Parking"
+
+
 def _region_ll(code):
     v = REGION_CODES.get(code or "")
     return (v["lat"], v["lng"]) if v else (None, None)
@@ -2227,6 +2268,8 @@ def parse_freight_rows(values):
 
     items = []
     stats = {"rows": 0, "ok": 0, "no_price": 0, "no_region": 0}
+    _b = base_point()
+    base_ll = (_b[0], _b[1])
     for row in values[1:]:
         if not any(str(c or "").strip() for c in row):
             continue
@@ -2248,6 +2291,9 @@ def parse_freight_rows(values):
         d = parse_trip_date(cell(row, c_ldt), year) or parse_trip_date(cell(row, c_ddt), year)
         flat, flng = _region_ll(fcode)
         tlat, tlng = _region_ll(tcode)
+        if tcode is None and tcc in DOVOZ_COUNTRY_WORDS and tlat is None:
+            # v1.40: "FIN"/"EE" без кода — фактически до Базы (для €/км)
+            tlat, tlng = base_ll
         km = None
         if flat is not None and tlat is not None:
             km = haversine_km(flat, flng, tlat, tlng) * FREIGHT_ROAD_FACTOR
@@ -2334,9 +2380,22 @@ def similar_freights(a, b, route_km=None, limit=10):
     fcode = a.get("code") or a.get("near_code")
     tcode = b.get("code") or b.get("near_code")
     fcc, tcc = a.get("country"), b.get("country")
+    dovoz = b.get("dovoz")          # v1.40: To = "FIN"/"EE" через Базу
     found = {}
     for i, t in enumerate(items):
         lvl = None
+        if dovoz:
+            if t["to_cc"] != dovoz:
+                continue
+            if fcode and t["from_code"] == fcode:
+                lvl = 1
+            elif t["flat"] is not None and haversine_km(t["flat"], t["flng"], a["lat"], a["lng"]) <= FREIGHT_NEAR_KM:
+                lvl = 2
+            elif fcc and t["from_cc"] == fcc:
+                lvl = 3
+            if lvl:
+                found[i] = lvl
+            continue
         if fcode and tcode and t["from_code"] == fcode and t["to_code"] == tcode:
             lvl = 1
         elif (t["flat"] is not None and t["tlat"] is not None
@@ -2402,7 +2461,7 @@ def similar_freights(a, b, route_km=None, limit=10):
             "contract": bool(t.get("contract")),
         }
     return {
-        "query": f"{fcode or fcc or '?'} → {tcode or tcc or '?'}",
+        "query": f"{fcode or fcc or '?'} → {(dovoz + ' (через Базу)') if dovoz else (tcode or tcc or '?')}",
         "total": len(trips), "levels": levels_used,
         "trips": [pub(t) for t in contract_trips] + [pub(t) for t in trips[:limit]],
         "estimate": estimate,
@@ -2447,6 +2506,21 @@ def resolve_point(raw, units_getter):
             "near_code": code,
             "code": code if d <= NEAR_LABEL_MAX_KM else None,
             "is_truck": True,
+        }
+
+    # v1.40: страна через Базу (fin / ee ...) — маршрут до Базы + плашка "+довоз"
+    dv = dovoz_country(raw)
+    if dv:
+        blat, blng, bname = base_point()
+        code, d = nearest_region_code(blat, blng)
+        return {
+            "lat": blat, "lng": blng,
+            "label": f"База ({bname})",
+            "country": "LV",
+            "near_code": code,
+            "code": code if d <= NEAR_LABEL_MAX_KM else None,
+            "is_truck": False,
+            "dovoz": dv,
         }
 
     # v1.28: точка из адресной базы
@@ -2638,6 +2712,10 @@ def api_calc():
                 return jsonify({"error": f"У машины-таргета {target_str} нет координат в Mapon"}), 502
             result["target_is_truck"] = True
             result["target_unit"] = target_unit.get("number")
+        elif dovoz_country(target_str):
+            # v1.40: fin / ee -> до Базы, плашка "+довоз"
+            target_lat, target_lng, _bn = base_point()
+            result["target_dovoz"] = dovoz_country(target_str)
         else:
             addr = None
             if target_str and not looks_like_gps_or_code(target_str):
@@ -2755,7 +2833,8 @@ def api_route():
         result = {
             "points": [
                 {**{k: p[k] for k in ("kind", "num", "label", "lat", "lng", "is_truck", "code")},
-                 "address": p.get("address"), "geo": p.get("geo"), "raw": p.get("raw")}
+                 "address": p.get("address"), "geo": p.get("geo"), "raw": p.get("raw"),
+                 "dovoz": p.get("dovoz")}
                 for p in points
             ],
             "legs": [],

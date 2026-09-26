@@ -638,8 +638,12 @@ async function calcRow(id) {
     window.fleetCountries[id] = [data.unit_country, (data.target_badge || "").slice(0, 2)].filter(Boolean);
 
     // v1.31: плашка кода региона таргета (между L/O и полем)
+    // v1.40: "+довоз FI/EE" — основная машина везёт до Базы
+    const dovoz = data.target_dovoz
+      ? `<span class="dovoz-badge" title="Основная машина везёт до Базы, дальше довоз (${escapeHtml(data.target_dovoz)})">+довоз ${escapeHtml(data.target_dovoz)}</span>`
+      : "";
     const targetBadge = data.target_badge
-      ? `<span class="cc-badge target-cc" title="${escapeHtml(data.target_code_hint || data.target_badge)}">${escapeHtml(data.target_badge)}</span>`
+      ? `<span class="target-cc-wrap target-cc"><span class="cc-badge" title="${escapeHtml(data.target_code_hint || data.target_badge)}">${escapeHtml(data.target_badge)}</span>${dovoz}</span>`
       : '<span class="cc-badge target-cc" hidden></span>';
     const oldTb = tr.querySelector(".target-cc");
     if (oldTb) oldTb.outerHTML = targetBadge;
