@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.43 (Флот, вариант A: статус и ETA в одну строку, полоска L/O, меню ⋯, красный ETA при опоздании к Delivery).
+Версия: 1.44 (меню ⋯ поверх страницы, у нижних строк — вверх).
+Ранее 1.43 (Флот, вариант A: статус и ETA в одну строку, полоска L/O, меню ⋯, красный ETA при опоздании к Delivery).
 Ранее 1.33 (ETA по тахографу во второй строке ETA, ⏸ в Статусе).
 Ранее 1.31 (плашки страны в Статусе и кода региона в Таргете).
 Ранее 1.30 (плашки машин и таргетов на карте, стрелка курса).
@@ -536,7 +537,15 @@ function attachRowHandlers() {
       const menu = tr.querySelector(".row-menu");
       const open = menu.hidden;
       closeRowMenus();
-      menu.hidden = !open;
+      if (!open) return;
+      // v1.44: меню поверх страницы (position: fixed), у нижнего края — вверх
+      menu.hidden = false;
+      rowMenuOpenedAt = Date.now();
+      const r = e.currentTarget.getBoundingClientRect();
+      const h = menu.offsetHeight, w = menu.offsetWidth;
+      const up = r.bottom + 4 + h > window.innerHeight;
+      menu.style.top = (up ? r.top - 4 - h : r.bottom + 4) + "px";
+      menu.style.left = Math.max(8, r.right - w) + "px";
     });
 
     tr.querySelector(".add-btn").addEventListener("click", (e) => {
@@ -570,6 +579,9 @@ function closeRowMenus() {
   document.querySelectorAll("#fleet-tbody .row-menu").forEach((m) => { m.hidden = true; });
 }
 document.addEventListener("click", closeRowMenus);
+let rowMenuOpenedAt = 0;
+window.addEventListener("scroll", () => { if (Date.now() - rowMenuOpenedAt > 300) closeRowMenus(); }, true);
+window.addEventListener("resize", closeRowMenus);
 
 // v1.43: Delivery (свободный текст) -> Date для сравнения с ETA.
 // Понимает "28/09 06.00", "29/09 at 01.30", "27/09 09am", "*Date: 29/09 06.00*", "29/09"

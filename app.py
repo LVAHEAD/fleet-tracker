@@ -1,8 +1,10 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.43
+Версия: 1.44
 
 История изменений:
+1.44 (2026-09-26) — Truck Info перенесена в правый блок (перед [.]); меню ⋯ в строке
+    Флота всплывает поверх страницы и у нижних строк открывается вверх (не обрезается)
 1.43 (2026-09-26) — Флот, редизайн (вариант A):
     - L/O — цветная полоска слева вместо заливки строки; статус в одну строку
       (страна, ■ стоит / ▶ едет, время, скорость, ⏸) без цветной заливки
@@ -394,7 +396,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.43"
+APP_VERSION = "1.44"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
