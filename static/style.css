@@ -458,19 +458,20 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 #fleet-table .col-target   { width: 270px; }
 #fleet-table .col-delivery { width: 125px; }
 #fleet-table .col-dist     { width: 70px; }
-#fleet-table .col-eta      { width: 185px; }
+#fleet-table .col-eta      { width: 215px; }
 #fleet-table .col-actions  { width: 76px; }
-/* L/O — полоска слева вместо заливки всей строки */
-#fleet-tbody tr.lo-row-L td:not(.status-cell),
-#fleet-tbody tr.lo-row-O td:not(.status-cell),
-#fleet-tbody tr.lo-row-L:hover td:not(.status-cell),
-#fleet-tbody tr.lo-row-O:hover td:not(.status-cell) { background: transparent; }
+/* L/O — полоска слева + (v1.48) снова бледная заливка всей строки */
+#fleet-tbody tr.lo-row-L td { background: #F0F6FD; }
+#fleet-tbody tr.lo-row-O td { background: #FFFBE6; }
+#fleet-tbody tr.lo-row-L:hover td { background: #E4EFFB; }
+#fleet-tbody tr.lo-row-O:hover td { background: #FFF6D1; }
 #fleet-tbody tr td:first-child { box-shadow: inset 4px 0 0 transparent; }
 #fleet-tbody tr.lo-row-L td:first-child { box-shadow: inset 4px 0 0 #6FA6E0; }
 #fleet-tbody tr.lo-row-O td:first-child { box-shadow: inset 4px 0 0 #E3B62E; }
-#fleet-tbody tr:hover td { background: #f6f7fa !important; }
+#fleet-tbody tr:not(.lo-row-L):not(.lo-row-O):hover td { background: #f6f7fa; }
 /* статус — одна строка, без цветной заливки */
-.status-cell.status-driving, .status-cell.status-standing { background: transparent; }
+#fleet-tbody tr:not(.lo-row-L):not(.lo-row-O) .status-cell.status-driving,
+#fleet-tbody tr:not(.lo-row-L):not(.lo-row-O) .status-cell.status-standing { background: transparent; }
 .status-cell .status-line { display: flex; align-items: center; white-space: nowrap; overflow: hidden; }
 .st-ic { font-size: 11px; margin-right: 5px; }
 .st-stop { color: #c0392b; }
@@ -505,3 +506,14 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 
 /* ---------- v1.46: недельный лимит вождения ---------- */
 .wk-mark { display: inline-block; margin-right: 4px; padding: 0 4px; border-radius: 3px; background: #c0392b; color: #fff; font-size: 10px; font-weight: 700; line-height: 15px; cursor: help; }
+
+/* ---------- v1.48: NoBan — кнопка в начале ETA ---------- */
+.eta-nb {
+  display: inline-grid; place-items: center; width: 26px; height: 24px; padding: 0; margin-right: 6px;
+  border: 1px solid #ddd; border-radius: 4px; background: #fff; color: #bbb; font-size: 12px;
+  vertical-align: middle; cursor: pointer;
+}
+.eta-nb.nb-ban { border-color: #f0b8b0; background: #fdecea; }
+.eta-nb.nb-on { border-color: #9fcdaa; background: #e3f1e6; color: #2d6b3c; font-size: 10px; font-weight: 700; }
+.eta-nb:hover { filter: brightness(0.96); }
+#fleet-tbody tr:not(.lo-row-L):not(.lo-row-O):hover td.status-cell { background: #f6f7fa; }

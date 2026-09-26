@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.46 (плашка 56 — недельный лимит одиночки).
+Версия: 1.48 (NoBan — кнопка в ETA; вернулась бледная заливка строк L/O).
+Ранее 1.46 (плашка 56 — недельный лимит одиночки).
 Ранее 1.45 (🚫 в ETA — полный запрет по пути).
 Ранее 1.44 (меню ⋯ поверх страницы, у нижних строк — вверх).
 Ранее 1.43 (Флот, вариант A: статус и ETA в одну строку, полоска L/O, меню ⋯, красный ETA при опоздании к Delivery).
@@ -440,7 +441,8 @@ function renderRows() {
     const statusClass = cached ? cached.statusClass : "muted";
     const distHtml = cached ? cached.dist : "—";
     const distMuted = cached ? "" : "muted";
-    const etaHtml = cached ? cached.eta : "—";
+    const composedEta = cached && cached.etaCore ? composeEta(row, cached) : null;
+    const etaHtml = composedEta ? composedEta.html : (cached ? cached.eta : "—");
     const etaMuted = cached ? "" : "muted";
     tr.innerHTML = `
       <td><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" placeholder="номер" /></td>
@@ -454,7 +456,7 @@ function renderRows() {
       </td>
       <td><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" title="${escapeHtml(row.delivery)}" placeholder="${deliveryPlaceholder(row.lo)}" /></td>
       <td class="dist-cell ${distMuted}" style="text-align:right">${distHtml}</td>
-      <td class="eta-cell ${etaMuted}${cached && cached.late ? " eta-late" : ""}" title="${escapeHtml(cached && cached.etaTip ? cached.etaTip : "")}">${etaHtml}</td>
+      <td class="eta-cell ${etaMuted}${cached && cached.late ? " eta-late" : ""}" title="${escapeHtml(composedEta ? composedEta.title : (cached && cached.etaTip ? cached.etaTip : ""))}">${etaHtml}</td>
       <td><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" title="${escapeHtml(row.note)}" placeholder="примечание" /></td>
       <td class="row-actions">
         <button class="refresh-row-btn" title="Обновить строку">↻</button>
@@ -577,6 +579,48 @@ function attachRowHandlers() {
   });
 }
 
+// v1.48: NoBan — кнопка в начале ETA. 🚫 (розовая) — полный запрет по пути, клик → NoBan;
+// NB (зелёная) — NoBan включён, запреты не показываем; ⊘ (бледная) — запретов нет.
+function composeEta(row, c) {
+  const bans = c.bansR || [];
+  let btn;
+  if (row.noban) {
+    btn = `<button class="eta-nb nb-on" title="NoBan включён — запреты по пути не показываются. Клик — выключить">NB</button>`;
+  } else if (bans.length) {
+    btn = `<button class="eta-nb nb-ban" title="${escapeHtml("Запрет по пути:\n" + bans.join("\n") + "\nКлик — NoBan (груз без запретов)")}">🚫</button>`;
+  } else {
+    btn = `<button class="eta-nb" title="Запретов по пути нет. Клик — NoBan">⊘</button>`;
+  }
+  const tip = (c.tipLines || []).slice();
+  if (bans.length) {
+    tip.push(row.noban ? "NoBan — запреты по пути скрыты:" : "🚫 Запрет по пути (ETA не сдвинут):", ...bans);
+  } else if (row.noban) {
+    tip.push("NoBan включён");
+  }
+  return { html: btn + (c.etaCore || ""), title: tip.join("\n") };
+}
+
+document.getElementById("fleet-tbody").addEventListener("click", (e) => {
+  const b = e.target.closest(".eta-nb");
+  if (!b) return;
+  e.stopPropagation();
+  const tr = b.closest("tr");
+  const id = Number(tr.dataset.id);
+  const row = rows.find((r) => r.id === id);
+  const c = lastCalcText[id];
+  if (!row) return;
+  row.noban = !row.noban;
+  saveRows();
+  if (c && c.etaCore) {
+    const composed = composeEta(row, c);
+    const cell = tr.querySelector(".eta-cell");
+    cell.innerHTML = composed.html;
+    cell.title = composed.title;
+    c.eta = composed.html;
+    c.etaTip = composed.title;
+  }
+});
+
 function closeRowMenus() {
   document.querySelectorAll("#fleet-tbody .row-menu").forEach((m) => { m.hidden = true; });
 }
@@ -679,6 +723,7 @@ async function calcRow(id) {
     let etaText = "—";
     let etaTip = "";
     let late = false;
+    let etaCore = null, bansR = [], tipLines = [];
     if (data.dist_km != null) {
       distText = data.dist_km.toFixed(1);
       distCell.textContent = distText;
@@ -691,23 +736,23 @@ async function calcRow(id) {
       etaText = data.eta_tacho
         ? `<span class="eta-tacho">⏱ ${escapeHtml(data.eta_tacho)}</span><span class="eta-simple">${escapeHtml(data.eta_local)}</span>`
         : `<span class="eta-tacho eta-only">${escapeHtml(data.eta_local)}</span>`;
-      // v1.45: 🚫 — вождение попадает под полный запрет (только предупреждение)
-      const bansR = data.bans_route || [];
-      if (bansR.length) {
-        etaText = `<span class="ban-mark" title="${escapeHtml("Запрет по пути:\n" + bansR.join("\n"))}">🚫</span>` + etaText;
-        tip.push("🚫 Запрет по пути (ETA не сдвинут):", ...bansR);
-      }
       // v1.46: "56" — одиночка упирается в недельный лимит вождения, стоп до пн 00:00 UTC
       if (data.tacho_weeklimit) {
         etaText = `<span class="wk-mark" title="Недельный лимит вождения кончится по пути — стоп до пн 00:00 UTC (02:00 CEST), учтено в ⏱ ETA">56</span>` + etaText;
       }
-      etaCell.innerHTML = etaText;
+      etaCore = etaText;
+      bansR = data.bans_route || [];
       const delD = parseDelivery(row.delivery);
       const etaD = parseEta(data.eta_tacho || data.eta_local);
       late = !!(delD && etaD && etaD > delD);
       etaCell.classList.toggle("eta-late", late);
       if (late) tip.unshift("Позже Delivery (" + row.delivery + ")");
-      etaTip = tip.join("\n");
+      tipLines = tip;
+      // v1.48: кнопка NoBan / 🚫 в начале ETA
+      const composed = composeEta(row, { etaCore, bansR, tipLines });
+      etaText = composed.html;
+      etaTip = composed.title;
+      etaCell.innerHTML = etaText;
       etaCell.title = etaTip;
       etaCell.classList.remove("muted");
     } else {
@@ -730,7 +775,7 @@ async function calcRow(id) {
     const oldTb = tr.querySelector(".target-cc");
     if (oldTb) oldTb.outerHTML = targetBadge;
 
-    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late };
+    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, etaCore, bansR, tipLines };
 
     if (data.unit_lat != null && data.unit_lng != null) {
       // ошибка отрисовки на карте не должна ломать строку таблицы

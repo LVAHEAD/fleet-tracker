@@ -1,8 +1,11 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.47
+Версия: 1.48
 
 История изменений:
+1.48 (2026-09-26) — Флот: кнопка NoBan в начале ETA (🚫 — полный запрет по пути, клик → NB;
+    NB — запреты не показываются; ⊘ — запретов нет), отметка хранится в строке; вернулась
+    бледная заливка строк L/O (полоска слева осталась, статус без заливки)
 1.47 (2026-09-26) — экипаж: всегда 18 ч вождения в сутки (было до 20 ч при продлениях);
     первый день — остаток обоих водителей по Mapon, но не больше 18 ч
 1.46 (2026-09-26) — тахо-ETA только по суточным нормам:
@@ -416,7 +419,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.47"
+APP_VERSION = "1.48"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
