@@ -1,8 +1,15 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.33
+Версия: 1.34
 
 История изменений:
+1.34 (2026-09-26) — справочная вкладка "Запреты" (trafficban.com):
+    - первая из справочных вкладок, перед "Паромы"
+    - ссылки на запреты по дням (сегодня, завтра и ещё 3 дня; выходные — красной
+      рамкой) и кнопки 27 стран -> русские страницы стран на trafficban.com
+    - место под официальный плагин trafficban.com на русском
+      (templates/partials/trafficban_plugin.html)
+
 1.33 (2026-09-25) — тахограф и ETA по режиму труда и отдыха, кеш Mapon:
     - Mapon: список машин кешируется на 45 с (все строки "Обновить всё" — один
       запрос), параллельных запросов к Mapon не больше 3 (лимит Mapon — 5);
@@ -316,7 +323,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.33"
+APP_VERSION = "1.34"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"

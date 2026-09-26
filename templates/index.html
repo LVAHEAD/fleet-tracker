@@ -16,6 +16,7 @@
   <button class="main-tab-btn active" data-tab="fleet">Флот</button>
   <button class="main-tab-btn" data-tab="route">From → To</button>
   <span class="main-tabs-spacer"></span>
+  <button class="main-tab-btn ref-tab" data-tab="bans">Запреты</button>
   <button class="main-tab-btn ref-tab" data-tab="ferries">Паромы</button>
   <button class="main-tab-btn ref-tab" data-tab="maps">Карты стран</button>
   <button class="main-tab-btn ref-tab" data-tab="notes" title="Блокнот">[.]</button>
@@ -117,6 +118,22 @@
   </div>
 </div>
 
+<!-- ==================== Вкладка: Запреты (справочная) ==================== -->
+<div id="tab-bans" class="tab-panel" hidden>
+  <div class="bans-row">
+    <span class="bans-label">По дням</span>
+    <div id="bansDays" class="bans-days"></div>
+  </div>
+  <div class="bans-row">
+    <span class="bans-label">По странам</span>
+    <div id="bansCountries" class="bans-countries"></div>
+  </div>
+  <div class="bans-plugin">
+    {% include "partials/trafficban_plugin.html" %}
+  </div>
+  <p class="bans-note">Источник — <a href="https://trafficban.com/" target="_blank" rel="noopener">trafficban.com</a> (Novemedia Ltd). Информация справочная — перед рейсом сверяйтесь с официальными источниками.</p>
+</div>
+
 <!-- ==================== Вкладка: Паромы (справочная) ==================== -->
 <div id="tab-ferries" class="tab-panel" hidden>
   <p class="ferries-note">Расписания паромов. Клик по картинке — открыть в полный размер. Пометки терминалов: vuos — Vuosaari, Lansi — Länsisatama (West Harbour), TermA — Terminal A, muuga — Muuga.</p>
@@ -161,6 +178,7 @@
 <script src="{{ url_for('static', filename='route-tab.js') }}"></script>
 <script src="{{ url_for('static', filename='locator.js') }}"></script>
 <script src="{{ url_for('static', filename='notes.js') }}"></script>
+<script src="{{ url_for('static', filename='bans-tab.js') }}"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_js_key }}&libraries=geometry&callback=initMap" async defer></script>
 </body>
 </html>
