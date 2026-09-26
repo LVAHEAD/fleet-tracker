@@ -1,8 +1,19 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.35
+Версия: 1.36
 
 История изменений:
+1.36 (2026-09-26) — "Запреты" на данных nakordoni.eu:
+    - бесплатный JSON-фид nakordoni.eu (lang=ru): общий запрос + по запросу на
+      каждую страну (общий ответ обрезается на 50 записях), кеш 30 минут
+    - вкладка "Запреты": "Сейчас действует" и календарь на 8 дней; полные
+      запреты (Sunday / Holiday / General) — красные, частичные (Local /
+      Seasonal — отдельные дороги) — бледные; подробности при наведении
+    - запреты только для опасных грузов (ADR) скрыты — ADR не возим
+    - страны, где сейчас машины Флота и их таргеты, подсвечены
+    - виджет trafficban.com убран, ссылки trafficban — внизу как запасной источник
+    - новый эндпоинт GET /api/bans
+
 1.35 (2026-09-26) — плагин trafficban.com во вкладке "Запреты":
     - вставлен официальный код плагина (русский язык, высота 600 px),
       templates/partials/trafficban_plugin.html
@@ -327,7 +338,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.35"
+APP_VERSION = "1.36"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -2799,6 +2810,100 @@ def api_freights():
         "error": _frt_cache["error"],
         "loaded_at": (datetime.fromtimestamp(la, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M") if la else None,
     })
+
+
+# ---------- v1.36: запреты движения грузовиков (nakordoni.eu, бесплатный JSON-фид) ----------
+BANS_URL = "https://nakordoni.eu/api/truckban_json.php"
+BANS_TTL = 1800            # перечитываем раз в 30 минут
+BANS_FULL_TYPES = {"Sunday", "Holiday", "General"}   # запрет по всей стране — выделяем
+BANS_ADR_WORDS = ("dangerous", "adr", "hazard", "опасн", "небезпеч")  # ADR не возим — скрываем
+_bans_cache = {"data": None, "at": 0.0, "error": None}
+_bans_lock = threading.Lock()
+
+
+def _bans_get(params):
+    r = requests.get(BANS_URL, params={"lang": "ru", **params}, timeout=20,
+                     headers={"User-Agent": "fleet-eta-tracker"})
+    r.raise_for_status()
+    d = r.json()
+    if not d.get("success", True):
+        raise RuntimeError("nakordoni: success=false")
+    return d
+
+
+def _is_adr(b):
+    t = f"{b.get('restriction_details') or ''} {b.get('restriction_type') or ''}".lower()
+    return any(w in t for w in BANS_ADR_WORDS)
+
+
+def fetch_bans():
+    """Общий запрос (список стран, "сейчас действует", окно) + по запросу на страну —
+    общий ответ обрезается на 50 записях, по одной стране обрезки нет."""
+    from concurrent.futures import ThreadPoolExecutor
+    head = _bans_get({})
+    countries = [c if isinstance(c, str) else (c.get("code") or c.get("country_code"))
+                 for c in head.get("covered_countries") or []]
+    countries = [c for c in countries if c]
+
+    def one(cc):
+        try:
+            return _bans_get({"country": cc})
+        except Exception:
+            return None
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        per = list(ex.map(one, countries))
+
+    seen, upcoming, current = set(), [], []
+    sources = [head] + [p for p in per if p]
+    for src in sources:
+        for key, dst in (("upcoming_bans", upcoming), ("current_bans", current)):
+            for b in src.get(key) or []:
+                if _is_adr(b):
+                    continue
+                k = (key, b.get("country_code"), b.get("date"), b.get("time_from"), b.get("time_until"),
+                     b.get("restriction_type"), b.get("restriction_details"))
+                if k in seen:
+                    continue
+                seen.add(k)
+                dst.append({
+                    "cc": b.get("country_code"), "country": b.get("country_name"),
+                    "date": b.get("date"), "from": b.get("time_from"), "until": b.get("time_until"),
+                    "type": b.get("restriction_type"), "details": b.get("restriction_details"),
+                    "min_weight": b.get("min_weight_tons"), "url": b.get("details_url"),
+                    "full": b.get("restriction_type") in BANS_FULL_TYPES,
+                })
+    by_day = {}
+    for b in upcoming:
+        by_day.setdefault(b["date"], []).append(b)
+    for lst in by_day.values():
+        lst.sort(key=lambda b: (not b["full"], b["cc"] or "", b["from"] or ""))
+    current.sort(key=lambda b: (not b["full"], b["cc"] or ""))
+    return {
+        "window": head.get("window"),
+        "as_of": head.get("as_of"),
+        "now": current,
+        "days": [{"date": d, "bans": by_day[d]} for d in sorted(by_day)],
+        "countries": countries,
+        "failed_countries": [c for c, p in zip(countries, per) if p is None],
+    }
+
+
+@app.route("/api/bans")
+def api_bans():
+    """v1.36: запреты движения из nakordoni.eu, кеш 30 минут (?refresh=1 — сейчас)."""
+    import time
+    with _bans_lock:
+        stale = time.time() - _bans_cache["at"] > BANS_TTL
+        if request.args.get("refresh") == "1" or _bans_cache["data"] is None or stale:
+            try:
+                _bans_cache.update(data=fetch_bans(), at=time.time(), error=None)
+            except Exception as e:
+                _bans_cache["error"] = str(e)
+                _bans_cache["at"] = time.time() - BANS_TTL + 120  # повторить через 2 минуты
+        data = _bans_cache["data"]
+    if data is None:
+        return jsonify({"error": _bans_cache["error"] or "нет данных"}), 502
+    return jsonify({**data, "error": _bans_cache["error"]})
 
 
 if __name__ == "__main__":

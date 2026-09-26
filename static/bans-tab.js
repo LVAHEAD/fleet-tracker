@@ -1,50 +1,121 @@
 /*
 Fleet ETA Tracker — вкладка "Запреты" (справочная)
-Версия: 1.34 (плагин вставлен в 1.35)
-  - ссылки на страницы запретов trafficban.com по дням (сегодня + 4 дня);
-  - кнопки стран -> страница страны на trafficban.com (русская версия);
-  - ниже — официальный плагин trafficban.com (templates/partials/trafficban_plugin.html).
-Информация trafficban.com — справочная, ответственность за решения на её основе
-сайт не несёт (их оговорка).
+Версия: 1.36 — данные nakordoni.eu через /api/bans (кеш на сервере 30 мин):
+  - "Сейчас действует" — плашки стран с часами;
+  - календарь на 8 дней: полные запреты (Sunday/Holiday/General) — красные,
+    частичные (Local/Seasonal) — бледные; подробности при наведении, клик — страница страны;
+  - страны, где сейчас машины Флота или их таргеты, подсвечены рамкой;
+  - запреты только для ADR скрыты на сервере.
+Ранее 1.34–1.35: ссылки и виджет trafficban.com (ссылки оставлены внизу как запасной источник).
 */
 (function () {
-  const COUNTRIES = [
-    ["AT", "austria", 14], ["BE", "belgium", 20], ["BG", "bulgaria", 32], ["CH", "switzerland", 181],
-    ["CZ", "czech_republic", 41], ["DE", "germany", 135], ["DK", "denmark", 42], ["EE", "estonia", 50],
-    ["ES", "spain", 75], ["FI", "finland", 55], ["FR", "france", 56], ["GB", "united_kingdom", 205],
-    ["HR", "croatia", 37], ["HU", "hungary", 212], ["IT", "italy", 213], ["LI", "liechtenstein", 219],
-    ["LT", "lithuania", 108], ["LU", "luxembourg", 109], ["LV", "latvia", 110], ["NL", "netherlands", 76],
-    ["NO", "norway", 140], ["PL", "poland", 151], ["PT", "portugal", 153], ["RO", "romania", 157],
-    ["SE", "sweden", 182], ["SI", "slovenia", 173], ["SK", "slovakia", 172],
-  ];
-  const DAYS_RU = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+  const nowEl = document.getElementById("bansNow");
+  const calEl = document.getElementById("bansCalendar");
+  const btn = document.getElementById("bansRefresh");
+  const tbEl = document.getElementById("bansTbLinks");
+  const tab = document.querySelector('.main-tab-btn[data-tab="bans"]');
+  if (!nowEl || !calEl) return;
 
-  const daysEl = document.getElementById("bansDays");
-  const cEl = document.getElementById("bansCountries");
-  if (!daysEl || !cEl) return;
-
+  const DAYS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+  const TYPE_RU = { Sunday: "воскресный", Holiday: "праздничный", General: "общий", Local: "местный", Seasonal: "сезонный" };
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const pad = (n) => String(n).padStart(2, "0");
-  const today = new Date();
-  for (let i = 0; i < 5; i++) {
-    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-    const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    const label = i === 0 ? "Сегодня" : i === 1 ? "Завтра" : DAYS_RU[d.getDay()];
-    const a = document.createElement("a");
-    a.className = "bans-day" + (d.getDay() === 0 || d.getDay() === 6 ? " bans-weekend" : "");
-    a.href = `https://trafficban.com/${iso}`;
-    a.target = "_blank";
-    a.rel = "noopener";
-    a.innerHTML = `<b>${label}</b><span>${pad(d.getDate())}.${pad(d.getMonth() + 1)}</span>`;
-    daysEl.appendChild(a);
+
+  // запасные ссылки trafficban по дням
+  if (tbEl) {
+    const t = new Date();
+    tbEl.innerHTML = [0, 1, 2, 3, 4].map((i) => {
+      const d = new Date(t.getFullYear(), t.getMonth(), t.getDate() + i);
+      const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const label = i === 0 ? "сегодня" : i === 1 ? "завтра" : `${DAYS[d.getDay()]} ${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
+      return `<a href="https://trafficban.com/${iso}" target="_blank" rel="noopener">${label}</a>`;
+    }).join(" · ");
   }
 
-  COUNTRIES.forEach(([code, slug, id]) => {
-    const a = document.createElement("a");
-    a.className = "pc-tab bans-country";
-    a.href = `https://trafficban.com/country.${slug}.home.${id}.ru.html`;
-    a.target = "_blank";
-    a.rel = "noopener";
-    a.textContent = code;
-    cEl.appendChild(a);
+  function ourCountries() {
+    const set = new Set();
+    Object.values(window.fleetCountries || {}).forEach((arr) => arr.forEach((c) => set.add(c)));
+    return set;
+  }
+
+  function hours(b) {
+    if (b.from === "00:00" && (b.until === "23:59" || b.until === "24:00")) return "весь день";
+    return `${b.from}–${b.until}`;
+  }
+
+  function chip(b, ours, showHours) {
+    const tip = [
+      `${b.country || b.cc} · ${TYPE_RU[b.type] || b.type || ""} · ${hours(b)}`,
+      b.details, b.min_weight ? `от ${b.min_weight} т` : "",
+    ].filter(Boolean).join("\n");
+    const cls = `ban-chip ${b.full ? "ban-full" : "ban-part"}${ours.has(b.cc) ? " ban-ours" : ""}`;
+    const h = showHours ? `<small>${esc(hours(b))}</small>` : "";
+    return `<a class="${cls}" href="${esc(b.url || "#")}" target="_blank" rel="noopener" title="${esc(tip)}">${esc(b.cc)}${h}</a>`;
+  }
+
+  // на день — по одной плашке на страну (если запретов несколько, берём "самый полный")
+  function perCountry(bans) {
+    const m = new Map();
+    bans.forEach((b) => {
+      const cur = m.get(b.cc);
+      if (!cur) m.set(b.cc, { ...b, extra: [] });
+      else {
+        cur.extra.push(b);
+        if (b.full && !cur.full) m.set(b.cc, { ...b, extra: [cur, ...cur.extra] });
+      }
+    });
+    return [...m.values()].map((b) => {
+      if (b.extra && b.extra.length) {
+        b = { ...b, details: [b.details].concat(b.extra.map((x) => `${hours(x)} ${x.details || ""}`)).filter(Boolean).join("\n") };
+      }
+      return b;
+    }).sort((a, b) => (b.full - a.full) || a.cc.localeCompare(b.cc));
+  }
+
+  function render(d) {
+    const ours = ourCountries();
+    const now = perCountry(d.now || []);
+    nowEl.innerHTML = `<span class="bans-now-label">Сейчас действует:</span> `
+      + (now.length ? now.map((b) => chip(b, ours, true)).join(" ") : "<span class=\"muted\">нет</span>");
+
+    // все дни окна (8 дней), включая дни без запретов
+    const byDate = {};
+    (d.days || []).forEach((x) => { byDate[x.date] = x.bans; });
+    let dates = Object.keys(byDate).sort();
+    if (d.window && d.window.from && d.window.to) {
+      dates = [];
+      for (let t = new Date(d.window.from + "T12:00:00"); t <= new Date(d.window.to + "T12:00:00"); t.setDate(t.getDate() + 1)) {
+        dates.push(`${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`);
+      }
+    }
+    const rows = dates.map((date) => ({ date, bans: byDate[date] || [] })).map((day) => {
+      const dt = new Date(day.date + "T12:00:00");
+      const wk = dt.getDay() === 0 || dt.getDay() === 6;
+      const label = `${DAYS[dt.getDay()]} ${pad(dt.getDate())}.${pad(dt.getMonth() + 1)}`;
+      const chips = perCountry(day.bans).map((b) => chip(b, ours, b.full)).join(" ");
+      return `<div class="bans-day-row${wk ? " weekend" : ""}"><span class="bans-day-label">${label}</span><div class="bans-day-chips">${chips || '<span class="muted">—</span>'}</div></div>`;
+    }).join("");
+    calEl.innerHTML = rows || '<div class="muted">Нет данных</div>';
+    if (d.error) calEl.innerHTML += `<div class="bans-err">Последнее обновление не удалось: ${esc(d.error)} — показаны прошлые данные</div>`;
+  }
+
+  async function load(refresh) {
+    try {
+      const res = await fetch("/api/bans" + (refresh ? "?refresh=1" : ""));
+      const d = await res.json();
+      if (d.error && !d.days) { nowEl.innerHTML = `<span class="bans-err">${esc(d.error)}</span>`; return; }
+      render(d);
+    } catch (e) {
+      nowEl.innerHTML = '<span class="bans-err">Не удалось загрузить запреты</span>';
+    }
+  }
+
+  let loaded = false;
+  if (tab) tab.addEventListener("click", () => { load(false); loaded = true; });
+  if (btn) btn.addEventListener("click", async () => {
+    btn.disabled = true; btn.textContent = "Обновляю…";
+    await load(true);
+    btn.disabled = false; btn.textContent = "↻ Обновить";
   });
 })();

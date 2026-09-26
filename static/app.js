@@ -633,6 +633,10 @@ async function calcRow(id) {
       etaCell.textContent = "—";
     }
 
+    // v1.36: страны машины и таргета — для подсветки во вкладке "Запреты"
+    window.fleetCountries = window.fleetCountries || {};
+    window.fleetCountries[id] = [data.unit_country, (data.target_badge || "").slice(0, 2)].filter(Boolean);
+
     // v1.31: плашка кода региона таргета (между L/O и полем)
     const targetBadge = data.target_badge
       ? `<span class="cc-badge target-cc" title="${escapeHtml(data.target_code_hint || data.target_badge)}">${escapeHtml(data.target_badge)}</span>`

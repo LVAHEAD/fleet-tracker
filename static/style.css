@@ -374,3 +374,26 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 .bans-plugin-empty { padding: 20px; color: #888; font-size: 13px; }
 .bans-note { font-size: 11px; color: #999; margin-top: 8px; }
 .bans-note a { color: #999; }
+
+/* ---------- v1.36: "Запреты" на данных nakordoni.eu ---------- */
+.bans-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.bans-now { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+.bans-now-label { font-weight: 600; margin-right: 4px; }
+.bans-refresh { padding: 5px 10px; font-size: 13px; }
+.bans-calendar { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; }
+.bans-day-row { display: flex; align-items: center; gap: 12px; padding: 7px 12px; border-top: 1px solid #f0f0f0; }
+.bans-day-row:first-child { border-top: 0; }
+.bans-day-row.weekend { background: #FFF8F8; }
+.bans-day-label { width: 62px; font-size: 13px; font-weight: 600; color: #444; flex: 0 0 auto; }
+.bans-day-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.ban-chip {
+  display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 7px; border-radius: 5px;
+  font-size: 12px; font-weight: 700; text-decoration: none; border: 2px solid transparent;
+}
+.ban-chip small { font-weight: 500; font-size: 11px; }
+.ban-full { background: #E24B4A; color: #fff; }
+.ban-part { background: #FDECEC; color: #a33; }
+.ban-ours { border-color: #1a1a1a; }
+.bans-legend { font-size: 11px; color: #888; margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.bans-legend .ban-chip { font-size: 10px; padding: 1px 5px; }
+.bans-err { color: #c0392b; font-size: 12px; padding: 6px 12px; }

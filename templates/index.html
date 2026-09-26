@@ -120,18 +120,19 @@
 
 <!-- ==================== Вкладка: Запреты (справочная) ==================== -->
 <div id="tab-bans" class="tab-panel" hidden>
-  <div class="bans-row">
-    <span class="bans-label">По дням</span>
-    <div id="bansDays" class="bans-days"></div>
+  <div class="bans-head">
+    <div id="bansNow" class="bans-now">Загрузка…</div>
+    <button type="button" id="bansRefresh" class="bans-refresh">↻ Обновить</button>
   </div>
-  <div class="bans-row">
-    <span class="bans-label">По странам</span>
-    <div id="bansCountries" class="bans-countries"></div>
+  <div id="bansCalendar" class="bans-calendar"></div>
+  <div class="bans-legend">
+    <span class="ban-chip ban-full">DE</span> запрет по всей стране (воскресенье, праздник)
+    <span class="ban-chip ban-part">AT</span> отдельные дороги / участки
+    <span class="ban-chip ban-full ban-ours">DE</span> страна, где сейчас машина или её таргет
+    · запреты только для ADR скрыты
   </div>
-  <div class="bans-plugin">
-    {% include "partials/trafficban_plugin.html" %}
-  </div>
-  <p class="bans-note">Источник — <a href="https://trafficban.com/" target="_blank" rel="noopener">trafficban.com</a> (Novemedia Ltd). Информация справочная — перед рейсом сверяйтесь с официальными источниками.</p>
+  <p class="bans-note">Данные: <a href="https://nakordoni.eu/" target="_blank" rel="noopener">nakordoni.eu</a>, обновляются раз в 30 минут; информация справочная — критичные рейсы сверяйте с официальными источниками.
+    Запасной источник — trafficban.com: <span id="bansTbLinks"></span></p>
 </div>
 
 <!-- ==================== Вкладка: Паромы (справочная) ==================== -->
