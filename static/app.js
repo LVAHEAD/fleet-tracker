@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.48 (NoBan — кнопка в ETA; вернулась бледная заливка строк L/O).
+Версия: 1.50 (Delivery/Примечание без пересчёта маршрута).
+Ранее 1.48 (NoBan — кнопка в ETA; вернулась бледная заливка строк L/O).
 Ранее 1.46 (плашка 56 — недельный лимит одиночки).
 Ранее 1.45 (🚫 в ETA — полный запрет по пути).
 Ранее 1.44 (меню ⋯ поверх страницы, у нижних строк — вверх).
@@ -513,13 +514,15 @@ function attachRowHandlers() {
     tr.querySelector(".target-input").addEventListener("change", (e) => {
       updateRowField(id, "target", e.target.value);
     });
+    // v1.50: Delivery и Примечание не пересчитывают маршрут (экономия запросов к Google)
     tr.querySelector(".delivery-input").addEventListener("change", (e) => {
       e.target.title = e.target.value;
-      updateRowField(id, "delivery", e.target.value);
+      setRowField(id, "delivery", e.target.value);
+      recheckLate(id);
     });
     tr.querySelector(".note-input").addEventListener("change", (e) => {
       e.target.title = e.target.value;
-      updateRowField(id, "note", e.target.value);
+      setRowField(id, "note", e.target.value);
     });
 
     tr.querySelector(".lo-btn").addEventListener("click", (e) => {
@@ -658,6 +661,31 @@ function mkDate(day, mon, hh, mm) {
   return new Date(y, mon - 1, day, hh, mm);
 }
 
+function setRowField(id, field, value) {
+  const row = rows.find((r) => r.id === id);
+  if (row) { row[field] = value; saveRows(); }
+}
+
+// v1.50: после правки Delivery — только перепроверить "позже Delivery" по уже посчитанному ETA
+function recheckLate(id) {
+  const row = rows.find((r) => r.id === id);
+  const c = lastCalcText[id];
+  const tr = document.querySelector(`#fleet-tbody tr[data-id="${id}"]`);
+  if (!row || !c || !c.etaCore || !tr) return;
+  const delD = parseDelivery(row.delivery);
+  const etaD = parseEta(c.etaStr);
+  c.late = !!(delD && etaD && etaD > delD);
+  c.tipLines = (c.tipLines || []).filter((l) => !l.startsWith("Позже Delivery"));
+  if (c.late) c.tipLines.unshift("Позже Delivery (" + row.delivery + ")");
+  const composed = composeEta(row, c);
+  const cell = tr.querySelector(".eta-cell");
+  cell.classList.toggle("eta-late", c.late);
+  cell.innerHTML = composed.html;
+  cell.title = composed.title;
+  c.eta = composed.html;
+  c.etaTip = composed.title;
+}
+
 function updateRowField(id, field, value) {
   const row = rows.find((r) => r.id === id);
   if (row) {
@@ -775,7 +803,8 @@ async function calcRow(id) {
     const oldTb = tr.querySelector(".target-cc");
     if (oldTb) oldTb.outerHTML = targetBadge;
 
-    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, etaCore, bansR, tipLines };
+    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, etaCore, bansR, tipLines,
+                         etaStr: data.eta_tacho || data.eta_local };
 
     if (data.unit_lat != null && data.unit_lng != null) {
       // ошибка отрисовки на карте не должна ломать строку таблицы

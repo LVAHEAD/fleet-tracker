@@ -1,8 +1,15 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.49
+Версия: 1.50
 
 История изменений:
+1.50 (2026-09-27) — экономия запросов к Google Routes:
+    - правка Delivery / Примечания во Флоте больше не пересчитывает маршрут
+      (Delivery — только проверка красного ETA на месте)
+    - кеш маршрутов на сервере 15 мин: трак сдвинулся меньше ~1 км и таргет тот же —
+      маршрут берётся из кеша; From → To — тот же набор точек из кеша
+    - routingPreference TRAFFIC_UNAWARE вместо TRAFFIC_AWARE: пробки нам не нужны
+      (ETA = км/70), а без них запрос дешевле (Essentials вместо Pro)
 1.49 (2026-09-27) — вкладка-заглушка "GF построитель" (последней в левом блоке)
 1.48 (2026-09-26) — Флот: кнопка NoBan в начале ETA (🚫 — полный запрет по пути, клик → NB;
     NB — запреты не показываются; ⊘ — запретов нет), отметка хранится в строке; вернулась
@@ -420,7 +427,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.49"
+APP_VERSION = "1.50"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -2084,7 +2091,32 @@ def resolve_place_label(target_str):
     return lat, lng, label
 
 
+# v1.50: кеш маршрутов Флота — если трак почти не сдвинулся (~1 км) и таргет тот же,
+# 15 минут отдаём прошлый маршрут, не спрашивая Google (Ctrl+F5, "Обновить всё").
+ROUTE_CACHE_TTL = 15 * 60
+_route_cache = {}
+_route_cache_lock = threading.Lock()
+
+
 def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None):
+    import time
+    key = (round(lat1, 2), round(lng1, 2), round(lat2, 4), round(lng2, 4),
+           tuple((round(a, 4), round(b, 4)) for a, b in (waypoints or [])))
+    now = time.time()
+    with _route_cache_lock:
+        hit = _route_cache.get(key)
+        if hit and now - hit[0] < ROUTE_CACHE_TTL:
+            return hit[1]
+    res = _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints)
+    with _route_cache_lock:
+        if len(_route_cache) > 2000:
+            for k in [k for k, v in _route_cache.items() if now - v[0] >= ROUTE_CACHE_TTL]:
+                _route_cache.pop(k, None)
+        _route_cache[key] = (now, res)
+    return res
+
+
+def _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None):
     """waypoints — необязательный список [(lat, lng), ...] промежуточных точек,
     через которые маршрут должен пройти в заданном порядке."""
     headers = {
@@ -2096,7 +2128,7 @@ def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None):
         "origin": {"location": {"latLng": {"latitude": lat1, "longitude": lng1}}},
         "destination": {"location": {"latLng": {"latitude": lat2, "longitude": lng2}}},
         "travelMode": "DRIVE",
-        "routingPreference": "TRAFFIC_AWARE",
+        "routingPreference": "TRAFFIC_UNAWARE",   # v1.50: без пробок — дешевле (Essentials), ETA и так км/70
     }
     if waypoints:
         body["intermediates"] = [
@@ -2814,6 +2846,21 @@ def resolve_point(raw, units_getter):
 
 
 def compute_multi_route(points, api_key):
+    """v1.50: кеш 15 мин по набору точек (повторное "Рассчитать" не тратит запрос)."""
+    import time
+    key = tuple((round(p["lat"], 4), round(p["lng"], 4), p.get("country")) for p in points)
+    now = time.time()
+    with _route_cache_lock:
+        hit = _route_cache.get(("multi",) + key)
+        if hit and now - hit[0] < ROUTE_CACHE_TTL:
+            return hit[1]
+    res = _compute_multi_route(points, api_key)
+    with _route_cache_lock:
+        _route_cache[("multi",) + key] = (now, res)
+    return res
+
+
+def _compute_multi_route(points, api_key):
     """points — список dict из resolve_point в порядке следования (минимум 2).
     Один запрос к Routes API: точки пользователя — обычные intermediates (каждая
     начинает новый leg), паромы/Инсбрук — via-точки (через них маршрут проходит,
@@ -2842,7 +2889,7 @@ def compute_multi_route(points, api_key):
         "origin": {"location": {"latLng": {"latitude": first["lat"], "longitude": first["lng"]}}},
         "destination": {"location": {"latLng": {"latitude": last["lat"], "longitude": last["lng"]}}},
         "travelMode": "DRIVE",
-        "routingPreference": "TRAFFIC_AWARE",
+        "routingPreference": "TRAFFIC_UNAWARE",   # v1.50: без пробок — дешевле (Essentials), ETA и так км/70
     }
     if intermediates:
         body["intermediates"] = intermediates
