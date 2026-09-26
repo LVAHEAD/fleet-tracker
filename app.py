@@ -1,8 +1,10 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.46
+Версия: 1.47
 
 История изменений:
+1.47 (2026-09-26) — экипаж: всегда 18 ч вождения в сутки (было до 20 ч при продлениях);
+    первый день — остаток обоих водителей по Mapon, но не больше 18 ч
 1.46 (2026-09-26) — тахо-ETA только по суточным нормам:
     - недельные отдыхи 24/45 в ETA НЕ учитываются (решает диспетчер); строка про
       недельный из подсказки убрана (история — только во вкладке Truck Info)
@@ -414,7 +416,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.46"
+APP_VERSION = "1.47"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1783,6 +1785,7 @@ def _hm(sec):
     return f"{sec // 3600}:{sec % 3600 // 60:02d}"
 
 
+TEAM_DAY_SEC = 18 * 3600         # v1.47: экипаж — 18 ч вождения в сутки (20 — крайне редко, не считаем)
 WEEK_MAX_SEC = 56 * 3600         # вождение за календарную неделю (пн 00:00 – вс 24:00 UTC)
 FORTNIGHT_MAX_SEC = 90 * 3600    # за две соседние недели
 
@@ -1856,7 +1859,7 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None):
         if not team and ext_left > 0:
             ext_left -= 1
         if team:
-            day_left = min(2 * per_driver, 20 * 3600)
+            day_left = TEAM_DAY_SEC           # v1.47: экипаж — всегда 18 ч вождения в сутки
             shift_end = t + 21 * 3600
             until_break = inf
         else:
@@ -1865,7 +1868,7 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None):
             until_break = CONT_DRIVE_SEC
 
     if team:
-        day_left = sum(float((d.get("today") or {}).get("driving_remaining") or 0) for d in drivers)
+        day_left = min(TEAM_DAY_SEC, sum(float((d.get("today") or {}).get("driving_remaining") or 0) for d in drivers))
         until_break = inf
     else:
         day_left = float(today.get("driving_remaining") or 0)
