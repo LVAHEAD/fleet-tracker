@@ -1,8 +1,11 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.40
+Версия: 1.41
 
 История изменений:
+1.41 (2026-09-26) — служебная проверка /api/mapon-check?unit=<номер>[&raw=1]:
+    driving_time_extended, driver/daily_activities (14 дней, отдыхи от 20 ч),
+    route/list (2 суток), object/list — проверка прав ключа и формата данных
 1.40 (2026-09-26) — FIN/EE -> База:
     - ввод страной (fin / FI / Финляндия / ee / EE / Эстония) в Таргет и
       From → To = маршрут до Базы (Baza Parking из адресной базы, иначе
@@ -374,7 +377,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.40"
+APP_VERSION = "1.41"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -2649,6 +2652,141 @@ def api_units():
         return jsonify({"units": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 502
+
+
+# ---------- v1.41: служебная проверка новых методов Mapon ----------
+MAPON_BASE = "https://mapon.com/api/v1/"
+
+
+def _utc_iso(ts):
+    from datetime import datetime, timezone
+    return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _lv_time(ts):
+    from datetime import datetime, timezone, timedelta
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo("Europe/Riga")
+    except Exception:
+        tz = timezone(timedelta(hours=3))
+    return datetime.fromtimestamp(int(ts), tz).strftime("%d.%m %H:%M")
+
+
+def _check_daily_activities(driver_id, now, days=14):
+    d = mapon_get(MAPON_BASE + "driver/daily_activities.json",
+                  {"key": MAPON_API_KEY, "driver": driver_id,
+                   "from": _utc_iso(now - days * 86400), "till": _utc_iso(now)}, timeout=30)
+    rows = d.get("data") or []
+    acts = [a for day in rows for a in (day.get("activities") or [])]
+    sources, statuses = {}, {}
+    for a in acts:
+        sources[a.get("source")] = sources.get(a.get("source"), 0) + 1
+        statuses[a.get("status")] = statuses.get(a.get("status"), 0) + 1
+    # склеиваем соседние REST (через границу суток) и ищем длинные отдыхи
+    rests, cur = [], None
+    for a in sorted((a for a in acts if a.get("duration", 0) > 0), key=lambda a: a["start"]):
+        if a.get("status") == "REST":
+            if cur and a["start"] - cur["end"] <= 60:
+                cur["end"] = a["end"]; cur["src"].add(a.get("source"))
+            else:
+                cur = {"start": a["start"], "end": a["end"], "src": {a.get("source")}}
+                rests.append(cur)
+        else:
+            cur = None
+    long_rests = [{"с": _lv_time(r["start"]), "по": _lv_time(r["end"]),
+                   "часов": round((r["end"] - r["start"]) / 3600, 1),
+                   "источник": ",".join(sorted(s or "?" for s in r["src"]))}
+                  for r in rests if r["end"] - r["start"] >= 20 * 3600]
+    return {"ok": True, "дней": len(rows), "интервалов": len(acts),
+            "источники": sources, "статусы": statuses,
+            "отдыхи_от_20ч": long_rests}
+
+
+@app.route("/api/mapon-check")
+def api_mapon_check():
+    """Проверка прав ключа на новые методы: /api/mapon-check?unit=<номер или id>&raw=1"""
+    import time
+    if not MAPON_API_KEY:
+        return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
+    now = int(time.time())
+    q = (request.args.get("unit") or "").replace(" ", "").lower()
+    raw = request.args.get("raw") == "1"
+    out = {}
+    try:
+        units = fetch_units(MAPON_API_KEY)
+        group_ids = fetch_group_unit_ids(MAPON_API_KEY, HEAD_TRUCK_GROUP_ID)
+    except Exception as e:
+        return jsonify({"error": f"unit/list: {e}"}), 502
+    pool = [u for u in units if u["unit_id"] in group_ids] or units
+    unit = None
+    if q:
+        unit = next((u for u in units if str(u["unit_id"]) == q), None) or next(
+            (u for u in pool if q in str(u.get("number") or u.get("label") or "").replace(" ", "").lower()), None)
+    unit = unit or (pool[0] if pool else None)
+    if not unit:
+        return jsonify({"error": "трак не найден"}), 404
+    uid = unit["unit_id"]
+    out["трак"] = {"unit_id": uid, "номер": unit.get("number") or unit.get("label")}
+
+    # 1) тахограф -> driver_id
+    drivers = []
+    try:
+        d = mapon_get(MAPON_TACHO_URL, {"key": MAPON_API_KEY, "unit_id": uid}).get("data") or {}
+        drivers = [v for k, v in sorted(d.items()) if k.startswith("driver") and isinstance(v, dict)]
+        out["driving_time_extended"] = {"ok": True, "водители": [
+            {"driver_id": x.get("driver_id"),
+             "имя": " ".join(filter(None, [x.get("driver_name"), x.get("driver_surname")])),
+             "состояние": x.get("current_state")} for x in drivers]}
+    except Exception as e:
+        out["driving_time_extended"] = {"ok": False, "ошибка": str(e)}
+
+    # 2) daily_activities по каждому водителю
+    da = {}
+    for x in drivers:
+        did = x.get("driver_id")
+        if not did:
+            continue
+        try:
+            da[str(did)] = _check_daily_activities(did, now)
+            if raw:
+                da[str(did)]["raw"] = mapon_get(MAPON_BASE + "driver/daily_activities.json",
+                    {"key": MAPON_API_KEY, "driver": did,
+                     "from": _utc_iso(now - 2 * 86400), "till": _utc_iso(now)}).get("data")
+        except Exception as e:
+            da[str(did)] = {"ok": False, "ошибка": str(e)}
+    out["driver/daily_activities"] = da or {"ok": False, "ошибка": "нет driver_id от тахографа"}
+
+    # 3) route/list за 2 суток
+    try:
+        d = mapon_get(MAPON_BASE + "route/list.json",
+                      {"key": MAPON_API_KEY, "unit_id": uid,
+                       "from": _utc_iso(now - 2 * 86400), "till": _utc_iso(now)}, timeout=30)
+        rts = [r for u in (d.get("data") or {}).get("units") or [] for r in (u.get("routes") or [])]
+        stops = [r for r in rts if r.get("type") == "stop"]
+        res = {"ok": True, "поездок": sum(1 for r in rts if r.get("type") == "route"),
+               "стоянок": len(stops),
+               "последние_стоянки": [{"с": (s.get("start") or {}).get("time"),
+                                      "по": (s.get("end") or {}).get("time"),
+                                      "адрес": (s.get("start") or {}).get("address")} for s in stops[-5:]]}
+        if raw:
+            res["raw"] = rts[-6:]
+        out["route/list"] = res
+    except Exception as e:
+        out["route/list"] = {"ok": False, "ошибка": str(e)}
+
+    # 4) объекты
+    try:
+        objs = (mapon_get(MAPON_BASE + "object/list.json", {"key": MAPON_API_KEY}).get("data") or {}).get("objects") or []
+        out["object/list"] = {"ok": True, "объектов": len(objs),
+                              "примеры": [o.get("name") for o in objs[:10]]}
+    except Exception as e:
+        out["object/list"] = {"ok": False, "ошибка": str(e)}
+
+    import json
+    resp = app.response_class(json.dumps(out, ensure_ascii=False, indent=2),
+                              mimetype="application/json; charset=utf-8")
+    return resp
 
 
 @app.route("/api/calc", methods=["POST"])
