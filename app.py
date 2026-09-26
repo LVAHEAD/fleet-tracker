@@ -2676,7 +2676,8 @@ def _lv_time(ts):
 def _check_daily_activities(driver_id, now, days=14):
     d = mapon_get(MAPON_BASE + "driver/daily_activities.json",
                   {"key": MAPON_API_KEY, "driver": driver_id,
-                   "from": _utc_iso(now - days * 86400), "till": _utc_iso(now)}, timeout=30)
+                   "from": _utc_iso(now - days * 86400), "till": _utc_iso(now),
+                   "include": "card_events,work_place_events"}, timeout=30)
     rows = d.get("data") if isinstance(d, dict) else d
     if isinstance(rows, dict):          # на случай {"data": {"days": [...]}} / {id: [...]}
         rows = next((v for v in rows.values() if isinstance(v, list)), [])
@@ -2715,7 +2716,10 @@ def _check_daily_activities(driver_id, now, days=14):
     shape = type(d).__name__ + (":" + type(rows[0]).__name__ if rows else "")
     return {"ok": True, "формат": shape, "дней": len(rows), "интервалов": len(acts),
             "источники": sources, "статусы": statuses,
-            "отдыхи_от_20ч": long_rests}
+            "отдыхи_от_20ч": long_rests,
+            "карта_события": [{"когда": _lv_time(a["start"]), "что": a.get("status"), "unitId": a.get("unitId")}
+                              for a in sorted(acts, key=lambda a: a["start"])
+                              if a.get("status") in ("CARD_INSERTED", "CARD_REMOVED")][-12:]}
 
 
 @app.route("/api/mapon-check")
