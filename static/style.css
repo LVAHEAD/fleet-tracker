@@ -421,3 +421,33 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
   font-size: 11px; font-weight: 600; white-space: nowrap; cursor: help;
 }
 .route-point .dovoz-badge { height: 20px; }
+
+/* ---------- v1.42: Truck Info ---------- */
+.ti-form { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.ti-form input { padding: 6px 8px; font-size: 14px; width: 160px; }
+.ti-form button { padding: 6px 14px; cursor: pointer; }
+.ti-hint { color: #999; font-size: 12px; }
+.ti-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+.ti-drivers { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.ti-driver { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 12px; flex: 1 1 380px; max-width: 560px; }
+.ti-dname { font-weight: 600; margin-bottom: 8px; }
+.ti-state { font-weight: normal; color: #777; font-size: 12px; margin-left: 6px; }
+.ti-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
+.ti-grid div { background: #f6f7f9; border-radius: 6px; padding: 4px 6px; text-align: center; }
+.ti-grid span { display: block; font-size: 11px; color: #888; }
+.ti-now { background: #e8f4ff; border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; font-size: 13px; }
+.ti-now-soft { background: #f6f7f9; }
+.ti-deadline { background: #fff6e0; border-radius: 6px; padding: 6px 8px; margin-bottom: 8px; font-size: 13px; }
+.ti-mapon { color: #999; font-size: 11px; margin-left: 8px; }
+.ti-table { border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 8px; background: #fff; }
+.ti-table th { text-align: left; font-weight: 600; color: #666; font-size: 12px; padding: 3px 6px; border-bottom: 1px solid #ddd; }
+.ti-table td { padding: 3px 6px; border-bottom: 1px solid #f0f0f0; }
+.ti-stops { max-width: 900px; }
+.ti-tag { display: inline-block; font-size: 11px; padding: 0 5px; border-radius: 4px; background: #eee; color: #555; margin-right: 3px; }
+.ti-full { background: #e3f5e1; color: #2d7a2d; }
+.ti-red { background: #fde8e8; color: #b33; }
+.ti-cards { font-size: 12px; color: #666; }
+.ti-cards span { margin-right: 10px; white-space: nowrap; }
+.ti-err { color: #b33; font-size: 13px; margin: 4px 0; }
+.ti-loading { color: #888; padding: 12px; }
+@media (max-width: 600px) { .ti-grid { grid-template-columns: repeat(2, 1fr); } }

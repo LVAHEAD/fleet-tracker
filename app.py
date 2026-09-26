@@ -1,8 +1,17 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.41
+Версия: 1.42
 
 История изменений:
+1.42 (2026-09-26) — недельный отдых по истории водителя (Mapon driver/daily_activities):
+    - отдыхи склеиваются из REST, включая время без карты (Mapon пишет его с CAN) —
+      вынутая перед 45-кой карта не "ломает" отдых; отдых считается по водителю, а не
+      по траку (перецеп чужой картой отдых не прерывает)
+    - от 24 ч — недельный, от 45 ч — обычный; следующий — не позже конца + 144 ч,
+      после сокращённого нужен 45 ч; экипаж — самый ранний срок из двух водителей
+    - тахо-ETA берёт этот срок вместо weekly_rest_start Mapon; идущий недельный
+      отдых дожидается конца; в подсказке — "недельный (45 ч) до …", расхождение с Mapon
+    - вкладка Truck Info: водители, недельные отдыхи, срок следующего, карты, стоянки
 1.41 (2026-09-26) — служебная проверка /api/mapon-check?unit=<номер>[&raw=1]:
     driving_time_extended, driver/daily_activities (14 дней, отдыхи от 20 ч),
     route/list (2 суток), object/list — проверка прав ключа и формата данных
@@ -377,7 +386,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.41"
+APP_VERSION = "1.42"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1609,12 +1618,144 @@ def get_tacho(unit_id):
     return data, err
 
 
+# ---------- v1.42: недельный отдых по истории водителя (Mapon driver/daily_activities) ----------
+MAPON_ACTIVITIES_URL = "https://mapon.com/api/v1/driver/daily_activities.json"
+ACT_TTL = 1800                  # история водителя — не чаще раза в 30 мин
+ACT_DAYS = 21                   # глубина истории (до 31 дня у Mapon)
+WEEKLY_MIN_SEC = 24 * 3600      # отдых от 24 ч — недельный (сокращённый)
+WEEKLY_FULL_SEC = 45 * 3600     # от 45 ч — обычный недельный
+WEEKLY_PERIOD_SEC = 144 * 3600  # следующий недельный — не позже 6×24 ч после конца прошлого
+_act_cache = {}                 # driver_id -> {"at", "data", "error"}
+_act_lock = threading.Lock()
+
+
+def _iso_utc(ts):
+    return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def get_driver_rests(driver_id):
+    """Отдыхи водителя за ACT_DAYS дней: склеенные подряд идущие REST (включая время
+    без карты — Mapon заливает его REST с источником can/unkn), конец обрезан по "сейчас".
+    Возвращает ({"rests": [{start, end, src}], "cards": [...]}, error)."""
+    import time
+    now = time.time()
+    with _act_lock:
+        c = _act_cache.get(driver_id)
+        if c and now - c["at"] < ACT_TTL:
+            return c["data"], c["error"]
+    data, err = None, None
+    try:
+        d = mapon_get(MAPON_ACTIVITIES_URL, {
+            "key": MAPON_API_KEY, "driver": driver_id,
+            "from": _iso_utc(now - ACT_DAYS * 86400), "till": _iso_utc(now),
+            "include": "card_events"}, timeout=30)
+        rows = d.get("data") if isinstance(d, dict) else d
+        acts = []
+        for day in rows or []:
+            items = day.get("activities") if isinstance(day, dict) else day
+            for a in items or []:
+                if not isinstance(a, dict):
+                    continue
+                try:
+                    s, e = int(float(a.get("start") or 0)), int(float(a.get("end") or 0))
+                except (TypeError, ValueError):
+                    continue
+                acts.append({"start": s, "end": min(e, int(now)), "status": a.get("status"),
+                             "src": a.get("source")})
+        acts.sort(key=lambda a: a["start"])
+        rests, cards, cur = [], [], None
+        for a in acts:
+            if a["status"] in ("CARD_INSERTED", "CARD_REMOVED"):
+                cards.append({"ts": a["start"], "what": a["status"]})
+                continue
+            if a["status"] not in ("REST", "DRIVING", "WORK", "AVAILABLE") or a["end"] <= a["start"]:
+                continue
+            if a["status"] == "REST":
+                if cur and a["start"] - cur["end"] <= 120:
+                    cur["end"] = max(cur["end"], a["end"])
+                    cur["src"].add(a["src"] or "?")
+                else:
+                    cur = {"start": a["start"], "end": a["end"], "src": {a["src"] or "?"}}
+                    rests.append(cur)
+            else:
+                cur = None
+        for r in rests:
+            r["src"] = sorted(r["src"])
+        data = {"rests": rests, "cards": cards, "from": now - ACT_DAYS * 86400}
+    except Exception as e:
+        err = str(e)
+    with _act_lock:
+        _act_cache[driver_id] = {"at": now, "data": data, "error": err}
+    return data, err
+
+
+def weekly_status(driver_id, now_ts=None):
+    """Недельный отдых водителя по истории:
+    last — последний отдых от 24 ч (идёт сейчас или завершён), prev — предыдущий;
+    deadline — начать следующий недельный не позже (конец last + 144 ч);
+    need_sec — какой нужен следующий (после сокращённого — 45 ч, иначе 24 ч).
+    Если недельный отдых идёт прямо сейчас — ongoing=True, can_go — когда он станет
+    достаточным (начало + need текущего)."""
+    import time
+    now = float(now_ts or time.time())
+    hist, err = get_driver_rests(driver_id)
+    if not hist:
+        return None, err
+    weekly = [r for r in hist["rests"] if r["end"] - r["start"] >= WEEKLY_MIN_SEC
+              and r["start"] > hist["from"] + 60]          # отдых, обрезанный началом окна, не берём
+    last_rest = hist["rests"][-1] if hist["rests"] else None
+    ongoing_rest = last_rest if last_rest and now - last_rest["end"] < 1800 else None
+    res = {"weekly": [{"start": r["start"], "end": r["end"], "hours": round((r["end"] - r["start"]) / 3600, 1),
+                       "full": r["end"] - r["start"] >= WEEKLY_FULL_SEC, "src": r["src"]} for r in weekly][-4:],
+           "ongoing": False, "resting_sec": 0}
+    if ongoing_rest:
+        res["resting_sec"] = int(now - ongoing_rest["start"])
+    if not weekly:
+        res["error"] = f"за {ACT_DAYS} дн. нет отдыха от 24 ч"
+        return res, None
+    last = weekly[-1]
+    prev = weekly[-2] if len(weekly) >= 2 else None
+    ongoing = ongoing_rest is last
+    # какой недельный нужен "этот" (для идущего) и следующий
+    prev_reduced = prev is not None and prev["end"] - prev["start"] < WEEKLY_FULL_SEC
+    if ongoing:
+        need_now = WEEKLY_FULL_SEC if prev_reduced else WEEKLY_MIN_SEC
+        can_go = last["start"] + need_now
+        # если отдых дойдёт до 45 ч — следующий может быть сокращённым; считаем по минимуму
+        end_est = max(now, can_go)
+        full_now = end_est - last["start"] >= WEEKLY_FULL_SEC
+        res.update(ongoing=True, can_go=can_go, need_now=need_now,
+                   deadline=end_est + WEEKLY_PERIOD_SEC,
+                   need_sec=WEEKLY_MIN_SEC if full_now else WEEKLY_FULL_SEC)
+    else:
+        last_reduced = last["end"] - last["start"] < WEEKLY_FULL_SEC
+        res.update(deadline=last["end"] + WEEKLY_PERIOD_SEC,
+                   need_sec=WEEKLY_FULL_SEC if last_reduced else WEEKLY_MIN_SEC)
+    return res, None
+
+
+def weekly_for_tacho(tacho):
+    """Недельный отдых экипажа: самый ранний срок и самый длинный нужный отдых из водителей."""
+    best = None
+    for d in tacho.get("drivers") or []:
+        did = d.get("driver_id")
+        if not did:
+            continue
+        w, _ = weekly_status(did)
+        if not w or not w.get("deadline"):
+            continue
+        if best is None or w["deadline"] < best["deadline"]:
+            best = dict(w)
+        best["need_sec"] = max(best["need_sec"], w["need_sec"])
+    return best
+
+
 def _hm(sec):
     sec = max(0, int(sec))
     return f"{sec // 3600}:{sec % 3600 // 60:02d}"
 
 
-def tacho_eta(tacho, dist_km, now_ts=None):
+def tacho_eta(tacho, dist_km, now_ts=None, weekly=None):
     """Симуляция рейса по данным тахографа.
     Одиночка: вождение до 4:30 -> перерыв 45 мин; до конца дневного лимита / окна смены ->
     суточный отдых (ближайший — daily_rest_min из API, дальше 9 ч пока есть сокращения,
@@ -1622,6 +1763,8 @@ def tacho_eta(tacho, dist_km, now_ts=None):
     Экипаж (два водителя): ведут по очереди, без перерывов; день = сумма остатков обоих,
     но в пределах окна смены; суточный отдых 9 ч + 1 ч.
     Недельный лимит -> недельный отдых weekly_rest_min + 30 мин.
+    v1.42: weekly (из weekly_for_tacho) — срок и длина недельного по истории водителя
+    вместо weekly_rest_start Mapon; идущий недельный отдых дожидается can_go.
     Возвращает dict: eta_ts, stops [{kind, start, end}], team, first_limit_sec."""
     import time
     t = float(now_ts or time.time())
@@ -1641,6 +1784,12 @@ def tacho_eta(tacho, dist_km, now_ts=None):
     weekly_min = float(week.get("weekly_rest_min") or 45 * 3600)
     next_week_drive = float(week.get("next_fixed_week_driving_remaining") or 56 * 3600)
     stops = []
+    weekly_ongoing_until = None
+    if weekly and weekly.get("deadline"):
+        weekly_at = float(weekly["deadline"])
+        weekly_min = float(weekly.get("need_sec") or weekly_min)
+        if weekly.get("ongoing") and float(weekly.get("can_go") or 0) > t:
+            weekly_ongoing_until = float(weekly["can_go"]) + REST_MARGIN_WEEKLY
 
     if team:
         day_left = sum(float((d.get("today") or {}).get("driving_remaining") or 0) for d in drivers)
@@ -1661,7 +1810,16 @@ def tacho_eta(tacho, dist_km, now_ts=None):
             until_break = CONT_DRIVE_SEC  # перерыв уже отбыт
     # водитель уже на суточном отдыхе (отдыхает 3 ч+, следующая смена ещё не началась)
     nss = float(d0.get("next_shift_start") or 0)
-    if (d0.get("current_state") == "REST" and float(nowd.get("rest") or 0) >= 3 * 3600
+    if weekly_ongoing_until:
+        # v1.42: идёт недельный отдых, который ещё не достаточен
+        stops.append({"kind": "weekly", "start": t, "end": weekly_ongoing_until})
+        t = weekly_ongoing_until
+        per_driver = 10 * 3600 if ext_left > 0 else 9 * 3600
+        day_left = min(2 * per_driver, 20 * 3600) if team else per_driver
+        shift_end = t + (21 if team else (15 if short_left > 0 else 13)) * 3600
+        until_break = float("inf") if team else CONT_DRIVE_SEC
+        week_left = max(week_left, next_week_drive * (2 if team else 1))
+    elif (d0.get("current_state") == "REST" and float(nowd.get("rest") or 0) >= 3 * 3600
             and nss > t):
         stops.append({"kind": "daily", "start": t, "end": nss + REST_MARGIN_DAILY})
         t = nss + REST_MARGIN_DAILY
@@ -1706,7 +1864,7 @@ def tacho_eta(tacho, dist_km, now_ts=None):
             t += rest
             week_left = next_week_drive * (2 if team else 1)
             ext_left, short_left = 2, 3
-            weekly_at = None
+            weekly_at = t + WEEKLY_PERIOD_SEC if weekly else None
             weekly_min = 45 * 3600
         else:  # дневной лимит или окно смены -> суточный отдых
             if team:
@@ -1737,7 +1895,7 @@ def tacho_eta(tacho, dist_km, now_ts=None):
     return {"eta_ts": t, "stops": stops, "team": team, "first_limit_sec": first_limit}
 
 
-def tacho_summary(tacho, sim=None):
+def tacho_summary(tacho, sim=None, weekly=None):
     """Короткие строки для подсказки: "до перерыва 3:24", "отдых 26/09 01:15–11:15", "экипаж"."""
     d0 = next((d for d in tacho["drivers"] if d.get("current_state") == "DRIVING"), tacho["drivers"][0])
     nowd, today = d0.get("now", {}) or {}, d0.get("today", {}) or {}
@@ -1752,6 +1910,15 @@ def tacho_summary(tacho, sim=None):
         parts.append(f"до остановки {_hm(nowd.get('driving_remaining'))}")
     parts.append(f"сегодня осталось {_hm(today.get('driving_remaining'))}")
     parts.append(f"смена до {loc(float(today.get('daily_rest_start') or 0))}" if today.get("daily_rest_start") else "")
+    if weekly and weekly.get("deadline"):
+        need = "45 ч" if weekly.get("need_sec", 0) >= WEEKLY_FULL_SEC else "24 ч"
+        if weekly.get("ongoing"):
+            parts.append(f"на недельном {_hm(weekly.get('resting_sec'))}"
+                         + (f", можно ехать с {loc(weekly['can_go'])}" if weekly.get("can_go", 0) > datetime.now(timezone.utc).timestamp() else ""))
+        parts.append(f"недельный ({need}) до {loc(weekly['deadline'])}")
+        mw = float(((d0.get("week") or {}).get("weekly_rest_start")) or 0)
+        if mw and abs(mw - weekly["deadline"]) > 3 * 3600 and not weekly.get("ongoing"):
+            parts.append(f"(Mapon: до {loc(mw)})")
     if sim:
         rests = [st for st in sim["stops"] if st["kind"] in ("daily", "weekly")]
         for st in rests[:3]:
@@ -2654,6 +2821,107 @@ def api_units():
         return jsonify({"error": str(e)}), 502
 
 
+# ---------- v1.42: Truck Info — недельные отдыхи, карты, стоянки ----------
+def _lv(ts):
+    return (datetime.fromtimestamp(float(ts), timezone.utc) + timedelta(hours=RIGA_UTC_OFFSET)).strftime("%d.%m %H:%M")
+
+
+def _find_unit(q_raw):
+    norm = lambda x: re.sub(r"[^0-9a-zа-я]", "", str(x or "").lower())
+    q = norm(q_raw)
+    if not q:
+        return None
+    units = fetch_units(MAPON_API_KEY)
+    return (next((u for u in units if str(u["unit_id"]) == q), None)
+            or next((u for u in units if norm(u.get("number")) == q or norm(u.get("label")) == q), None)
+            or next((u for u in units if q in norm(u.get("number")) or q in norm(u.get("label"))), None))
+
+
+def unit_stops(unit_id, days=3, min_sec=2 * 3600):
+    """Стоянки трака за days суток из route/list (куски, разрезанные полуночью, склеены)."""
+    import time
+    now = time.time()
+    d = mapon_get("https://mapon.com/api/v1/route/list.json",
+                  {"key": MAPON_API_KEY, "unit_id": unit_id,
+                   "from": _iso_utc(now - days * 86400), "till": _iso_utc(now)}, timeout=30)
+    out = []
+    for u in (d.get("data") or {}).get("units") or []:
+        for r in u.get("routes") or []:
+            if r.get("type") != "stop":
+                continue
+            st = r.get("start") or {}
+            try:
+                s_ts = datetime.strptime(st.get("time"), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+                e_raw = (r.get("end") or {}).get("time")
+                e_ts = (datetime.strptime(e_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+                        if e_raw else now)
+            except Exception:
+                continue
+            if out and abs(s_ts - out[-1]["end"]) <= 60 and out[-1]["address"] == st.get("address"):
+                out[-1]["end"] = e_ts
+                out[-1]["now"] = not e_raw
+            else:
+                out.append({"start": s_ts, "end": e_ts, "address": st.get("address"),
+                            "lat": st.get("lat"), "lng": st.get("lng"), "now": not e_raw})
+    return [x for x in out if x["end"] - x["start"] >= min_sec or x["now"]]
+
+
+@app.route("/api/truck-info")
+def api_truck_info():
+    if not MAPON_API_KEY:
+        return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
+    try:
+        unit = _find_unit(request.args.get("unit"))
+    except Exception as e:
+        return jsonify({"error": f"Mapon: {e}"}), 502
+    if not unit:
+        return jsonify({"error": "трак не найден"}), 404
+    uid = unit["unit_id"]
+    out = {"unit_id": uid, "number": unit.get("number") or unit.get("label"), "drivers": []}
+    tacho, terr = get_tacho(uid)
+    if not tacho:
+        out["tacho_error"] = terr
+    for d in (tacho or {}).get("drivers") or []:
+        week, today = d.get("week") or {}, d.get("today") or {}
+        row = {"name": " ".join(filter(None, [d.get("driver_name"), d.get("driver_surname")])) or "—",
+               "state": d.get("current_state"),
+               "today_left": _hm(today.get("driving_remaining")) if today.get("driving_remaining") is not None else None,
+               "week_left": _hm(week.get("driving_remaining")) if week.get("driving_remaining") is not None else None,
+               "ext_left": week.get("10h_driving_extensions_remaining"),
+               "short_left": week.get("9h_rest_shortening_remaining"),
+               "mapon_weekly": _lv(week["weekly_rest_start"]) if week.get("weekly_rest_start") else None}
+        did = d.get("driver_id")
+        if did:
+            w, werr = weekly_status(did)
+            if w:
+                row["weekly"] = [{"from": _lv(x["start"]), "to": _lv(x["end"]), "hours": x["hours"],
+                                  "full": x["full"], "nocard": any(s in ("can", "unkn") for s in x["src"])}
+                                 for x in w["weekly"]]
+                row["ongoing"] = w.get("ongoing")
+                row["resting"] = _hm(w.get("resting_sec")) if w.get("resting_sec") else None
+                if w.get("can_go"):
+                    row["can_go"] = _lv(w["can_go"])
+                if w.get("deadline"):
+                    import time
+                    row["deadline"] = _lv(w["deadline"])
+                    row["deadline_in"] = _hm(w["deadline"] - time.time())
+                    row["need"] = "45 ч" if w["need_sec"] >= WEEKLY_FULL_SEC else "24 ч (можно сокращённый)"
+                row["weekly_error"] = w.get("error")
+                hist, _ = get_driver_rests(did)
+                row["cards"] = [{"at": _lv(c["ts"]), "what": "вставил" if c["what"] == "CARD_INSERTED" else "вынул"}
+                                for c in (hist or {}).get("cards", [])][-6:]
+            else:
+                row["weekly_error"] = werr
+        out["drivers"].append(row)
+    try:
+        out["stops"] = [{"from": _lv(x["start"]), "to": "сейчас" if x["now"] else _lv(x["end"]),
+                         "hours": _hm(x["end"] - x["start"]), "address": x["address"]}
+                        for x in unit_stops(uid)][-8:]
+    except Exception as e:
+        out["stops_error"] = str(e)
+    return jsonify(out)
+
+
 # ---------- v1.41: служебная проверка новых методов Mapon ----------
 MAPON_BASE = "https://mapon.com/api/v1/"
 
@@ -2914,8 +3182,12 @@ def api_calc():
             tacho, terr = get_tacho(unit.get("unit_id"))
             if tacho:
                 sim = None
+                try:
+                    weekly = weekly_for_tacho(tacho)
+                except Exception:
+                    weekly = None
                 if result.get("dist_km") is not None:
-                    sim = tacho_eta(tacho, result["dist_km"])
+                    sim = tacho_eta(tacho, result["dist_km"], weekly=weekly)
                     eta_t = round_to_15min(datetime.fromtimestamp(sim["eta_ts"], timezone.utc)
                                            + timedelta(hours=WEST_EUROPE_OFFSET))
                     result["eta_tacho"] = eta_t.strftime("%d/%m %H:%M")
@@ -2923,7 +3195,7 @@ def api_calc():
                 d0 = next((d for d in tacho["drivers"] if d.get("current_state") == "DRIVING"), tacho["drivers"][0])
                 result["tacho_resting_now"] = d0.get("current_state") == "REST"
                 result["tacho_team"] = len(tacho["drivers"]) >= 2
-                result["tacho_summary"] = tacho_summary(tacho, sim)
+                result["tacho_summary"] = tacho_summary(tacho, sim, weekly)
             else:
                 result["tacho_error"] = terr
         except Exception as e:

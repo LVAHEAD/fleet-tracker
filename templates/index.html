@@ -146,10 +146,16 @@
 
 <!-- ==================== Вкладка: Truck Info (рабочая) ==================== -->
 <div id="tab-truckinfo" class="tab-panel" hidden>
-  <div class="truckinfo-empty">
-    <b>Truck Info — проверка машины</b>
-    <p>Здесь будет проверка машин и водителей по тахографу: недельные отдыхи 24 / 45 ч,
-      сколько осталось до обязательного отдыха, сокращения и продления.</p>
+  <div class="ti-form">
+    <input id="ti-unit" list="units-list" placeholder="номер трака" autocomplete="off">
+    <button id="ti-go" type="button">Показать</button>
+    <span class="ti-hint">время — LV (Рига)</span>
+  </div>
+  <div id="ti-out" class="ti-out">
+    <div class="truckinfo-empty">
+      <b>Truck Info — проверка машины</b>
+      <p>Водители, недельные отдыхи 24 / 45 ч и срок следующего, вставка/извлечение карт, стоянки за 3 суток.</p>
+    </div>
   </div>
 </div>
 
@@ -191,6 +197,7 @@
 <script src="{{ url_for('static', filename='locator.js') }}"></script>
 <script src="{{ url_for('static', filename='notes.js') }}"></script>
 <script src="{{ url_for('static', filename='bans-tab.js') }}"></script>
+<script src="{{ url_for('static', filename='truckinfo.js') }}"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_js_key }}&libraries=geometry&callback=initMap" async defer></script>
 </body>
 </html>
