@@ -1,8 +1,17 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.38
+Версия: 1.39
 
 История изменений:
+1.39 (2026-09-26) — фикс "Запретов" (400), версия у заголовка, вкладка Truck Info:
+    - фид nakordoni принимает не больше 3 стран за запрос (4+ -> 400): группы по 3
+      (17 стран = 6 запросов с паузой); на 400 группа делится, незнакомая фиду
+      страна пропускается
+    - номер версии мелко и бледно рядом с заголовком "Fleet ETA Tracker"
+      (метка внизу страницы остаётся)
+    - новая рабочая вкладка "Truck Info" (после From → To) — пока заглушка;
+      здесь будет проверка машин/водителей по тахографу (недельные отдыхи 24/45 ч)
+
 1.38 (2026-09-26) — "Запреты": бережные запросы к nakordoni.eu (фикс 429):
     - страны запрашиваются группами по 5 (country=DE,AT,...) — ~4 запроса вместо 18;
       если ответ обрезан (truncated), группа делится пополам; пауза между запросами
@@ -356,7 +365,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.38"
+APP_VERSION = "1.39"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -2878,7 +2887,7 @@ BANS_URL = "https://nakordoni.eu/api/truckban_json.php"
 BANS_TTL = 3 * 3600          # данные о запретах меняются редко
 BANS_MANUAL_MIN = 600        # "↻ Обновить" не чаще раза в 10 минут
 BANS_COOLDOWN_429 = 1800     # после 429 не трогаем фид 30 минут
-BANS_GROUP = 5               # стран в одном запросе (ответ режется на 50 записях; ~9 записей на страну)
+BANS_GROUP = 3               # стран в одном запросе: фид принимает не больше 3 (иначе 400)
 BANS_PAUSE = 1.2             # пауза между запросами, сек
 BANS_FULL_TYPES = {"Sunday", "Holiday", "General"}   # запрет по всей стране — выделяем
 BANS_ADR_WORDS = ("dangerous", "adr", "hazard", "опасн", "небезпеч")  # ADR не возим — скрываем
@@ -2890,11 +2899,17 @@ class BansRateLimited(RuntimeError):
     pass
 
 
+class BansBadRequest(RuntimeError):
+    pass
+
+
 def _bans_get(params):
     r = requests.get(BANS_URL, params={"lang": "ru", **params}, timeout=20,
                      headers={"User-Agent": "fleet-eta-tracker"})
     if r.status_code == 429:
         raise BansRateLimited("nakordoni: слишком много запросов (429)")
+    if r.status_code == 400:
+        raise BansBadRequest(f"nakordoni: 400 для {params.get('country')}")
     r.raise_for_status()
     d = r.json()
     if not d.get("success", True):
@@ -2908,9 +2923,18 @@ def _is_adr(b):
 
 
 def _bans_fetch_group(codes, out):
-    """Запрос по группе стран; если ответ обрезан — делим группу пополам."""
+    """Запрос по группе стран; если ответ обрезан или 400 — делим группу пополам;
+    страну, на которую фид отвечает 400, пропускаем (не ломаем всё обновление)."""
     import time
-    d = _bans_get({"country": ",".join(codes)})
+    try:
+        d = _bans_get({"country": ",".join(codes)})
+    except BansBadRequest:
+        time.sleep(BANS_PAUSE)
+        if len(codes) > 1:
+            half = len(codes) // 2
+            _bans_fetch_group(codes[:half], out)
+            _bans_fetch_group(codes[half:], out)
+        return
     time.sleep(BANS_PAUSE)
     if d.get("truncated") and len(codes) > 1:
         half = len(codes) // 2

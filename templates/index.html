@@ -9,12 +9,13 @@
 <body>
 
 <div class="topbar">
-  <h1>Fleet ETA Tracker</h1>
+  <h1>Fleet ETA Tracker <span class="title-version">v{{ app_version }}</span></h1>
 </div>
 
 <nav class="main-tabs">
   <button class="main-tab-btn active" data-tab="fleet">Флот</button>
   <button class="main-tab-btn" data-tab="route">From → To</button>
+  <button class="main-tab-btn" data-tab="truckinfo">Truck Info</button>
   <span class="main-tabs-spacer"></span>
   <button class="main-tab-btn ref-tab" data-tab="bans">Запреты</button>
   <button class="main-tab-btn ref-tab" data-tab="ferries">Паромы</button>
@@ -141,6 +142,15 @@
   <a href="{{ url_for('static', filename='ferries/ferries.jpg') }}" target="_blank" rel="noopener" class="ferries-link">
     <img src="{{ url_for('static', filename='ferries/ferries.jpg') }}" alt="Расписания паромов: Helsinki–Tallinn, Rostock–Gedser" class="ferries-img">
   </a>
+</div>
+
+<!-- ==================== Вкладка: Truck Info (рабочая) ==================== -->
+<div id="tab-truckinfo" class="tab-panel" hidden>
+  <div class="truckinfo-empty">
+    <b>Truck Info — проверка машины</b>
+    <p>Здесь будет проверка машин и водителей по тахографу: недельные отдыхи 24 / 45 ч,
+      сколько осталось до обязательного отдыха, сокращения и продления.</p>
+  </div>
 </div>
 
 <!-- ==================== Вкладка: From → To ==================== -->
