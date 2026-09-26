@@ -2677,8 +2677,22 @@ def _check_daily_activities(driver_id, now, days=14):
     d = mapon_get(MAPON_BASE + "driver/daily_activities.json",
                   {"key": MAPON_API_KEY, "driver": driver_id,
                    "from": _utc_iso(now - days * 86400), "till": _utc_iso(now)}, timeout=30)
-    rows = d.get("data") or []
-    acts = [a for day in rows for a in (day.get("activities") or [])]
+    rows = d.get("data") if isinstance(d, dict) else d
+    if isinstance(rows, dict):          # на случай {"data": {"days": [...]}} / {id: [...]}
+        rows = next((v for v in rows.values() if isinstance(v, list)), [])
+    rows = rows or []
+    acts = []
+    for day in rows:
+        if isinstance(day, dict):
+            acts += [a for a in (day.get("activities") or []) if isinstance(a, dict)]
+        elif isinstance(day, list):     # день может прийти сразу списком интервалов
+            acts += [a for a in day if isinstance(a, dict)]
+    for a in acts:
+        for k in ("start", "end", "duration"):
+            try:
+                a[k] = int(float(a.get(k) or 0))
+            except (TypeError, ValueError):
+                a[k] = 0
     sources, statuses = {}, {}
     for a in acts:
         sources[a.get("source")] = sources.get(a.get("source"), 0) + 1
@@ -2698,7 +2712,8 @@ def _check_daily_activities(driver_id, now, days=14):
                    "часов": round((r["end"] - r["start"]) / 3600, 1),
                    "источник": ",".join(sorted(s or "?" for s in r["src"]))}
                   for r in rests if r["end"] - r["start"] >= 20 * 3600]
-    return {"ok": True, "дней": len(rows), "интервалов": len(acts),
+    shape = type(d).__name__ + (":" + type(rows[0]).__name__ if rows else "")
+    return {"ok": True, "формат": shape, "дней": len(rows), "интервалов": len(acts),
             "источники": sources, "статусы": statuses,
             "отдыхи_от_20ч": long_rests}
 
@@ -2710,7 +2725,9 @@ def api_mapon_check():
     if not MAPON_API_KEY:
         return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
     now = int(time.time())
-    q = (request.args.get("unit") or "").replace(" ", "").lower()
+    import json
+    norm = lambda x: re.sub(r"[^0-9a-zа-я]", "", str(x or "").lower())
+    q = norm(request.args.get("unit"))
     raw = request.args.get("raw") == "1"
     out = {}
     try:
@@ -2722,7 +2739,9 @@ def api_mapon_check():
     unit = None
     if q:
         unit = next((u for u in units if str(u["unit_id"]) == q), None) or next(
-            (u for u in pool if q in str(u.get("number") or u.get("label") or "").replace(" ", "").lower()), None)
+            (u for u in units if q in norm(u.get("number")) or q in norm(u.get("label"))), None)
+        if not unit:
+            return jsonify({"error": f"трак '{request.args.get('unit')}' не найден"}), 404
     unit = unit or (pool[0] if pool else None)
     if not unit:
         return jsonify({"error": "трак не найден"}), 404
@@ -2752,9 +2771,17 @@ def api_mapon_check():
             if raw:
                 da[str(did)]["raw"] = mapon_get(MAPON_BASE + "driver/daily_activities.json",
                     {"key": MAPON_API_KEY, "driver": did,
-                     "from": _utc_iso(now - 2 * 86400), "till": _utc_iso(now)}).get("data")
+                     "from": _utc_iso(now - 2 * 86400), "till": _utc_iso(now)})
         except Exception as e:
-            da[str(did)] = {"ok": False, "ошибка": str(e)}
+            err = {"ok": False, "ошибка": str(e)}
+            try:   # кусок сырого ответа, чтобы увидеть формат
+                r0 = mapon_get(MAPON_BASE + "driver/daily_activities.json",
+                               {"key": MAPON_API_KEY, "driver": did,
+                                "from": _utc_iso(now - 86400), "till": _utc_iso(now)})
+                err["образец"] = json.dumps(r0, ensure_ascii=False)[:1500]
+            except Exception:
+                pass
+            da[str(did)] = err
     out["driver/daily_activities"] = da or {"ok": False, "ошибка": "нет driver_id от тахографа"}
 
     # 3) route/list за 2 суток
@@ -2783,7 +2810,6 @@ def api_mapon_check():
     except Exception as e:
         out["object/list"] = {"ok": False, "ошибка": str(e)}
 
-    import json
     resp = app.response_class(json.dumps(out, ensure_ascii=False, indent=2),
                               mimetype="application/json; charset=utf-8")
     return resp
