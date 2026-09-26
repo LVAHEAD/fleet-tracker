@@ -397,3 +397,12 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 .bans-legend { font-size: 11px; color: #888; margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .bans-legend .ban-chip { font-size: 10px; padding: 1px 5px; }
 .bans-err { color: #c0392b; font-size: 12px; padding: 6px 12px; }
+
+/* ---------- v1.37: ↻ в заголовке, предупреждение геокодера ---------- */
+.th-actions { text-align: right; }
+.refresh-top { padding: 1px 7px; font-size: 13px; line-height: 1.4; }
+.route-geo-warn { background: #FFF4C2; border: 1px solid #EBD37A; color: #6b5200; border-radius: 8px; padding: 8px 12px; margin: 0 0 10px; font-size: 13px; }
+.route-geo-warn[hidden] { display: none; }
+
+/* v1.38 */
+.bans-when { color: #999; font-size: 11px; padding: 5px 12px; border-top: 1px solid #f0f0f0; }

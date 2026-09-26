@@ -76,6 +76,7 @@ function clearRouteTab() {
   document.getElementById("route-result").hidden = true;
   document.getElementById("route-points").hidden = true;
   document.getElementById("route-freights").hidden = true;
+  document.getElementById("route-geo-warn").hidden = true;
   document.getElementById("route-error").hidden = true;
   document.getElementById("route-legs").innerHTML = "";
   drawRouteOnMap({ points: [] });
@@ -175,6 +176,7 @@ async function calcRouteTab() {
   resultEl.hidden = true;
   pointsEl.hidden = true;
   document.getElementById("route-freights").hidden = true;
+  document.getElementById("route-geo-warn").hidden = true;
 
   if (froms.length === 0 && tos.length === 0) {
     errorEl.textContent = "Заполните хотя бы одно поле — From или To.";
@@ -200,6 +202,7 @@ async function calcRouteTab() {
     }
 
     renderRoutePoints(data.points || []);
+    renderGeoWarn(data.points || []);
     renderFreights(data.freights);
 
     if (data.dist_km != null) {
@@ -224,6 +227,18 @@ function routeEscape(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[c]));
+}
+
+// v1.37: предупреждение, если город распознан подозрительно (короткий ввод или
+// место в стране, где мы не ездим) — чтобы "fin" -> городок во Франции не проскочил
+function renderGeoWarn(points) {
+  const el = document.getElementById("route-geo-warn");
+  const bad = points.filter((p) => p.geo && p.geo.suspicious);
+  if (!bad.length) { el.hidden = true; el.innerHTML = ""; return; }
+  el.innerHTML = "⚠ Проверьте: " + bad.map((p) =>
+    `<b>${p.kind}${p.num}</b> «${routeEscape(p.raw || "")}» распознан как ${routeEscape(p.geo.found)}${p.geo.cc ? " (" + routeEscape(p.geo.cc) + ")" : ""}`
+  ).join("; ") + ". Если это не то — введите код региона, GPS или склад из базы.";
+  el.hidden = false;
 }
 
 // v1.29: похожие рейсы из базы фрахтов и ориентир цены

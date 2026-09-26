@@ -1,6 +1,8 @@
 /*
 Fleet ETA Tracker — вкладка "Запреты" (справочная)
-Версия: 1.36 — данные nakordoni.eu через /api/bans (кеш на сервере 30 мин):
+Версия: 1.38 — отметка "данные от …", мягкий показ ошибки при последних удачных данных.
+Ранее 1.37 — только наши страны (фильтр на сервере), русские ссылки nakordoni, без trafficban.
+Ранее 1.36 — данные nakordoni.eu через /api/bans (кеш на сервере 30 мин):
   - "Сейчас действует" — плашки стран с часами;
   - календарь на 8 дней: полные запреты (Sunday/Holiday/General) — красные,
     частичные (Local/Seasonal) — бледные; подробности при наведении, клик — страница страны;
@@ -12,8 +14,7 @@ Fleet ETA Tracker — вкладка "Запреты" (справочная)
   const nowEl = document.getElementById("bansNow");
   const calEl = document.getElementById("bansCalendar");
   const btn = document.getElementById("bansRefresh");
-  const tbEl = document.getElementById("bansTbLinks");
-  const tab = document.querySelector('.main-tab-btn[data-tab="bans"]');
+    const tab = document.querySelector('.main-tab-btn[data-tab="bans"]');
   if (!nowEl || !calEl) return;
 
   const DAYS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
@@ -22,16 +23,14 @@ Fleet ETA Tracker — вкладка "Запреты" (справочная)
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const pad = (n) => String(n).padStart(2, "0");
 
-  // запасные ссылки trafficban по дням
-  if (tbEl) {
-    const t = new Date();
-    tbEl.innerHTML = [0, 1, 2, 3, 4].map((i) => {
-      const d = new Date(t.getFullYear(), t.getMonth(), t.getDate() + i);
-      const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-      const label = i === 0 ? "сегодня" : i === 1 ? "завтра" : `${DAYS[d.getDay()]} ${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
-      return `<a href="https://trafficban.com/${iso}" target="_blank" rel="noopener">${label}</a>`;
-    }).join(" · ");
-  }
+  // v1.37: плашки ведут на русские страницы стран nakordoni.eu
+  const NK_SLUG = {
+    AT: "austria", BE: "belgium", DE: "germany", DK: "denmark", EE: "estonia", ES: "spain",
+    FI: "finland", FR: "france", IT: "italy", LT: "lithuania", LU: "luxembourg", LV: "latvia",
+    NL: "netherlands", NO: "norway", PL: "poland", PT: "portugal", SE: "sweden",
+  };
+  const ruUrl = (b) => NK_SLUG[b.cc]
+    ? `https://nakordoni.eu/ru/for_truck_drivers/traffic_bans/${NK_SLUG[b.cc]}` : (b.url || "#");
 
   function ourCountries() {
     const set = new Set();
@@ -51,7 +50,7 @@ Fleet ETA Tracker — вкладка "Запреты" (справочная)
     ].filter(Boolean).join("\n");
     const cls = `ban-chip ${b.full ? "ban-full" : "ban-part"}${ours.has(b.cc) ? " ban-ours" : ""}`;
     const h = showHours ? `<small>${esc(hours(b))}</small>` : "";
-    return `<a class="${cls}" href="${esc(b.url || "#")}" target="_blank" rel="noopener" title="${esc(tip)}">${esc(b.cc)}${h}</a>`;
+    return `<a class="${cls}" href="${esc(ruUrl(b))}" target="_blank" rel="noopener" title="${esc(tip)}">${esc(b.cc)}${h}</a>`;
   }
 
   // на день — по одной плашке на страну (если запретов несколько, берём "самый полный")
@@ -97,7 +96,10 @@ Fleet ETA Tracker — вкладка "Запреты" (справочная)
       return `<div class="bans-day-row${wk ? " weekend" : ""}"><span class="bans-day-label">${label}</span><div class="bans-day-chips">${chips || '<span class="muted">—</span>'}</div></div>`;
     }).join("");
     calEl.innerHTML = rows || '<div class="muted">Нет данных</div>';
-    if (d.error) calEl.innerHTML += `<div class="bans-err">Последнее обновление не удалось: ${esc(d.error)} — показаны прошлые данные</div>`;
+    const when = d.loaded_at ? `данные от ${esc(d.loaded_at)}` : "";
+    calEl.innerHTML += d.error
+      ? `<div class="bans-err">Обновление не удалось (${esc(d.error)}) — показаны ${when || "прошлые данные"}</div>`
+      : (when ? `<div class="bans-when">${when}</div>` : "");
   }
 
   async function load(refresh) {

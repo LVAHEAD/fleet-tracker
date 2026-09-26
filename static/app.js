@@ -735,4 +735,10 @@ loadRows();
 renderRows();
 loadUnitsList();
 loadAddressList(false);
+// v1.37: маленькая ↻ в заголовке таблицы = "Обновить всё"
+(function () {
+  const top = document.getElementById("refresh-btn-top");
+  const main = document.getElementById("refresh-btn");
+  if (top && main) top.addEventListener("click", () => main.click());
+})();
 calcAllRows();

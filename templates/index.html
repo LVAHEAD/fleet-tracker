@@ -45,7 +45,7 @@
       <th>Осталось км</th>
       <th>ETA</th>
       <th>Примечание</th>
-      <th></th>
+      <th class="th-actions"><button type="button" id="refresh-btn-top" class="refresh-top" title="Обновить всё">↻</button></th>
     </tr>
   </thead>
   <tbody id="fleet-tbody"></tbody>
@@ -132,7 +132,7 @@
     · запреты только для ADR скрыты
   </div>
   <p class="bans-note">Данные: <a href="https://nakordoni.eu/" target="_blank" rel="noopener">nakordoni.eu</a>, обновляются раз в 30 минут; информация справочная — критичные рейсы сверяйте с официальными источниками.
-    Запасной источник — trafficban.com: <span id="bansTbLinks"></span></p>
+    Показаны только страны, где мы ездим.</p>
 </div>
 
 <!-- ==================== Вкладка: Паромы (справочная) ==================== -->
@@ -161,6 +161,7 @@
     </div>
   </div>
   <p class="route-note">В поле можно вписать машину (номер), код региона, GPS или город. Маршрут строится строго по порядку: From1 → From2 → … → To1 → To2 → …. Оценка по центрам почтовых зон — для больших зон (север Швеции/Норвегии) погрешность может быть заметной.</p>
+  <div id="route-geo-warn" class="route-geo-warn" hidden></div>
   <div id="route-result" class="route-result" hidden>
     <div class="route-result-row route-total"><b id="route-dist"></b> км &nbsp;·&nbsp; в пути ~<b id="route-duration"></b> (при 70 км/ч)</div>
     <div id="route-legs"></div>

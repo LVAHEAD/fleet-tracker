@@ -1,8 +1,26 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.36
+Версия: 1.38
 
 История изменений:
+1.38 (2026-09-26) — "Запреты": бережные запросы к nakordoni.eu (фикс 429):
+    - страны запрашиваются группами по 5 (country=DE,AT,...) — ~4 запроса вместо 18;
+      если ответ обрезан (truncated), группа делится пополам; пауза между запросами
+    - обновление раз в 3 часа; "↻ Обновить" — не чаще раза в 10 минут;
+      после 429 фид не трогаем 30 минут
+    - при ошибке показываются последние удачные данные с отметкой времени
+
+1.37 (2026-09-26) — "Запреты" по нашим странам, защита от ошибок геокодера:
+    - "Запреты": только страны, где мы ездим (OUR_COUNTRIES: ES PT FR BE LU NL
+      DE DK SE NO FI EE LV LT PL IT AT); плашки ведут на русские страницы
+      nakordoni.eu (/ru/for_truck_drivers/traffic_bans/<страна>); ссылки
+      trafficban убраны
+    - From → To: для точки-города показывается, что нашёл геокодер
+      ("fin → Fin, …"); если ввод короче 5 символов или место в стране, где мы
+      не ездим, — жёлтое предупреждение над результатом
+    - подсказка ETA по тахографу: у многодневного отдыха дата конца
+    - Флот: маленькая ↻ "обновить всё" в заголовке колонки кнопок
+
 1.36 (2026-09-26) — "Запреты" на данных nakordoni.eu:
     - бесплатный JSON-фид nakordoni.eu (lang=ru): общий запрос + по запросу на
       каждую страну (общий ответ обрезается на 50 записях), кеш 30 минут
@@ -338,7 +356,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.36"
+APP_VERSION = "1.38"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1717,7 +1735,9 @@ def tacho_summary(tacho, sim=None):
         rests = [st for st in sim["stops"] if st["kind"] in ("daily", "weekly")]
         for st in rests[:3]:
             label = "отдых" if st["kind"] == "daily" else "недельный отдых"
-            parts.append(f"{label} {loc(st['start'])}–{loc(st['end'])[-5:]}")
+            s_txt, e_txt = loc(st["start"]), loc(st["end"])
+            same_day = s_txt[:5] == e_txt[:5]
+            parts.append(f"{label} {s_txt}–{e_txt[-5:] if same_day else e_txt}")
     return [p for p in parts if p]
 
 
@@ -1765,6 +1785,29 @@ def resolve_target(target_str):
     if not results:
         raise ValueError(f"Не удалось распознать таргет: {target_str}")
     return float(results[0]["lat"]), float(results[0]["lon"])
+
+
+# v1.37: страны, где мы реально ездим (погрузки/выгрузки + транзит) — для
+# фильтра "Запретов" и проверки подозрительного геокодинга
+OUR_COUNTRIES = {"ES", "PT", "FR", "BE", "LU", "NL", "DE", "DK", "SE", "NO",
+                 "FI", "EE", "LV", "LT", "PL", "IT", "AT"}
+
+
+def geocode_city(q):
+    """Nominatim с названием и страной найденного места: (lat, lng, display_name, cc)."""
+    resp = requests.get(
+        NOMINATIM_URL,
+        params={"q": q, "format": "json", "limit": 1, "addressdetails": 1, "accept-language": "ru"},
+        headers={"User-Agent": "fleet-eta-tracker/1.0"},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    res = resp.json()
+    if not res:
+        return None, None, None, None
+    r = res[0]
+    cc = ((r.get("address") or {}).get("country_code") or "").upper() or None
+    return float(r["lat"]), float(r["lon"]), r.get("display_name") or q, cc
 
 
 def resolve_place_label(target_str):
@@ -2413,7 +2456,19 @@ def resolve_point(raw, units_getter):
             "address": address_public(addr),
         }
 
-    lat, lng, label = resolve_place_label(raw)
+    geo = None
+    key0 = raw.upper().replace(" ", "")
+    if key0 not in REGION_CODES and not parse_gps(raw):
+        # v1.37: город/адрес — запоминаем, что нашёл геокодер, и проверяем на странность
+        glat, glng, gname, gcc = geocode_city(raw)
+        if glat is None:
+            raise ValueError(f"Не удалось распознать: {raw}")
+        short_name = ", ".join([x.strip() for x in gname.split(",")][:3])
+        suspicious = len(raw.strip()) <= 4 or (gcc is not None and gcc not in OUR_COUNTRIES)
+        geo = {"found": short_name, "cc": gcc, "suspicious": suspicious}
+        lat, lng, label = glat, glng, f"{raw} → {short_name}"
+    else:
+        lat, lng, label = resolve_place_label(raw)
     if lat is None:
         raise ValueError(f"Не удалось распознать: {raw}")
     country = get_region_country(raw)
@@ -2427,8 +2482,10 @@ def resolve_point(raw, units_getter):
         if near_code and d <= NEAR_LABEL_MAX_KM:
             label = f"{label} (около {near_code})"
             code = near_code
+    if geo and geo.get("cc") and not get_region_country(raw):
+        country = geo["cc"]
     return {"lat": lat, "lng": lng, "label": label, "country": country,
-            "near_code": near_code, "code": code, "is_truck": False}
+            "near_code": near_code, "code": code, "is_truck": False, "geo": geo}
 
 
 def compute_multi_route(points, api_key):
@@ -2689,7 +2746,7 @@ def api_route():
         result = {
             "points": [
                 {**{k: p[k] for k in ("kind", "num", "label", "lat", "lng", "is_truck", "code")},
-                 "address": p.get("address")}
+                 "address": p.get("address"), "geo": p.get("geo"), "raw": p.get("raw")}
                 for p in points
             ],
             "legs": [],
@@ -2812,18 +2869,32 @@ def api_freights():
     })
 
 
-# ---------- v1.36: запреты движения грузовиков (nakordoni.eu, бесплатный JSON-фид) ----------
+# ---------- v1.36/v1.38: запреты движения грузовиков (nakordoni.eu, бесплатный JSON-фид) ----------
+# v1.38: фид ответил 429 (Too Many Requests) на 18 запросов подряд. Теперь страны
+# запрашиваются группами (country=DE,AT,FR — фид это понимает), строго по одному
+# запросу с паузой; обновление раз в 3 часа; после 429 — пауза; ручное обновление
+# не чаще раза в 10 минут; при ошибке отдаются последние удачные данные.
 BANS_URL = "https://nakordoni.eu/api/truckban_json.php"
-BANS_TTL = 1800            # перечитываем раз в 30 минут
+BANS_TTL = 3 * 3600          # данные о запретах меняются редко
+BANS_MANUAL_MIN = 600        # "↻ Обновить" не чаще раза в 10 минут
+BANS_COOLDOWN_429 = 1800     # после 429 не трогаем фид 30 минут
+BANS_GROUP = 5               # стран в одном запросе (ответ режется на 50 записях; ~9 записей на страну)
+BANS_PAUSE = 1.2             # пауза между запросами, сек
 BANS_FULL_TYPES = {"Sunday", "Holiday", "General"}   # запрет по всей стране — выделяем
 BANS_ADR_WORDS = ("dangerous", "adr", "hazard", "опасн", "небезпеч")  # ADR не возим — скрываем
-_bans_cache = {"data": None, "at": 0.0, "error": None}
+_bans_cache = {"data": None, "at": 0.0, "error": None, "blocked_until": 0.0}
 _bans_lock = threading.Lock()
+
+
+class BansRateLimited(RuntimeError):
+    pass
 
 
 def _bans_get(params):
     r = requests.get(BANS_URL, params={"lang": "ru", **params}, timeout=20,
                      headers={"User-Agent": "fleet-eta-tracker"})
+    if r.status_code == 429:
+        raise BansRateLimited("nakordoni: слишком много запросов (429)")
     r.raise_for_status()
     d = r.json()
     if not d.get("success", True):
@@ -2836,29 +2907,32 @@ def _is_adr(b):
     return any(w in t for w in BANS_ADR_WORDS)
 
 
-def fetch_bans():
-    """Общий запрос (список стран, "сейчас действует", окно) + по запросу на страну —
-    общий ответ обрезается на 50 записях, по одной стране обрезки нет."""
-    from concurrent.futures import ThreadPoolExecutor
-    head = _bans_get({})
-    countries = [c if isinstance(c, str) else (c.get("code") or c.get("country_code"))
-                 for c in head.get("covered_countries") or []]
-    countries = [c for c in countries if c]
+def _bans_fetch_group(codes, out):
+    """Запрос по группе стран; если ответ обрезан — делим группу пополам."""
+    import time
+    d = _bans_get({"country": ",".join(codes)})
+    time.sleep(BANS_PAUSE)
+    if d.get("truncated") and len(codes) > 1:
+        half = len(codes) // 2
+        _bans_fetch_group(codes[:half], out)
+        _bans_fetch_group(codes[half:], out)
+        return
+    out.append(d)
 
-    def one(cc):
-        try:
-            return _bans_get({"country": cc})
-        except Exception:
-            return None
-    with ThreadPoolExecutor(max_workers=4) as ex:
-        per = list(ex.map(one, countries))
+
+def fetch_bans():
+    codes = sorted(OUR_COUNTRIES)
+    responses = []
+    for k in range(0, len(codes), BANS_GROUP):
+        _bans_fetch_group(codes[k:k + BANS_GROUP], responses)
 
     seen, upcoming, current = set(), [], []
-    sources = [head] + [p for p in per if p]
-    for src in sources:
+    window = None
+    for src in responses:
+        window = window or src.get("window")
         for key, dst in (("upcoming_bans", upcoming), ("current_bans", current)):
             for b in src.get(key) or []:
-                if _is_adr(b):
+                if _is_adr(b) or b.get("country_code") not in OUR_COUNTRIES:
                     continue
                 k = (key, b.get("country_code"), b.get("date"), b.get("time_from"), b.get("time_until"),
                      b.get("restriction_type"), b.get("restriction_details"))
@@ -2879,31 +2953,40 @@ def fetch_bans():
         lst.sort(key=lambda b: (not b["full"], b["cc"] or "", b["from"] or ""))
     current.sort(key=lambda b: (not b["full"], b["cc"] or ""))
     return {
-        "window": head.get("window"),
-        "as_of": head.get("as_of"),
+        "window": window,
         "now": current,
         "days": [{"date": d, "bans": by_day[d]} for d in sorted(by_day)],
-        "countries": countries,
-        "failed_countries": [c for c, p in zip(countries, per) if p is None],
+        "countries": codes,
+        "requests": len(responses),
     }
 
 
 @app.route("/api/bans")
 def api_bans():
-    """v1.36: запреты движения из nakordoni.eu, кеш 30 минут (?refresh=1 — сейчас)."""
+    """Запреты движения из nakordoni.eu (кеш 3 ч; ?refresh=1 — не чаще раза в 10 мин)."""
     import time
+    now = time.time()
     with _bans_lock:
-        stale = time.time() - _bans_cache["at"] > BANS_TTL
-        if request.args.get("refresh") == "1" or _bans_cache["data"] is None or stale:
+        age = now - _bans_cache["at"]
+        want = _bans_cache["data"] is None or age > BANS_TTL or (
+            request.args.get("refresh") == "1" and age > BANS_MANUAL_MIN)
+        if want and now >= _bans_cache["blocked_until"]:
             try:
-                _bans_cache.update(data=fetch_bans(), at=time.time(), error=None)
+                _bans_cache.update(data=fetch_bans(), at=now, error=None)
+            except BansRateLimited as e:
+                _bans_cache["error"] = str(e)
+                _bans_cache["blocked_until"] = now + BANS_COOLDOWN_429
             except Exception as e:
                 _bans_cache["error"] = str(e)
-                _bans_cache["at"] = time.time() - BANS_TTL + 120  # повторить через 2 минуты
+                _bans_cache["blocked_until"] = now + 300
         data = _bans_cache["data"]
+        loaded = _bans_cache["at"]
+        err = _bans_cache["error"]
+    loaded_txt = ((datetime.fromtimestamp(loaded, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET))
+                  .strftime("%d/%m %H:%M")) if data else None
     if data is None:
-        return jsonify({"error": _bans_cache["error"] or "нет данных"}), 502
-    return jsonify({**data, "error": _bans_cache["error"]})
+        return jsonify({"error": err or "нет данных — попробуйте позже"}), 502
+    return jsonify({**data, "error": err, "loaded_at": loaded_txt})
 
 
 if __name__ == "__main__":
