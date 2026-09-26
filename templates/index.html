@@ -15,6 +15,7 @@
 <nav class="main-tabs">
   <button class="main-tab-btn active" data-tab="fleet">Флот</button>
   <button class="main-tab-btn" data-tab="route">From → To</button>
+  <button class="main-tab-btn" data-tab="gf">GF построитель</button>
   <span class="main-tabs-spacer"></span>
   <button class="main-tab-btn ref-tab" data-tab="bans">Запреты</button>
   <button class="main-tab-btn ref-tab" data-tab="ferries">Паромы</button>
@@ -142,6 +143,13 @@
   <a href="{{ url_for('static', filename='ferries/ferries.jpg') }}" target="_blank" rel="noopener" class="ferries-link">
     <img src="{{ url_for('static', filename='ferries/ferries.jpg') }}" alt="Расписания паромов: Helsinki–Tallinn, Rostock–Gedser" class="ferries-img">
   </a>
+</div>
+
+<!-- ==================== Вкладка: GF построитель (заглушка, v1.49) ==================== -->
+<div id="tab-gf" class="tab-panel" hidden>
+  <div class="truckinfo-empty">
+    <b>Построитель маршрута GreenFood H-XXX</b>
+  </div>
 </div>
 
 <!-- ==================== Вкладка: Truck Info (рабочая) ==================== -->
