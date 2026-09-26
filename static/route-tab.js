@@ -209,6 +209,7 @@ async function calcRouteTab() {
       document.getElementById("route-dist").textContent = data.dist_km.toFixed(1);
       document.getElementById("route-duration").textContent = formatHM(data.duration_h, false);
       renderRouteLegs(data.legs || []);
+      renderRouteBans(data);
       document.getElementById("route-waypoint-note").hidden = !data.waypoints_applied;
       resultEl.hidden = false;
     }
@@ -221,6 +222,27 @@ async function calcRouteTab() {
     btn.disabled = false;
     btn.textContent = "Рассчитать";
   }
+}
+
+// v1.45: полные запреты по пути (при выезде сейчас, соло) — только предупреждение
+function renderRouteBans(data) {
+  const el = document.getElementById("route-bans");
+  const list = data.bans_route || [];
+  el.className = "route-bans";
+  if (data.bans_status === "loading") {
+    el.textContent = "Запреты по пути: данные ещё загружаются — пересчитайте через минуту.";
+    el.classList.add("route-bans-none");
+  } else if (list.length) {
+    el.innerHTML = "🚫 <b>Запреты по пути</b> (при выезде сейчас, соло; ETA не сдвинут):<br>" +
+      list.map(routeEscape).join("<br>");
+  } else if (data.bans_status === "ok") {
+    el.textContent = "Полных запретов по пути нет (при выезде сейчас).";
+    el.classList.add("route-bans-none");
+  } else {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
 }
 
 function routeEscape(s) {

@@ -1,8 +1,16 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.44
+Версия: 1.45
 
 История изменений:
+1.45 (2026-09-26) — запреты по пути (только предупреждение, ETA не сдвигается):
+    - маршрут режется на точки каждые 10 км, страна точки — по ближайшему коду региона;
+      время в каждой стране — по тахо-симуляции (перерывы/отдыхи учтены: если на
+      воскресенье выпадает отдых — предупреждения нет)
+    - только полные запреты (воскресные, праздничные, общие) из nakordoni, время запрета —
+      местное время страны
+    - Флот: 🚫 в ETA с подсказкой; From → To: строка "Запреты по пути" (при выезде сейчас, соло)
+    - данные запретов берутся из кеша вкладки "Запреты"; если кеша нет — грузятся в фоне
 1.44 (2026-09-26) — Truck Info перенесена в правый блок (перед [.]); меню ⋯ в строке
     Флота всплывает поверх страницы и у нижних строк открывается вверх (не обрезается)
 1.43 (2026-09-26) — Флот, редизайн (вариант A):
@@ -396,7 +404,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.44"
+APP_VERSION = "1.45"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -3202,6 +3210,7 @@ def api_calc():
                                            + timedelta(hours=WEST_EUROPE_OFFSET))
                     result["eta_tacho"] = eta_t.strftime("%d/%m %H:%M")
                     result["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weekly") for st in sim["stops"])
+                    result["_sim_stops"] = sim["stops"]
                 d0 = next((d for d in tacho["drivers"] if d.get("current_state") == "DRIVING"), tacho["drivers"][0])
                 result["tacho_resting_now"] = d0.get("current_state") == "REST"
                 result["tacho_team"] = len(tacho["drivers"]) >= 2
@@ -3210,6 +3219,17 @@ def api_calc():
                 result["tacho_error"] = terr
         except Exception as e:
             result["tacho_error"] = str(e)
+
+        # v1.45: полные запреты по пути (по тахо-симуляции, иначе без остановок)
+        stops = result.pop("_sim_stops", None)
+        if result.get("route_polyline") and result.get("dist_km"):
+            try:
+                hits, bst = bans_on_route(result["route_polyline"], result["dist_km"], stops)
+                loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M")
+                result["bans_route"] = bans_hits_text(hits, loc)
+                result["bans_status"] = bst
+            except Exception as e:
+                result["bans_status"] = f"ошибка: {e}"
 
         # v1.31: страна машины и код региона таргета (плашки в таблице)
         try:
@@ -3313,6 +3333,15 @@ def api_route():
             result["duration_h"] = round(total / 70, 3)  # 70 км/ч; в ч:мм форматирует фронт
             result["route_polyline"] = polyline
             result["waypoints_applied"] = any(l["waypoints_applied"] for l in legs)
+            # v1.45: запреты по пути — при выезде сейчас, соло (4:30/45, 9 ч, отдых 11 ч)
+            try:
+                sim = tacho_eta(FRESH_SOLO_TACHO, total)
+                hits, bst = bans_on_route(polyline, total, sim["stops"])
+                loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M")
+                result["bans_route"] = bans_hits_text(hits, loc)
+                result["bans_status"] = bst
+            except Exception as e:
+                result["bans_status"] = f"ошибка: {e}"
 
         # v1.29: похожие рейсы из базы фрахтов — первая погрузка -> последняя выгрузка
         if len(points) >= 2:
@@ -3540,6 +3569,205 @@ def api_bans():
     if data is None:
         return jsonify({"error": err or "нет данных — попробуйте позже"}), 502
     return jsonify({**data, "error": err, "loaded_at": loaded_txt})
+
+
+# ---------- v1.45: запреты по пути (только предупреждение, ETA не сдвигается) ----------
+BANS_ROUTE_STEP_KM = 10
+COUNTRY_TZ = {"PT": "Europe/Lisbon", "FI": "Europe/Helsinki", "EE": "Europe/Tallinn",
+              "LV": "Europe/Riga", "LT": "Europe/Vilnius"}   # остальные наши — CET
+_cc_points = None
+
+
+def _decode_polyline(enc):
+    pts, i, lat, lng = [], 0, 0, 0
+    while enc and i < len(enc):
+        for which in (0, 1):
+            shift = result = 0
+            while True:
+                b = ord(enc[i]) - 63
+                i += 1
+                result |= (b & 0x1F) << shift
+                shift += 5
+                if b < 0x20:
+                    break
+            d = ~(result >> 1) if result & 1 else result >> 1
+            if which == 0:
+                lat += d
+            else:
+                lng += d
+        pts.append((lat / 1e5, lng / 1e5))
+    return pts
+
+
+def _country_at(lat, lng):
+    """Страна точки — по ближайшему коду региона (быстрая плоская метрика)."""
+    global _cc_points
+    if _cc_points is None:
+        _cc_points = [(v["lat"], v["lng"], c[:2]) for c, v in REGION_CODES.items()]
+    k = math.cos(math.radians(lat))
+    best, cc = float("inf"), None
+    for la, ln, c in _cc_points:
+        d = (la - lat) ** 2 + ((ln - lng) * k) ** 2
+        if d < best:
+            best, cc = d, c
+    return cc
+
+
+def route_countries(polyline, dist_km):
+    """Страны по маршруту: [(cc, km_from, km_to)] в км Google-маршрута."""
+    pts = _decode_polyline(polyline or "")
+    if len(pts) < 2:
+        return []
+    cum = [0.0]
+    for a, b in zip(pts, pts[1:]):
+        cum.append(cum[-1] + haversine_km(a[0], a[1], b[0], b[1]))
+    total = cum[-1] or 1.0
+    scale = float(dist_km or total) / total
+    segs, j, km = [], 0, 0.0
+    while True:
+        while j < len(pts) - 2 and cum[j + 1] < km:
+            j += 1
+        a, b = pts[j], pts[j + 1]
+        f = 0.0 if cum[j + 1] == cum[j] else min(1.0, max(0.0, (km - cum[j]) / (cum[j + 1] - cum[j])))
+        cc = _country_at(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f)
+        g = km * scale
+        if segs and segs[-1][0] == cc:
+            segs[-1][2] = g
+        else:
+            if segs:
+                segs[-1][2] = g
+            segs.append([cc, g, g])
+        if km >= total:
+            break
+        km = min(total, km + BANS_ROUTE_STEP_KM)
+    segs[-1][2] = float(dist_km or total * scale)
+    return [tuple(x) for x in segs]
+
+
+def _drive_intervals(t0, stops, total_drive_sec):
+    """Интервалы вождения [(t_start, t_end, sec_driven_before)] между остановками симуляции."""
+    out, t, done = [], t0, 0.0
+    for st in sorted(stops or [], key=lambda x: x["start"]):
+        if done >= total_drive_sec:
+            break
+        if st["start"] > t:
+            seg = min(st["start"] - t, total_drive_sec - done)
+            out.append((t, t + seg, done))
+            done += seg
+        t = max(t, st["end"])
+    if done < total_drive_sec:
+        out.append((t, t + total_drive_sec - done, done))
+    return out
+
+
+def _ban_window_utc(b):
+    """(start_ts, end_ts) запрета в UTC по местному времени страны."""
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(COUNTRY_TZ.get(b["cc"], "Europe/Berlin"))
+    except Exception:
+        tz = timezone(timedelta(hours=RIGA_UTC_OFFSET - 1))
+    try:
+        day = datetime.strptime(b["date"], "%Y-%m-%d")
+    except Exception:
+        return None
+
+    def at(hm, base):
+        hm = (hm or "00:00")[:5]
+        h, m = int(hm[:2]), int(hm[3:5])
+        return base + timedelta(hours=h, minutes=m)
+    s = at(b.get("from"), day)
+    e = at(b.get("until") or "24:00", day)
+    if e <= s:
+        e += timedelta(days=1)
+    return s.replace(tzinfo=tz).timestamp(), e.replace(tzinfo=tz).timestamp()
+
+
+def bans_cached():
+    """Данные о запретах из кеша; если кеша нет/устарел — обновление в фоне (не ждём)."""
+    import time
+    now = time.time()
+    with _bans_lock:
+        data = _bans_cache["data"]
+        stale = data is None or now - _bans_cache["at"] > BANS_TTL
+        busy = _bans_cache.get("loading")
+        blocked = now < _bans_cache["blocked_until"]
+        if stale and not busy and not blocked:
+            _bans_cache["loading"] = True
+
+            def job():
+                try:
+                    d = fetch_bans()
+                    with _bans_lock:
+                        _bans_cache.update(data=d, at=time.time(), error=None)
+                except BansRateLimited as e:
+                    with _bans_lock:
+                        _bans_cache.update(error=str(e), blocked_until=time.time() + BANS_COOLDOWN_429)
+                except Exception as e:
+                    with _bans_lock:
+                        _bans_cache.update(error=str(e), blocked_until=time.time() + 300)
+                finally:
+                    with _bans_lock:
+                        _bans_cache["loading"] = False
+            threading.Thread(target=job, daemon=True).start()
+    return data
+
+
+def bans_on_route(polyline, dist_km, stops=None, t0=None):
+    """Полные запреты (воскресные/праздничные/общие), под которые попадает вождение
+    по маршруту. Возвращает (hits, status): hits = [{cc, date, from, until, type,
+    enter_ts}], status = "ok" | "loading"."""
+    import time
+    data = bans_cached()
+    if data is None:
+        return [], "loading"
+    t0 = float(t0 or time.time())
+    v = TACHO_SPEED_KMH / 3600.0
+    drive = _drive_intervals(t0, stops, float(dist_km or 0) / v)
+    bans = {}
+    for b in (data.get("now") or []) + [x for d in data.get("days") or [] for x in d["bans"]]:
+        if not b.get("full"):
+            continue
+        w = _ban_window_utc(b)
+        if w:
+            bans.setdefault(b["cc"], {})[(b["date"], b.get("from"), b.get("until"))] = (b, w)
+    hits = []
+    for cc, km_a, km_b in route_countries(polyline, dist_km):
+        if cc not in bans:
+            continue
+        sa, sb = km_a / v, km_b / v      # секунды вождения от старта до входа/выхода
+        # время в стране, когда трак едет
+        spans = []
+        for ts, te, before in drive:
+            x0, x1 = max(sa, before), min(sb, before + (te - ts))
+            if x1 > x0:
+                spans.append((ts + (x0 - before), ts + (x1 - before)))
+        if not spans:
+            continue
+        enter = spans[0][0]
+        for b, (ws, we) in bans[cc].values():
+            if any(a < we and e > ws for a, e in spans):
+                hits.append({"cc": cc, "date": b["date"], "from": b.get("from"), "until": b.get("until"),
+                             "type": b.get("type"), "details": b.get("details"), "enter_ts": enter})
+    hits.sort(key=lambda h: (h["date"], h["cc"]))
+    return hits, "ok"
+
+
+def bans_hits_text(hits, loc):
+    TYPE_RU = {"Sunday": "воскр.", "Holiday": "праздн.", "General": "общий"}
+    out = []
+    for h in hits:
+        d = datetime.strptime(h["date"], "%Y-%m-%d").strftime("%d/%m")
+        out.append(f"{h['cc']} {d} {(h['from'] or '')[:5]}–{(h['until'] or '')[:5]} "
+                   f"({TYPE_RU.get(h['type'], h['type'] or '')}), въезд ~{loc(h['enter_ts'])}")
+    return out
+
+
+FRESH_SOLO_TACHO = {"drivers": [{
+    "current_state": "REST", "now": {"rest": 11 * 3600, "driving": 0},
+    "today": {"driving_remaining": 9 * 3600, "shift_remaining": 13 * 3600, "daily_rest_min": 11 * 3600},
+    "week": {"driving_remaining": 56 * 3600, "10h_driving_extensions_remaining": 2,
+             "9h_rest_shortening_remaining": 3, "weekly_rest_min": 45 * 3600}}]}
 
 
 if __name__ == "__main__":

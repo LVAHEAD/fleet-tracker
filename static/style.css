@@ -496,3 +496,9 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 .row-menu button { border: 0; text-align: left; margin: 0; padding: 6px 10px; white-space: nowrap; }
 .row-menu .del-btn { color: #c0392b; }
 .ti-warn { color: #c0392b; font-weight: 600; font-size: 13px; margin: 0 0 10px; }
+
+/* ---------- v1.45: запреты по пути ---------- */
+.ban-mark { margin-right: 4px; font-size: 12px; cursor: help; }
+.route-bans { margin-top: 8px; padding: 6px 10px; border-radius: 6px; background: #fdecea; color: #8a2a1f; font-size: 13px; line-height: 1.5; }
+.route-bans.route-bans-none { background: transparent; color: #888; padding: 0; }
+.route-bans[hidden] { display: none; }

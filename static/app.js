@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.44 (меню ⋯ поверх страницы, у нижних строк — вверх).
+Версия: 1.45 (🚫 в ETA — полный запрет по пути).
+Ранее 1.44 (меню ⋯ поверх страницы, у нижних строк — вверх).
 Ранее 1.43 (Флот, вариант A: статус и ETA в одну строку, полоска L/O, меню ⋯, красный ETA при опоздании к Delivery).
 Ранее 1.33 (ETA по тахографу во второй строке ETA, ⏸ в Статусе).
 Ранее 1.31 (плашки страны в Статусе и кода региона в Таргете).
@@ -689,6 +690,12 @@ async function calcRow(id) {
       etaText = data.eta_tacho
         ? `<span class="eta-tacho">⏱ ${escapeHtml(data.eta_tacho)}</span><span class="eta-simple">${escapeHtml(data.eta_local)}</span>`
         : `<span class="eta-tacho eta-only">${escapeHtml(data.eta_local)}</span>`;
+      // v1.45: 🚫 — вождение попадает под полный запрет (только предупреждение)
+      const bansR = data.bans_route || [];
+      if (bansR.length) {
+        etaText = `<span class="ban-mark" title="${escapeHtml("Запрет по пути:\n" + bansR.join("\n"))}">🚫</span>` + etaText;
+        tip.push("🚫 Запрет по пути (ETA не сдвинут):", ...bansR);
+      }
       etaCell.innerHTML = etaText;
       const delD = parseDelivery(row.delivery);
       const etaD = parseEta(data.eta_tacho || data.eta_local);
