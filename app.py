@@ -1,8 +1,14 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.63
+Версия: 1.64
 
 История изменений:
+1.64 (2026-09-27) — Флот: несколько таргетов в одной строке (кнопка "+" у таргета, точки ① ② ...,
+    × у каждой); следующая точка считается от предыдущей + 30 мин на выгрузку, км — по цепочке,
+    ETA по тахографу, запреты по всем плечам (NoBan один на машину), на карте флажки ① ② и маршрут
+    через все точки; сортировка и "опаздывает" — по первой точке. Ширина страницы 95% экрана
+    (Таргет и Примечание делят остаток); комментарий — иконка рядом с Примечанием (из меню ⋯
+    убран); автообновление — выбор выкл / 15 / 30 / 60 мин
 1.63 (2026-09-27) — строка вкладок прилипает к верху при прокрутке, под ней — шапка таблицы
     Флота; время в статусе короче: "1д 11ч 49м", "3ч 45м"
 1.62 (2026-09-27) — геокодинг городов/адресов: кеш на сутки, не чаще 1 запроса в секунду
@@ -466,7 +472,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.63"
+APP_VERSION = "1.64"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -3570,6 +3576,109 @@ def api_mapon_check():
     return resp
 
 
+def calc_extra_stops(extras, units, unit, first, tacho, sim):
+    """v1.64: точки 2..N строки Флота. Для каждой: км от машины по цепочке, км плеча,
+    ETA (простой и по тахографу) с учётом UNLOAD_STOP_SEC на каждой предыдущей точке,
+    запреты на плече, плашка кода региона, координаты и линия плеча для карты."""
+    import time
+    loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET))
+    now = time.time()
+    prev_lat, prev_lng = first["target_lat"], first["target_lng"]
+    cum_km = float(first.get("dist_km") or 0)
+    # приезд на 1-ю точку
+    prev_arr = sim["eta_ts"] if sim else now + cum_km / 70 * 3600
+    out = []
+    n_stops = 0          # сколько точек уже пройдено (на каждой UNLOAD_STOP_SEC)
+    for tstr in extras:
+        if not tstr:
+            out.append({"empty": True})
+            continue
+        try:
+            t = resolve_fleet_target(tstr, units, unit)
+        except ValueError as e:
+            out.append({"error": str(e)})
+            break
+        lat, lng = t.pop("lat"), t.pop("lng")
+        if lat is None:
+            out.append({"error": f"Не удалось распознать: {tstr}"})
+            break
+        leg_km, leg_poly = road_distance_km_google(prev_lat, prev_lng, lat, lng, GOOGLE_API_KEY)
+        cum_km += leg_km
+        n_stops += 1
+        dwell = n_stops * UNLOAD_STOP_SEC
+        simple_ts = now + cum_km / 70 * 3600 + dwell
+        item = dict(t)
+        item.update({
+            "lat": lat, "lng": lng,
+            "dist_km": round(cum_km, 1),
+            "leg_km": round(leg_km, 1),
+            "polyline": leg_poly,
+            "eta_local": round_to_15min(loc(simple_ts)).strftime("%d/%m %H:%M"),
+        })
+        arr = simple_ts
+        if tacho:
+            try:
+                sk = tacho_eta(tacho, cum_km)
+                arr = sk["eta_ts"] + dwell
+                item["eta_tacho"] = round_to_15min(loc(arr)).strftime("%d/%m %H:%M")
+                item["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sk["stops"])
+                item["tacho_weeklimit"] = bool(sk.get("week", {}).get("hit"))
+            except Exception:
+                pass
+        item["badge"], item["badge_hint"] = target_badge_info(tstr, lat, lng, t.get("target_address"))
+        if leg_poly and leg_km >= 5:
+            try:
+                hits, _bst = bans_on_route(leg_poly, leg_km, None, prev_arr + UNLOAD_STOP_SEC)
+                item["bans_route"] = bans_hits_text(hits, lambda ts: loc(ts).strftime("%d/%m %H:%M"))
+            except Exception:
+                pass
+        out.append(item)
+        prev_lat, prev_lng, prev_arr = lat, lng, arr
+    return out
+
+
+# v1.64: разбор таргета строки Флота (машина-перецеп / довоз / адресная база / код / GPS / город).
+# Возвращает dict: lat, lng + поля для ответа (target_is_truck, target_unit, target_dovoz,
+# target_address). Ошибки — ValueError с понятным текстом.
+def resolve_fleet_target(target_str, units, unit=None):
+    target_unit = None
+    if target_str and not looks_like_gps_or_code(target_str):
+        target_unit = find_unit_exact(units, target_str)
+    if target_unit is not None:
+        if unit is not None and (target_unit is unit or target_unit.get("unit_id") == unit.get("unit_id")):
+            raise ValueError("Таргет — та же машина")
+        if target_unit.get("lat") is None or target_unit.get("lng") is None:
+            raise ValueError(f"У машины-таргета {target_str} нет координат в Mapon")
+        return {"lat": target_unit["lat"], "lng": target_unit["lng"],
+                "target_is_truck": True, "target_unit": target_unit.get("number")}
+    if dovoz_country(target_str):
+        blat, blng, _bn = base_point()
+        return {"lat": blat, "lng": blng, "target_dovoz": dovoz_country(target_str)}
+    addr = None
+    if target_str and not looks_like_gps_or_code(target_str):
+        addr = find_address(target_str)
+    if addr is not None:
+        return {"lat": addr["lat"], "lng": addr["lng"], "target_address": address_public(addr)}
+    lat, lng = resolve_target(target_str)
+    return {"lat": lat, "lng": lng}
+
+
+def target_badge_info(target_str, lat, lng, address=None):
+    """Плашка кода региона таргета: (badge, hint)."""
+    key = str(target_str or "").strip().upper().replace(" ", "")
+    if key in REGION_CODES:
+        tcode, tcc, td = key, key[:2], 0.0
+    else:
+        tcode, td = nearest_region_code(lat, lng)
+        tcc = (address or {}).get("country") or (tcode[:2] if tcode else None)
+    badge = tcode if tcode and td <= NEAR_LABEL_MAX_KM else tcc
+    hint = (f"{tcc} · около {tcode}" + (f" ({round(td)} км)" if td > NEAR_LABEL_MAX_KM else "")) if tcode else tcc
+    return badge, hint
+
+
+UNLOAD_STOP_SEC = 30 * 60   # v1.64: время на выгрузку/погрузку между точками одной машины
+
+
 @app.route("/api/calc", methods=["POST"])
 def api_calc():
     """
@@ -3618,35 +3727,12 @@ def api_calc():
             "eta_local": None,
         }
 
-        # v1.23: таргет — другая машина (перецеп). Точное совпадение номера из Mapon;
-        # позиция берётся из того же списка units, что уже загружен, — без лишних запросов.
-        target_unit = None
-        if target_str and not looks_like_gps_or_code(target_str):
-            target_unit = find_unit_exact(units, target_str)
-        if target_unit is not None:
-            if target_unit is unit or target_unit.get("unit_id") == unit.get("unit_id"):
-                return jsonify({"error": "Таргет — та же машина"}), 400
-            target_lat, target_lng = target_unit.get("lat"), target_unit.get("lng")
-            if target_lat is None or target_lng is None:
-                return jsonify({"error": f"У машины-таргета {target_str} нет координат в Mapon"}), 502
-            result["target_is_truck"] = True
-            result["target_unit"] = target_unit.get("number")
-        elif dovoz_country(target_str):
-            # v1.40: fin / ee -> до Базы, плашка "+довоз"
-            target_lat, target_lng, _bn = base_point()
-            result["target_dovoz"] = dovoz_country(target_str)
-        else:
-            addr = None
-            if target_str and not looks_like_gps_or_code(target_str):
-                try:
-                    addr = find_address(target_str)
-                except ValueError as e:
-                    return jsonify({"error": str(e)}), 400
-            if addr is not None:
-                target_lat, target_lng = addr["lat"], addr["lng"]
-                result["target_address"] = address_public(addr)
-            else:
-                target_lat, target_lng = resolve_target(target_str)
+        try:
+            tgt = resolve_fleet_target(target_str, units, unit)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        target_lat, target_lng = tgt.pop("lat"), tgt.pop("lng")
+        result.update(tgt)
         if target_lat is not None and not GOOGLE_API_KEY:
             return jsonify({"error": "GOOGLE_API_KEY не настроен на сервере"}), 500
 
@@ -3661,6 +3747,7 @@ def api_calc():
             result["route_polyline"] = polyline
 
         # v1.33: тахограф — ETA по режиму труда и отдыха + подробности
+        tacho, sim = None, None
         try:
             tacho, terr = get_tacho(unit.get("unit_id"))
             if tacho:
@@ -3681,6 +3768,15 @@ def api_calc():
                 result["tacho_error"] = terr
         except Exception as e:
             result["tacho_error"] = str(e)
+
+        # v1.64: следующие точки той же машины (2-я, 3-я выгрузка...) — цепочкой от
+        # предыдущей точки, плюс UNLOAD_STOP_SEC на каждую предыдущую точку
+        extras = [str(x or "").strip() for x in (payload.get("extra") or [])][:6]
+        if extras and result.get("target_lat") is not None:
+            try:
+                result["extra"] = calc_extra_stops(extras, units, unit, result, tacho, sim)
+            except Exception as e:
+                result["extra"] = [{"error": str(e)} for _ in extras]
 
         # v1.59: цепочка стран по маршруту (без времени)
         if result.get("route_polyline") and result.get("dist_km"):
@@ -3718,14 +3814,8 @@ def api_calc():
                     result["unit_country"] = code[:2]
                     result["unit_code_hint"] = f"{code[:2]} · около {code}" + (f" ({round(d)} км)" if d > NEAR_LABEL_MAX_KM else "")
             if result.get("target_lat") is not None:
-                key = str(target_str or "").strip().upper().replace(" ", "")
-                if key in REGION_CODES:
-                    tcode, tcc, td = key, key[:2], 0.0
-                else:
-                    tcode, td = nearest_region_code(result["target_lat"], result["target_lng"])
-                    tcc = (result.get("target_address") or {}).get("country") or (tcode[:2] if tcode else None)
-                result["target_badge"] = tcode if tcode and td <= NEAR_LABEL_MAX_KM else tcc
-                result["target_code_hint"] = (f"{tcc} · около {tcode}" + (f" ({round(td)} км)" if td > NEAR_LABEL_MAX_KM else "")) if tcode else tcc
+                result["target_badge"], result["target_code_hint"] = target_badge_info(
+                    target_str, result["target_lat"], result["target_lng"], result.get("target_address"))
         except Exception:
             pass
 

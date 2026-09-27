@@ -33,7 +33,8 @@
   <button type="button" data-sort="added" title="В том порядке, как добавляли строки">как добавляли</button>
   <button type="button" data-sort="LO" title="Сначала погрузки, потом выгрузки; внутри — сначала опаздывающие и с меньшим запасом до Delivery">L → O</button>
   <button type="button" data-sort="OL" title="Сначала выгрузки, потом погрузки; внутри — по срочности">O → L</button>
-  <label class="auto-lbl" title="Раз в 10 минут пересчитывать все строки (без перестановки). Строка, которая стала опаздывать, мигает до клика."><input type="checkbox" id="auto-refresh" checked> автообновление 10 мин</label>
+  <label class="auto-lbl" title="Как часто пересчитывать все строки (без перестановки). Строка, которая стала опаздывать, мигает до клика.">автообновление
+    <select id="auto-refresh"><option value="0">выкл</option><option value="15">15 мин</option><option value="30">30 мин</option><option value="60">60 мин</option></select></label>
   <button type="button" data-sort="manual" title="Свой порядок: перетаскивайте строки за ⠿ (на телефоне — ↑/↓ в меню ⋯)">руками</button>
 </div>
 <table id="fleet-table">

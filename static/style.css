@@ -457,7 +457,7 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 #fleet-table .col-status   { width: 190px; }
 #fleet-table .col-target   { width: 270px; }
 #fleet-table .col-delivery { width: 125px; }
-#fleet-table .col-dist     { width: 70px; }
+#fleet-table .col-dist     { width: 84px; }
 #fleet-table .col-eta      { width: 215px; }
 #fleet-table .col-actions  { width: 76px; }
 /* L/O — полоска слева + (v1.48) снова бледная заливка всей строки */
@@ -618,3 +618,41 @@ body.sort-manual #fleet-table .col-unit { width: 118px; }
 .main-tabs { position: sticky; top: 0; z-index: 900; background: #fafafa; }
 #fleet-table { overflow: visible; }
 #fleet-table thead th { position: sticky; top: var(--tabs-h, 42px); z-index: 800; box-shadow: inset 0 -1px 0 #e0e0e0; }
+
+/* ---------- v1.64: ширина 95% экрана; Таргет и Примечание делят остаток поровну ---------- */
+body { max-width: 95vw; }
+#fleet-table .col-target { width: auto; }
+.auto-lbl select { font: inherit; font-size: 12px; color: #444; padding: 1px 4px; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; }
+
+/* комментарий — иконка справа от Примечания */
+.note-wrap { position: relative; display: flex; align-items: center; gap: 4px; }
+.note-wrap .note-input { flex: 1; min-width: 0; }
+.note-wrap .com-tri { right: 36px; top: 1px; }
+.com-ic { flex: 0 0 auto; display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0;
+  border: 1px solid transparent; border-radius: 4px; background: transparent; color: #c4c8cd; cursor: pointer; }
+.com-ic svg { width: 16px; height: 16px; }
+.com-ic:hover { color: #888; border-color: #e0e0e0; background: #fff; }
+.com-ic.has { color: #e8a317; }
+.com-ic.has:hover { color: #c98a0a; }
+
+/* несколько таргетов в строке */
+.add-stop { flex: 0 0 auto; width: 22px; height: 22px; padding: 0; border: 1px dashed #cfd3d8; border-radius: 4px;
+  background: transparent; color: #b0b5bb; font-size: 14px; line-height: 1; cursor: pointer; }
+.add-stop:hover { border-style: solid; border-color: #2f6fd6; color: #2f6fd6; background: #fff; }
+.add-stop-sp { flex: 0 0 22px; }
+.stop-x { flex: 0 0 auto; width: 18px; height: 22px; padding: 0; border: none; background: transparent; color: #b0b5bb; font-size: 15px; cursor: pointer; }
+.stop-x:hover { color: #c0392b; }
+.stop-n { flex: 0 0 auto; width: 16px; text-align: center; color: #2f6fd6; font-size: 14px; line-height: 1; }
+.x-stop { margin-top: 4px; }
+.xt-input { flex: 1; min-width: 0; }
+#fleet-tbody tr.multi > td { vertical-align: top; }
+#fleet-tbody tr.multi .target-wrap:first-child::before { content: "①"; flex: 0 0 16px; width: 16px; text-align: center; color: #2f6fd6; font-size: 14px; line-height: 1; }
+.delivery-td .xd-input { display: block; margin-top: 4px; width: 100%; box-sizing: border-box; }
+#fleet-tbody tr.multi .delivery-input { display: block; width: 100%; box-sizing: border-box; }
+.sl { display: flex; align-items: center; justify-content: inherit; height: var(--stop-h, 28px); white-space: nowrap; overflow: hidden; }
+.sl + .sl { margin-top: 4px; }
+.dist-cell .sl { justify-content: flex-end; }
+.eta-nb-sp { flex: 0 0 auto; display: inline-block; width: 26px; margin-right: 6px; }
+.eta-x-t { font-weight: 600; }
+.eta-x-err { color: #c0392b; font-size: 12px; white-space: normal; }
+.eta-cell .sl .eta-simple { margin-left: 6px; color: #888; font-size: 11px; }

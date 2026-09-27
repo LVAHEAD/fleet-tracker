@@ -291,6 +291,7 @@ function recolorTargetMarker(rowId, label, lo) {
 }
 
 function removeTargetMarker(rowId) {
+  removeExtraTargets(rowId);
   if (targetMarkers[rowId]) {
     targetMarkers[rowId].setMap(null);
     delete targetMarkers[rowId];
@@ -301,6 +302,19 @@ function removeTargetMarker(rowId) {
   }
 }
 
+// v1.64: флажки 2-й, 3-й... точки строки — ключи "id_k" в тех же targetMarkers/targetBadges
+function removeExtraTargets(rowId, fromK) {
+  const pre = rowId + "_";
+  Object.keys(targetMarkers).concat(Object.keys(targetBadges)).forEach((key) => {
+    if (!String(key).startsWith(pre)) return;
+    if (fromK != null && Number(String(key).slice(pre.length)) < fromK) return;
+    if (targetMarkers[key]) { targetMarkers[key].setMap(null); delete targetMarkers[key]; }
+    if (targetBadges[key]) { targetBadges[key].setMap(null); delete targetBadges[key]; }
+  });
+}
+const STOP_NUM = ["", "①", "②", "③", "④", "⑤", "⑥", "⑦"];
+let routeExtraLines = [];
+
 function drawRoute(rowId) {
   const pos = rowPositions[rowId];
 
@@ -308,6 +322,8 @@ function drawRoute(rowId) {
     routePolyline.setMap(null);
     routePolyline = null;
   }
+  routeExtraLines.forEach((l) => l.setMap(null));
+  routeExtraLines = [];
 
   if (!pos || pos.targetLat == null || pos.targetLng == null) {
     centerMapOn(rowId);
@@ -331,6 +347,13 @@ function drawRoute(rowId) {
 
   const bounds = new google.maps.LatLngBounds();
   path.forEach((p) => bounds.extend(p));
+  // v1.64: плечи к следующим точкам той же машины — тем же цветом, чуть бледнее
+  (pos.extraPolys || []).forEach((enc) => {
+    if (!enc) return;
+    const p2 = google.maps.geometry.encoding.decodePath(enc);
+    routeExtraLines.push(new google.maps.Polyline({ path: p2, strokeColor: "#4285F4", strokeOpacity: 0.55, strokeWeight: 4, map: map }));
+    p2.forEach((p) => bounds.extend(p));
+  });
   map.fitBounds(bounds, 40);
 }
 
@@ -525,13 +548,15 @@ function renderRows() {
     const tr = document.createElement("tr");
     tr.dataset.id = row.id;
     if (row.lo) tr.classList.add(`lo-row-${row.lo}`);
+    const multi = !!(row.extra && row.extra.length);
+    if (multi) tr.classList.add("multi");
     const cached = lastCalcText[row.id];
     const statusHtml = cached ? cached.status : "—";
     const statusClass = cached ? cached.statusClass : "muted";
-    const distHtml = cached ? cached.dist : "—";
+    const distHtml = cached ? distCellHtml(row, cached) : "—";
     const distMuted = cached ? "" : "muted";
     const composedEta = cached && cached.etaCore ? composeEta(row, cached) : null;
-    const etaHtml = composedEta ? composedEta.html : (cached ? cached.eta : "—");
+    const etaHtml = composedEta ? etaCellHtml(row, cached, composedEta) : (cached ? cached.eta : "—");
     const etaMuted = cached ? "" : "muted";
     tr.innerHTML = `
       <td><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" placeholder="номер" /></td>
@@ -541,18 +566,20 @@ function renderRows() {
           <button class="lo-btn ${loClass(row.lo)}" title="${loTitle(row.lo)}">${loText(row.lo)}</button>
           ${cached && cached.targetBadge ? cached.targetBadge : '<span class="cc-badge target-cc" hidden></span>'}
           <input list="points-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" title="${escapeHtml(row.target)}" placeholder="ГПС, город, код или машина" />
+          ${multi ? '<button class="stop-x" data-k="0" title="Убрать эту точку">×</button>' : '<button class="add-stop" title="Добавить ещё таргет (следующая выгрузка / погрузка)">+</button>'}
         </div>
+        ${extraTargetsHtml(row, cached)}
       </td>
-      <td><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" title="${escapeHtml(row.delivery)}" placeholder="${deliveryPlaceholder(row.lo)}" /></td>
+      <td class="delivery-td"><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" title="${escapeHtml(row.delivery)}" placeholder="${deliveryPlaceholder(row.lo)}" />${(row.extra || []).map((x, i) =>
+        `<input class="xd-input" data-k="${i + 1}" name="delivery-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.delivery)}" title="${escapeHtml(x.delivery)}" placeholder="${deliveryPlaceholder(x.lo)}" />`).join("")}</td>
       <td class="dist-cell ${distMuted}" style="text-align:right">${distHtml}</td>
       <td class="eta-cell ${etaMuted}${cached && cached.late ? " eta-late" : ""}" title="${escapeHtml(composedEta ? composedEta.title : (cached && cached.etaTip ? cached.etaTip : ""))}">${etaHtml}</td>
-      <td class="note-cell"><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" title="${escapeHtml(row.note)}" placeholder="примечание" />${row.com ? '<span class="com-tri" title="Комментарий"></span>' : ""}</td>
+      <td class="note-cell"><div class="note-wrap"><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" title="${escapeHtml(row.note)}" placeholder="примечание" />${row.com ? '<span class="com-tri" title="Комментарий"></span>' : ""}<button class="com-ic${row.com ? " has" : ""}" title="${row.com ? "Комментарий — клик, чтобы изменить" : "Добавить комментарий"}">${COM_SVG(!!row.com)}</button></div></td>
       <td class="row-actions">
         <button class="refresh-row-btn" title="Обновить строку">↻</button>
         <span class="row-menu-wrap">
           <button class="more-btn" title="Ещё">⋯</button>
           <span class="row-menu" hidden>
-            <button class="com-btn">📝 ${row.com ? "Комментарий" : "Добавить комментарий"}</button>
             <button class="mv-up manual-only">↑ выше</button>
             <button class="mv-down manual-only">↓ ниже</button>
             <button class="add-btn">+ строка ниже</button>
@@ -667,11 +694,60 @@ function attachRowHandlers() {
       renderRows();
     });
 
-    tr.querySelector(".com-btn").addEventListener("click", (e) => {
+    tr.querySelector(".com-ic").addEventListener("click", (e) => {
       e.stopPropagation();
       closeRowMenus();
-      openComEditor(id, tr.querySelector(".note-cell"));
+      openComEditor(id, e.currentTarget);
     });
+
+    // v1.64: несколько таргетов в строке
+    const addStop = tr.querySelector(".add-stop");
+    if (addStop) addStop.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const row = rows.find((r) => r.id === id);
+      if (!row) return;
+      row.extra = (row.extra || []).concat([{ lo: "", target: "", delivery: "" }]);
+      saveRows();
+      renderRows();
+      const inp = document.querySelector(`#fleet-tbody tr[data-id="${id}"] .xt-input[data-k="${row.extra.length}"]`);
+      if (inp) inp.focus();
+    });
+    tr.querySelectorAll(".stop-x").forEach((b) => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeStop(id, Number(b.dataset.k));
+    }));
+    tr.querySelectorAll(".xt-input").forEach((inp) => inp.addEventListener("change", (e) => {
+      const row = rows.find((r) => r.id === id);
+      const x = row && row.extra && row.extra[Number(inp.dataset.k) - 1];
+      if (!x) return;
+      x.target = e.target.value;
+      e.target.title = e.target.value;
+      saveRows();
+      calcRow(id);
+    }));
+    tr.querySelectorAll(".xd-input").forEach((inp) => inp.addEventListener("change", (e) => {
+      const row = rows.find((r) => r.id === id);
+      const x = row && row.extra && row.extra[Number(inp.dataset.k) - 1];
+      if (!x) return;
+      x.delivery = e.target.value;
+      e.target.title = e.target.value;
+      saveRows();
+    }));
+    tr.querySelectorAll(".xlo-btn").forEach((b) => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const row = rows.find((r) => r.id === id);
+      const k = Number(b.dataset.k);
+      const x = row && row.extra && row.extra[k - 1];
+      if (!x) return;
+      x.lo = LO_CYCLE[x.lo || ""];
+      saveRows();
+      b.className = `lo-btn xlo-btn ${loClass(x.lo)}`;
+      b.textContent = loText(x.lo);
+      b.title = loTitle(x.lo);
+      const d = tr.querySelector(`.xd-input[data-k="${k}"]`);
+      if (d) d.placeholder = deliveryPlaceholder(x.lo);
+      recolorTargetMarker(id + "_" + k, row.unit + " " + STOP_NUM[k + 1], x.lo);
+    }));
     tr.querySelector(".mv-up").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, -1); });
     tr.querySelector(".mv-down").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, 1); });
 
@@ -694,6 +770,89 @@ function attachRowHandlers() {
       drawRoute(id);
     });
   });
+}
+
+
+// ---------- v1.64: несколько таргетов в строке (2-я, 3-я выгрузка ...) ----------
+// row.extra = [{lo, target, delivery}] — точки после основной (row.lo/target/delivery).
+// Сортировка и "опаздывает" — только по первой точке; NoBan — один на машину.
+const COM_SVG = (has) => has
+  ? '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>'
+  : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>';
+
+function extraTargetsHtml(row, cached) {
+  const ex = row.extra || [];
+  return ex.map((x, i) => {
+    const k = i + 1;
+    const ce = cached && cached.extra && cached.extra[i];
+    const badge = ce && ce.badge
+      ? `<span class="cc-badge x-cc" title="${escapeHtml(ce.badgeHint || ce.badge)}">${escapeHtml(ce.badge)}</span>` : "";
+    const last = k === ex.length;
+    return `<div class="target-wrap x-stop" data-k="${k}">
+      <span class="stop-n">${STOP_NUM[k + 1]}</span>
+      <button class="lo-btn xlo-btn ${loClass(x.lo)}" data-k="${k}" title="${loTitle(x.lo)}">${loText(x.lo)}</button>
+      ${badge}
+      <input list="points-list" class="xt-input" data-k="${k}" name="target-${row.id}-${k}" autocomplete="off" value="${escapeHtml(x.target)}" title="${escapeHtml(ce && ce.error ? ce.error : x.target)}" placeholder="следующая точка" />
+      <button class="stop-x" data-k="${k}" title="Убрать эту точку">×</button>
+      ${last ? '<button class="add-stop" title="Добавить ещё таргет">+</button>' : '<span class="add-stop-sp"></span>'}
+    </div>`;
+  }).join("");
+}
+
+function distCellHtml(row, c) {
+  if (!row.extra || !row.extra.length) return c.dist;
+  const lines = [`<div class="sl">${c.dist}</div>`];
+  row.extra.forEach((x, i) => {
+    const ce = c.extra && c.extra[i];
+    const txt = ce && ce.dist_km != null ? ce.dist_km.toFixed(1) : "—";
+    const tip = ce && ce.leg_km != null ? `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]}` : (ce && ce.error) || "";
+    lines.push(`<div class="sl" title="${escapeHtml(tip)}">${txt}</div>`);
+  });
+  return lines.join("");
+}
+
+function etaCellHtml(row, c, composed) {
+  const first = composed ? composed.html : (c.eta || "—");
+  if (!row.extra || !row.extra.length) return first;
+  const lines = [`<div class="sl">${first}</div>`];
+  row.extra.forEach((x, i) => {
+    const ce = c.extra && c.extra[i];
+    let inner = '<span class="eta-x-t">—</span>';
+    let tip = "";
+    if (ce && ce.error) {
+      inner = `<span class="eta-x-err">${escapeHtml(ce.error)}</span>`;
+      tip = ce.error;
+    } else if (ce && (ce.eta_tacho || ce.eta_local)) {
+      const wk = ce.tacho_weeklimit ? '<span class="wk-mark" title="Недельный лимит вождения кончится по пути">56</span>' : "";
+      inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}</span><span class="eta-simple">через ${STOP_NUM[i + 1]}</span>`;
+      tip = [`Точка ${STOP_NUM[i + 2]}: ${x.target}`,
+             `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]}, всего ${ce.dist_km.toFixed(1)} км`,
+             `+30 мин на каждой точке до неё`,
+             ce.eta_tacho ? `⏱ По тахографу: ${ce.eta_tacho}` : "",
+             `Простой ETA: ${ce.eta_local}`].filter(Boolean).join("\n");
+    }
+    lines.push(`<div class="sl" title="${escapeHtml(tip)}"><span class="eta-nb-sp"></span>${inner}</div>`);
+  });
+  return lines.join("");
+}
+
+function removeStop(id, k) {
+  const row = rows.find((r) => r.id === id);
+  if (!row || !row.extra || !row.extra.length) return;
+  if (k === 0) {
+    const nx = row.extra.shift();
+    row.lo = nx.lo || "";
+    row.target = nx.target || "";
+    row.delivery = nx.delivery || "";
+  } else {
+    row.extra.splice(k - 1, 1);
+  }
+  if (!row.extra.length) delete row.extra;
+  removeTargetMarker(id);
+  delete lastCalcText[id];
+  saveRows();
+  renderRows();
+  calcRow(id);
 }
 
 // v1.59: строки, которые стали опаздывать при обновлении, мигают до клика
@@ -745,7 +904,7 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
   if (c && c.etaCore) {
     const composed = composeEta(row, c);
     const cell = tr.querySelector(".eta-cell");
-    cell.innerHTML = composed.html;
+    cell.innerHTML = etaCellHtml(row, c, composed);
     cell.title = composed.title;
     c.eta = composed.html;
     c.etaTip = composed.title;
@@ -843,11 +1002,11 @@ function openComEditor(id, anchor) {
 (function () {
   const tbody = document.getElementById("fleet-tbody");
   tbody.addEventListener("mouseover", (e) => {
-    const t = e.target.closest && e.target.closest(".com-tri");
+    const t = e.target.closest && e.target.closest(".com-tri, .com-ic.has");
     if (t) showComPop(t);
   });
   tbody.addEventListener("mouseout", (e) => {
-    if (e.target.closest && e.target.closest(".com-tri")) comHideT = setTimeout(hideComPop, 250);
+    if (e.target.closest && e.target.closest(".com-tri, .com-ic.has")) comHideT = setTimeout(hideComPop, 250);
   });
   tbody.addEventListener("click", (e) => {
     const t = e.target.closest && e.target.closest(".com-tri");
@@ -983,7 +1142,7 @@ function recheckLate(id) {
   const composed = composeEta(row, c);
   const cell = tr.querySelector(".eta-cell");
   cell.classList.toggle("eta-late", c.late);
-  cell.innerHTML = composed.html;
+  cell.innerHTML = etaCellHtml(row, c, composed);
   cell.title = composed.title;
   c.eta = composed.html;
   c.etaTip = composed.title;
@@ -1016,7 +1175,9 @@ async function calcRow(id) {
     const res = await fetch("/api/calc", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ unit: row.unit, target: row.target }),
+      body: JSON.stringify(row.extra && row.extra.length
+        ? { unit: row.unit, target: row.target, extra: row.extra.map((x) => x.target || "") }
+        : { unit: row.unit, target: row.target }),
     });
     const data = await res.json();
 
@@ -1060,7 +1221,6 @@ async function calcRow(id) {
     let etaCore = null, bansR = [], tipLines = [];
     if (data.dist_km != null) {
       distText = data.dist_km.toFixed(1);
-      distCell.textContent = distText;
       distCell.classList.remove("muted");
       // v1.33: две строки — простой ETA и ⏱ по тахографу; подробности в подсказке
       const tip = ["Простой ETA: км ÷ 70, без остановок"]
@@ -1076,7 +1236,8 @@ async function calcRow(id) {
         etaText = `<span class="wk-mark" title="Недельный лимит вождения кончится по пути — стоп до пн 00:00 UTC (02:00 CEST), учтено в ⏱ ETA">56</span>` + etaText;
       }
       etaCore = etaText;
-      bansR = data.bans_route || [];
+      bansR = (data.bans_route || []).slice();
+      (data.extra || []).forEach((x, i) => (x.bans_route || []).forEach((b) => bansR.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
       const chk = deliveryCheck(row, data.eta_tacho || data.eta_local);
       late = chk.late;
       // v1.59: стала опаздывать с прошлого расчёта — мигать до клика
@@ -1092,7 +1253,9 @@ async function calcRow(id) {
       const composed = composeEta(row, { etaCore, bansR, tipLines });
       etaText = composed.html;
       etaTip = composed.title;
-      etaCell.innerHTML = etaText;
+      const cx = { dist: distText, eta: etaText, extra: extraCalc(data) };
+      distCell.innerHTML = distCellHtml(row, cx);
+      etaCell.innerHTML = etaCellHtml(row, cx, composed);
       etaCell.title = etaTip;
       etaCell.classList.remove("muted");
     } else {
@@ -1116,7 +1279,25 @@ async function calcRow(id) {
     if (oldTb) oldTb.outerHTML = targetBadge;
 
     lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, etaCore, bansR, tipLines,
-                         etaStr: data.eta_tacho || data.eta_local };
+                         etaStr: data.eta_tacho || data.eta_local, extra: extraCalc(data) };
+    // v1.64: плашки кодов у следующих точек
+    (lastCalcText[id].extra || []).forEach((ce, i) => {
+      const w = tr.querySelector(`.x-stop[data-k="${i + 1}"]`);
+      if (!w) return;
+      const old = w.querySelector(".x-cc");
+      if (old) old.remove();
+      if (ce.badge) w.querySelector(".xlo-btn").insertAdjacentHTML("afterend",
+        `<span class="cc-badge x-cc" title="${escapeHtml(ce.badgeHint || ce.badge)}">${escapeHtml(ce.badge)}</span>`);
+      const inp = w.querySelector(".xt-input");
+      if (inp) inp.title = ce.error || (row.extra[i] && row.extra[i].target) || "";
+      if (ce.address && row.extra[i] && !row.extra[i].lo && (ce.address.type === "load" || ce.address.type === "unload")) {
+        row.extra[i].lo = ce.address.type === "load" ? "L" : "O";
+        saveRows();
+        const b = w.querySelector(".xlo-btn");
+        b.className = `lo-btn xlo-btn ${loClass(row.extra[i].lo)}`;
+        b.textContent = loText(row.extra[i].lo);
+      }
+    });
 
     if (data.unit_lat != null && data.unit_lng != null) {
       // ошибка отрисовки на карте не должна ломать строку таблицы
@@ -1128,6 +1309,7 @@ async function calcRow(id) {
         targetLat: data.target_lat != null ? data.target_lat : null,
         targetLng: data.target_lng != null ? data.target_lng : null,
         polyline: data.route_polyline || null,
+        extraPolys: (data.extra || []).map((x) => x.polyline || null),
       };
 
       // v1.28: таргет из адресной базы — L/O из Type (только если отметка пустая),
@@ -1152,16 +1334,37 @@ async function calcRow(id) {
         removeTargetMarker(id);
       } else if (data.target_lat != null && data.target_lng != null) {
         // если машина-цель не в таблице — флажок в её позиции, подпись "→ номер"
-        const label = data.target_is_truck ? `${row.unit} → ${data.target_unit}` : row.unit;
+        const multi = row.extra && row.extra.length;
+        const label = (data.target_is_truck ? `${row.unit} → ${data.target_unit}` : row.unit) + (multi ? " ①" : "");
         updateTargetMarker(id, data.target_lat, data.target_lng, label, markerKind(row));
       } else {
         removeTargetMarker(id);
       }
+      // v1.64: флажки следующих точек
+      removeExtraTargets(id);
+      (data.extra || []).forEach((x, i) => {
+        if (x.lat == null || x.lng == null) return;
+        const ex = (row.extra || [])[i] || {};
+        const kind = ex.lo || (x.target_address && ["port", "customs", "misc"].includes(x.target_address.type) ? x.target_address.type : "");
+        updateTargetMarker(id + "_" + (i + 1), x.lat, x.lng, `${row.unit} ${STOP_NUM[i + 2]}`, kind);
+      });
     }
   } catch (e) {
     console.error("calcRow", e);
     statusCell.textContent = "Ошибка запроса";
   }
+}
+
+// v1.64: ответ сервера по следующим точкам -> то, что держим в lastCalcText
+function extraCalc(data) {
+  return (data.extra || []).map((x) => ({
+    error: x.error || null,
+    dist_km: x.dist_km, leg_km: x.leg_km,
+    eta_tacho: x.eta_tacho || null, eta_local: x.eta_local || null,
+    tacho_weeklimit: !!x.tacho_weeklimit,
+    badge: x.badge || null, badgeHint: x.badge_hint || null,
+    address: x.target_address || null,
+  }));
 }
 
 function calcAllRows(opts) {
@@ -1172,28 +1375,32 @@ function calcAllRows(opts) {
   Promise.allSettled(jobs).then(() => { if (resortAfter && sortMode !== "added") resort(); });
 }
 
-// ---------- v1.59: автообновление Флота ----------
-const AUTO_REFRESH_MS = 10 * 60 * 1000;
-let autoRefreshOn = true;
-try { autoRefreshOn = localStorage.getItem("fleetAuto") !== "0"; } catch (e) { /* ignore */ }
+// ---------- v1.59: автообновление Флота; v1.64: период на выбор — выкл / 15 / 30 / 60 мин ----------
+let autoRefreshMin = 15;
+try {
+  const v = localStorage.getItem("fleetAutoMin");
+  if (v != null) autoRefreshMin = Number(v) || 0;
+  else if (localStorage.getItem("fleetAuto") === "0") autoRefreshMin = 0;   // была снята галочка
+} catch (e) { /* ignore */ }
 let lastAutoAt = Date.now();
 setInterval(() => {
-  if (!autoRefreshOn || document.hidden) return;
+  if (!autoRefreshMin || document.hidden) return;
   if (document.querySelector(".com-ed")) return;                 // не мешать правке комментария
   const a = document.activeElement;
   if (a && a.closest && a.closest("#fleet-tbody") && a.tagName === "INPUT") return;   // идёт ввод
-  if (Date.now() - lastAutoAt < AUTO_REFRESH_MS - 5000) return;
+  if (Date.now() - lastAutoAt < autoRefreshMin * 60000 - 5000) return;
   lastAutoAt = Date.now();
   calcAllRows({ auto: true });
 }, 30 * 1000);
 (function () {
-  const cb = document.getElementById("auto-refresh");
-  if (!cb) return;
-  cb.checked = autoRefreshOn;
-  cb.addEventListener("change", () => {
-    autoRefreshOn = cb.checked;
+  const sel = document.getElementById("auto-refresh");
+  if (!sel) return;
+  sel.value = String(autoRefreshMin);
+  if (sel.value !== String(autoRefreshMin)) { autoRefreshMin = 15; sel.value = "15"; }
+  sel.addEventListener("change", () => {
+    autoRefreshMin = Number(sel.value) || 0;
     lastAutoAt = Date.now();
-    try { localStorage.setItem("fleetAuto", autoRefreshOn ? "1" : "0"); } catch (e) { /* ignore */ }
+    try { localStorage.setItem("fleetAutoMin", String(autoRefreshMin)); } catch (e) { /* ignore */ }
   });
 })();
 
