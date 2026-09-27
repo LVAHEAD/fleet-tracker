@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.53 (сортировка Флота: как добавляли / L→O / O→L / руками).
+Версия: 1.54 (окна Delivery: 09-15, before 15, between 01 to 04…; "раньше окна").
+Ранее 1.53 (сортировка Флота: как добавляли / L→O / O→L / руками).
 Ранее 1.50 (Delivery/Примечание без пересчёта маршрута).
 Ранее 1.48 (NoBan — кнопка в ETA; вернулась бледная заливка строк L/O).
 Ранее 1.46 (плашка 56 — недельный лимит одиночки).
@@ -719,21 +720,79 @@ let rowMenuOpenedAt = 0;
 window.addEventListener("scroll", () => { if (Date.now() - rowMenuOpenedAt > 300) closeRowMenus(); }, true);
 window.addEventListener("resize", closeRowMenus);
 
-// v1.43: Delivery (свободный текст) -> Date для сравнения с ETA.
-// Понимает "28/09 06.00", "29/09 at 01.30", "27/09 09am", "*Date: 29/09 06.00*", "29/09"
-// (без времени — конец дня). Не распознано — null (без подсветки).
-function parseDelivery(txt) {
-  const d = String(txt || "").match(/(\d{1,2})[\/.](\d{1,2})(?:[\/.]\d{2,4})?(.*)$/);
-  if (!d) return null;
-  const day = +d[1], mon = +d[2];
+// v1.54: Delivery (свободный текст) -> окно {start, end} для сравнения с ETA.
+// Дата: "28/09", "29.09.2026", "2026-09-27". Время:
+//   окно  "09-15", "09:00-15:00", "09.00–15.00", "9-15h", "between 01 to 04 AM", "22-04" (через полночь)
+//   срок  "before 15:00", "до 15", "DO 19.00", одиночное "06.00", "09am", "01.30", "17"
+//   начало "after 10", "from 10", "с 10", "после 10" (конца нет)
+// Без времени — срок до конца дня. Не распознано — null (без подсветки).
+const DT_T = "(\\d{1,2})(?:[:.](\\d{2}))?\\s*(am|pm|h)?";
+function hmOf(h, m, ap, apFallback) {
+  let hh = +h, mm = m ? +m : 0;
+  const a = ap || apFallback;
+  if (a === "pm" && hh < 12) hh += 12;
+  if (a === "am" && hh === 12) hh = 0;
+  if (hh > 24 || mm > 59) return null;
+  return hh * 60 + mm;
+}
+function parseDeliveryWindow(txt) {
+  const s = String(txt || "");
+  let day, mon, rest;
+  const iso = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})(.*)$/);
+  const d = iso ? null : s.match(/(\d{1,2})[\/.](\d{1,2})(?:[\/.]\d{2,4})?(.*)$/);
+  if (iso) { day = +iso[3]; mon = +iso[2]; rest = iso[4] || ""; }
+  else if (d) { day = +d[1]; mon = +d[2]; rest = d[3] || ""; }
+  else return null;
   if (day < 1 || day > 31 || mon < 1 || mon > 12) return null;
-  let hh = 23, mm = 59;
-  const rest = d[3] || "";
-  const t = rest.match(/(\d{1,2})[.:](\d{2})/);
-  const ap = rest.match(/(\d{1,2})\s*(am|pm)/i);
-  if (t) { hh = +t[1]; mm = +t[2]; }
-  else if (ap) { hh = (+ap[1] % 12) + (ap[2].toLowerCase() === "pm" ? 12 : 0); mm = 0; }
-  return mkDate(day, mon, hh, mm);
+  rest = rest.toLowerCase();
+  const at = (min) => mkDate(day, mon, Math.floor(min / 60), min % 60);
+  const range = rest.match(new RegExp(DT_T + "\\s*(?:-|–|—|to|till|until|and|до|по)\\s*" + DT_T));
+  if (range) {
+    const a = hmOf(range[1], range[2], range[3], range[6]);
+    const b = hmOf(range[4], range[5], range[6]);
+    if (a != null && b != null) {
+      const start = at(a);
+      let end = at(b);
+      if (b <= a) end = new Date(end.getTime() + 86400000);   // окно через полночь
+      return { start, end };
+    }
+  }
+  const before = rest.match(new RegExp("(?:before|until|till|not later than|latest|до|do)\\s*" + DT_T));
+  if (before) {
+    const b = hmOf(before[1], before[2], before[3]);
+    if (b != null) return { start: null, end: at(b) };
+  }
+  const after = rest.match(new RegExp("(?:after|from|после|от|с)\\s*" + DT_T));
+  if (after) {
+    const a = hmOf(after[1], after[2], after[3]);
+    if (a != null) return { start: at(a), end: null };
+  }
+  const single = rest.match(new RegExp("(?:^|[^\\d])" + DT_T + "(?![\\d])"));
+  if (single) {
+    const t = hmOf(single[1], single[2], single[3]);
+    if (t != null) return { start: null, end: at(t) };
+  }
+  return { start: null, end: at(23 * 60 + 59) };
+}
+// срок доставки (конец окна) — для совместимости
+function parseDelivery(txt) {
+  const w = parseDeliveryWindow(txt);
+  return w ? w.end : null;
+}
+// v1.54: строки подсказки и флаг опоздания по окну Delivery
+function deliveryCheck(row, etaStr) {
+  const w = parseDeliveryWindow(row.delivery);
+  const etaD = parseEta(etaStr);
+  const out = { late: false, lines: [] };
+  if (!w || !etaD) return out;
+  const hm = (d) => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  if (w.end && etaD > w.end) {
+    out.late = true;
+    out.lines.push(`Позже Delivery (${row.delivery}) — окно до ${hm(w.end)}`);
+  } else if (w.start && etaD < w.start) {
+    out.lines.push(`⏳ Раньше окна Delivery — с ${hm(w.start)}, будет ждать`);
+  }
+  return out;
 }
 // "dd/mm HH:MM" (ETA с сервера) -> Date
 function parseEta(txt) {
@@ -759,11 +818,10 @@ function recheckLate(id) {
   const c = lastCalcText[id];
   const tr = document.querySelector(`#fleet-tbody tr[data-id="${id}"]`);
   if (!row || !c || !c.etaCore || !tr) return;
-  const delD = parseDelivery(row.delivery);
-  const etaD = parseEta(c.etaStr);
-  c.late = !!(delD && etaD && etaD > delD);
-  c.tipLines = (c.tipLines || []).filter((l) => !l.startsWith("Позже Delivery"));
-  if (c.late) c.tipLines.unshift("Позже Delivery (" + row.delivery + ")");
+  const chk = deliveryCheck(row, c.etaStr);
+  c.late = chk.late;
+  c.tipLines = (c.tipLines || []).filter((l) => !l.startsWith("Позже Delivery") && !l.startsWith("⏳ Раньше окна"));
+  c.tipLines.unshift(...chk.lines);
   const composed = composeEta(row, c);
   const cell = tr.querySelector(".eta-cell");
   cell.classList.toggle("eta-late", c.late);
@@ -857,11 +915,10 @@ async function calcRow(id) {
       }
       etaCore = etaText;
       bansR = data.bans_route || [];
-      const delD = parseDelivery(row.delivery);
-      const etaD = parseEta(data.eta_tacho || data.eta_local);
-      late = !!(delD && etaD && etaD > delD);
+      const chk = deliveryCheck(row, data.eta_tacho || data.eta_local);
+      late = chk.late;
       etaCell.classList.toggle("eta-late", late);
-      if (late) tip.unshift("Позже Delivery (" + row.delivery + ")");
+      tip.unshift(...chk.lines);
       tipLines = tip;
       // v1.48: кнопка NoBan / 🚫 в начале ETA
       const composed = composeEta(row, { etaCore, bansR, tipLines });

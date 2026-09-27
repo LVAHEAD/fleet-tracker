@@ -1,8 +1,12 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.53
+Версия: 1.54
 
 История изменений:
+1.54 (2026-09-27) — Delivery понимает окна: "30/09 09-15", "09:00-15:00", "between 01 to 04 AM",
+    "before 15:00", "до 15", "DO 19.00", "after 10", ISO-даты "2026-10-01 …", одиночный час "17";
+    опоздание — ETA позже конца окна; раньше начала окна — "⏳ раньше окна, будет ждать"
+    в подсказке; сортировка по срочности — по концу окна
 1.53 (2026-09-27) — сортировка Флота: как добавляли / L → O / O → L (внутри — опаздывающие
     первыми, потом по запасу до Delivery, потом по ETA) / руками (перетаскивание ⠿,
     на телефоне ↑/↓ в меню ⋯); строки без L/O — в конце; пересортировка только при
@@ -436,7 +440,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.53"
+APP_VERSION = "1.54"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
