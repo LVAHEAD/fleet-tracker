@@ -1,8 +1,12 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.60
+Версия: 1.61
 
 История изменений:
+1.61 (2026-09-27) — разделы в разработке (GF построитель, Паромы, Truck Info): значок-каска перед
+    названием вкладки и плашка "Этот раздел в разработке" вверху раздела (любой вкладке — атрибут
+    data-wip); Флот: "автообновление 10 мин", колонка "Дистанция" вместо "Осталось км", заголовок
+    ETA стоит над временем, а не над кнопкой NoBan
 1.60 (2026-09-27) — режим сортировки "руками": колонка Машина шире (номер не обрезается ручкой ⠿);
     запреты по пути не проверяются, если трак на объекте или до таргета меньше 5 км
 1.59 (2026-09-27) — Флот: автообновление раз в 10 мин (строки не переставляются) и мигание строки,
@@ -457,7 +461,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.60"
+APP_VERSION = "1.61"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"

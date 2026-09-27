@@ -603,3 +603,13 @@ body.sort-manual .manual-only { display: block; }
 
 /* ---------- v1.60: режим "руками" — номер трака не обрезается ручкой ⠿ ---------- */
 body.sort-manual #fleet-table .col-unit { width: 118px; }
+
+/* ---------- v1.61: разделы в разработке, заголовок ETA ---------- */
+.wip-ic { display: inline-block; width: 14px; height: 14px; margin-right: 5px; color: #8a8a8a; vertical-align: -2px; }
+.wip-ic svg, .wip-cone svg { width: 100%; height: 100%; display: block; }
+.wip-banner {
+  display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 10px 14px;
+  border: 1px dashed #bdbdbd; border-radius: 8px; background: #f4f4f4; color: #555; font-size: 14px; font-weight: 600;
+}
+.wip-cone { width: 22px; height: 22px; color: #777; flex: 0 0 auto; }
+#fleet-table th.th-eta { padding-left: 40px; text-align: left; }
