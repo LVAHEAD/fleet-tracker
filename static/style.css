@@ -730,3 +730,7 @@ button.hitch-ic:hover { background: #e6dfcc; }
 .trl-ed-b button { font-size: 12px; padding: 3px 9px; border-radius: 5px; border: 1px solid #ccc; background: #f6f6f6; cursor: pointer; }
 .trl-ed-b .trl-ed-ok { background: #1D9E75; border-color: #1D9E75; color: #fff; }
 .status-cell .status-line2 { flex-wrap: wrap; row-gap: 2px; }
+.trl-ed-near { font-size: 11px; color: #777; margin-top: 5px; line-height: 20px; }
+.trl-ed-pick { font-size: 11px; padding: 0 5px; margin: 0 2px 2px 0; border: 1px solid #d8cfb8; background: #f1eee6; color: #5c4a1e; border-radius: 8px; cursor: pointer; }
+.trl-ed-pick:hover { background: #e6dfcc; }
+.trl-ed { width: 250px; }

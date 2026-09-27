@@ -435,15 +435,16 @@ async function loadUnitsList() {
         if (u.kind === "trailer") opt.label = "прицеп";
         datalist.appendChild(opt);
       });
-      const tl = document.getElementById("trailers-list");
-      if (tl) {
-        tl.innerHTML = "";
-        unitsCache.filter((u) => u.kind === "trailer").forEach((u) => {
+      [["trailers-list", "trailer"], ["trucks-list", "truck"]].forEach(([dlId, kind]) => {
+        const dl = document.getElementById(dlId);
+        if (!dl) return;
+        dl.innerHTML = "";
+        unitsCache.filter((u) => u.kind === kind).forEach((u) => {
           const o = document.createElement("option");
           o.value = u.number;
-          tl.appendChild(o);
+          dl.appendChild(o);
         });
-      }
+      });
       rebuildPointsList();
     }
   } catch (e) {
@@ -622,7 +623,7 @@ function renderRows() {
         <button class="refresh-row-btn" title="Обновить строку">↻</button>
         <span class="wide-acts">
           <button class="add-btn-w" title="Добавить строку ниже">+</button>
-          <button class="trl-btn-w" title="Прицеп: привязать / сменить">🔗</button>
+          <button class="trl-btn-w" title="Сцепка: у тягача — привязать прицеп, у прицепа — привязать к тягачу">🔗</button>
           <button class="del-btn-w" title="Удалить строку (два клика)">🗑</button>
           <button class="mv-up-w manual-inline" title="Выше">↑</button>
           <button class="mv-down-w manual-inline" title="Ниже">↓</button>
@@ -634,7 +635,7 @@ function renderRows() {
             <button class="mv-up manual-only">↑ выше</button>
             <button class="mv-down manual-only">↓ ниже</button>
             <button class="add-btn">+ строка ниже</button>
-            <button class="trl-btn">🔗 прицеп…</button>
+            <button class="trl-btn">🔗 сцепка…</button>
             <button class="del-btn">✕ удалить строку</button>
           </span>
         </span>
@@ -1136,6 +1137,10 @@ const normNo = (s) => String(s || "").toUpperCase().replace(/[\s\-]/g, "");
 function isTrailerNo(n) {
   return (unitsCache || []).some((u) => u.kind === "trailer" && normNo(u.number) === normNo(n));
 }
+function findUnitNo(n, kind) {
+  const u = (unitsCache || []).find((x) => x.kind === kind && normNo(x.number) === normNo(n));
+  return u ? u.number : null;
+}
 function dropRow(id) {
   rows = rows.filter((r) => r.id !== id);
   removeMarker(id);
@@ -1157,7 +1162,15 @@ function linkTrailer(truckId, trailerNo) {
   const truck = rows.find((r) => r.id === truckId);
   if (!truck) return;
   truck.trailer = String(trailerNo || "").trim();
-  rows.filter((r) => r.id !== truckId && normNo(r.unit) === normNo(truck.trailer)).forEach((r) => dropRow(r.id));
+  rows.filter((r) => r.id !== truckId && normNo(r.unit) === normNo(truck.trailer)).forEach((r) => {
+    // v1.72: у тягача таргета нет, а у строки прицепа есть — переносим таргет, Delivery, примечание
+    if (!truck.target && r.target) {
+      ["lo", "target", "delivery", "extra", "open"].forEach((k) => { if (r[k] !== undefined) truck[k] = r[k]; });
+    }
+    if (!truck.note && r.note) truck.note = r.note;
+    if (!truck.com && r.com) truck.com = r.com;
+    dropRow(r.id);
+  });
   saveRows();
   renderRows();
   calcRow(truckId);
@@ -1195,14 +1208,17 @@ function unlinkTrailer(truckId) {
 }
 let trlEd = null;
 function closeTrailerEditor() { if (trlEd) { trlEd.remove(); trlEd = null; } }
+// v1.72: в строке тягача — выбираем прицеп; в строке прицепа — выбираем тягач (строка уходит к нему)
 function openTrailerEditor(id, anchor) {
   closeTrailerEditor();
   const row = rows.find((r) => r.id === id);
   if (!row) return;
+  const forTrailer = isTrailerNo(row.unit);
+  const kind = forTrailer ? "truck" : "trailer";
   trlEd = document.createElement("div");
   trlEd.className = "trl-ed";
-  trlEd.innerHTML = `<div class="trl-ed-t">Прицеп для ${escapeHtml(row.unit || "строки")}</div>
-    <input list="trailers-list" class="trl-ed-in" autocomplete="off" placeholder="номер прицепа" value="${escapeHtml(row.trailer || "")}">
+  trlEd.innerHTML = `<div class="trl-ed-t">${forTrailer ? "Тягач для прицепа" : "Прицеп для"} ${escapeHtml(row.unit || "строки")}</div>
+    <input list="${forTrailer ? "trucks-list" : "trailers-list"}" class="trl-ed-in" autocomplete="off" placeholder="${forTrailer ? "номер тягача" : "номер прицепа"}" value="${escapeHtml(forTrailer ? "" : row.trailer || "")}">
     <div class="trl-ed-err" hidden></div>
     <div class="trl-ed-b"><button class="trl-ed-ok">Привязать</button><button class="trl-ed-cancel">Отмена</button></div>`;
   document.body.appendChild(trlEd);
@@ -1211,17 +1227,51 @@ function openTrailerEditor(id, anchor) {
   trlEd.style.left = Math.max(8, r.right - trlEd.offsetWidth) + "px";
   const inp = trlEd.querySelector(".trl-ed-in");
   const err = trlEd.querySelector(".trl-ed-err");
+  // v1.72: ближайший по GPS — сразу в поле, ещё два — кнопками под полем
+  const near = document.createElement("div");
+  near.className = "trl-ed-near";
+  near.textContent = "ищу ближайший…";
+  inp.after(near);
+  const edNow = trlEd;
+  if (row.unit) fetch(`/api/nearest-units?unit=${encodeURIComponent(row.unit)}&kind=${kind}`)
+    .then((r) => r.json())
+    .then((d) => {
+      if (trlEd !== edNow) return;
+      const items = (d && d.items) || [];
+      if (!items.length) { near.textContent = d && d.error ? d.error : "рядом никого не нашёл"; return; }
+      if (!inp.value.trim() || inp.dataset.auto) {
+        inp.value = items[0].number;
+        inp.dataset.auto = "1";
+        inp.select();
+      }
+      const km = (x) => (x.km < 1 ? Math.round(x.km * 1000) + " м" : fmtKm(x.km));
+      near.innerHTML = "ближайшие: " + items.map((x) =>
+        `<button class="trl-ed-pick" data-n="${escapeHtml(x.number)}" title="${x.state === "driving" ? "едет" : "стоит"}">${escapeHtml(x.number)} · ${escapeHtml(km(x))}</button>`).join(" ");
+      near.querySelectorAll(".trl-ed-pick").forEach((b) => b.addEventListener("click", () => {
+        inp.value = b.dataset.n;
+        inp.dataset.auto = "";
+        inp.focus();
+      }));
+    })
+    .catch(() => { if (trlEd === edNow) near.textContent = ""; });
+  else near.textContent = "";
+  inp.addEventListener("input", () => { inp.dataset.auto = ""; });
   const ok = () => {
     const v = inp.value.trim();
-    if (!v) { closeTrailerEditor(); if (row.trailer) unlinkTrailer(id); return; }
-    if ((unitsCache || []).length && !isTrailerNo(v)) {
-      err.textContent = "Такого прицепа нет в Mapon";
+    if (!v) {
+      closeTrailerEditor();
+      if (!forTrailer && row.trailer) unlinkTrailer(id);
+      return;
+    }
+    const hit = findUnitNo(v, kind);
+    if ((unitsCache || []).length && !hit) {
+      err.textContent = forTrailer ? "Такого тягача нет в группе машин" : "Такого прицепа нет в Mapon";
       err.hidden = false;
       return;
     }
-    const hit = (unitsCache || []).find((u) => u.kind === "trailer" && normNo(u.number) === normNo(v));
     closeTrailerEditor();
-    linkTrailer(id, hit ? hit.number : v);
+    if (forTrailer) linkTrailerRowToTruck(id, hit || v);
+    else linkTrailer(id, hit || v);
   };
   trlEd.querySelector(".trl-ed-ok").addEventListener("click", ok);
   trlEd.querySelector(".trl-ed-cancel").addEventListener("click", closeTrailerEditor);

@@ -1,8 +1,12 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.71
+Версия: 1.72
 
 История изменений:
+1.72 (2026-09-28) — фикс сцепки: в строке прицепа кнопка 🔗 / "⋯ → сцепка…" спрашивает тягача
+    (подсказки — только тягачи), строка прицепа уходит к нему; если у тягача не было таргета —
+    таргет, Delivery и примечание переносятся из строки прицепа; в окне сцепки сразу подставлен
+    ближайший прицеп / тягач (по GPS), ещё два ближайших — кнопками; остаётся подтвердить
 1.71 (2026-09-27) — прицепы, шаг 2: привязка прицепа к тягачу — кнопкой по найденной сцепке
     (у прицепа "🔗 к тягачу", у тягача "🔗?") или вручную (⋯ → "🔗 прицеп…", номер с подсказками);
     привязанный прицеп — во второй строке Статуса тягача с рефкой, × — отвязать (прицеп
@@ -496,7 +500,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.71"
+APP_VERSION = "1.72"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -3508,6 +3512,36 @@ def _wkt_center(wkt):
     if abs(lat) > 90:                      # на случай долготы первой
         lat, lng = lng, lat
     return round(lat, 5), round(lng, 5), len(pts)
+
+
+@app.route("/api/nearest-units")
+def api_nearest_units():
+    """v1.72: ближайшие к машине прицепы (kind=trailer) или тягачи (kind=truck) — для окна сцепки.
+    /api/nearest-units?unit=OI-4310&kind=trailer -> {"items": [{"number", "km", "state"}...]} (до 3 шт.)"""
+    if not MAPON_API_KEY:
+        return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
+    try:
+        units = fetch_units(MAPON_API_KEY)
+        truck_ids = fetch_group_unit_ids(MAPON_API_KEY, HEAD_TRUCK_GROUP_ID)
+    except Exception as e:
+        return jsonify({"error": f"Mapon: {e}"}), 502
+    me = find_unit_exact(units, request.args.get("unit"))
+    if not me or me.get("lat") is None:
+        return jsonify({"items": []})
+    want_trailer = request.args.get("kind") != "truck"
+    items = []
+    for o in units:
+        if o is me or o.get("lat") is None or o.get("lng") is None:
+            continue
+        if want_trailer and not is_trailer(o):
+            continue
+        if not want_trailer and o.get("unit_id") not in truck_ids:
+            continue
+        items.append({"number": o.get("number") or o.get("label"),
+                      "km": round(haversine_km(me["lat"], me["lng"], o["lat"], o["lng"]), 3),
+                      "state": (o.get("state") or {}).get("name")})
+    items.sort(key=lambda x: x["km"])
+    return jsonify({"items": items[:3]})
 
 
 @app.route("/api/mapon-units")
