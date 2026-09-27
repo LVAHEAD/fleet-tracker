@@ -1,8 +1,13 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.58
+Версия: 1.59
 
 История изменений:
+1.59 (2026-09-27) — Флот: автообновление раз в 10 мин (строки не переставляются) и мигание строки,
+    если она стала опаздывать, — до клика по ней; "на объекте" в статусе, когда трак внутри
+    полигона Mapon таргета (или в 300 м от точки); цепочка стран маршрута в подсказке ETA;
+    Delivery с датой в прошлом (опечатка вроде "27.06") подсвечивается жёлтым; экономия Google:
+    пока трак едет по уже известному маршруту (до 1 ч), остаток км считается по линии маршрута
 1.58 (2026-09-27) — в блокноте [.] раздел "История изменений": все версии с 1.0, свежие сверху,
     подробности по клику; список берётся из этой истории и пополняется сам
 1.57 (2026-09-27) — на плашке трака на карте — км до таргета ("OI-3194 ↗ · 12 км";
@@ -450,7 +455,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.58"
+APP_VERSION = "1.59"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -2137,23 +2142,86 @@ def _route_stat(kind):
     _route_stats[kind] += 1
 
 
+# v1.59: "по уже известному маршруту" — если к тому же таргету маршрут запрошен меньше часа
+# назад, а трак едет по нему (ближе ~1.5 км к линии), остаток км считаем сами по линии,
+# без запроса к Google. Новый маршрут — при смене таргета, сходе с маршрута или раз в час.
+ALONG_ROUTE_TTL = 60 * 60
+ALONG_ROUTE_MAX_OFF_KM = 1.5
+_along_cache = {}   # (target, waypoints) -> {"at", "pts", "cum", "scale"}
+
+
+def _encode_polyline(pts):
+    out, plat, plng = [], 0, 0
+    for la, ln in pts:
+        for v, prev in ((round(la * 1e5), plat), (round(ln * 1e5), plng)):
+            d = v - prev
+            d = ~(d << 1) if d < 0 else d << 1
+            while d >= 0x20:
+                out.append(chr((0x20 | (d & 0x1F)) + 63))
+                d >>= 5
+            out.append(chr(d + 63))
+        plat, plng = round(la * 1e5), round(ln * 1e5)
+    return "".join(out)
+
+
+def _along_remember(tkey, dist_km, polyline, now):
+    try:
+        pts = _decode_polyline(polyline or "")
+        if len(pts) < 2:
+            return
+        cum = [0.0]
+        for a, b in zip(pts, pts[1:]):
+            cum.append(cum[-1] + haversine_km(a[0], a[1], b[0], b[1]))
+        scale = (dist_km / cum[-1]) if cum[-1] > 0 else 1.0
+        _along_cache[tkey] = {"at": now, "pts": pts, "cum": cum, "scale": scale}
+    except Exception:
+        pass
+
+
+def _along_lookup(tkey, lat, lng, now):
+    c = _along_cache.get(tkey)
+    if not c or now - c["at"] > ALONG_ROUTE_TTL:
+        return None
+    pts, cum = c["pts"], c["cum"]
+    best_i, best_d = None, float("inf")
+    for i, (la, ln) in enumerate(pts):
+        if abs(la - lat) > 0.1 or abs(ln - lng) > 0.2:
+            continue
+        d = haversine_km(lat, lng, la, ln)
+        if d < best_d:
+            best_i, best_d = i, d
+    if best_i is None or best_d > ALONG_ROUTE_MAX_OFF_KM:
+        return None
+    remain = max(0.0, (cum[-1] - cum[best_i]) * c["scale"] + best_d)
+    return remain, _encode_polyline([(lat, lng)] + pts[best_i:])
+
+
 def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None):
     import time
     key = (round(lat1, 2), round(lng1, 2), round(lat2, 4), round(lng2, 4),
            tuple((round(a, 4), round(b, 4)) for a, b in (waypoints or [])))
+    tkey = key[2:]
     now = time.time()
     with _route_cache_lock:
         hit = _route_cache.get(key)
         if hit and now - hit[0] < ROUTE_CACHE_TTL:
             _route_stat("cache_hits")
             return hit[1]
+        along = _along_lookup(tkey, lat1, lng1, now)
+        if along:
+            _route_stat("cache_hits")
+            return along
         _route_stat("calls")
     res = _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints)
     with _route_cache_lock:
         if len(_route_cache) > 2000:
             for k in [k for k, v in _route_cache.items() if now - v[0] >= ROUTE_CACHE_TTL]:
                 _route_cache.pop(k, None)
+        if len(_along_cache) > 500:
+            for k in [k for k, v in _along_cache.items() if now - v["at"] >= ALONG_ROUTE_TTL]:
+                _along_cache.pop(k, None)
         _route_cache[key] = (now, res)
+        _along_remember(tkey, res[0], res[1], now)
     return res
 
 
@@ -3518,6 +3586,21 @@ def api_calc():
         except Exception as e:
             result["tacho_error"] = str(e)
 
+        # v1.59: цепочка стран по маршруту (без времени)
+        if result.get("route_polyline") and result.get("dist_km"):
+            try:
+                result["route_countries"] = country_chain(result["route_polyline"], result["dist_km"])
+            except Exception:
+                pass
+        # v1.59: трак на объекте таргета (полигон Mapon или радиус вокруг точки)
+        if result.get("target_lat") is not None:
+            try:
+                ot = on_target(unit["lat"], unit["lng"], result["target_lat"], result["target_lng"])
+                if ot:
+                    result["on_target"] = ot
+            except Exception:
+                pass
+
         # v1.45: полные запреты по пути (по тахо-симуляции, иначе без остановок)
         stops = result.pop("_sim_stops", None)
         if result.get("route_polyline") and result.get("dist_km"):
@@ -4059,6 +4142,92 @@ def bans_hits_text(hits, loc):
         out.append(f"{h['cc']} {d} {(h['from'] or '')[:5]}–{(h['until'] or '')[:5]} "
                    f"({TYPE_RU.get(h['type'], h['type'] or '')}), въезд ~{loc(h['enter_ts'])}")
     return out
+
+
+# ---------- v1.59: цепочка стран и "на объекте" ----------
+def country_chain(polyline, dist_km, min_km=15):
+    """Страны по маршруту по порядку, без коротких "мерцаний" у границы (< min_km)."""
+    segs = [(cc, a, b) for cc, a, b in route_countries(polyline, dist_km) if cc]
+    keep = [s for s in segs if s[2] - s[1] >= min_km] or segs
+    out = []
+    for cc, _, _ in keep:
+        if not out or out[-1] != cc:
+            out.append(cc)
+    return out
+
+
+MAPON_OBJ_TTL = 6 * 3600
+ON_TARGET_OBJ_KM = 0.5      # объект Mapon относится к таргету, если таргет внутри или центр ближе 500 м
+ON_TARGET_RADIUS_KM = 0.3   # без объекта — трак в радиусе 300 м от точки таргета
+_mobj_cache = {"at": 0.0, "items": None}
+
+
+def _wkt_points(wkt):
+    nums = re.findall(r"-?\d+(?:\.\d+)?", str(wkt or ""))
+    pts = [(float(nums[i]), float(nums[i + 1])) for i in range(0, len(nums) - 1, 2)]
+    if pts and any(abs(a) > 90 for a, _ in pts):
+        pts = [(b, a) for a, b in pts]
+    return pts
+
+
+def _point_in_poly(lat, lng, poly):
+    inside, n = False, len(poly)
+    for i in range(n):
+        a, b = poly[i], poly[(i + 1) % n]
+        if (a[1] > lng) != (b[1] > lng):
+            x = a[0] + (lng - a[1]) * (b[0] - a[0]) / ((b[1] - a[1]) or 1e-12)
+            if lat < x:
+                inside = not inside
+    return inside
+
+
+def mapon_objects():
+    import time
+    now = time.time()
+    if _mobj_cache["items"] is not None and now - _mobj_cache["at"] < MAPON_OBJ_TTL:
+        return _mobj_cache["items"]
+    items = []
+    try:
+        objs = (mapon_get("https://mapon.com/api/v1/object/list.json", {"key": MAPON_API_KEY}, timeout=60)
+                .get("data") or {}).get("objects") or []
+        for o in objs:
+            pts = _wkt_points(o.get("wkt"))
+            if len(pts) < 3:
+                continue
+            la = [p[0] for p in pts]
+            ln = [p[1] for p in pts]
+            items.append({"name": (o.get("name") or "").strip(), "poly": pts,
+                          "bbox": (min(la), max(la), min(ln), max(ln)),
+                          "c": (sum(la) / len(la), sum(ln) / len(ln))})
+    except Exception:
+        if _mobj_cache["items"] is not None:
+            return _mobj_cache["items"]
+    _mobj_cache.update(at=now, items=items)
+    return items
+
+
+def on_target(tlat, tlng, glat, glng):
+    """Трак (tlat,tlng) у таргета (glat,glng)? По полигону объекта Mapon, связанного с таргетом,
+    иначе по радиусу. -> {"how": "object"|"radius", "name": ...} или None."""
+    best = None
+    for o in mapon_objects():
+        b = o["bbox"]
+        if not (b[0] - 0.01 <= glat <= b[1] + 0.01 and b[2] - 0.02 <= glng <= b[3] + 0.02):
+            continue
+        inside = _point_in_poly(glat, glng, o["poly"])
+        d = 0.0 if inside else haversine_km(glat, glng, o["c"][0], o["c"][1])
+        if d <= ON_TARGET_OBJ_KM and (best is None or d < best[0]):
+            best = (d, o)
+    if best:
+        o = best[1]
+        b = o["bbox"]
+        near_box = b[0] - 0.002 <= tlat <= b[1] + 0.002 and b[2] - 0.003 <= tlng <= b[3] + 0.003
+        if near_box and (_point_in_poly(tlat, tlng, o["poly"]) or haversine_km(tlat, tlng, glat, glng) <= 0.1):
+            return {"how": "object", "name": o["name"]}
+        return None
+    if haversine_km(tlat, tlng, glat, glng) <= ON_TARGET_RADIUS_KM:
+        return {"how": "radius", "name": ""}
+    return None
 
 
 FRESH_SOLO_TACHO = {"drivers": [{

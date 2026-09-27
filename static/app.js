@@ -561,7 +561,9 @@ function renderRows() {
         </span>
       </td>
     `;
+    if (blinkRows.has(row.id)) tr.classList.add("row-blink");
     tbody.appendChild(tr);
+    markDeliveryInput(tr, row);
   });
   attachRowHandlers();
 }
@@ -610,6 +612,7 @@ function attachRowHandlers() {
       e.target.title = e.target.value;
       setRowField(id, "delivery", e.target.value);
       recheckLate(id);
+      markDeliveryInput(tr, rows.find((r) => r.id === id));
     });
     tr.querySelector(".note-input").addEventListener("change", (e) => {
       e.target.title = e.target.value;
@@ -685,11 +688,26 @@ function attachRowHandlers() {
     });
 
     tr.addEventListener("click", (e) => {
+      if (blinkRows.delete(id)) tr.classList.remove("row-blink");   // v1.59: клик — "увидел"
       if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
       if (e.target.closest && e.target.closest(".com-tri")) return;
       drawRoute(id);
     });
   });
+}
+
+// v1.59: строки, которые стали опаздывать при обновлении, мигают до клика
+const blinkRows = new Set();
+
+// v1.59: Delivery с датой сильно в прошлом (опечатка "27.06" вместо "27.09") — жёлтым
+function markDeliveryInput(tr, row) {
+  const inp = tr && tr.querySelector(".delivery-input");
+  if (!inp || !row) return;
+  const w = parseDeliveryWindow(row.delivery);
+  const ref = w ? (w.end || w.start) : null;
+  const bad = !!(ref && Date.now() - ref.getTime() > 2 * 86400000);
+  inp.classList.toggle("del-suspect", bad);
+  inp.title = bad ? `${row.delivery}\n⚠ Дата в прошлом — проверь (опечатка?)` : (row.delivery || "");
 }
 
 // v1.48: NoBan — кнопка в начале ETA. 🚫 (розовая) — полный запрет по пути, клик → NoBan;
@@ -919,6 +937,12 @@ function deliveryCheck(row, etaStr) {
   const etaD = parseEta(etaStr);
   const out = { late: false, lines: [] };
   if (!w || !etaD) return out;
+  // v1.59: дата Delivery сильно в прошлом — скорее опечатка, не красим, а предупреждаем
+  const ref = w.end || w.start;
+  if (ref && Date.now() - ref.getTime() > 2 * 86400000) {
+    out.lines.push("⚠ Дата Delivery в прошлом — проверь (опечатка?)");
+    return out;
+  }
   const hm = (d) => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   if (w.end && etaD > w.end) {
     out.late = true;
@@ -954,7 +978,7 @@ function recheckLate(id) {
   if (!row || !c || !c.etaCore || !tr) return;
   const chk = deliveryCheck(row, c.etaStr);
   c.late = chk.late;
-  c.tipLines = (c.tipLines || []).filter((l) => !l.startsWith("Позже Delivery") && !l.startsWith("⏳ Раньше окна"));
+  c.tipLines = (c.tipLines || []).filter((l) => !l.startsWith("Позже Delivery") && !l.startsWith("⏳ Раньше окна") && !l.startsWith("⚠ Дата Delivery"));
   c.tipLines.unshift(...chk.lines);
   const composed = composeEta(row, c);
   const cell = tr.querySelector(".eta-cell");
@@ -1020,7 +1044,10 @@ async function calcRow(id) {
     const extra = speedTxt ? `<span class="st-speed"> · ${speedTxt}</span>` : "";
     const pauseIc = (data.tacho_rest_ahead || data.tacho_resting_now)
       ? `<span class="tacho-pause" title="${escapeHtml(tachoTip)}"></span>` : "";
-    const statusHtml = `<div class="status-line" title="${escapeHtml(data.status_ru + " " + data.duration_str + (tachoTip ? "\n" + tachoTip : ""))}">${statusLine1}${extra}${pauseIc}</div>`;
+    // v1.59: трак на объекте таргета (полигон Mapon или радиус 300 м)
+    const ot = data.on_target
+      ? `<span class="ot-pill" title="${escapeHtml(data.on_target.how === "object" ? "На объекте Mapon: " + data.on_target.name : "В радиусе 300 м от таргета")}">📍 на объекте</span>` : "";
+    const statusHtml = `<div class="status-line" title="${escapeHtml(data.status_ru + " " + data.duration_str + (data.on_target ? "\nна объекте" + (data.on_target.name ? ": " + data.on_target.name : "") : "") + (tachoTip ? "\n" + tachoTip : ""))}">${statusLine1}${extra}${pauseIc}${ot}</div>`;
     const statusClass = data.status === "driving" ? "status-driving" : "status-standing";
 
     statusCell.innerHTML = statusHtml;
@@ -1038,7 +1065,8 @@ async function calcRow(id) {
       // v1.33: две строки — простой ETA и ⏱ по тахографу; подробности в подсказке
       const tip = ["Простой ETA: км ÷ 70, без остановок"]
         .concat(data.eta_tacho ? ["⏱ По тахографу: " + data.eta_tacho].concat(data.tacho_summary || []) : [])
-        .concat(data.tacho_error ? ["Тахограф: " + data.tacho_error] : []);
+        .concat(data.tacho_error ? ["Тахограф: " + data.tacho_error] : [])
+        .concat(data.route_countries && data.route_countries.length > 1 ? ["Страны: " + data.route_countries.join(" → ")] : []);
       // v1.43: одна строка — ⏱ по тахографу крупно, простой мелко серым
       etaText = data.eta_tacho
         ? `<span class="eta-tacho">⏱ ${escapeHtml(data.eta_tacho)}</span><span class="eta-simple">${escapeHtml(data.eta_local)}</span>`
@@ -1051,6 +1079,12 @@ async function calcRow(id) {
       bansR = data.bans_route || [];
       const chk = deliveryCheck(row, data.eta_tacho || data.eta_local);
       late = chk.late;
+      // v1.59: стала опаздывать с прошлого расчёта — мигать до клика
+      const prevC = lastCalcText[id];
+      if (prevC && prevC.etaCore && prevC.late === false && late) {
+        blinkRows.add(id);
+        tr.classList.add("row-blink");
+      }
       etaCell.classList.toggle("eta-late", late);
       tip.unshift(...chk.lines);
       tipLines = tip;
@@ -1130,11 +1164,38 @@ async function calcRow(id) {
   }
 }
 
-function calcAllRows() {
+function calcAllRows(opts) {
   const jobs = rows.filter((r) => r.unit).map((r) => calcRow(r.id));
-  // v1.53: после "Обновить всё" (и загрузки) — пересортировать по выбранному режиму
-  Promise.allSettled(jobs).then(() => { if (sortMode !== "added") resort(); });
+  // v1.53: после "Обновить всё" (и загрузки) — пересортировать по выбранному режиму;
+  // v1.59: автообновление строки не переставляет
+  const resortAfter = !(opts && opts.auto);
+  Promise.allSettled(jobs).then(() => { if (resortAfter && sortMode !== "added") resort(); });
 }
+
+// ---------- v1.59: автообновление Флота ----------
+const AUTO_REFRESH_MS = 10 * 60 * 1000;
+let autoRefreshOn = true;
+try { autoRefreshOn = localStorage.getItem("fleetAuto") !== "0"; } catch (e) { /* ignore */ }
+let lastAutoAt = Date.now();
+setInterval(() => {
+  if (!autoRefreshOn || document.hidden) return;
+  if (document.querySelector(".com-ed")) return;                 // не мешать правке комментария
+  const a = document.activeElement;
+  if (a && a.closest && a.closest("#fleet-tbody") && a.tagName === "INPUT") return;   // идёт ввод
+  if (Date.now() - lastAutoAt < AUTO_REFRESH_MS - 5000) return;
+  lastAutoAt = Date.now();
+  calcAllRows({ auto: true });
+}, 30 * 1000);
+(function () {
+  const cb = document.getElementById("auto-refresh");
+  if (!cb) return;
+  cb.checked = autoRefreshOn;
+  cb.addEventListener("change", () => {
+    autoRefreshOn = cb.checked;
+    lastAutoAt = Date.now();
+    try { localStorage.setItem("fleetAuto", autoRefreshOn ? "1" : "0"); } catch (e) { /* ignore */ }
+  });
+})();
 
 function moveManual(id, dir) {
   if (sortMode !== "manual") return;
