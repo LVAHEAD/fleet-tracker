@@ -1,8 +1,11 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.61
+Версия: 1.62
 
 История изменений:
+1.62 (2026-09-27) — геокодинг городов/адресов: кеш на сутки, не чаще 1 запроса в секунду
+    к Nominatim, а если он отвечает 429 (Too many requests) — запасной геокодер Photon;
+    вместо сырой ошибки с URL — понятный текст; "lv" / "Латвия" в From/To и таргете = База (Рига)
 1.61 (2026-09-27) — разделы в разработке (GF построитель, Паромы, Truck Info): значок-каска перед
     названием вкладки и плашка "Этот раздел в разработке" вверху раздела (любой вкладке — атрибут
     data-wip); Флот: "автообновление 10 мин", колонка "Дистанция" вместо "Осталось км", заголовок
@@ -461,7 +464,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.61"
+APP_VERSION = "1.62"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -2074,18 +2077,16 @@ def resolve_target(target_str):
     if key in REGION_CODES:
         return REGION_CODES[key]["lat"], REGION_CODES[key]["lng"]
 
-    # 3. Город/адрес — геокодинг
-    resp = requests.get(
-        NOMINATIM_URL,
-        params={"q": target_str, "format": "json", "limit": 1},
-        headers={"User-Agent": "fleet-eta-tracker/1.0"},
-        timeout=15,
-    )
-    resp.raise_for_status()
-    results = resp.json()
-    if not results:
+    # v1.62: "lv" / "Латвия" — это База (Рига)
+    if is_base_word(target_str):
+        blat, blng, _ = base_point()
+        return blat, blng
+
+    # 3. Город/адрес — геокодинг (кеш + запасной геокодер)
+    g = geocode(target_str)
+    if not g:
         raise ValueError(f"Не удалось распознать таргет: {target_str}")
-    return float(results[0]["lat"]), float(results[0]["lon"])
+    return g["lat"], g["lng"]
 
 
 # v1.37: страны, где мы реально ездим (погрузки/выгрузки + транзит) — для
@@ -2094,21 +2095,87 @@ OUR_COUNTRIES = {"ES", "PT", "FR", "BE", "LU", "NL", "DE", "DK", "SE", "NO",
                  "FI", "EE", "LV", "LT", "PL", "IT", "AT"}
 
 
-def geocode_city(q):
-    """Nominatim с названием и страной найденного места: (lat, lng, display_name, cc)."""
+# v1.62: геокодинг города/адреса. Nominatim с общих IP Cloud Run часто отвечает 429
+# (Too many requests) — поэтому: кеш на 24 ч, не чаще 1 запроса в секунду к Nominatim,
+# а при 429/ошибке — запасной геокодер Photon (тоже OpenStreetMap, без ключа).
+PHOTON_URL = "https://photon.komoot.io/api/"
+GEO_CACHE_TTL = 24 * 3600
+_geo_cache = {}
+_geo_lock = threading.Lock()
+_geo_last_nominatim = [0.0]
+GEO_UA = {"User-Agent": "fleet-eta-tracker/1.62 (dispatch tool; https://github.com/LVAHEAD/fleet-tracker)"}
+
+
+def _geo_nominatim(q):
+    import time
+    with _geo_lock:
+        wait = 1.05 - (time.time() - _geo_last_nominatim[0])
+        if wait > 0:
+            time.sleep(wait)
+        _geo_last_nominatim[0] = time.time()
     resp = requests.get(
         NOMINATIM_URL,
         params={"q": q, "format": "json", "limit": 1, "addressdetails": 1, "accept-language": "ru"},
-        headers={"User-Agent": "fleet-eta-tracker/1.0"},
-        timeout=15,
+        headers=GEO_UA, timeout=15,
     )
     resp.raise_for_status()
     res = resp.json()
     if not res:
-        return None, None, None, None
+        return None
     r = res[0]
     cc = ((r.get("address") or {}).get("country_code") or "").upper() or None
-    return float(r["lat"]), float(r["lon"]), r.get("display_name") or q, cc
+    return {"lat": float(r["lat"]), "lng": float(r["lon"]), "name": r.get("display_name") or q, "cc": cc}
+
+
+def _geo_photon(q):
+    resp = requests.get(PHOTON_URL, params={"q": q, "limit": 1}, headers=GEO_UA, timeout=15)
+    resp.raise_for_status()
+    feats = (resp.json() or {}).get("features") or []
+    if not feats:
+        return None
+    f = feats[0]
+    lng, lat = f["geometry"]["coordinates"][:2]
+    pr = f.get("properties") or {}
+    parts = [pr.get("name"), pr.get("city") or pr.get("county"), pr.get("state"), pr.get("country")]
+    name = ", ".join(dict.fromkeys(x for x in parts if x)) or q
+    cc = (pr.get("countrycode") or "").upper() or None
+    return {"lat": float(lat), "lng": float(lng), "name": name, "cc": cc}
+
+
+def geocode(q):
+    """dict(lat, lng, name, cc) или None, если место не найдено.
+    Если оба геокодера недоступны — ValueError с понятным текстом."""
+    import time
+    key = re.sub(r"\s+", " ", str(q or "").strip().lower())
+    if not key:
+        return None
+    now = time.time()
+    hit = _geo_cache.get(key)
+    if hit and now - hit[0] < GEO_CACHE_TTL:
+        return hit[1]
+    res, errors = None, []
+    for fn in (_geo_nominatim, _geo_photon):
+        try:
+            res = fn(q)
+            errors = []
+            break
+        except Exception as e:
+            code = getattr(getattr(e, "response", None), "status_code", None)
+            errors.append(f"{fn.__name__[5:]}: {code or type(e).__name__}")
+    if errors:
+        print(f"geocode failed for {q!r}: {errors}", flush=True)
+        raise ValueError(f"Геокодер сейчас не отвечает ({'; '.join(errors)}). "
+                         f"Попробуйте через минуту или введите код региона / GPS.")
+    _geo_cache[key] = (now, res)
+    return res
+
+
+def geocode_city(q):
+    """Город/адрес с названием и страной найденного места: (lat, lng, display_name, cc)."""
+    g = geocode(q)
+    if not g:
+        return None, None, None, None
+    return g["lat"], g["lng"], g["name"], g["cc"]
 
 
 def resolve_place_label(target_str):
@@ -2609,6 +2676,14 @@ DOVOZ_COUNTRY_WORDS = {
 }
 
 
+# v1.62: "lv" / "Латвия" в поле From/To или таргете — это База в Риге
+BASE_COUNTRY_WORDS = {"lv", "lat", "latvia", "latvija", "lettland", "латвия", "лат", "лв", "база", "baza"}
+
+
+def is_base_word(raw):
+    return re.sub(r"[\s.\-_]", "", str(raw or "")).lower() in BASE_COUNTRY_WORDS
+
+
 def dovoz_country(raw):
     """"fin" / "FI" / "Финляндия" -> "FI"; "ee" / "Эстония" -> "EE"; иначе None."""
     k = re.sub(r"[\s.\-_]", "", str(raw or "")).lower()
@@ -2895,6 +2970,19 @@ def resolve_point(raw, units_getter):
             "near_code": code,
             "code": code if d <= NEAR_LABEL_MAX_KM else None,
             "is_truck": True,
+        }
+
+    # v1.62: "lv" / "Латвия" — просто База
+    if is_base_word(raw):
+        blat, blng, bname = base_point()
+        code, d = nearest_region_code(blat, blng)
+        return {
+            "lat": blat, "lng": blng,
+            "label": f"База ({bname})",
+            "country": "LV",
+            "near_code": code,
+            "code": code if d <= NEAR_LABEL_MAX_KM else None,
+            "is_truck": False,
         }
 
     # v1.40: страна через Базу (fin / ee ...) — маршрут до Базы + плашка "+довоз"
