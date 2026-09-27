@@ -1,8 +1,10 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.68
+Версия: 1.69
 
 История изменений:
+1.69 (2026-09-27) — служебная выгрузка всех юнитов Mapon с группами: /api/mapon-units
+    и /api/mapon-units?unit=<номер>&raw=1 (сырые данные, include рефки/температуры) — ищем прицепы
 1.68 (2026-09-27) — Delivery: только время ("22.00", "22:00", "09-15", "до 15") = сегодня;
     "22.00" больше не читается как невалидная дата 22/00
 1.67 (2026-09-27) — Флот: свёрнутая строка с 3+ точками — ровно 2 строки (① ② и кнопка "+N"),
@@ -483,7 +485,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.68"
+APP_VERSION = "1.69"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -3377,6 +3379,70 @@ def _wkt_center(wkt):
     if abs(lat) > 90:                      # на случай долготы первой
         lat, lng = lng, lat
     return round(lat, 5), round(lng, 5), len(pts)
+
+
+@app.route("/api/mapon-units")
+def api_mapon_units():
+    """v1.69: служебная выгрузка ВСЕХ юнитов Mapon с группами — найти прицепы.
+    /api/mapon-units            — таблица: id, номер, label, группы, тип, координаты, статус, поля
+    /api/mapon-units?unit=<номер>&raw=1 — сырые данные одного юнита (с include рефки/температуры)"""
+    import json
+    if not MAPON_API_KEY:
+        return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
+    # группы юнитов: id -> имя, и юнит -> [группы]
+    groups, unit_groups, gerr = {}, {}, None
+    try:
+        gl = mapon_get(MAPON_BASE + "unit_groups/list.json", {"key": MAPON_API_KEY}).get("data") or {}
+        for g in gl.get("groups") or gl.get("unit_groups") or (gl if isinstance(gl, list) else []):
+            if not isinstance(g, dict):
+                continue
+            gid = g.get("id")
+            groups[gid] = g.get("name") or g.get("title") or str(gid)
+            try:
+                for uid in fetch_group_unit_ids(MAPON_API_KEY, gid):
+                    unit_groups.setdefault(uid, []).append(groups[gid])
+            except Exception:
+                pass
+    except Exception as e:
+        gerr = str(e)
+    q = re.sub(r"[^0-9a-zа-я]", "", str(request.args.get("unit") or "").lower())
+    if q and request.args.get("raw") == "1":
+        out = {}
+        for inc in (["reefer", "temperature", "fuel", "in_object", "driver", "device", "can"], []):
+            try:
+                params = {"key": MAPON_API_KEY}
+                if inc:
+                    params["include[]"] = inc
+                units = mapon_get(MAPON_API_URL, params, timeout=40)["data"]["units"]
+            except Exception as e:
+                out[f"include={inc or 'нет'}"] = f"ошибка: {e}"
+                continue
+            norm = lambda x: re.sub(r"[^0-9a-zа-я]", "", str(x or "").lower())
+            u = next((u for u in units if str(u.get("unit_id")) == q
+                      or q == norm(u.get("number")) or q == norm(u.get("label"))), None)
+            out[f"include={inc or 'нет'}"] = u if u else "юнит не найден"
+            out["группы"] = unit_groups.get((u or {}).get("unit_id"), [])
+            break
+        return app.response_class(json.dumps(out, ensure_ascii=False, indent=1),
+                                  mimetype="application/json; charset=utf-8")
+    try:
+        units = fetch_units(MAPON_API_KEY, force=True)
+    except Exception as e:
+        return jsonify({"error": f"unit/list: {e}"}), 502
+    rows = []
+    for u in units:
+        st = u.get("state") or {}
+        rows.append({"unit_id": u.get("unit_id"), "number": u.get("number"), "label": u.get("label"),
+                     "groups": unit_groups.get(u.get("unit_id"), []),
+                     "type": u.get("type") or u.get("vehicle_type") or u.get("unit_type"),
+                     "title": u.get("vehicle_title"),
+                     "gps": f"{u['lat']:.5f}, {u['lng']:.5f}" if u.get("lat") is not None else "",
+                     "state": st.get("name"), "last_update": u.get("last_update"),
+                     "fields": sorted(u.keys())})
+    rows.sort(key=lambda r: (",".join(r["groups"]), str(r["number"] or r["label"] or "")))
+    return app.response_class(json.dumps({"count": len(rows), "groups": groups, "groups_error": gerr,
+                                          "units": rows}, ensure_ascii=False, indent=1),
+                              mimetype="application/json; charset=utf-8")
 
 
 @app.route("/api/mapon-objects")
