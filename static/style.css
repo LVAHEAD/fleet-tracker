@@ -541,3 +541,8 @@ body.sort-manual #fleet-tbody td:first-child .unit-input { width: calc(100% - 16
 body.sort-manual .manual-only { display: block; }
 #fleet-tbody tr.drop-before td { box-shadow: inset 0 2px 0 #2f6fd6; }
 #fleet-tbody tr.drop-after td { box-shadow: inset 0 -2px 0 #2f6fd6; }
+
+/* ---------- v1.55: постоянные ссылки в блокноте ---------- */
+.fixed-links { display: flex; flex-direction: column; gap: 5px; }
+.fixed-links a { color: #2f6fd6; text-decoration: none; }
+.fixed-links a:hover { text-decoration: underline; }

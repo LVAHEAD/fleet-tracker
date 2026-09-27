@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.54 (окна Delivery: 09-15, before 15, between 01 to 04…; "раньше окна").
+Версия: 1.55 (сортировка по Delivery; ссылки в блокноте).
+Ранее 1.54 (окна Delivery: 09-15, before 15, between 01 to 04…; "раньше окна").
 Ранее 1.53 (сортировка Флота: как добавляли / L→O / O→L / руками).
 Ранее 1.50 (Delivery/Примечание без пересчёта маршрута).
 Ранее 1.48 (NoBan — кнопка в ETA; вернулась бледная заливка строк L/O).
@@ -452,13 +453,16 @@ function saveSortState() {
 }
 
 function urgencyKey(row) {
-  // [0, запас до Delivery в мс] — отрицательный = опаздывает; сортировка по возрастанию:
-  // сначала самые опоздавшие, потом с наименьшим запасом. Без даты Delivery — [1, ETA].
+  // v1.55: [0, …] — опаздывающие (ETA позже конца окна), по Delivery;
+  // [1, начало окна Delivery (или срок)] — остальные по Delivery, раньше — выше;
+  // [2, ETA] — без распознанной даты Delivery.
   const c = lastCalcText[row.id];
-  const delD = parseDelivery(row.delivery);
+  const w = parseDeliveryWindow(row.delivery);
   const etaD = c && c.etaStr ? parseEta(c.etaStr) : null;
-  if (delD && etaD) return [0, delD - etaD];
-  return [1, etaD ? etaD.getTime() : Infinity];
+  const dKey = w ? (w.start || w.end) : null;
+  if (dKey && w.end && etaD && etaD > w.end) return [0, dKey.getTime()];
+  if (dKey) return [1, dKey.getTime()];
+  return [2, etaD ? etaD.getTime() : Infinity];
 }
 
 function computeOrder() {
