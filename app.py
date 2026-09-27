@@ -1,8 +1,11 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.50
+Версия: 1.51
 
 История изменений:
+1.51 (2026-09-27) — плашка-счётчик запросов к Google Routes справа от [.]: месяц / 10 000
+    бесплатных (цифры из Cloud Monitoring, как в консоли), сегодня, прогноз на месяц,
+    сколько сэкономил кеш; нужна роль Monitoring Viewer у сервисного аккаунта
 1.50 (2026-09-27) — экономия запросов к Google Routes:
     - правка Delivery / Примечания во Флоте больше не пересчитывает маршрут
       (Delivery — только проверка красного ETA на месте)
@@ -427,7 +430,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.50"
+APP_VERSION = "1.51"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -2096,6 +2099,22 @@ def resolve_place_label(target_str):
 ROUTE_CACHE_TTL = 15 * 60
 _route_cache = {}
 _route_cache_lock = threading.Lock()
+_route_stats = {"day": None, "calls": 0, "cache_hits": 0}   # v1.51: за сутки квоты (по времени Google)
+
+
+def _quota_day():
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("America/Los_Angeles")).strftime("%Y-%m-%d")
+    except Exception:
+        return (datetime.now(timezone.utc) - timedelta(hours=7)).strftime("%Y-%m-%d")
+
+
+def _route_stat(kind):
+    day = _quota_day()
+    if _route_stats["day"] != day:
+        _route_stats.update(day=day, calls=0, cache_hits=0)
+    _route_stats[kind] += 1
 
 
 def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None):
@@ -2106,7 +2125,9 @@ def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None):
     with _route_cache_lock:
         hit = _route_cache.get(key)
         if hit and now - hit[0] < ROUTE_CACHE_TTL:
+            _route_stat("cache_hits")
             return hit[1]
+        _route_stat("calls")
     res = _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints)
     with _route_cache_lock:
         if len(_route_cache) > 2000:
@@ -2853,7 +2874,9 @@ def compute_multi_route(points, api_key):
     with _route_cache_lock:
         hit = _route_cache.get(("multi",) + key)
         if hit and now - hit[0] < ROUTE_CACHE_TTL:
+            _route_stat("cache_hits")
             return hit[1]
+        _route_stat("calls")
     res = _compute_multi_route(points, api_key)
     with _route_cache_lock:
         _route_cache[("multi",) + key] = (now, res)
@@ -2938,6 +2961,73 @@ def api_units():
         return jsonify({"units": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 502
+
+
+# ---------- v1.51: счётчик запросов к Google Routes (Cloud Monitoring) ----------
+GOOGLE_PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT") or "my-n8n-bot-496614"
+ROUTES_FREE_MONTH = 10000
+_gusage_cache = {"at": 0.0, "data": None}
+
+
+def _monitoring_sum(token, start, end):
+    """Сумма запросов к routes.googleapis.com за интервал (как на графике в консоли)."""
+    secs = max(60, int((end - start).total_seconds()))
+    params = {
+        "filter": 'metric.type="serviceruntime.googleapis.com/api/request_count" '
+                  'AND resource.type="consumed_api" AND resource.labels.service="routes.googleapis.com"',
+        "interval.startTime": start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "interval.endTime": end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "aggregation.alignmentPeriod": f"{secs}s",
+        "aggregation.perSeriesAligner": "ALIGN_SUM",
+        "aggregation.crossSeriesReducer": "REDUCE_SUM",
+    }
+    r = requests.get(f"https://monitoring.googleapis.com/v3/projects/{GOOGLE_PROJECT_ID}/timeSeries",
+                     params=params, headers={"Authorization": f"Bearer {token}"}, timeout=20)
+    if r.status_code == 403:
+        raise PermissionError("нет доступа к Cloud Monitoring: выдайте сервисному аккаунту роль Monitoring Viewer")
+    r.raise_for_status()
+    total = 0
+    for ts in r.json().get("timeSeries") or []:
+        for pt in ts.get("points") or []:
+            v = pt.get("value") or {}
+            total += int(v.get("int64Value") or v.get("doubleValue") or 0)
+    return total
+
+
+@app.route("/api/google-usage")
+def api_google_usage():
+    import time
+    now = time.time()
+    if _gusage_cache["data"] and now - _gusage_cache["at"] < 600 and request.args.get("refresh") != "1":
+        return jsonify(_gusage_cache["data"])
+    try:
+        from zoneinfo import ZoneInfo
+        pt = ZoneInfo("America/Los_Angeles")
+    except Exception:
+        pt = timezone(timedelta(hours=-7))
+    end = datetime.now(timezone.utc)
+    local = end.astimezone(pt)
+    day0 = local.replace(hour=0, minute=0, second=0, microsecond=0)
+    month0 = day0.replace(day=1)
+    out = {"free": ROUTES_FREE_MONTH, "local_day": _route_stats.get("day"),
+           "calls_local": _route_stats.get("calls", 0) if _route_stats.get("day") == _quota_day() else 0,
+           "cache_hits": _route_stats.get("cache_hits", 0) if _route_stats.get("day") == _quota_day() else 0}
+    try:
+        import google.auth
+        import google.auth.transport.requests
+        creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/monitoring.read"])
+        creds.refresh(google.auth.transport.requests.Request())
+        out["month"] = _monitoring_sum(creds.token, month0.astimezone(timezone.utc), end)
+        out["today"] = _monitoring_sum(creds.token, day0.astimezone(timezone.utc), end)
+        # прогноз на месяц по среднему за прошедшие дни
+        import calendar
+        days_in = calendar.monthrange(local.year, local.month)[1]
+        elapsed = max(1.0, (local - month0).total_seconds() / 86400)
+        out["forecast"] = int(out["month"] / elapsed * days_in)
+    except Exception as e:
+        out["error"] = str(e)
+    _gusage_cache.update(at=now, data=out)
+    return jsonify(out)
 
 
 # ---------- v1.42: Truck Info — недельные отдыхи, карты, стоянки ----------

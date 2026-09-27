@@ -22,6 +22,7 @@
   <button class="main-tab-btn ref-tab" data-tab="maps">Карты стран</button>
   <button class="main-tab-btn ref-tab" data-tab="truckinfo">Truck Info</button>
   <button class="main-tab-btn ref-tab" data-tab="notes" title="Блокнот">[.]</button>
+  <a id="g-usage" class="g-usage" href="https://console.cloud.google.com/billing/reports?project=my-n8n-bot-496614" target="_blank" rel="noopener" title="Запросы к Google Routes">G …</a>
 </nav>
 
 <!-- ==================== Вкладка: Флот ==================== -->
@@ -208,6 +209,7 @@
 <script src="{{ url_for('static', filename='notes.js') }}"></script>
 <script src="{{ url_for('static', filename='bans-tab.js') }}"></script>
 <script src="{{ url_for('static', filename='truckinfo.js') }}"></script>
+<script src="{{ url_for('static', filename='gusage.js') }}"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_js_key }}&libraries=geometry&callback=initMap" async defer></script>
 </body>
 </html>
