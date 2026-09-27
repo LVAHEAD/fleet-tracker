@@ -1,8 +1,13 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.70
+Версия: 1.71
 
 История изменений:
+1.71 (2026-09-27) — прицепы, шаг 2: привязка прицепа к тягачу — кнопкой по найденной сцепке
+    (у прицепа "🔗 к тягачу", у тягача "🔗?") или вручную (⋯ → "🔗 прицеп…", номер с подсказками);
+    привязанный прицеп — во второй строке Статуса тягача с рефкой, × — отвязать (прицеп
+    возвращается отдельной строкой); дальше 1 км от тягача — "⚠ прицеп в N км" и на карте
+    квадратик с пунктиром до тягача; топливо рефа < 40 л — красным
 1.70 (2026-09-27) — прицепы из Mapon (type "trailer", 109 шт.): в подсказках номера (помечены "прицеп"),
     строкой во Флоте (метка П, без тахографа), как Таргет (перецеп на прицеп), на карте — квадратик;
     рефка: ❄ возврат по отсекам, подсказка уставка/возврат/подача/время, топливо рефа, красным если
@@ -491,7 +496,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.70"
+APP_VERSION = "1.71"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1701,6 +1706,8 @@ HITCH_STANDING_KM = 0.05   # оба стоят и ближе 50 м — веро�
 HITCH_BASE_KM = 1.5        # на Базе прицепы стоят кучей — сцепку не угадываем
 REEFER_DEV_WARN = 3.0      # отклонение возврата от уставки, °C — подсветка
 REEFER_STALE_SEC = 2 * 3600
+REEFER_FUEL_LOW_L = 40     # v1.71: мало топлива в баке рефа, л
+TRAILER_FAR_KM = 1.0       # v1.71: привязанный прицеп дальше — предупреждение
 
 
 def is_trailer(u):
@@ -1731,8 +1738,9 @@ def reefer_summary(u):
     rf = (u or {}).get("reefer")
     fuel = next((f.get("value") for f in (u or {}).get("fuel") or []
                  if isinstance(f, dict) and f.get("value") is not None), None)
+    fuel_low = fuel is not None and fuel < REEFER_FUEL_LOW_L
     if not isinstance(rf, dict):
-        return {"compartments": [], "fuel_l": fuel} if fuel is not None else None
+        return {"compartments": [], "fuel_l": fuel, "fuel_low": fuel_low} if fuel is not None else None
     try:
         count = int(rf.get("refrigerator_compartment_count") or 0)
     except (TypeError, ValueError):
@@ -1755,7 +1763,8 @@ def reefer_summary(u):
                       "stale": bool(at and now - at > REEFER_STALE_SEC),
                       "at": (datetime.fromtimestamp(at, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M") if at else None})
     warn = any(c["dev"] is not None and abs(c["dev"]) > REEFER_DEV_WARN and not c["stale"] for c in comps)
-    return {"type": rf.get("refrigerator_type"), "compartments": comps, "fuel_l": fuel, "warn": warn}
+    return {"type": rf.get("refrigerator_type"), "compartments": comps, "fuel_l": fuel,
+            "fuel_low": fuel_low, "warn": warn}
 
 
 def time_now_ts():
@@ -3941,6 +3950,23 @@ def api_calc():
                 result["reefer"] = reefer_summary(fetch_reefer_units().get(unit.get("unit_id")))
             except Exception as e:
                 result["reefer_error"] = str(e)
+        # v1.71: прицеп, привязанный к тягачу вручную (строка Флота) — где он и что с рефкой
+        lt = str(payload.get("trailer") or "").strip()
+        if lt and not trailer:
+            tu = find_unit_exact(units, lt)
+            if tu is None:
+                result["linked_trailer"] = {"number": lt, "error": "прицеп не найден в Mapon"}
+            else:
+                info = {"number": tu.get("number") or lt, "lat": tu.get("lat"), "lng": tu.get("lng"),
+                        "status": (tu.get("state") or {}).get("name")}
+                if None not in (unit.get("lat"), unit.get("lng"), tu.get("lat"), tu.get("lng")):
+                    info["km"] = round(haversine_km(unit["lat"], unit["lng"], tu["lat"], tu["lng"]), 2)
+                    info["far"] = info["km"] > TRAILER_FAR_KM
+                try:
+                    info["reefer"] = reefer_summary(fetch_reefer_units().get(tu.get("unit_id")))
+                except Exception as e:
+                    info["reefer_error"] = str(e)
+                result["linked_trailer"] = info
 
         try:
             tgt = resolve_fleet_target(target_str, units, unit)

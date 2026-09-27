@@ -711,3 +711,22 @@ body { max-width: 95vw; }
 .mk-badge.mk-trailer { border-style: dashed; }
 .hitch-ic { margin-left: 5px; font-size: 11px; cursor: default; }
 .mk-badge.mk-trailer { box-shadow: inset 4px 0 0 #7b4fc0; }
+
+/* ---------- v1.71: привязка прицепа к тягачу ---------- */
+button.hitch-pill, button.hitch-ic { border: 0; font-family: inherit; line-height: 16px; cursor: pointer; }
+button.hitch-pill:hover { background: #e6dfcc; }
+button.hitch-ic { background: #f1eee6; color: #5c4a1e; border-radius: 8px; padding: 0 4px; font-weight: 600; }
+button.hitch-ic:hover { background: #e6dfcc; }
+.hitch-pill.rf-warn { background: #fde2e1; color: #a12622; }
+.rf-fuel-low { color: #a12622; font-weight: 700; opacity: 1; }
+.trl-far { padding: 0 5px; border-radius: 8px; background: #fff1d6; color: #8a5a00; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.trl-unlink { border: 0; background: none; color: #999; font-size: 13px; line-height: 16px; padding: 0 2px; cursor: pointer; }
+.trl-unlink:hover { color: #a12622; }
+.trl-ed { position: fixed; z-index: 1000; background: #fff; border: 1px solid #d0d0d0; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.15); padding: 10px; width: 220px; }
+.trl-ed-t { font-size: 12px; color: #666; margin-bottom: 6px; }
+.trl-ed-in { width: 100%; box-sizing: border-box; padding: 5px 7px; border: 1px solid #ccc; border-radius: 5px; font-size: 13px; }
+.trl-ed-err { color: #a12622; font-size: 11.5px; margin-top: 4px; }
+.trl-ed-b { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
+.trl-ed-b button { font-size: 12px; padding: 3px 9px; border-radius: 5px; border: 1px solid #ccc; background: #f6f6f6; cursor: pointer; }
+.trl-ed-b .trl-ed-ok { background: #1D9E75; border-color: #1D9E75; color: #fff; }
+.status-cell .status-line2 { flex-wrap: wrap; row-gap: 2px; }

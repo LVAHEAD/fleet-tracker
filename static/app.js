@@ -197,6 +197,31 @@ function removeMarker(rowId) {
     delete truckBadges[rowId];
   }
   delete lastTruckPos[rowId];
+  removeTrailerLink(rowId);
+}
+
+// v1.71: привязанный прицеп на карте — только если он дальше 1 км: квадратик + пунктир до тягача
+const trailerLinks = {}; // rowId -> {marker, badge, line}
+function removeTrailerLink(rowId) {
+  const t = trailerLinks[rowId];
+  if (!t) return;
+  if (t.marker) t.marker.setMap(null);
+  if (t.badge) t.badge.setMap(null);
+  if (t.line) t.line.setMap(null);
+  delete trailerLinks[rowId];
+}
+function updateTrailerLink(rowId, tLat, tLng, lt) {
+  removeTrailerLink(rowId);
+  if (!map || !lt || !lt.far || lt.lat == null || lt.lng == null) return;
+  const pos = { lat: lt.lat, lng: lt.lng };
+  const marker = new google.maps.Marker({ position: pos, map, icon: markerIcon(lt.status, true), title: lt.number, zIndex: 19 });
+  const cls = `mk-badge ${lt.status === "driving" ? "mk-driving" : "mk-standing"} mk-trailer`;
+  const badge = makeBadge(lt.lat, lt.lng, escapeHtml(lt.number), cls, 11, () => { map.panTo(pos); map.setZoom(9); });
+  const line = new google.maps.Polyline({
+    path: [{ lat: tLat, lng: tLng }, pos], map, strokeOpacity: 0, zIndex: 5,
+    icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.8, strokeColor: "#7b4fc0", scale: 3 }, offset: "0", repeat: "12px" }],
+  });
+  trailerLinks[rowId] = { marker, badge, line };
 }
 
 function centerMapOn(rowId) {
@@ -410,6 +435,15 @@ async function loadUnitsList() {
         if (u.kind === "trailer") opt.label = "прицеп";
         datalist.appendChild(opt);
       });
+      const tl = document.getElementById("trailers-list");
+      if (tl) {
+        tl.innerHTML = "";
+        unitsCache.filter((u) => u.kind === "trailer").forEach((u) => {
+          const o = document.createElement("option");
+          o.value = u.number;
+          tl.appendChild(o);
+        });
+      }
       rebuildPointsList();
     }
   } catch (e) {
@@ -588,6 +622,7 @@ function renderRows() {
         <button class="refresh-row-btn" title="Обновить строку">↻</button>
         <span class="wide-acts">
           <button class="add-btn-w" title="Добавить строку ниже">+</button>
+          <button class="trl-btn-w" title="Прицеп: привязать / сменить">🔗</button>
           <button class="del-btn-w" title="Удалить строку (два клика)">🗑</button>
           <button class="mv-up-w manual-inline" title="Выше">↑</button>
           <button class="mv-down-w manual-inline" title="Ниже">↓</button>
@@ -599,6 +634,7 @@ function renderRows() {
             <button class="mv-up manual-only">↑ выше</button>
             <button class="mv-down manual-only">↓ ниже</button>
             <button class="add-btn">+ строка ниже</button>
+            <button class="trl-btn">🔗 прицеп…</button>
             <button class="del-btn">✕ удалить строку</button>
           </span>
         </span>
@@ -789,6 +825,15 @@ function attachRowHandlers() {
       if (d) d.placeholder = deliveryPlaceholder(x.lo);
       recolorTargetMarker(id + "_" + k, row.unit + " " + STOP_NUM[k + 1], x.lo);
     }));
+    tr.querySelector(".trl-btn-w").addEventListener("click", (e) => {
+      e.stopPropagation();
+      openTrailerEditor(id, e.currentTarget);
+    });
+    tr.querySelector(".trl-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeRowMenus();
+      openTrailerEditor(id, tr.querySelector(".more-btn"));
+    });
     tr.querySelector(".mv-up").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, -1); });
     tr.querySelector(".mv-down").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, 1); });
 
@@ -1086,6 +1131,121 @@ function openComEditor(id, anchor) {
   window.addEventListener("scroll", () => { hideComPop(); }, true);
 })();
 
+// ---------- v1.71: привязка прицепа к тягачу ----------
+const normNo = (s) => String(s || "").toUpperCase().replace(/[\s\-]/g, "");
+function isTrailerNo(n) {
+  return (unitsCache || []).some((u) => u.kind === "trailer" && normNo(u.number) === normNo(n));
+}
+function dropRow(id) {
+  rows = rows.filter((r) => r.id !== id);
+  removeMarker(id);
+  removeTargetMarker(id);
+  removeExtraTargets(id);
+  delete rowPositions[id];
+  delete lastCalcText[id];
+  if (displayOrder) displayOrder = displayOrder.filter((x) => x !== id);
+  if (sortMode === "manual") { manualOrder = manualOrder.filter((x) => x !== id); saveSortState(); }
+}
+function insertRowAfter(id, nr) {
+  const idx = rows.findIndex((r) => r.id === id);
+  rows.splice(idx + 1, 0, nr);
+  if (displayOrder) { const di = displayOrder.indexOf(id); displayOrder.splice(di + 1, 0, nr.id); }
+  if (sortMode === "manual") { const mi = manualOrder.indexOf(id); manualOrder.splice(mi + 1, 0, nr.id); saveSortState(); }
+}
+// тягачу truckId привязать прицеп trailerNo; строка этого прицепа во Флоте (если есть) уходит
+function linkTrailer(truckId, trailerNo) {
+  const truck = rows.find((r) => r.id === truckId);
+  if (!truck) return;
+  truck.trailer = String(trailerNo || "").trim();
+  rows.filter((r) => r.id !== truckId && normNo(r.unit) === normNo(truck.trailer)).forEach((r) => dropRow(r.id));
+  saveRows();
+  renderRows();
+  calcRow(truckId);
+}
+// строку прицепа trailerRowId — к тягачу truckNo: есть строка тягача — туда, нет — строка становится тягачом
+function linkTrailerRowToTruck(trailerRowId, truckNo) {
+  const tRow = rows.find((r) => r.id === trailerRowId);
+  if (!tRow) return;
+  const truck = rows.find((r) => r.id !== trailerRowId && normNo(r.unit) === normNo(truckNo));
+  if (truck) return linkTrailer(truck.id, tRow.unit);
+  tRow.trailer = tRow.unit;
+  tRow.unit = truckNo;
+  delete lastCalcText[trailerRowId];
+  removeMarker(trailerRowId);
+  saveRows();
+  renderRows();
+  calcRow(trailerRowId);
+}
+function unlinkTrailer(truckId) {
+  const truck = rows.find((r) => r.id === truckId);
+  if (!truck || !truck.trailer) return;
+  const no = truck.trailer;
+  truck.trailer = "";
+  removeTrailerLink(truckId);
+  let nr = null;
+  if (!rows.some((r) => normNo(r.unit) === normNo(no))) {
+    nr = emptyRow();
+    nr.unit = no;
+    insertRowAfter(truckId, nr);
+  }
+  saveRows();
+  renderRows();
+  calcRow(truckId);
+  if (nr) calcRow(nr.id);
+}
+let trlEd = null;
+function closeTrailerEditor() { if (trlEd) { trlEd.remove(); trlEd = null; } }
+function openTrailerEditor(id, anchor) {
+  closeTrailerEditor();
+  const row = rows.find((r) => r.id === id);
+  if (!row) return;
+  trlEd = document.createElement("div");
+  trlEd.className = "trl-ed";
+  trlEd.innerHTML = `<div class="trl-ed-t">Прицеп для ${escapeHtml(row.unit || "строки")}</div>
+    <input list="trailers-list" class="trl-ed-in" autocomplete="off" placeholder="номер прицепа" value="${escapeHtml(row.trailer || "")}">
+    <div class="trl-ed-err" hidden></div>
+    <div class="trl-ed-b"><button class="trl-ed-ok">Привязать</button><button class="trl-ed-cancel">Отмена</button></div>`;
+  document.body.appendChild(trlEd);
+  const r = anchor.getBoundingClientRect();
+  trlEd.style.top = Math.min(window.innerHeight - trlEd.offsetHeight - 8, r.bottom + 4) + "px";
+  trlEd.style.left = Math.max(8, r.right - trlEd.offsetWidth) + "px";
+  const inp = trlEd.querySelector(".trl-ed-in");
+  const err = trlEd.querySelector(".trl-ed-err");
+  const ok = () => {
+    const v = inp.value.trim();
+    if (!v) { closeTrailerEditor(); if (row.trailer) unlinkTrailer(id); return; }
+    if ((unitsCache || []).length && !isTrailerNo(v)) {
+      err.textContent = "Такого прицепа нет в Mapon";
+      err.hidden = false;
+      return;
+    }
+    const hit = (unitsCache || []).find((u) => u.kind === "trailer" && normNo(u.number) === normNo(v));
+    closeTrailerEditor();
+    linkTrailer(id, hit ? hit.number : v);
+  };
+  trlEd.querySelector(".trl-ed-ok").addEventListener("click", ok);
+  trlEd.querySelector(".trl-ed-cancel").addEventListener("click", closeTrailerEditor);
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") ok();
+    if (e.key === "Escape") closeTrailerEditor();
+  });
+  trlEd.addEventListener("mousedown", (e) => e.stopPropagation());
+  inp.focus();
+  inp.select();
+}
+document.addEventListener("mousedown", () => closeTrailerEditor());
+(function () {
+  document.getElementById("fleet-tbody").addEventListener("click", (e) => {
+    const b = e.target.closest && e.target.closest(".hitch-link, .trl-unlink");
+    if (!b) return;
+    e.stopPropagation();
+    const id = Number(b.closest("tr").dataset.id);
+    if (b.classList.contains("trl-unlink")) return unlinkTrailer(id);
+    if (b.dataset.truck) return linkTrailerRowToTruck(id, b.dataset.truck);
+    if (b.dataset.trailer) return linkTrailer(id, b.dataset.trailer);
+  });
+})();
+
 function closeRowMenus() {
   document.querySelectorAll("#fleet-tbody .row-menu").forEach((m) => { m.hidden = true; });
 }
@@ -1251,9 +1411,10 @@ async function calcRow(id) {
     const res = await fetch("/api/calc", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(row.extra && row.extra.length
-        ? { unit: row.unit, target: row.target, extra: row.extra.map((x) => x.target || "") }
-        : { unit: row.unit, target: row.target }),
+      body: JSON.stringify(Object.assign(
+        { unit: row.unit, target: row.target },
+        row.extra && row.extra.length ? { extra: row.extra.map((x) => x.target || "") } : {},
+        row.trailer ? { trailer: row.trailer } : {})),
     });
     const data = await res.json();
 
@@ -1287,9 +1448,17 @@ async function calcRow(id) {
     // v1.70: прицеп — рефка; сцепка тягач ↔ прицеп (угадана по координатам)
     const trTag = data.is_trailer ? '<span class="trl-tag" title="Прицеп">П</span>' : "";
     const reeferHtml = data.is_trailer ? reeferPillHtml(data) : "";
-    // у прицепа — вторая строка (рефка + тягач), у тягача — только значок 🔗 в первой строке
-    const hitchHtml = hitchPillHtml(data, !data.is_trailer);
-    const line2 = data.is_trailer && (reeferHtml || hitchHtml) ? `<div class="status-line2">${reeferHtml}${hitchHtml}</div>` : "";
+    // у прицепа — вторая строка (рефка + кнопка "к тягачу"); у тягача с привязанным прицепом —
+    // вторая строка с прицепом; без привязки — кнопка 🔗? в первой строке (v1.71)
+    let hitchHtml = "", line2 = "";
+    if (data.is_trailer) {
+      hitchHtml = hitchPillHtml(data, false);
+      if (reeferHtml || hitchHtml) line2 = `<div class="status-line2">${reeferHtml}${hitchHtml}</div>`;
+    } else if (row.trailer) {
+      line2 = `<div class="status-line2">${linkedTrailerHtml(row.trailer, data.linked_trailer)}</div>`;
+    } else {
+      hitchHtml = hitchPillHtml(data, true);
+    }
     const statusHtml = `<div class="status-line" title="${escapeHtml(data.status_ru + " " + data.duration_str + (data.on_target ? "\nна объекте" + (data.on_target.name ? ": " + data.on_target.name : "") : "") + (tachoTip ? "\n" + tachoTip : ""))}">${trTag}${statusLine1}${extra}${pauseIc}${ot}${data.is_trailer ? "" : hitchHtml}</div>${line2}`;
     const statusClass = data.status === "driving" ? "status-driving" : "status-standing";
 
@@ -1385,6 +1554,8 @@ async function calcRow(id) {
       // ошибка отрисовки на карте не должна ломать строку таблицы
       try { updateMarker(id, data.unit_lat, data.unit_lng, data.number, data.status, data.direction, data.dist_km, data.is_trailer); }
       catch (err) { console.error("updateMarker", err); }
+      try { updateTrailerLink(id, data.unit_lat, data.unit_lng, row.trailer ? data.linked_trailer : null); }
+      catch (err) { console.error("updateTrailerLink", err); }
       rowPositions[id] = {
         unitLat: data.unit_lat,
         unitLng: data.unit_lng,
@@ -1450,11 +1621,11 @@ function reeferPillHtml(data) {
       ? ` · уставка ${fmtT(c.set)} · возврат ${fmtT(c.ret)} · подача ${fmtT(c.sup)}` + (c.dev != null ? ` (${c.dev > 0 ? "+" : ""}${c.dev}°)` : "") : "")
       + (c.at ? ` · ${c.at}` : "") + (c.stale ? " · данные старые" : ""));
   });
-  if (r.fuel_l != null) lines.push(`Топливо рефа: ${Math.round(r.fuel_l)} л`);
+  if (r.fuel_l != null) lines.push(`Топливо рефа: ${Math.round(r.fuel_l)} л` + (r.fuel_low ? " — мало (< 40 л)" : ""));
   const txt = on.length ? "❄ " + on.map((c) => fmtT(c.ret)).join(" / ") : (comps.length ? "❄ выкл" : "");
-  const fuel = r.fuel_l != null ? `<span class="rf-fuel">⛽${Math.round(r.fuel_l)}</span>` : "";
+  const fuel = r.fuel_l != null ? `<span class="rf-fuel${r.fuel_low ? " rf-fuel-low" : ""}">⛽${Math.round(r.fuel_l)}</span>` : "";
   if (!txt && !fuel) return "";
-  const cls = r.warn ? "rf-warn" : on.length ? "rf-on" : "rf-off";
+  const cls = r.warn || r.fuel_low ? "rf-warn" : on.length ? "rf-on" : "rf-off";
   return `<span class="rf-pill ${cls}" title="${escapeHtml(lines.join("\n"))}">${escapeHtml(txt)}${fuel}</span>`;
 }
 function hitchPillHtml(data, compact) {
@@ -1462,8 +1633,17 @@ function hitchPillHtml(data, compact) {
   if (!h || !h.number) return "";
   const who = data.is_trailer ? "Тягач" : "Прицеп";
   const tip = `${who} ${h.number} — ${h.sure ? "едут вместе" : "стоят рядом (" + Math.round(h.km * 1000) + " м), вероятно сцепка"}\nMapon их не связывает — угадано по координатам`;
-  if (compact) return `<span class="hitch-ic${h.sure ? "" : " hitch-maybe"}" title="${escapeHtml(tip)}">🔗</span>`;
-  return `<span class="hitch-pill${h.sure ? "" : " hitch-maybe"}" title="${escapeHtml(tip)}">🔗 ${escapeHtml(h.number)}${h.sure ? "" : "?"}</span>`;
+  // v1.71: клик — привязать (у тягача: этот прицеп к нему; у прицепа: к этому тягачу)
+  if (compact) return `<button class="hitch-ic hitch-link${h.sure ? "" : " hitch-maybe"}" data-trailer="${escapeHtml(h.number)}" title="${escapeHtml(tip + "\nКлик — привязать прицеп к этой машине")}">🔗?</button>`;
+  return `<button class="hitch-pill hitch-link${h.sure ? "" : " hitch-maybe"}" data-truck="${escapeHtml(h.number)}" title="${escapeHtml(tip + "\nКлик — привязать к тягачу")}">🔗 к ${escapeHtml(h.number)}${h.sure ? "" : "?"}</button>`;
+}
+// v1.71: привязанный прицеп во второй строке Статуса тягача
+function linkedTrailerHtml(number, lt) {
+  const un = `<button class="trl-unlink" title="Отвязать прицеп (вернётся отдельной строкой)">×</button>`;
+  if (!lt) return `<span class="hitch-pill">🔗 ${escapeHtml(number)}</span>${un}`;
+  if (lt.error) return `<span class="hitch-pill rf-warn" title="${escapeHtml(lt.error)}">🔗 ${escapeHtml(number)} ?</span>${un}`;
+  const far = lt.far ? `<span class="trl-far" title="Прицеп в ${escapeHtml(fmtKm(lt.km))} от тягача — перецепили?">⚠ ${escapeHtml(fmtKm(lt.km))}</span>` : "";
+  return `<span class="hitch-pill" title="Привязанный прицеп${lt.km != null ? " · " + fmtKm(lt.km) + " от тягача" : ""}">🔗 ${escapeHtml(lt.number)}</span>${un}${far}${reeferPillHtml(lt)}`;
 }
 
 // v1.64: ответ сервера по следующим точкам -> то, что держим в lastCalcText
