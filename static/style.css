@@ -697,3 +697,17 @@ body { max-width: 95vw; }
 .fold-more { flex: 0 0 22px; width: 22px; height: 22px; padding: 0; border: 1px solid #b9cdf2; border-radius: 4px;
   background: #e8f0fd; color: #2f6fd6; font-size: 10px; font-weight: 700; line-height: 1; cursor: pointer; }
 .fold-more:hover { border-color: #2f6fd6; }
+
+/* ---------- v1.70: прицепы — метка "П", рефка, сцепка, плашка на карте ---------- */
+.trl-tag { display: inline-block; margin-right: 5px; padding: 0 4px; border-radius: 3px; background: #ece4f7; color: #5b2e9a; font-size: 10.5px; font-weight: 700; line-height: 16px; }
+.status-cell .status-line2 { display: flex; align-items: center; gap: 5px; margin-top: 2px; white-space: nowrap; overflow: hidden; }
+.rf-pill { padding: 0 5px; border-radius: 8px; font-size: 11px; font-weight: 600; white-space: nowrap; cursor: default; }
+.rf-on { background: #e3f0fb; color: #1f5a99; }
+.rf-off, .rf-na { background: #f0f0f0; color: #777; }
+.rf-warn { background: #fde2e1; color: #a12622; }
+.rf-fuel { margin-left: 5px; font-weight: 500; opacity: .8; }
+.hitch-pill { padding: 0 5px; border-radius: 8px; background: #f1eee6; color: #5c4a1e; font-size: 11px; font-weight: 600; white-space: nowrap; cursor: default; }
+.hitch-maybe { opacity: .7; font-weight: 500; }
+.mk-badge.mk-trailer { border-style: dashed; }
+.hitch-ic { margin-left: 5px; font-size: 11px; cursor: default; }
+.mk-badge.mk-trailer { box-shadow: inset 4px 0 0 #7b4fc0; }

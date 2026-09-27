@@ -1,8 +1,14 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.69
+Версия: 1.70
 
 История изменений:
+1.70 (2026-09-27) — прицепы из Mapon (type "trailer", 109 шт.): в подсказках номера (помечены "прицеп"),
+    строкой во Флоте (метка П, без тахографа), как Таргет (перецеп на прицеп), на карте — квадратик;
+    рефка: ❄ возврат по отсекам, подсказка уставка/возврат/подача/время, топливо рефа, красным если
+    отклонение от уставки > 3°; сцепка тягач ↔ прицеп угадывается по координатам (оба едут < 500 м —
+    уверенно, оба стоят < 50 м — "?"; на Базе не угадываем): у прицепа 🔗 номер тягача, у тягача 🔗;
+    состав группы тягачей кешируется 10 мин (меньше запросов к Mapon); /api/mapon-units — починены группы
 1.69 (2026-09-27) — служебная выгрузка всех юнитов Mapon с группами: /api/mapon-units
     и /api/mapon-units?unit=<номер>&raw=1 (сырые данные, include рефки/температуры) — ищем прицепы
 1.68 (2026-09-27) — Delivery: только время ("22.00", "22:00", "09-15", "до 15") = сегодня;
@@ -485,7 +491,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.69"
+APP_VERSION = "1.70"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1686,6 +1692,112 @@ def fetch_units(api_key, force=False):
         return _units_cache["units"]
 
 
+# ---------- v1.70: прицепы (Mapon type == "trailer") — рефка, сцепка с тягачом ----------
+REEFER_TTL = 60
+_reefer_lock = threading.Lock()
+_reefer_cache = {"at": 0.0, "by_id": None}
+HITCH_DRIVING_KM = 0.5     # оба едут и ближе 500 м — сцепка
+HITCH_STANDING_KM = 0.05   # оба стоят и ближе 50 м — вероятно сцепка
+HITCH_BASE_KM = 1.5        # на Базе прицепы стоят кучей — сцепку не угадываем
+REEFER_DEV_WARN = 3.0      # отклонение возврата от уставки, °C — подсветка
+REEFER_STALE_SEC = 2 * 3600
+
+
+def is_trailer(u):
+    return str((u or {}).get("type") or "").lower() == "trailer"
+
+
+def fetch_reefer_units():
+    """unit/list с include reefer + fuel (кеш REEFER_TTL сек, один запрос на всех)."""
+    import time
+    with _reefer_lock:
+        if _reefer_cache["by_id"] is None or time.time() - _reefer_cache["at"] > REEFER_TTL:
+            units = mapon_get(MAPON_API_URL, {"key": MAPON_API_KEY, "include[]": ["reefer", "fuel"]},
+                              timeout=40)["data"]["units"]
+            _reefer_cache["by_id"] = {u.get("unit_id"): u for u in units}
+            _reefer_cache["at"] = time.time()
+        return _reefer_cache["by_id"]
+
+
+def _iso_ts(s):
+    try:
+        return datetime.fromisoformat(str(s).replace("Z", "+00:00")).timestamp()
+    except Exception:
+        return None
+
+
+def reefer_summary(u):
+    """Рефка прицепа -> {type, compartments:[{n, on, set, ret, sup, dev, stale, at}], fuel_l, warn}."""
+    rf = (u or {}).get("reefer")
+    fuel = next((f.get("value") for f in (u or {}).get("fuel") or []
+                 if isinstance(f, dict) and f.get("value") is not None), None)
+    if not isinstance(rf, dict):
+        return {"compartments": [], "fuel_l": fuel} if fuel is not None else None
+    try:
+        count = int(rf.get("refrigerator_compartment_count") or 0)
+    except (TypeError, ValueError):
+        count = 0
+    now = time_now_ts()
+    comps = []
+    keys = sorted((k for k in rf if str(k).isdigit()), key=int)
+    for k in keys:
+        if count and int(k) >= count:
+            continue
+        c = rf.get(k) or {}
+        t = c.get("temperature") or {}
+        val = lambda n: (t.get(n) or {}).get("value")
+        state = str((c.get("state") or {}).get("value") or "").lower()
+        ret, sp, sup = val("return"), val("setpoint"), val("supply")
+        at = _iso_ts((t.get("return") or {}).get("gmt") or (c.get("state") or {}).get("gmt"))
+        on = state == "on"
+        dev = round(ret - sp, 1) if on and isinstance(ret, (int, float)) and isinstance(sp, (int, float)) else None
+        comps.append({"n": int(k) + 1, "on": on, "set": sp, "ret": ret, "sup": sup, "dev": dev,
+                      "stale": bool(at and now - at > REEFER_STALE_SEC),
+                      "at": (datetime.fromtimestamp(at, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M") if at else None})
+    warn = any(c["dev"] is not None and abs(c["dev"]) > REEFER_DEV_WARN and not c["stale"] for c in comps)
+    return {"type": rf.get("refrigerator_type"), "compartments": comps, "fuel_l": fuel, "warn": warn}
+
+
+def time_now_ts():
+    import time
+    return time.time()
+
+
+def find_hitch(unit, units, truck_ids):
+    """Сцепка: для прицепа — тягач рядом, для тягача — прицеп рядом.
+    Mapon их не связывает, угадываем по координатам. -> {"number", "sure", "km"} или None."""
+    lat, lng = unit.get("lat"), unit.get("lng")
+    if lat is None or lng is None:
+        return None
+    try:
+        blat, blng, _ = base_point()
+        if haversine_km(lat, lng, blat, blng) <= HITCH_BASE_KM:
+            return None
+    except Exception:
+        pass
+    me_trailer = is_trailer(unit)
+    driving = ((unit.get("state") or {}).get("name") == "driving")
+    best = None
+    for o in units:
+        if o is unit or o.get("lat") is None or o.get("lng") is None:
+            continue
+        if me_trailer and o.get("unit_id") not in truck_ids:
+            continue
+        if not me_trailer and not is_trailer(o):
+            continue
+        o_driving = (o.get("state") or {}).get("name") == "driving"
+        d = haversine_km(lat, lng, o["lat"], o["lng"])
+        if driving and o_driving and d <= HITCH_DRIVING_KM:
+            sure = True
+        elif not driving and not o_driving and d <= HITCH_STANDING_KM:
+            sure = False
+        else:
+            continue
+        if best is None or (sure, -d) > (best["sure"], -best["km"]):
+            best = {"number": o.get("number") or o.get("label"), "sure": sure, "km": round(d, 3)}
+    return best
+
+
 # ---------- v1.33: тахограф (Mapon unit_data/driving_time_extended) и ETA по нему ----------
 MAPON_TACHO_URL = "https://mapon.com/api/v1/unit_data/driving_time_extended.json"
 TACHO_TTL = 300                 # данные тахографа обновляем не чаще раза в 5 минут на машину
@@ -2066,15 +2178,19 @@ def tacho_summary(tacho, sim=None, weekly=None):
     return [p for p in parts if p]
 
 
+_group_ids_cache = {}   # v1.70: group_id -> (ts, set) — состав группы меняется редко
+GROUP_IDS_TTL = 600
+
+
 def fetch_group_unit_ids(api_key, group_id):
-    resp = requests.get(
-        MAPON_GROUP_UNITS_URL, params={"key": api_key, "id": group_id}, timeout=20
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    if "error" in data:
-        raise RuntimeError(data["error"].get("msg", "Mapon API error"))
-    return {u["id"] for u in data["data"]["units"]}
+    import time
+    hit = _group_ids_cache.get(group_id)
+    if hit and time.time() - hit[0] < GROUP_IDS_TTL:
+        return hit[1]
+    data = mapon_get(MAPON_GROUP_UNITS_URL, {"key": api_key, "id": group_id})
+    ids = {u["id"] for u in data["data"]["units"]}
+    _group_ids_cache[group_id] = (time.time(), ids)
+    return ids
 
 
 def resolve_target(target_str):
@@ -3156,11 +3272,15 @@ def api_units():
         all_units = fetch_units(MAPON_API_KEY)
         group_ids = fetch_group_unit_ids(MAPON_API_KEY, HEAD_TRUCK_GROUP_ID)
         result = [
-            {"unit_id": u["unit_id"], "number": u.get("number") or u.get("label")}
+            {"unit_id": u["unit_id"], "number": u.get("number") or u.get("label"), "kind": "truck"}
             for u in all_units
             if u["unit_id"] in group_ids
         ]
+        # v1.70: прицепы (type == "trailer") — после тягачей
         result.sort(key=lambda x: x["number"] or "")
+        result += sorted(({"unit_id": u["unit_id"], "number": u.get("number") or u.get("label"), "kind": "trailer"}
+                          for u in all_units if is_trailer(u) and u["unit_id"] not in group_ids),
+                         key=lambda x: x["number"] or "")
         return jsonify({"units": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 502
@@ -3393,7 +3513,8 @@ def api_mapon_units():
     groups, unit_groups, gerr = {}, {}, None
     try:
         gl = mapon_get(MAPON_BASE + "unit_groups/list.json", {"key": MAPON_API_KEY}).get("data") or {}
-        for g in gl.get("groups") or gl.get("unit_groups") or (gl if isinstance(gl, list) else []):
+        glist = gl if isinstance(gl, list) else (gl.get("groups") or gl.get("unit_groups") or [])
+        for g in glist:
             if not isinstance(g, dict):
                 continue
             gid = g.get("id")
@@ -3774,7 +3895,8 @@ def api_calc():
 
     try:
         units = fetch_units(MAPON_API_KEY)
-        matches = find_unit_by_label(units, unit_query)
+        exact = find_unit_exact(units, unit_query)
+        matches = [exact] if exact else find_unit_by_label(units, unit_query)
         if not matches:
             return jsonify({"error": f"Машина '{unit_query}' не найдена"}), 404
         if len(matches) > 1:
@@ -3804,6 +3926,22 @@ def api_calc():
             "eta_local": None,
         }
 
+        # v1.70: прицеп — рефка и тягач рядом; у тягача — прицеп рядом (Mapon их не связывает)
+        trailer = is_trailer(unit)
+        result["is_trailer"] = trailer
+        try:
+            truck_ids = fetch_group_unit_ids(MAPON_API_KEY, HEAD_TRUCK_GROUP_ID)
+            h = find_hitch(unit, units, truck_ids)
+            if h:
+                result["hitch"] = h
+        except Exception:
+            pass
+        if trailer:
+            try:
+                result["reefer"] = reefer_summary(fetch_reefer_units().get(unit.get("unit_id")))
+            except Exception as e:
+                result["reefer_error"] = str(e)
+
         try:
             tgt = resolve_fleet_target(target_str, units, unit)
         except ValueError as e:
@@ -3826,7 +3964,7 @@ def api_calc():
         # v1.33: тахограф — ETA по режиму труда и отдыха + подробности
         tacho, sim = None, None
         try:
-            tacho, terr = get_tacho(unit.get("unit_id"))
+            tacho, terr = (None, None) if trailer else get_tacho(unit.get("unit_id"))
             if tacho:
                 sim = None
                 if result.get("dist_km") is not None:

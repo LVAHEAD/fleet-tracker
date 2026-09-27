@@ -58,7 +58,7 @@ function initMap() {
 
   Object.keys(pendingPositions).forEach((rowId) => {
     const p = pendingPositions[rowId];
-    updateMarker(Number(rowId), p.lat, p.lng, p.label, p.status, p.heading, p.km);
+    updateMarker(Number(rowId), p.lat, p.lng, p.label, p.status, p.heading, p.km, p.trailer);
   });
   pendingPositions = {};
 
@@ -137,10 +137,10 @@ function truckBadgeHtml(label, status, heading, km) {
   return `${escapeHtml(label || "")}${arrow}${kmTxt}`;
 }
 
-function updateMarker(rowId, lat, lng, label, status, heading, km) {
+function updateMarker(rowId, lat, lng, label, status, heading, km, trailer) {
   if (lat == null || lng == null) return;
   if (!map) {
-    pendingPositions[rowId] = { lat, lng, label, status, heading, km };
+    pendingPositions[rowId] = { lat, lng, label, status, heading, km, trailer };
     return;
   }
   // курс: из Mapon, иначе по двум последним позициям (если сдвинулась заметно)
@@ -152,7 +152,7 @@ function updateMarker(rowId, lat, lng, label, status, heading, km) {
   lastTruckPos[rowId] = { lat, lng, heading };
 
   const pos = { lat, lng };
-  const icon = markerIcon(status);
+  const icon = markerIcon(status, trailer);
   if (markers[rowId]) {
     markers[rowId].setPosition(pos);
     markers[rowId].setIcon(icon);
@@ -161,18 +161,20 @@ function updateMarker(rowId, lat, lng, label, status, heading, km) {
     markers[rowId] = new google.maps.Marker({ position: pos, map: map, icon: icon, title: label, zIndex: 20 });
     markers[rowId].addListener("click", () => { map.panTo(markers[rowId].getPosition()); map.setZoom(9); });
   }
-  const cls = `mk-badge ${status === "driving" ? "mk-driving" : "mk-standing"}`;
+  const cls = `mk-badge ${status === "driving" ? "mk-driving" : "mk-standing"}${trailer ? " mk-trailer" : ""}`;
   const html = truckBadgeHtml(label, status, heading, km);
   if (truckBadges[rowId]) truckBadges[rowId].update(new google.maps.LatLng(lat, lng), html, cls);
   else truckBadges[rowId] = makeBadge(lat, lng, html, cls, 11, () => { map.panTo(pos); map.setZoom(9); });
 }
 
-function markerIcon(status) {
+function markerIcon(status, trailer) {
   // v1.30: маленькая точка в позиции машины; номер — на плашке над ней
   const fill = status === "driving" ? "#1D9E75" : "#E24B4A"; // едет — зелёный, стоит — красный
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14">
-    <circle cx="7" cy="7" r="5" fill="${fill}" stroke="white" stroke-width="2"/>
-  </svg>`;
+  // v1.70: прицеп — квадратик вместо кружка
+  const shape = trailer
+    ? `<rect x="2" y="2" width="10" height="10" rx="1.5" fill="${fill}" stroke="white" stroke-width="2"/>`
+    : `<circle cx="7" cy="7" r="5" fill="${fill}" stroke="white" stroke-width="2"/>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14">${shape}</svg>`;
   return {
     url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
     scaledSize: new google.maps.Size(14, 14),
@@ -405,6 +407,7 @@ async function loadUnitsList() {
       unitsCache.forEach((u) => {
         const opt = document.createElement("option");
         opt.value = u.number;
+        if (u.kind === "trailer") opt.label = "прицеп";
         datalist.appendChild(opt);
       });
       rebuildPointsList();
@@ -441,7 +444,7 @@ function rebuildPointsList() {
   (unitsCache || []).forEach((u) => {
     const o = document.createElement("option");
     o.value = u.number;
-    o.label = "машина";
+    o.label = u.kind === "trailer" ? "прицеп" : "машина";
     dl.appendChild(o);
   });
   (window.addressList || []).forEach((a) => {
@@ -1281,7 +1284,13 @@ async function calcRow(id) {
     // v1.59: трак на объекте таргета (полигон Mapon или радиус 300 м)
     const ot = data.on_target
       ? `<span class="ot-pill" title="${escapeHtml(data.on_target.how === "object" ? "На объекте Mapon: " + data.on_target.name : "В радиусе 300 м от таргета")}">📍 на объекте</span>` : "";
-    const statusHtml = `<div class="status-line" title="${escapeHtml(data.status_ru + " " + data.duration_str + (data.on_target ? "\nна объекте" + (data.on_target.name ? ": " + data.on_target.name : "") : "") + (tachoTip ? "\n" + tachoTip : ""))}">${statusLine1}${extra}${pauseIc}${ot}</div>`;
+    // v1.70: прицеп — рефка; сцепка тягач ↔ прицеп (угадана по координатам)
+    const trTag = data.is_trailer ? '<span class="trl-tag" title="Прицеп">П</span>' : "";
+    const reeferHtml = data.is_trailer ? reeferPillHtml(data) : "";
+    // у прицепа — вторая строка (рефка + тягач), у тягача — только значок 🔗 в первой строке
+    const hitchHtml = hitchPillHtml(data, !data.is_trailer);
+    const line2 = data.is_trailer && (reeferHtml || hitchHtml) ? `<div class="status-line2">${reeferHtml}${hitchHtml}</div>` : "";
+    const statusHtml = `<div class="status-line" title="${escapeHtml(data.status_ru + " " + data.duration_str + (data.on_target ? "\nна объекте" + (data.on_target.name ? ": " + data.on_target.name : "") : "") + (tachoTip ? "\n" + tachoTip : ""))}">${trTag}${statusLine1}${extra}${pauseIc}${ot}${data.is_trailer ? "" : hitchHtml}</div>${line2}`;
     const statusClass = data.status === "driving" ? "status-driving" : "status-standing";
 
     statusCell.innerHTML = statusHtml;
@@ -1374,7 +1383,7 @@ async function calcRow(id) {
 
     if (data.unit_lat != null && data.unit_lng != null) {
       // ошибка отрисовки на карте не должна ломать строку таблицы
-      try { updateMarker(id, data.unit_lat, data.unit_lng, data.number, data.status, data.direction, data.dist_km); }
+      try { updateMarker(id, data.unit_lat, data.unit_lng, data.number, data.status, data.direction, data.dist_km, data.is_trailer); }
       catch (err) { console.error("updateMarker", err); }
       rowPositions[id] = {
         unitLat: data.unit_lat,
@@ -1426,6 +1435,35 @@ async function calcRow(id) {
     console.error("calcRow", e);
     statusCell.textContent = "Ошибка запроса";
   }
+}
+
+// v1.70: рефка прицепа — "❄ 8.9° / 4.5°" (возврат по отсекам), подробности в подсказке
+function fmtT(v) { return v == null ? "—" : `${Number(v).toFixed(1).replace(/\.0$/, "")}°`; }
+function reeferPillHtml(data) {
+  const r = data.reefer;
+  if (!r) return data.reefer_error ? `<span class="rf-pill rf-na" title="${escapeHtml("Рефка: " + data.reefer_error)}">❄ ?</span>` : "";
+  const comps = r.compartments || [];
+  const on = comps.filter((c) => c.on);
+  const lines = [`Реф${r.type ? " " + r.type : ""}`];
+  comps.forEach((c) => {
+    lines.push(`Отсек ${c.n}: ${c.on ? "вкл" : "выкл"}` + (c.on
+      ? ` · уставка ${fmtT(c.set)} · возврат ${fmtT(c.ret)} · подача ${fmtT(c.sup)}` + (c.dev != null ? ` (${c.dev > 0 ? "+" : ""}${c.dev}°)` : "") : "")
+      + (c.at ? ` · ${c.at}` : "") + (c.stale ? " · данные старые" : ""));
+  });
+  if (r.fuel_l != null) lines.push(`Топливо рефа: ${Math.round(r.fuel_l)} л`);
+  const txt = on.length ? "❄ " + on.map((c) => fmtT(c.ret)).join(" / ") : (comps.length ? "❄ выкл" : "");
+  const fuel = r.fuel_l != null ? `<span class="rf-fuel">⛽${Math.round(r.fuel_l)}</span>` : "";
+  if (!txt && !fuel) return "";
+  const cls = r.warn ? "rf-warn" : on.length ? "rf-on" : "rf-off";
+  return `<span class="rf-pill ${cls}" title="${escapeHtml(lines.join("\n"))}">${escapeHtml(txt)}${fuel}</span>`;
+}
+function hitchPillHtml(data, compact) {
+  const h = data.hitch;
+  if (!h || !h.number) return "";
+  const who = data.is_trailer ? "Тягач" : "Прицеп";
+  const tip = `${who} ${h.number} — ${h.sure ? "едут вместе" : "стоят рядом (" + Math.round(h.km * 1000) + " м), вероятно сцепка"}\nMapon их не связывает — угадано по координатам`;
+  if (compact) return `<span class="hitch-ic${h.sure ? "" : " hitch-maybe"}" title="${escapeHtml(tip)}">🔗</span>`;
+  return `<span class="hitch-pill${h.sure ? "" : " hitch-maybe"}" title="${escapeHtml(tip)}">🔗 ${escapeHtml(h.number)}${h.sure ? "" : "?"}</span>`;
 }
 
 // v1.64: ответ сервера по следующим точкам -> то, что держим в lastCalcText
