@@ -600,3 +600,6 @@ body.sort-manual .manual-only { display: block; }
 #fleet-table .col-status { width: 228px; }
 #fleet-table .col-target { width: 250px; }
 .ot-pill { font-size: 10.5px; padding: 0 4px; margin-left: 5px; }
+
+/* ---------- v1.60: режим "руками" — номер трака не обрезается ручкой ⠿ ---------- */
+body.sort-manual #fleet-table .col-unit { width: 118px; }

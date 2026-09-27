@@ -1,8 +1,10 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.59
+Версия: 1.60
 
 История изменений:
+1.60 (2026-09-27) — режим сортировки "руками": колонка Машина шире (номер не обрезается ручкой ⠿);
+    запреты по пути не проверяются, если трак на объекте или до таргета меньше 5 км
 1.59 (2026-09-27) — Флот: автообновление раз в 10 мин (строки не переставляются) и мигание строки,
     если она стала опаздывать, — до клика по ней; "на объекте" в статусе, когда трак внутри
     полигона Mapon таргета (или в 300 м от точки); цепочка стран маршрута в подсказке ETA;
@@ -455,7 +457,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.59"
+APP_VERSION = "1.60"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -3603,7 +3605,9 @@ def api_calc():
 
         # v1.45: полные запреты по пути (по тахо-симуляции, иначе без остановок)
         stops = result.pop("_sim_stops", None)
-        if result.get("route_polyline") and result.get("dist_km"):
+        # v1.60: трак на объекте или до таргета меньше 5 км — запреты не проверяем
+        if (result.get("route_polyline") and result.get("dist_km")
+                and result["dist_km"] >= 5 and not result.get("on_target")):
             try:
                 hits, bst = bans_on_route(result["route_polyline"], result["dist_km"], stops)
                 loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M")
