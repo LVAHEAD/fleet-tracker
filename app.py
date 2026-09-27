@@ -1,8 +1,10 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.62
+Версия: 1.63
 
 История изменений:
+1.63 (2026-09-27) — строка вкладок прилипает к верху при прокрутке, под ней — шапка таблицы
+    Флота; время в статусе короче: "1д 11ч 49м", "3ч 45м"
 1.62 (2026-09-27) — геокодинг городов/адресов: кеш на сутки, не чаще 1 запроса в секунду
     к Nominatim, а если он отвечает 429 (Too many requests) — запасной геокодер Photon;
     вместо сырой ошибки с URL — понятный текст; "lv" / "Латвия" в From/To и таргете = База (Рига)
@@ -464,7 +466,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.62"
+APP_VERSION = "1.63"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -1585,8 +1587,8 @@ def format_duration(seconds):
     hours, rem = divmod(rem, 3600)
     minutes = rem // 60
     if days > 0:
-        return f"{days}д {hours}ч {minutes}мин"
-    return f"{hours}ч {minutes}мин"
+        return f"{days}д {hours}ч {minutes}м"
+    return f"{hours}ч {minutes}м"
 
 
 def normalize(s):

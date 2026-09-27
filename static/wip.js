@@ -20,3 +20,12 @@
     }
   });
 })();
+
+// v1.63: высота прилипшей строки вкладок — чтобы шапка Флота вставала ровно под ней
+(function () {
+  const nav = document.querySelector(".main-tabs");
+  if (!nav) return;
+  const set = () => document.documentElement.style.setProperty("--tabs-h", nav.offsetHeight + "px");
+  set();
+  window.addEventListener("resize", set);
+})();

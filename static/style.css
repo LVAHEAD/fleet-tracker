@@ -613,3 +613,8 @@ body.sort-manual #fleet-table .col-unit { width: 118px; }
 }
 .wip-cone { width: 22px; height: 22px; color: #777; flex: 0 0 auto; }
 #fleet-table th.th-eta { padding-left: 40px; text-align: left; }
+
+/* ---------- v1.63: вкладки и шапка Флота прилипают к верху ---------- */
+.main-tabs { position: sticky; top: 0; z-index: 900; background: #fafafa; }
+#fleet-table { overflow: visible; }
+#fleet-table thead th { position: sticky; top: var(--tabs-h, 42px); z-index: 800; box-shadow: inset 0 -1px 0 #e0e0e0; }
