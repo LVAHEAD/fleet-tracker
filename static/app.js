@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.56 (комментарий строки: жёлтый уголок, всплывающая заметка, правка).
+Версия: 1.57 (км до таргета на плашке трака на карте).
+Ранее 1.56 (комментарий строки: жёлтый уголок, всплывающая заметка, правка).
 Ранее 1.55 (сортировка по Delivery; ссылки в блокноте).
 Ранее 1.54 (окна Delivery: 09-15, before 15, between 01 to 04…; "раньше окна").
 Ранее 1.53 (сортировка Флота: как добавляли / L→O / O→L / руками).
@@ -52,7 +53,7 @@ function initMap() {
 
   Object.keys(pendingPositions).forEach((rowId) => {
     const p = pendingPositions[rowId];
-    updateMarker(Number(rowId), p.lat, p.lng, p.label, p.status, p.heading);
+    updateMarker(Number(rowId), p.lat, p.lng, p.label, p.status, p.heading, p.km);
   });
   pendingPositions = {};
 
@@ -116,16 +117,25 @@ function bearingDeg(a, b) {
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
-function truckBadgeHtml(label, status, heading) {
-  const arrow = status === "driving" && heading != null
-    ? `<span class="mk-arrow" style="transform: rotate(${Math.round(heading)}deg)">↑</span>` : "";
-  return `${escapeHtml(label || "")}${arrow}`;
+// v1.57: км до таргета на плашке трака: < 10 — с десятыми, дальше целыми, тысячи с пробелом
+function fmtKm(km) {
+  if (km == null || isNaN(km)) return "";
+  const v = Number(km);
+  if (v < 10) return v.toFixed(1) + " км";
+  return Math.round(v).toLocaleString("ru-RU") + " км";
 }
 
-function updateMarker(rowId, lat, lng, label, status, heading) {
+function truckBadgeHtml(label, status, heading, km) {
+  const arrow = status === "driving" && heading != null
+    ? `<span class="mk-arrow" style="transform: rotate(${Math.round(heading)}deg)">↑</span>` : "";
+  const kmTxt = km != null ? `<span class="mk-km">· ${fmtKm(km)}</span>` : "";
+  return `${escapeHtml(label || "")}${arrow}${kmTxt}`;
+}
+
+function updateMarker(rowId, lat, lng, label, status, heading, km) {
   if (lat == null || lng == null) return;
   if (!map) {
-    pendingPositions[rowId] = { lat, lng, label, status, heading };
+    pendingPositions[rowId] = { lat, lng, label, status, heading, km };
     return;
   }
   // курс: из Mapon, иначе по двум последним позициям (если сдвинулась заметно)
@@ -147,7 +157,7 @@ function updateMarker(rowId, lat, lng, label, status, heading) {
     markers[rowId].addListener("click", () => { map.panTo(markers[rowId].getPosition()); map.setZoom(9); });
   }
   const cls = `mk-badge ${status === "driving" ? "mk-driving" : "mk-standing"}`;
-  const html = truckBadgeHtml(label, status, heading);
+  const html = truckBadgeHtml(label, status, heading, km);
   if (truckBadges[rowId]) truckBadges[rowId].update(new google.maps.LatLng(lat, lng), html, cls);
   else truckBadges[rowId] = makeBadge(lat, lng, html, cls, 11, () => { map.panTo(pos); map.setZoom(9); });
 }
@@ -1076,7 +1086,7 @@ async function calcRow(id) {
 
     if (data.unit_lat != null && data.unit_lng != null) {
       // ошибка отрисовки на карте не должна ломать строку таблицы
-      try { updateMarker(id, data.unit_lat, data.unit_lng, data.number, data.status, data.direction); }
+      try { updateMarker(id, data.unit_lat, data.unit_lng, data.number, data.status, data.direction, data.dist_km); }
       catch (err) { console.error("updateMarker", err); }
       rowPositions[id] = {
         unitLat: data.unit_lat,

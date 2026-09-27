@@ -575,3 +575,6 @@ body.sort-manual .manual-only { display: block; }
 .com-del { color: #c0392b; }
 .com-ok { background: #2f6fd6; border-color: #2f6fd6; color: #fff; }
 .com-ok:hover { background: #2a62bf; }
+
+/* ---------- v1.57: км до таргета на плашке трака ---------- */
+.mk-badge .mk-km { margin-left: 5px; font-weight: 500; opacity: 0.9; white-space: nowrap; }
