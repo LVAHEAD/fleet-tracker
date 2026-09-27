@@ -1,8 +1,10 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.51
+Версия: 1.52
 
 История изменений:
+1.52 (2026-09-27) — служебная выгрузка объектов Mapon: /api/mapon-objects (JSON) и
+    ?format=csv (файл для Excel): имя, группа, центр полигона (GPS), даты
 1.51 (2026-09-27) — плашка-счётчик запросов к Google Routes справа от [.]: месяц / 10 000
     бесплатных (цифры из Cloud Monitoring, как в консоли), сегодня, прогноз на месяц,
     сколько сэкономил кеш; нужна роль Monitoring Viewer у сервисного аккаунта
@@ -430,7 +432,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.51"
+APP_VERSION = "1.52"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -3129,6 +3131,65 @@ def api_truck_info():
     except Exception as e:
         out["stops_error"] = str(e)
     return jsonify(out)
+
+
+# ---------- v1.52: выгрузка объектов Mapon (object/list) ----------
+def _wkt_center(wkt):
+    """Центр объекта из WKT Mapon (по умолчанию широта первой): среднее вершин."""
+    nums = re.findall(r"-?\d+(?:\.\d+)?", str(wkt or ""))
+    pts = [(float(nums[i]), float(nums[i + 1])) for i in range(0, len(nums) - 1, 2)]
+    if len(pts) > 1 and pts[0] == pts[-1]:
+        pts = pts[:-1]
+    if not pts:
+        return None, None, 0
+    lat = sum(p[0] for p in pts) / len(pts)
+    lng = sum(p[1] for p in pts) / len(pts)
+    if abs(lat) > 90:                      # на случай долготы первой
+        lat, lng = lng, lat
+    return round(lat, 5), round(lng, 5), len(pts)
+
+
+@app.route("/api/mapon-objects")
+def api_mapon_objects():
+    """Объекты Mapon: /api/mapon-objects (таблица) или ?format=csv (файл для Excel)."""
+    if not MAPON_API_KEY:
+        return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
+    try:
+        objs = (mapon_get(MAPON_BASE + "object/list.json", {"key": MAPON_API_KEY}, timeout=60)
+                .get("data") or {}).get("objects") or []
+    except Exception as e:
+        return jsonify({"error": f"object/list: {e}"}), 502
+    groups = {}
+    try:
+        gl = mapon_get(MAPON_BASE + "object/list_groups.json", {"key": MAPON_API_KEY}).get("data") or {}
+        for g in gl.get("groups") or gl.get("object_groups") or (gl if isinstance(gl, list) else []):
+            if isinstance(g, dict):
+                groups[str(g.get("id"))] = g.get("name") or g.get("title") or ""
+    except Exception:
+        pass
+    rows = []
+    for o in objs:
+        lat, lng, n = _wkt_center(o.get("wkt"))
+        rows.append({"id": o.get("id"), "name": (o.get("name") or "").strip(),
+                     "group": groups.get(str(o.get("group_id")), str(o.get("group_id") or "")),
+                     "lat": lat, "lng": lng, "points": n,
+                     "gps": f"{lat:.5f}, {lng:.5f}" if lat is not None else "",
+                     "created": (o.get("created") or "")[:10], "updated": (o.get("updated") or "")[:10],
+                     "private": o.get("private")})
+    rows.sort(key=lambda r: r["name"].lower())
+    if request.args.get("format") == "csv":
+        import csv, io
+        buf = io.StringIO()
+        w = csv.writer(buf, delimiter=";")
+        w.writerow(["id", "Name", "Group", "GPS", "Точек в полигоне", "Создан", "Изменён"])
+        for r in rows:
+            w.writerow([r["id"], r["name"], r["group"], r["gps"], r["points"], r["created"], r["updated"]])
+        return app.response_class("\ufeff" + buf.getvalue(), mimetype="text/csv; charset=utf-8",
+                                  headers={"Content-Disposition": "attachment; filename=mapon_objects.csv"})
+    import json
+    return app.response_class(json.dumps({"count": len(rows), "groups": sorted(set(r["group"] for r in rows)),
+                                          "objects": rows}, ensure_ascii=False, indent=1),
+                              mimetype="application/json; charset=utf-8")
 
 
 # ---------- v1.41: служебная проверка новых методов Mapon ----------
