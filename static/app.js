@@ -49,6 +49,8 @@ function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
     center: { lat: 50.5, lng: 10.0 }, // примерно центр Европы
     zoom: 4,
+    // v1.66: + / − справа сверху под ⛶ — низ карты часто за экраном
+    zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP },
   });
 
   Object.keys(pendingPositions).forEach((rowId) => {
@@ -563,6 +565,7 @@ function renderRows() {
       <td class="status-cell ${statusClass}">${statusHtml}</td>
       <td>
         <div class="target-wrap">
+          ${multi ? `${foldable(row) ? `<span class="lead">${row.open ? '<button class="fold-t" title="Свернуть точки">▾</button>' : ""}</span>` : ""}<span class="stop-n">①</span>` : ""}
           <button class="lo-btn ${loClass(row.lo)}" title="${loTitle(row.lo)}">${loText(row.lo)}</button>
           ${cached && cached.targetBadge ? cached.targetBadge : '<span class="cc-badge target-cc" hidden></span>'}
           <input list="points-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" title="${escapeHtml(row.target)}" placeholder="ГПС, город, код или машина" />
@@ -571,12 +574,19 @@ function renderRows() {
         ${extraTargetsHtml(row, cached)}
       </td>
       <td class="delivery-td"><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" title="${escapeHtml(row.delivery)}" placeholder="${deliveryPlaceholder(row.lo)}" />${(row.extra || []).map((x, i) =>
-        `<input class="xd-input" data-k="${i + 1}" name="delivery-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.delivery)}" title="${escapeHtml(x.delivery)}" placeholder="${deliveryPlaceholder(x.lo)}" />`).join("")}</td>
+        `<input class="xd-input${folded(row) && i >= 1 ? " fold-hide" : ""}" data-k="${i + 1}" name="delivery-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.delivery)}" title="${escapeHtml(x.delivery)}" placeholder="${deliveryPlaceholder(x.lo)}" />`).join("")}${folded(row) ? '<div class="fold-sp"></div>' : ""}</td>
       <td class="dist-cell ${distMuted}" style="text-align:right">${distHtml}</td>
       <td class="eta-cell ${etaMuted}${cached && cached.late ? " eta-late" : ""}" title="${escapeHtml(composedEta ? composedEta.title : (cached && cached.etaTip ? cached.etaTip : ""))}">${etaHtml}</td>
       <td class="note-cell"><div class="note-wrap"><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" title="${escapeHtml(row.note)}" placeholder="примечание" />${row.com ? '<span class="com-tri" title="Комментарий"></span>' : ""}<button class="com-ic${row.com ? " has" : ""}" title="${row.com ? "Комментарий — клик, чтобы изменить" : "Добавить комментарий"}">${COM_SVG(!!row.com)}</button></div></td>
       <td class="row-actions">
         <button class="refresh-row-btn" title="Обновить строку">↻</button>
+        <span class="wide-acts">
+          <button class="add-btn-w" title="Добавить строку ниже">+</button>
+          <button class="del-btn-w" title="Удалить строку (два клика)">🗑</button>
+          <button class="mv-up-w manual-inline" title="Выше">↑</button>
+          <button class="mv-down-w manual-inline" title="Ниже">↓</button>
+          <span class="drag-h drag-h-w" draggable="true" title="Перетащить строку">⠿</span>
+        </span>
         <span class="row-menu-wrap">
           <button class="more-btn" title="Ещё">⋯</button>
           <span class="row-menu" hidden>
@@ -676,6 +686,22 @@ function attachRowHandlers() {
       menu.style.left = Math.max(8, r.right - w) + "px";
     });
 
+    tr.querySelector(".add-btn-w").addEventListener("click", (e) => { e.stopPropagation(); tr.querySelector(".add-btn").click(); });
+    tr.querySelector(".mv-up-w").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, -1); });
+    tr.querySelector(".mv-down-w").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, 1); });
+    // v1.66: удаление в два клика — первый "взводит", уход мыши сбрасывает
+    const delW = tr.querySelector(".del-btn-w");
+    delW.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!delW.classList.contains("armed")) {
+        delW.classList.add("armed");
+        delW.textContent = "удалить?";
+        return;
+      }
+      tr.querySelector(".del-btn").click();
+    });
+    delW.addEventListener("mouseleave", () => { delW.classList.remove("armed"); delW.textContent = "🗑"; });
+
     tr.querySelector(".add-btn").addEventListener("click", (e) => {
       e.stopPropagation();
       const idx = rows.findIndex((r) => r.id === id);
@@ -707,11 +733,20 @@ function attachRowHandlers() {
       const row = rows.find((r) => r.id === id);
       if (!row) return;
       row.extra = (row.extra || []).concat([{ lo: "", target: "", delivery: "" }]);
+      row.open = true;
       saveRows();
       renderRows();
       const inp = document.querySelector(`#fleet-tbody tr[data-id="${id}"] .xt-input[data-k="${row.extra.length}"]`);
       if (inp) inp.focus();
     });
+    tr.querySelectorAll(".fold-t").forEach((b) => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const row = rows.find((r) => r.id === id);
+      if (!row) return;
+      row.open = !row.open;
+      saveRows();
+      renderRows();
+    }));
     tr.querySelectorAll(".stop-x").forEach((b) => b.addEventListener("click", (e) => {
       e.stopPropagation();
       removeStop(id, Number(b.dataset.k));
@@ -788,15 +823,38 @@ function extraTargetsHtml(row, cached) {
     const badge = ce && ce.badge
       ? `<span class="cc-badge x-cc" title="${escapeHtml(ce.badgeHint || ce.badge)}">${escapeHtml(ce.badge)}</span>` : "";
     const last = k === ex.length;
-    return `<div class="target-wrap x-stop" data-k="${k}">
-      <span class="stop-n">${STOP_NUM[k + 1]}</span>
+    const hide = folded(row) && k >= 2 ? " fold-hide" : "";
+    return `<div class="target-wrap x-stop${hide}" data-k="${k}">
+      ${foldable(row) ? '<span class="lead"></span>' : ""}<span class="stop-n">${STOP_NUM[k + 1]}</span>
       <button class="lo-btn xlo-btn ${loClass(x.lo)}" data-k="${k}" title="${loTitle(x.lo)}">${loText(x.lo)}</button>
       ${badge}
       <input list="points-list" class="xt-input" data-k="${k}" name="target-${row.id}-${k}" autocomplete="off" value="${escapeHtml(x.target)}" title="${escapeHtml(ce && ce.error ? ce.error : x.target)}" placeholder="следующая точка" />
       <button class="stop-x" data-k="${k}" title="Убрать эту точку">×</button>
       ${last ? '<button class="add-stop" title="Добавить ещё таргет">+</button>' : '<span class="add-stop-sp"></span>'}
     </div>`;
-  }).join("");
+  }).join("") + (folded(row) ? foldLineHtml(row, cached) : "");
+}
+
+// v1.66: 3 и больше точек — по умолчанию свёрнуто: видны ① ②, дальше сводка
+function foldable(row) { return !!(row.extra && row.extra.length >= 2); }
+function folded(row) { return foldable(row) && !row.open; }
+function plTochek(n) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return "точка";
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "точки";
+  return "точек";
+}
+function foldLineHtml(row, cached) {
+  const n = row.extra.length - 1;             // скрыто точек
+  const lastI = row.extra.length - 1;
+  const last = row.extra[lastI];
+  const ce = cached && cached.extra && cached.extra[lastI];
+  const code = ce && ce.badge ? `${ce.badge} ` : "";
+  return `<div class="target-wrap fold-line">
+    <span class="lead"><button class="fold-t" title="Показать все точки">▸</button></span>
+    <span class="fold-txt">ещё ${n} ${plTochek(n)} · последняя <b>${STOP_NUM[lastI + 2]} ${escapeHtml(code + (last.target || "—"))}</b></span>
+    <button class="add-stop" title="Добавить ещё таргет">+</button>
+  </div>`;
 }
 
 function distCellHtml(row, c) {
@@ -807,8 +865,9 @@ function distCellHtml(row, c) {
     // v1.65: у 2-й и следующих точек — плечо от предыдущей точки, сумма только в подсказке
     const txt = ce && ce.leg_km != null ? ce.leg_km.toFixed(1) : "—";
     const tip = ce && ce.leg_km != null ? `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]} (от машины всего ${ce.dist_km.toFixed(1)})` : (ce && ce.error) || "";
-    lines.push(`<div class="sl" title="${escapeHtml(tip)}">${txt}</div>`);
+    lines.push(`<div class="sl${folded(row) && i >= 1 ? " fold-hide" : ""}" title="${escapeHtml(tip)}">${txt}</div>`);
   });
+  if (folded(row)) lines.push('<div class="sl"></div>');
   return lines.join("");
 }
 
@@ -832,8 +891,14 @@ function etaCellHtml(row, c, composed) {
              ce.eta_tacho ? `⏱ По тахографу: ${ce.eta_tacho}` : "",
              `Простой ETA: ${ce.eta_local}`].filter(Boolean).join("\n");
     }
-    lines.push(`<div class="sl" title="${escapeHtml(tip)}"><span class="eta-nb-sp"></span>${inner}</div>`);
+    lines.push(`<div class="sl${folded(row) && i >= 1 ? " fold-hide" : ""}" title="${escapeHtml(tip)}"><span class="eta-nb-sp"></span>${inner}</div>`);
   });
+  if (folded(row)) {
+    const lastI = row.extra.length - 1;
+    const ce = c.extra && c.extra[lastI];
+    const e = ce && (ce.eta_tacho || ce.eta_local);
+    lines.push(`<div class="sl fold-eta"><span class="eta-nb-sp"></span>${e ? `${STOP_NUM[lastI + 2]} ⏱ ${escapeHtml(e)}` : ""}</div>`);
+  }
   return lines.join("");
 }
 

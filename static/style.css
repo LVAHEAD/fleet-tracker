@@ -621,7 +621,7 @@ body.sort-manual #fleet-table .col-unit { width: 118px; }
 
 /* ---------- v1.64: ширина 95% экрана; Таргет и Примечание делят остаток поровну ---------- */
 body { max-width: 95vw; }
-#fleet-table .col-target { width: auto; }
+#fleet-table .col-target { width: 300px; }   /* ноут: как было; на большом экране — пополам с Примечанием (ниже) */
 .auto-lbl select { font: inherit; font-size: 12px; color: #444; padding: 1px 4px; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; }
 
 /* комментарий — иконка справа от Примечания */
@@ -646,7 +646,6 @@ body { max-width: 95vw; }
 .x-stop { margin-top: 4px; }
 .xt-input { flex: 1; min-width: 0; }
 #fleet-tbody tr.multi > td { vertical-align: top; }
-#fleet-tbody tr.multi .target-wrap:first-child::before { content: "①"; flex: 0 0 16px; width: 16px; text-align: center; color: #2f6fd6; font-size: 14px; line-height: 1; }
 .delivery-td .xd-input { display: block; margin-top: 4px; width: 100%; box-sizing: border-box; }
 #fleet-tbody tr.multi .delivery-input { display: block; width: 100%; box-sizing: border-box; }
 .sl { display: flex; align-items: center; justify-content: inherit; height: var(--stop-h, 28px); white-space: nowrap; overflow: hidden; }
@@ -656,3 +655,40 @@ body { max-width: 95vw; }
 .eta-x-t { font-weight: 600; }
 .eta-x-err { color: #c0392b; font-size: 12px; white-space: normal; }
 .eta-cell .sl .eta-simple { margin-left: 6px; color: #888; font-size: 11px; }
+
+/* ---------- v1.66: кнопки строки на большом экране, шапка, раскрывашка точек ---------- */
+#fleet-table .col-actions { width: 84px; }
+#fleet-table .col-target { width: 250px; }
+.hdr-txt { display: none; }
+@media (max-width: 1499px) { body { max-width: none; } }
+.th-actions { white-space: nowrap; }
+.th-actions .refresh-top + .refresh-top { margin-left: 4px; }
+.wide-acts { display: none; }
+.manual-inline, .drag-h-w { display: none !important; }
+@media (min-width: 1500px) {
+  .wide-acts { display: inline-flex; align-items: center; gap: 3px; }
+  .hdr-txt { display: inline; }
+  #fleet-table .col-actions { width: 118px; }
+  .row-menu-wrap { display: none; }
+  .row-actions { white-space: nowrap; }
+  .row-actions button { margin: 0; }
+  .row-actions > .refresh-row-btn { margin-right: 3px; }
+  .wide-acts button { padding: 2px 7px; }
+  .del-btn-w.armed { background: #fdecea; border-color: #e6a39b; color: #c0392b; font-size: 11px; padding: 2px 5px; }
+  body.sort-manual .manual-inline { display: inline-block !important; }
+  body.sort-manual .drag-h-w { display: inline-block !important; margin: 0 0 0 3px; font-size: 15px; }
+  body.sort-manual #fleet-tbody td:first-child .drag-h { display: none; }
+  body.sort-manual #fleet-table .col-unit { width: 100px; }
+  body.sort-manual #fleet-tbody td:first-child .unit-input { width: 100%; }
+  body.sort-manual #fleet-table .col-actions { width: 216px; }
+  #fleet-table .col-target { width: auto; }
+}
+.lead { flex: 0 0 18px; width: 18px; display: inline-grid; place-items: center; }
+.fold-t { width: 18px; height: 18px; padding: 0; border: 1px solid #d5d8dc; border-radius: 4px; background: #fff; color: #2f6fd6; font-size: 10px; line-height: 1; cursor: pointer; }
+.fold-t:hover { border-color: #2f6fd6; }
+.fold-hide { display: none !important; }
+.fold-line { margin-top: 4px; height: 28px; }
+.fold-txt { flex: 1; min-width: 0; color: #777; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
+.fold-txt b { color: #333; font-weight: 600; }
+.fold-sp { height: 28px; margin-top: 4px; }
+.fold-eta { color: #888; font-size: 12px; }

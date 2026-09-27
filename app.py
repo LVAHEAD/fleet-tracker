@@ -1,8 +1,12 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.65
+Версия: 1.66
 
 История изменений:
+1.66 (2026-09-27) — Флот: на большом экране (от 1500 px) кнопки строки прямо в строке — ↻ + 🗑
+    (удаление в два клика), в режиме "руками" ещё ↑ ↓ ⠿; нижние кнопки убраны — в шапке таблицы
+    "+ строка" и ↻; 3 и больше точек в строке — свёрнуто до ① ② и сводки "ещё N точек · последняя",
+    ▸ / ▾ раскрыть-свернуть; зум карты справа сверху
 1.65 (2026-09-27) — Флот, несколько таргетов: в Дистанции у 2-й и следующих точек — км плеча
     от предыдущей точки (сумма от машины — в подсказке)
 1.64 (2026-09-27) — Флот: несколько таргетов в одной строке (кнопка "+" у таргета, точки ① ② ...,
@@ -474,7 +478,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.65"
+APP_VERSION = "1.66"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
