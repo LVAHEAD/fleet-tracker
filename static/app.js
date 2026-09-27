@@ -804,8 +804,9 @@ function distCellHtml(row, c) {
   const lines = [`<div class="sl">${c.dist}</div>`];
   row.extra.forEach((x, i) => {
     const ce = c.extra && c.extra[i];
-    const txt = ce && ce.dist_km != null ? ce.dist_km.toFixed(1) : "—";
-    const tip = ce && ce.leg_km != null ? `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]}` : (ce && ce.error) || "";
+    // v1.65: у 2-й и следующих точек — плечо от предыдущей точки, сумма только в подсказке
+    const txt = ce && ce.leg_km != null ? ce.leg_km.toFixed(1) : "—";
+    const tip = ce && ce.leg_km != null ? `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]} (от машины всего ${ce.dist_km.toFixed(1)})` : (ce && ce.error) || "";
     lines.push(`<div class="sl" title="${escapeHtml(tip)}">${txt}</div>`);
   });
   return lines.join("");
