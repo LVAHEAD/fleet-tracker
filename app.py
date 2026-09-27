@@ -1,8 +1,12 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.52
+Версия: 1.53
 
 История изменений:
+1.53 (2026-09-27) — сортировка Флота: как добавляли / L → O / O → L (внутри — опаздывающие
+    первыми, потом по запасу до Delivery, потом по ETA) / руками (перетаскивание ⠿,
+    на телефоне ↑/↓ в меню ⋯); строки без L/O — в конце; пересортировка только при
+    загрузке, "Обновить всё" и смене режима; режим и ручной порядок запоминаются
 1.52 (2026-09-27) — служебная выгрузка объектов Mapon: /api/mapon-objects (JSON) и
     ?format=csv (файл для Excel): имя, группа, центр полигона (GPS), даты
 1.51 (2026-09-27) — плашка-счётчик запросов к Google Routes справа от [.]: месяц / 10 000
@@ -432,7 +436,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.52"
+APP_VERSION = "1.53"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"

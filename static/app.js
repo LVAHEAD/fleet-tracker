@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.50 (Delivery/Примечание без пересчёта маршрута).
+Версия: 1.53 (сортировка Флота: как добавляли / L→O / O→L / руками).
+Ранее 1.50 (Delivery/Примечание без пересчёта маршрута).
 Ранее 1.48 (NoBan — кнопка в ETA; вернулась бледная заливка строк L/O).
 Ранее 1.46 (плашка 56 — недельный лимит одиночки).
 Ранее 1.45 (🚫 в ETA — полный запрет по пути).
@@ -430,10 +431,81 @@ function applyLoToRow(tr, row) {
   recolorTargetMarker(row.id, row.unit, markerKind(row));
 }
 
+// ---------- v1.53: сортировка Флота ----------
+// added — как добавляли; LO / OL — погрузки/выгрузки первыми, внутри по срочности;
+// manual — руками (перетаскивание ⠿, на телефоне ↑/↓ в меню ⋯). Строки без L/O — в конце.
+// Пересортировка только при загрузке, "Обновить всё" и смене режима — не при автообновлении.
+let sortMode = "added";
+let manualOrder = [];
+try {
+  sortMode = localStorage.getItem("fleetSort") || "added";
+  manualOrder = JSON.parse(localStorage.getItem("fleetManualOrder") || "[]");
+} catch (e) { /* без localStorage — порядок по умолчанию */ }
+let displayOrder = null;   // зафиксированный порядок id между пересортировками
+
+function saveSortState() {
+  try {
+    localStorage.setItem("fleetSort", sortMode);
+    localStorage.setItem("fleetManualOrder", JSON.stringify(manualOrder));
+  } catch (e) { /* ignore */ }
+}
+
+function urgencyKey(row) {
+  // [0, запас до Delivery в мс] — отрицательный = опаздывает; сортировка по возрастанию:
+  // сначала самые опоздавшие, потом с наименьшим запасом. Без даты Delivery — [1, ETA].
+  const c = lastCalcText[row.id];
+  const delD = parseDelivery(row.delivery);
+  const etaD = c && c.etaStr ? parseEta(c.etaStr) : null;
+  if (delD && etaD) return [0, delD - etaD];
+  return [1, etaD ? etaD.getTime() : Infinity];
+}
+
+function computeOrder() {
+  if (sortMode === "manual") {
+    const pos = new Map(manualOrder.map((id, i) => [id, i]));
+    const known = rows.filter((r) => pos.has(r.id)).sort((a, b) => pos.get(a.id) - pos.get(b.id));
+    const rest = rows.filter((r) => !pos.has(r.id));
+    manualOrder = known.concat(rest).map((r) => r.id);
+    saveSortState();
+    return manualOrder.slice();
+  }
+  if (sortMode === "LO" || sortMode === "OL") {
+    const rank = sortMode === "LO" ? { L: 0, O: 1 } : { O: 0, L: 1 };
+    const idx = new Map(rows.map((r, i) => [r.id, i]));
+    return rows.slice().sort((a, b) => {
+      const ra = a.lo in rank ? rank[a.lo] : 2, rb = b.lo in rank ? rank[b.lo] : 2;
+      if (ra !== rb) return ra - rb;
+      if (ra === 2) return idx.get(a.id) - idx.get(b.id);
+      const ka = urgencyKey(a), kb = urgencyKey(b);
+      if (ka[0] !== kb[0]) return ka[0] - kb[0];
+      if (ka[1] !== kb[1]) return ka[1] < kb[1] ? -1 : 1;
+      return idx.get(a.id) - idx.get(b.id);
+    }).map((r) => r.id);
+  }
+  return rows.map((r) => r.id);
+}
+
+function resort() {
+  displayOrder = computeOrder();
+  renderRows();
+}
+
+function orderedRows() {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const out = [];
+  const seen = new Set();
+  (displayOrder || rows.map((r) => r.id)).forEach((id) => {
+    if (byId.has(id)) { out.push(byId.get(id)); seen.add(id); }
+  });
+  rows.forEach((r) => { if (!seen.has(r.id)) out.push(r); });   // новые строки — в конец
+  return out;
+}
+
 function renderRows() {
   const tbody = document.getElementById("fleet-tbody");
   tbody.innerHTML = "";
-  rows.forEach((row) => {
+  document.body.classList.toggle("sort-manual", sortMode === "manual");
+  orderedRows().forEach((row) => {
     const tr = document.createElement("tr");
     tr.dataset.id = row.id;
     if (row.lo) tr.classList.add(`lo-row-${row.lo}`);
@@ -446,7 +518,7 @@ function renderRows() {
     const etaHtml = composedEta ? composedEta.html : (cached ? cached.eta : "—");
     const etaMuted = cached ? "" : "muted";
     tr.innerHTML = `
-      <td><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" placeholder="номер" /></td>
+      <td><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" placeholder="номер" /></td>
       <td class="status-cell ${statusClass}">${statusHtml}</td>
       <td>
         <div class="target-wrap">
@@ -464,6 +536,8 @@ function renderRows() {
         <span class="row-menu-wrap">
           <button class="more-btn" title="Ещё">⋯</button>
           <span class="row-menu" hidden>
+            <button class="mv-up manual-only">↑ выше</button>
+            <button class="mv-down manual-only">↓ ниже</button>
             <button class="add-btn">+ строка ниже</button>
             <button class="del-btn">✕ удалить строку</button>
           </span>
@@ -558,10 +632,23 @@ function attachRowHandlers() {
     tr.querySelector(".add-btn").addEventListener("click", (e) => {
       e.stopPropagation();
       const idx = rows.findIndex((r) => r.id === id);
-      rows.splice(idx + 1, 0, emptyRow());
+      const nr = emptyRow();
+      rows.splice(idx + 1, 0, nr);
+      if (displayOrder) {
+        const di = displayOrder.indexOf(id);
+        displayOrder.splice(di + 1, 0, nr.id);
+      }
+      if (sortMode === "manual") {
+        const mi = manualOrder.indexOf(id);
+        manualOrder.splice(mi + 1, 0, nr.id);
+        saveSortState();
+      }
       saveRows();
       renderRows();
     });
+
+    tr.querySelector(".mv-up").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, -1); });
+    tr.querySelector(".mv-down").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, 1); });
 
     tr.querySelector(".del-btn").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -853,10 +940,87 @@ async function calcRow(id) {
 }
 
 function calcAllRows() {
-  rows.forEach((r) => {
-    if (r.unit) calcRow(r.id);
-  });
+  const jobs = rows.filter((r) => r.unit).map((r) => calcRow(r.id));
+  // v1.53: после "Обновить всё" (и загрузки) — пересортировать по выбранному режиму
+  Promise.allSettled(jobs).then(() => { if (sortMode !== "added") resort(); });
 }
+
+function moveManual(id, dir) {
+  if (sortMode !== "manual") return;
+  const i = manualOrder.indexOf(id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= manualOrder.length) return;
+  [manualOrder[i], manualOrder[j]] = [manualOrder[j], manualOrder[i]];
+  saveSortState();
+  displayOrder = manualOrder.slice();
+  renderRows();
+}
+
+// перетаскивание строк за ⠿ (режим "руками")
+(function () {
+  const tbody = document.getElementById("fleet-tbody");
+  let dragId = null;
+  tbody.addEventListener("dragstart", (e) => {
+    const h = e.target.closest && e.target.closest(".drag-h");
+    if (!h || sortMode !== "manual") { e.preventDefault(); return; }
+    dragId = Number(h.closest("tr").dataset.id);
+    e.dataTransfer.effectAllowed = "move";
+    try { e.dataTransfer.setData("text/plain", String(dragId)); } catch (err) { /* ignore */ }
+  });
+  tbody.addEventListener("dragover", (e) => {
+    if (dragId == null) return;
+    const tr = e.target.closest("tr");
+    if (!tr) return;
+    e.preventDefault();
+    tbody.querySelectorAll(".drop-before,.drop-after").forEach((x) => x.classList.remove("drop-before", "drop-after"));
+    const r = tr.getBoundingClientRect();
+    tr.classList.add(e.clientY < r.top + r.height / 2 ? "drop-before" : "drop-after");
+  });
+  tbody.addEventListener("drop", (e) => {
+    if (dragId == null) return;
+    e.preventDefault();
+    const tr = e.target.closest("tr");
+    tbody.querySelectorAll(".drop-before,.drop-after").forEach((x) => x.classList.remove("drop-before", "drop-after"));
+    if (tr) {
+      const targetId = Number(tr.dataset.id);
+      if (targetId !== dragId) {
+        const r = tr.getBoundingClientRect();
+        const after = e.clientY >= r.top + r.height / 2;
+        manualOrder = manualOrder.filter((x) => x !== dragId);
+        let ti = manualOrder.indexOf(targetId);
+        manualOrder.splice(after ? ti + 1 : ti, 0, dragId);
+        saveSortState();
+        displayOrder = manualOrder.slice();
+        renderRows();
+      }
+    }
+    dragId = null;
+  });
+  tbody.addEventListener("dragend", () => {
+    dragId = null;
+    tbody.querySelectorAll(".drop-before,.drop-after").forEach((x) => x.classList.remove("drop-before", "drop-after"));
+  });
+})();
+
+// переключатель режима сортировки
+(function () {
+  const bar = document.getElementById("sort-bar");
+  if (!bar) return;
+  const mark = () => bar.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.sort === sortMode));
+  bar.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-sort]");
+    if (!b) return;
+    if (b.dataset.sort === "manual" && sortMode !== "manual") {
+      // руками — стартуем с того порядка, что сейчас на экране
+      manualOrder = orderedRows().map((r) => r.id);
+    }
+    sortMode = b.dataset.sort;
+    saveSortState();
+    mark();
+    resort();
+  });
+  mark();
+})();
 
 document.getElementById("add-row-btn").addEventListener("click", () => {
   rows.push(emptyRow());
