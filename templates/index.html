@@ -115,6 +115,8 @@
       <textarea id="notesText" class="notes-text" spellcheck="false" placeholder="Заметки, ссылки, номера…"></textarea>
       <div class="notes-links-title">Ссылки из заметок</div>
       <div id="notesLinks" class="notes-links"></div>
+      <div class="changelog-head"><b>История изменений</b> <span id="changelogCount" class="notes-hint"></span></div>
+      <div id="changelog" class="changelog">Загрузка…</div>
     </div>
     <aside class="notes-side">
       <div class="notes-side-title">Адресная база</div>
@@ -225,6 +227,7 @@
 <script src="{{ url_for('static', filename='bans-tab.js') }}"></script>
 <script src="{{ url_for('static', filename='truckinfo.js') }}"></script>
 <script src="{{ url_for('static', filename='gusage.js') }}"></script>
+<script src="{{ url_for('static', filename='changelog.js') }}"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_js_key }}&libraries=geometry&callback=initMap" async defer></script>
 </body>
 </html>

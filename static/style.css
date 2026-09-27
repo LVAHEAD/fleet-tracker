@@ -578,3 +578,13 @@ body.sort-manual .manual-only { display: block; }
 
 /* ---------- v1.57: км до таргета на плашке трака ---------- */
 .mk-badge .mk-km { margin-left: 5px; font-weight: 500; opacity: 0.9; white-space: nowrap; }
+
+/* ---------- v1.58: история изменений в блокноте ---------- */
+.changelog-head { margin: 18px 0 6px; }
+.changelog { max-height: 420px; overflow: auto; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; padding: 4px 10px 8px; font-size: 13px; }
+.cl-day { margin: 10px 0 4px; font-size: 11px; font-weight: 600; color: #999; letter-spacing: .03em; }
+.cl-item { border-bottom: 1px solid #f0f0f0; }
+.cl-item summary { cursor: pointer; padding: 4px 0; list-style-position: outside; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-item[open] summary { white-space: normal; }
+.cl-ver { display: inline-block; min-width: 44px; font-weight: 600; color: #2f6fd6; font-variant-numeric: tabular-nums; }
+.cl-text { white-space: pre-wrap; color: #555; padding: 2px 0 8px 48px; line-height: 1.45; }

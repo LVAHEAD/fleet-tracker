@@ -1,8 +1,10 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.57
+Версия: 1.58
 
 История изменений:
+1.58 (2026-09-27) — в блокноте [.] раздел "История изменений": все версии с 1.0, свежие сверху,
+    подробности по клику; список берётся из этой истории и пополняется сам
 1.57 (2026-09-27) — на плашке трака на карте — км до таргета ("OI-3194 ↗ · 12 км";
     меньше 10 км — с десятыми)
 1.56 (2026-09-27) — комментарий строки Флота (как заметка в Google Таблицах): жёлтый уголок у
@@ -448,7 +450,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.57"
+APP_VERSION = "1.58"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -3046,6 +3048,37 @@ def api_google_usage():
         out["error"] = str(e)
     _gusage_cache.update(at=now, data=out)
     return jsonify(out)
+
+
+# ---------- v1.58: история изменений для блокнота [.] (из docstring этого файла) ----------
+def parse_changelog(doc):
+    """Записи вида "1.57 (2026-09-27) — текст" + строки с отступом. Старая нумерация
+    "4 (2026-09-23)" тоже понимается. Возвращает [{ver, date, title, text}] свежие первыми."""
+    items, cur = [], None
+    for line in (doc or "").splitlines():
+        m = re.match(r"^(\d+(?:\.\d+)?) \((\d{4})-(\d{2})-(\d{2})\)\s*[—-]?\s*(.*)$", line)
+        if m:
+            cur = {"ver": m.group(1), "date": f"{m.group(4)}.{m.group(3)}.{m.group(2)}",
+                   "title": m.group(5).strip(), "lines": []}
+            items.append(cur)
+            continue
+        if cur is None:
+            continue
+        if line.startswith("---") or (line and not line.startswith(" ")):
+            cur = None if not line.startswith("---") else None
+            continue
+        if line.strip():
+            cur["lines"].append(line.strip())
+    out = []
+    for it in items:
+        out.append({"ver": it["ver"], "date": it["date"], "title": it["title"],
+                    "text": "\n".join(it["lines"])})
+    return out
+
+
+@app.route("/api/changelog")
+def api_changelog():
+    return jsonify({"version": APP_VERSION, "items": parse_changelog(__doc__)})
 
 
 # ---------- v1.42: Truck Info — недельные отдыхи, карты, стоянки ----------
