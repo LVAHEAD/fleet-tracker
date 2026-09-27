@@ -1096,6 +1096,7 @@ window.addEventListener("resize", closeRowMenus);
 //   окно  "09-15", "09:00-15:00", "09.00–15.00", "9-15h", "between 01 to 04 AM", "22-04" (через полночь)
 //   срок  "before 15:00", "до 15", "DO 19.00", одиночное "06.00", "09am", "01.30", "17"
 //   начало "after 10", "from 10", "с 10", "после 10" (конца нет)
+// Только время без даты ("22.00", "09-15", "до 15") — сегодня (v1.68).
 // Без времени — срок до конца дня. Не распознано — null (без подсветки).
 const DT_T = "(\\d{1,2})(?:[:.](\\d{2}))?\\s*(am|pm|h)?";
 function hmOf(h, m, ap, apFallback) {
@@ -1113,7 +1114,19 @@ function parseDeliveryWindow(txt) {
   const d = iso ? null : s.match(/(\d{1,2})[\/.](\d{1,2})(?:[\/.]\d{2,4})?(.*)$/);
   if (iso) { day = +iso[3]; mon = +iso[2]; rest = iso[4] || ""; }
   else if (d) { day = +d[1]; mon = +d[2]; rest = d[3] || ""; }
-  else return null;
+  // v1.68: только время ("22.00", "22:00", "09-15", "до 15", "after 10") — значит сегодня.
+  // "22.00" похоже на дату 22/00 — если такая дата невалидна или далеко от сегодня
+  // (раньше чем 2 дня назад / позже чем через 60 дней), читаем как время сегодня.
+  const dateOk = day >= 1 && day <= 31 && mon >= 1 && mon <= 12 && (() => {
+    const dd = mkDate(day, mon, 12, 0).getTime() - Date.now();
+    return dd > -2 * 86400000 && dd < 60 * 86400000;
+  })();
+  const explicitDate = iso || /\d{1,2}\/\d{1,2}|\d{1,2}\.\d{1,2}\.\d{2,4}/.test(s);
+  if (!dateOk && !explicitDate) {
+    if (!/\d/.test(s)) return null;
+    const now = new Date();
+    day = now.getDate(); mon = now.getMonth() + 1; rest = s;
+  }
   if (day < 1 || day > 31 || mon < 1 || mon > 12) return null;
   rest = rest.toLowerCase();
   const at = (min) => mkDate(day, mon, Math.floor(min / 60), min % 60);
