@@ -1,8 +1,11 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.55
+Версия: 1.56
 
 История изменений:
+1.56 (2026-09-27) — комментарий строки Флота (как заметка в Google Таблицах): жёлтый уголок у
+    Примечания, текст всплывает при наведении, правка по клику или ⋯ → "📝 Комментарий";
+    клик мимо / "Готово" — сохранить, Esc — отмена, кнопки "Скопировать" и "Удалить"
 1.55 (2026-09-27) — сортировка L→O / O→L внутри группы: сверху опаздывающие, дальше по Delivery
     (начало окна, раньше — выше), без даты Delivery — в конце по ETA; в блокноте [.] постоянный
     блок "Полезные ссылки" (лимиты Claude, расходы и запросы Google, бюджеты, таблица данных)
@@ -443,7 +446,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.55"
+APP_VERSION = "1.56"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"

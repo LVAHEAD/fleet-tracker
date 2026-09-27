@@ -546,3 +546,32 @@ body.sort-manual .manual-only { display: block; }
 .fixed-links { display: flex; flex-direction: column; gap: 5px; }
 .fixed-links a { color: #2f6fd6; text-decoration: none; }
 .fixed-links a:hover { text-decoration: underline; }
+
+/* ---------- v1.56: комментарий строки ---------- */
+.note-cell { position: relative; }
+.com-tri { position: absolute; top: 7px; right: 9px; width: 0; height: 0; border-top: 9px solid #e8a317; border-left: 9px solid transparent; cursor: pointer; }
+.com-tri:hover { filter: brightness(0.9); }
+.com-pop {
+  position: fixed; z-index: 1100; width: 340px; max-height: 260px; overflow: auto; background: #fffdf5;
+  border: 1px solid #e0e0e0; border-left: 3px solid #e8a317; border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.16);
+  padding: 8px 10px; white-space: pre-wrap; font-size: 12.5px; line-height: 1.45; cursor: pointer;
+}
+.com-hd { font-size: 11px; color: #888; margin-bottom: 4px; white-space: normal; }
+.com-ed {
+  position: fixed; z-index: 1200; width: 440px; max-width: calc(100vw - 16px); background: #fff; border: 1px solid #ddd;
+  border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.2); padding: 10px; display: flex; flex-direction: column; gap: 8px;
+}
+.com-ed-hd { font-weight: 600; font-size: 13px; }
+.com-ed-hd span { color: #888; font-weight: 400; }
+.com-ed textarea {
+  width: 100%; box-sizing: border-box; min-height: 200px; resize: vertical; border: 1px solid #ddd; border-radius: 6px;
+  padding: 8px; font: 13px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; background: #fafafa;
+}
+.com-ed textarea:focus { outline: 2px solid #7f77dd; outline-offset: -1px; }
+.com-ed-row { display: flex; gap: 6px; align-items: center; }
+.com-ed-row button { padding: 4px 10px; }
+.com-sp { flex: 1; }
+.com-hint { font-size: 11px; color: #999; }
+.com-del { color: #c0392b; }
+.com-ok { background: #2f6fd6; border-color: #2f6fd6; color: #fff; }
+.com-ok:hover { background: #2a62bf; }

@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — фронтенд
-Версия: 1.55 (сортировка по Delivery; ссылки в блокноте).
+Версия: 1.56 (комментарий строки: жёлтый уголок, всплывающая заметка, правка).
+Ранее 1.55 (сортировка по Delivery; ссылки в блокноте).
 Ранее 1.54 (окна Delivery: 09-15, before 15, between 01 to 04…; "раньше окна").
 Ранее 1.53 (сортировка Флота: как добавляли / L→O / O→L / руками).
 Ранее 1.50 (Delivery/Примечание без пересчёта маршрута).
@@ -535,12 +536,13 @@ function renderRows() {
       <td><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" title="${escapeHtml(row.delivery)}" placeholder="${deliveryPlaceholder(row.lo)}" /></td>
       <td class="dist-cell ${distMuted}" style="text-align:right">${distHtml}</td>
       <td class="eta-cell ${etaMuted}${cached && cached.late ? " eta-late" : ""}" title="${escapeHtml(composedEta ? composedEta.title : (cached && cached.etaTip ? cached.etaTip : ""))}">${etaHtml}</td>
-      <td><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" title="${escapeHtml(row.note)}" placeholder="примечание" /></td>
+      <td class="note-cell"><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" title="${escapeHtml(row.note)}" placeholder="примечание" />${row.com ? '<span class="com-tri" title="Комментарий"></span>' : ""}</td>
       <td class="row-actions">
         <button class="refresh-row-btn" title="Обновить строку">↻</button>
         <span class="row-menu-wrap">
           <button class="more-btn" title="Ещё">⋯</button>
           <span class="row-menu" hidden>
+            <button class="com-btn">📝 ${row.com ? "Комментарий" : "Добавить комментарий"}</button>
             <button class="mv-up manual-only">↑ выше</button>
             <button class="mv-down manual-only">↓ ниже</button>
             <button class="add-btn">+ строка ниже</button>
@@ -652,6 +654,11 @@ function attachRowHandlers() {
       renderRows();
     });
 
+    tr.querySelector(".com-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeRowMenus();
+      openComEditor(id, tr.querySelector(".note-cell"));
+    });
     tr.querySelector(".mv-up").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, -1); });
     tr.querySelector(".mv-down").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, 1); });
 
@@ -669,6 +676,7 @@ function attachRowHandlers() {
 
     tr.addEventListener("click", (e) => {
       if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
+      if (e.target.closest && e.target.closest(".com-tri")) return;
       drawRoute(id);
     });
   });
@@ -715,6 +723,118 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
     c.etaTip = composed.title;
   }
 });
+
+// ---------- v1.56: комментарий строки (как заметка в Google Таблицах) ----------
+// Жёлтый уголок у Примечания; наведение — всплывает текст; клик по уголку/окошку или
+// ⋯ → "📝 Комментарий" — правка. Клик мимо / "Готово" — сохранить, Esc — отмена.
+let comPop = null, comEd = null, comHideT = null;
+
+function placeFloat(el, anchor, dx) {
+  const a = anchor.getBoundingClientRect();
+  const w = el.offsetWidth, h = el.offsetHeight;
+  el.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, a.right - w + (dx || 0))) + "px";
+  el.style.top = (a.bottom + 6 + h < window.innerHeight ? a.bottom + 6 : Math.max(8, a.top - 6 - h)) + "px";
+}
+
+function hideComPop() {
+  if (comPop) { comPop.remove(); comPop = null; }
+}
+
+function showComPop(tri) {
+  if (comEd) return;
+  clearTimeout(comHideT);
+  hideComPop();
+  const tr = tri.closest("tr");
+  const row = rows.find((r) => r.id === Number(tr.dataset.id));
+  if (!row || !row.com) return;
+  comPop = document.createElement("div");
+  comPop.className = "com-pop";
+  comPop.innerHTML = `<div class="com-hd">${escapeHtml(row.unit || "")} · комментарий — клик, чтобы изменить</div>${escapeHtml(row.com)}`;
+  document.body.appendChild(comPop);
+  placeFloat(comPop, tri, 6);
+  comPop.addEventListener("mouseenter", () => clearTimeout(comHideT));
+  comPop.addEventListener("mouseleave", () => { comHideT = setTimeout(hideComPop, 250); });
+  comPop.addEventListener("click", (e) => { e.stopPropagation(); openComEditor(row.id, tri); });
+}
+
+function closeComEditor(save) {
+  if (!comEd) return;
+  const id = Number(comEd.dataset.id);
+  const val = comEd.querySelector("textarea").value.replace(/\s+$/, "");
+  comEd.remove();
+  comEd = null;
+  if (save) {
+    const row = rows.find((r) => r.id === id);
+    if (row && (row.com || "") !== val) {
+      row.com = val;
+      saveRows();
+      renderRows();
+    }
+  }
+}
+
+function openComEditor(id, anchor) {
+  hideComPop();
+  closeComEditor(true);
+  const row = rows.find((r) => r.id === id);
+  if (!row) return;
+  comEd = document.createElement("div");
+  comEd.className = "com-ed";
+  comEd.dataset.id = id;
+  comEd.innerHTML = `<div class="com-ed-hd">${escapeHtml(row.unit || "строка")} <span>· комментарий</span></div>
+    <textarea placeholder="Инструкция водителю, рефы, адрес, контакты…">${escapeHtml(row.com || "")}</textarea>
+    <div class="com-ed-row">
+      <button type="button" data-a="copy">Скопировать</button>
+      <button type="button" data-a="del" class="com-del">Удалить</button>
+      <span class="com-sp"></span><span class="com-hint">Esc — отмена</span>
+      <button type="button" data-a="ok" class="com-ok">Готово</button>
+    </div>`;
+  document.body.appendChild(comEd);
+  placeFloat(comEd, anchor);
+  const ta = comEd.querySelector("textarea");
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+  comEd.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const a = e.target.dataset && e.target.dataset.a;
+    if (a === "copy") {
+      try {
+        navigator.clipboard.writeText(ta.value).catch(() => ta.select());
+      } catch (err) { ta.select(); }
+      e.target.textContent = "Скопировано ✓";
+      setTimeout(() => { if (e.target) e.target.textContent = "Скопировать"; }, 1200);
+    } else if (a === "del") {
+      ta.value = "";
+      closeComEditor(true);
+    } else if (a === "ok") {
+      closeComEditor(true);
+    }
+  });
+}
+
+(function () {
+  const tbody = document.getElementById("fleet-tbody");
+  tbody.addEventListener("mouseover", (e) => {
+    const t = e.target.closest && e.target.closest(".com-tri");
+    if (t) showComPop(t);
+  });
+  tbody.addEventListener("mouseout", (e) => {
+    if (e.target.closest && e.target.closest(".com-tri")) comHideT = setTimeout(hideComPop, 250);
+  });
+  tbody.addEventListener("click", (e) => {
+    const t = e.target.closest && e.target.closest(".com-tri");
+    if (!t) return;
+    e.stopPropagation();
+    openComEditor(Number(t.closest("tr").dataset.id), t);
+  });
+  document.addEventListener("mousedown", (e) => {
+    if (comEd && !comEd.contains(e.target)) closeComEditor(true);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && comEd) closeComEditor(false);
+  });
+  window.addEventListener("scroll", () => { hideComPop(); }, true);
+})();
 
 function closeRowMenus() {
   document.querySelectorAll("#fleet-tbody .row-menu").forEach((m) => { m.hidden = true; });
