@@ -730,6 +730,7 @@ function renderRows() {
     if (blinkRows.has(row.id)) tr.classList.add("row-blink");
     tbody.appendChild(tr);
     markDeliveryInput(tr, row);
+    applyDoneClasses(tr, row, lastCalcText[row.id]);
   });
   attachRowHandlers();
 }
@@ -887,6 +888,7 @@ function attachRowHandlers() {
       if (!x) return;
       x.target = e.target.value;
       e.target.title = e.target.value;
+      if (row.done) delete row.done[Number(inp.dataset.k)];   // v1.79: новая точка — ✓ заново
       saveRows();
       calcRow(id);
     }));
@@ -951,6 +953,12 @@ function attachRowHandlers() {
       if (blinkRows.delete(id)) tr.classList.remove("row-blink");   // v1.59: клик — "увидел"
       if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
       if (e.target.closest && e.target.closest(".com-tri")) return;
+      const chip = e.target.closest && e.target.closest(".stop-n");
+      if (chip && chip.querySelector(".pn-chip")) {                 // v1.79: ✓ пройдена / нет
+        const w = chip.closest(".target-wrap");
+        toggleDone(id, w.classList.contains("x-stop") ? Number(w.dataset.k) : 0);
+        return;
+      }
       drawRoute(id);
     });
   });
@@ -1015,7 +1023,7 @@ function distCellHtml(row, c) {
   row.extra.forEach((x, i) => {
     const ce = c.extra && c.extra[i];
     // v1.65: у 2-й и следующих точек — плечо от предыдущей точки, сумма только в подсказке
-    const txt = ce && ce.leg_km != null ? ce.leg_km.toFixed(1) : "—";
+    const txt = ce && ce.done ? '<span class="done-km">✓</span>' : ce && ce.leg_km != null ? ce.leg_km.toFixed(1) : "—";
     const tip = ce && ce.leg_km != null ? `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]} (от машины всего ${ce.dist_km.toFixed(1)})` : (ce && ce.error) || "";
     lines.push(`<div class="sl${folded(row) && i >= 1 ? " fold-hide" : ""}" title="${escapeHtml(tip)}">${txt}</div>`);
   });
@@ -1030,7 +1038,10 @@ function etaCellHtml(row, c, composed) {
     const ce = c.extra && c.extra[i];
     let inner = '<span class="eta-x-t">—</span>';
     let tip = "";
-    if (ce && ce.error) {
+    if (ce && ce.done) {
+      inner = doneEtaHtml(ce);
+      tip = ce.done_auto ? `Точка пройдена: трак стоял здесь, уехал ${ce.done_at}` : "Отмечена пройденной вручную";
+    } else if (ce && ce.error) {
       inner = `<span class="eta-x-err">${escapeHtml(ce.error)}</span>`;
       tip = ce.error;
     } else if (ce && (ce.eta_tacho || ce.eta_local)) {
@@ -1050,6 +1061,7 @@ function etaCellHtml(row, c, composed) {
 function removeStop(id, k) {
   const row = rows.find((r) => r.id === id);
   if (!row || !row.extra || !row.extra.length) return;
+  delete row.done;   // v1.79: номера точек сдвигаются — ручные ✓ сбрасываем
   if (k === 0) {
     const nx = row.extra.shift();
     row.lo = nx.lo || "";
@@ -1540,6 +1552,8 @@ function updateRowField(id, field, value) {
   const row = rows.find((r) => r.id === id);
   if (row) {
     row[field] = value;
+    if (field === "target" && row.done) delete row.done[0];   // v1.79
+    if (field === "unit") delete row.done;
     saveRows();
     calcRow(id);
   }
@@ -1566,9 +1580,11 @@ async function calcRow(id) {
       body: JSON.stringify(Object.assign(
         { unit: row.unit, target: row.target },
         row.extra && row.extra.length ? { extra: row.extra.map((x) => x.target || "") } : {},
-        row.trailer ? { trailer: row.trailer } : {})),
+        row.trailer ? { trailer: row.trailer } : {},
+        { done: doneManualArray(row) })),
     });
     const data = await res.json();
+    if (!data.error) remapDone(data);
 
     if (data.error) {
       statusCell.textContent = data.error;
@@ -1622,7 +1638,7 @@ async function calcRow(id) {
     let etaTip = "";
     let late = false;
     let etaCore = null, bansR = [], tipLines = [];
-    if (data.dist_km != null) {
+    if (data.dist_km != null && !data.first_done) {
       distText = data.dist_km.toFixed(1);
       distCell.classList.remove("muted");
       // v1.33: две строки — простой ETA и ⏱ по тахографу; подробности в подсказке
@@ -1661,6 +1677,17 @@ async function calcRow(id) {
       etaCell.innerHTML = etaCellHtml(row, cx, composed);
       etaCell.title = etaTip;
       etaCell.classList.remove("muted");
+    } else if (data.first_done || data.all_done || (data.extra && data.extra.length)) {
+      // v1.79: ① пройдена (или все точки) — ✓ вместо км/ETA, следующие точки как обычно
+      distText = data.first_done ? '<span class="done-km">✓</span>' : "—";
+      etaText = data.first_done ? doneEtaHtml(data.first_done) : "—";
+      const cx = { dist: distText, eta: etaText, extra: extraCalc(data) };
+      distCell.innerHTML = distCellHtml(row, cx);
+      etaCell.innerHTML = etaCellHtml(row, cx, null);
+      etaCell.title = "";
+      etaCell.classList.remove("eta-late");
+      distCell.classList.remove("muted");
+      etaCell.classList.remove("muted");
     } else {
       distCell.textContent = "—";
       etaCell.textContent = "—";
@@ -1675,14 +1702,17 @@ async function calcRow(id) {
     const dovoz = data.target_dovoz
       ? `<span class="dovoz-badge" title="Основная машина везёт до Базы, дальше довоз (${escapeHtml(data.target_dovoz)})">+довоз ${escapeHtml(data.target_dovoz)}</span>`
       : "";
-    const targetBadge = data.target_badge
+    const targetBadge = data.target_badge && !data.first_done
       ? `<span class="target-cc-wrap target-cc"><span class="cc-badge" title="${escapeHtml(data.target_code_hint || data.target_badge)}">${escapeHtml(data.target_badge)}</span>${dovoz}</span>`
       : '<span class="cc-badge target-cc" hidden></span>';
     const oldTb = tr.querySelector(".target-cc");
     if (oldTb) oldTb.outerHTML = targetBadge;
 
     lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, etaCore, bansR, tipLines,
-                         etaStr: data.eta_tacho || data.eta_local, extra: extraCalc(data) };
+                         etaStr: data.eta_tacho || data.eta_local, extra: extraCalc(data),
+                         doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual })),
+                         allDone: !!data.all_done };
+    applyDoneClasses(tr, row, lastCalcText[id]);
     // v1.64: плашки кодов у следующих точек
     (lastCalcText[id].extra || []).forEach((ce, i) => {
       const w = tr.querySelector(`.x-stop[data-k="${i + 1}"]`);
@@ -1734,7 +1764,9 @@ async function calcRow(id) {
         if (tInput) tInput.title = row.target || "";
       }
 
-      if (data.target_is_truck && truckInTable(data.target_unit)) {
+      if (data.first_done) {
+        removeTargetMarker(id);            // v1.79: ① пройдена — флажка нет
+      } else if (data.target_is_truck && truckInTable(data.target_unit)) {
         // перецеп: цель — машина, которая и так есть в таблице и видна своим маркером
         removeTargetMarker(id);
       } else if (data.target_lat != null && data.target_lng != null) {
@@ -1801,9 +1833,73 @@ function linkedTrailerHtml(number, lt) {
 }
 
 // v1.64: ответ сервера по следующим точкам -> то, что держим в lastCalcText
+// ---------- v1.79: пройденные точки ✓ ----------
+// row.done = {индекс точки: true|false} — ручные отметки (0 — точка ①); нет ключа — авто по Mapon
+function doneManualArray(row) {
+  const n = 1 + (row.extra ? row.extra.length : 0);
+  const d = row.done || {};
+  return Array.from({ length: n }, (_, i) => (d[i] === true || d[i] === false ? d[i] : null));
+}
+function doneEtaHtml(x) {
+  const at = x.done_at || x.at;
+  const auto = x.done_auto != null ? x.done_auto : x.auto;
+  return `<span class="done-eta" title="${auto ? "Трак стоял на точке и уехал" : "Отмечено вручную"}">✓ ${escapeHtml(auto && at ? at : "пройдена")}</span>`;
+}
+// ответ сервера (① и extra — только непройденные) -> по исходным номерам точек
+function remapDone(data) {
+  const dn = data.points_done;
+  if (!dn) return data;
+  const act = data.active_idx || [];
+  const doneItem = (i) => ({ done: true, done_at: dn[i].at, done_auto: dn[i].auto });
+  const main = data.target_lat != null ? {
+    dist_km: data.dist_km, leg_km: data.dist_km, eta_local: data.eta_local, eta_tacho: data.eta_tacho,
+    tacho_weeklimit: data.tacho_weeklimit, badge: data.target_badge, badge_hint: data.target_code_hint,
+    lat: data.target_lat, lng: data.target_lng, polyline: null, bans_route: data.bans_route,
+    target_address: data.target_address,
+  } : { error: "нет координат" };
+  const activeItems = [main].concat(data.extra || []);
+  const byIdx = {};
+  act.forEach((idx, j) => { byIdx[idx] = activeItems[j]; });
+  data.first_done = dn[0] && dn[0].done ? doneItem(0) : null;
+  if (dn.length > 1) {
+    data.extra = dn.slice(1).map((x, k) => (x.done ? doneItem(k + 1) : (byIdx[k + 1] || { empty: true })));
+  }
+  return data;
+}
+function applyDoneClasses(tr, row, c) {
+  if (!tr) return;
+  const flags = (c && c.doneFlags) || [];
+  tr.classList.toggle("row-done", !!(c && c.allDone));
+  tr.querySelectorAll("#fleet-tbody .target-wrap, .target-wrap").forEach((w) => {
+    const k = w.classList.contains("x-stop") ? Number(w.dataset.k) : 0;
+    const f = flags[k];
+    w.classList.toggle("pt-done", !!(f && f.done));
+    const chip = w.querySelector(".stop-n");
+    if (chip) {
+      const m = row.done && (row.done[k] === true || row.done[k] === false) ? row.done[k] : null;
+      chip.title = (f && f.done ? (f.auto ? `Пройдена (авто: стоял здесь, уехал ${f.at})` : "Пройдена (вручную)") : (m === false ? "Не пройдена (вручную)" : "Не пройдена"))
+        + "\nКлик — " + (m == null ? (f && f.done ? "отметить непройденной" : "отметить пройденной") : "вернуть автоопределение");
+      chip.classList.add("stop-n-click");
+      chip.classList.toggle("stop-n-manual", m != null);
+    }
+  });
+}
+function toggleDone(id, k) {
+  const row = rows.find((r) => r.id === id);
+  if (!row) return;
+  const c = lastCalcText[id];
+  const f = c && c.doneFlags && c.doneFlags[k];
+  row.done = row.done || {};
+  if (row.done[k] === true || row.done[k] === false) delete row.done[k];
+  else row.done[k] = !(f && f.done);
+  saveRows();
+  calcRow(id);
+}
+
 function extraCalc(data) {
   return (data.extra || []).map((x) => ({
     error: x.error || null,
+    done: !!x.done, done_at: x.done_at || null, done_auto: !!x.done_auto,
     dist_km: x.dist_km, leg_km: x.leg_km,
     eta_tacho: x.eta_tacho || null, eta_local: x.eta_local || null,
     tacho_weeklimit: !!x.tacho_weeklimit,

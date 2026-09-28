@@ -1,8 +1,12 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.78
+Версия: 1.79
 
 История изменений:
+1.79 (2026-09-28) — Флот: пройденные точки ✓ — трак стоял ≥15 мин в 500 м от точки за последние 48 ч
+    и уже уехал дальше 1 км (история стоянок Mapon, кеш 10 мин) — точка бледная, в KM/ETA "✓ время";
+    км и ETA считаются от машины сразу до первой непройденной; клик по номеру точки — отметить
+    вручную пройденной/непройденной, повторный клик — снова авто; все точки пройдены — строка серая
 1.78 (2026-09-28) — Флот: фильтр "Показать: все / L / O" (по первой точке, если без отметки — по второй;
     без отметок — только во "все"; пустые строки видны всегда; карта показывает все машины);
     плашки таргетов на карте — км без "·" и "+"
@@ -523,7 +527,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.78"
+APP_VERSION = "1.79"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -3942,6 +3946,58 @@ def target_badge_info(target_str, lat, lng, address=None):
 
 UNLOAD_STOP_SEC = 30 * 60   # v1.64: время на выгрузку/погрузку между точками одной машины
 
+# ---------- v1.79: "точка пройдена" ✓ — по истории стоянок трака в Mapon ----------
+DONE_RADIUS_KM = 0.5        # стоял ближе 500 м от точки
+DONE_MIN_STOP_SEC = 15 * 60 # не меньше 15 мин
+DONE_LEFT_KM = 1.0          # и уже уехал дальше 1 км (иначе ещё грузится/ждёт)
+DONE_HISTORY_DAYS = 2       # смотрим последние 48 ч
+DONE_STOPS_TTL = 600        # историю стоянок кешируем на 10 мин на машину
+_done_stops_cache = {}      # unit_id -> (ts, stops)
+
+
+def recent_stops(unit_id):
+    import time
+    hit = _done_stops_cache.get(unit_id)
+    if hit and time.time() - hit[0] < DONE_STOPS_TTL:
+        return hit[1]
+    stops = unit_stops(unit_id, days=DONE_HISTORY_DAYS, min_sec=DONE_MIN_STOP_SEC)
+    _done_stops_cache[unit_id] = (time.time(), stops)
+    return stops
+
+
+def points_done(pts, manual, unit, units):
+    """pts — строки точек (① + следующие), manual — [True/False/None] ручные отметки.
+    -> список {done, auto, at}: пройдена ли точка (ручная отметка важнее автоматической)."""
+    out = []
+    stops = None
+    for i, tstr in enumerate(pts):
+        m = manual[i] if i < len(manual) else None
+        info = {"done": False, "auto": False, "at": None, "manual": m}
+        auto_at = None
+        if tstr and m is None and unit.get("lat") is not None:
+            try:
+                t = resolve_fleet_target(tstr, units, unit)
+                lat, lng = t.get("lat"), t.get("lng")
+                # точка-машина (перецеп) двигается — по истории не проверяем
+                if lat is not None and not t.get("target_is_truck") \
+                        and haversine_km(unit["lat"], unit["lng"], lat, lng) > DONE_LEFT_KM:
+                    if stops is None:
+                        stops = recent_stops(unit.get("unit_id")) or []
+                    for st in stops:
+                        if st.get("now") or st.get("lat") is None:
+                            continue
+                        if haversine_km(st["lat"], st["lng"], lat, lng) <= DONE_RADIUS_KM:
+                            auto_at = max(auto_at or 0, st["end"])
+            except Exception:
+                pass
+        if m is True:
+            info["done"] = True
+        elif m is None and auto_at:
+            info.update(done=True, auto=True,
+                        at=(datetime.fromtimestamp(auto_at, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M"))
+        out.append(info)
+    return out
+
 
 @app.route("/api/calc", methods=["POST"])
 def api_calc():
@@ -4025,6 +4081,25 @@ def api_calc():
                     info["reefer_error"] = str(e)
                 result["linked_trailer"] = info
 
+        # v1.79: пройденные точки (✓) — считаем от машины сразу до первой непройденной
+        pts_all = [target_str] + [str(x or "").strip() for x in (payload.get("extra") or [])][:11]
+        manual = [(v if v in (True, False) else None) for v in (payload.get("done") or [])]
+        active_extras = pts_all[1:]
+        if any(pts_all):
+            try:
+                dn = points_done(pts_all, manual, unit, units)
+            except Exception:
+                dn = [{"done": False} for _ in pts_all]
+            result["points_done"] = dn
+            active = [i for i, p in enumerate(pts_all) if not dn[i]["done"]]
+            result["active_idx"] = active
+            if not active:
+                result["all_done"] = True
+                target_str, active_extras = "", []
+            else:
+                target_str = pts_all[active[0]]
+                active_extras = [pts_all[i] for i in active[1:]]
+
         try:
             tgt = resolve_fleet_target(target_str, units, unit)
         except ValueError as e:
@@ -4069,7 +4144,7 @@ def api_calc():
 
         # v1.64: следующие точки той же машины (2-я, 3-я выгрузка...) — цепочкой от
         # предыдущей точки, плюс UNLOAD_STOP_SEC на каждую предыдущую точку
-        extras = [str(x or "").strip() for x in (payload.get("extra") or [])][:11]   # v1.74: до 12 точек
+        extras = active_extras   # v1.74: до 12 точек; v1.79: без пройденных
         if extras and result.get("target_lat") is not None:
             try:
                 result["extra"] = calc_extra_stops(extras, units, unit, result, tacho, sim)

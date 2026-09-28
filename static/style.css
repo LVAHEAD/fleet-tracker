@@ -797,3 +797,19 @@ button.hitch-ic:hover { background: #e6dfcc; }
 .sort-bar .flt-sep { width: 14px; }
 .sort-bar button[data-flt="L"].on { background: #1F5A99; border-color: #1F5A99; }
 .sort-bar button[data-flt="O"].on { background: #9a7400; border-color: #9a7400; }
+
+/* ---------- v1.79: пройденные точки ✓ ---------- */
+.target-wrap.pt-done .lo-btn, .target-wrap.pt-done .cc-badge, .target-wrap.pt-done input { opacity: .45; }
+.target-wrap.pt-done input { text-decoration: line-through; }
+.target-wrap.pt-done .pn-chip { background: #e3f1e6 !important; color: #2d6b3c !important; }
+.stop-n-click { cursor: pointer; }
+.stop-n-click:hover .pn-chip { outline: 2px solid #2f6fd6; outline-offset: 1px; }
+.stop-n-manual .pn-chip { box-shadow: 0 0 0 2px #e8a317; }
+.done-km { color: #2d6b3c; font-weight: 700; }
+.done-eta { color: #2d6b3c; font-weight: 600; }
+#fleet-tbody tr.row-done td { background: #f1f2f3 !important; }
+#fleet-tbody tr.row-done .target-input, #fleet-tbody tr.row-done .xt-input { color: #888; }
+/* v1.79: экран 1500–1799 px — Примечание уже, чтобы поле таргета не наезжало на Delivery */
+@media (min-width: 1500px) and (max-width: 1799px) {
+  #fleet-table .col-note { width: 200px; }
+}
