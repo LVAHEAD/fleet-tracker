@@ -32,6 +32,8 @@
   /* ---------- Флот: панель сортировки ---------- */
   .sort-bar { flex-wrap: wrap; gap: 6px; font-size: 13px; margin-bottom: 8px; }
   .sort-bar > span:first-child { display: none; }
+  .sort-bar > span { display: none; }            /* v1.78: подписи "Показать:" / "Сортировка:" — только на десктопе */
+  .sort-bar button[data-flt] { flex: 0 0 auto; padding: 6px 12px; }
   .sort-bar button { padding: 6px 10px; font-size: 13px; }
   .sort-bar button[data-sort="manual"] { display: none; }
   .sort-bar button[data-sort] { flex: 1; white-space: nowrap; padding: 6px 6px; }

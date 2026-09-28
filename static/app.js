@@ -329,7 +329,7 @@ const targetBadges = {}; // rowId -> BadgeOverlay
 // v1.77: + км — у ① от машины, у ②③… плечо от предыдущей точки ("+165 км")
 function targetBadgeParts(label, lo, n, km) {
   const c = targetColors(lo);
-  const kmHtml = km ? ` <span class="tb-km">· ${escapeHtml(km)}</span>` : "";
+  const kmHtml = km ? ` <span class="tb-km">${escapeHtml(km)}</span>` : "";   // v1.78: без "·"
   const icon = lo === "L" ? "⬇️" : lo === "O" ? "⬆️" : "⏺️";
   const chip = n ? ` <span class="pn-chip" style="background:${c.stroke}">${n}</span>` : "";
   return {
@@ -651,6 +651,22 @@ function orderedRows() {
   return out;
 }
 
+// ---------- v1.78: фильтр L/O во Флоте ----------
+// Строка — по L/O первой точки; если у неё нет отметки — по второй точке (если есть);
+// иначе только в "Все". Пустые строки (без машины) видны всегда. Карту фильтр не трогает.
+let loFilter = "all";
+try { loFilter = localStorage.getItem("fleet-lo-filter") || "all"; } catch (e) {}
+if (!["all", "L", "O"].includes(loFilter)) loFilter = "all";
+function rowLoKind(row) {
+  if (row.lo === "L" || row.lo === "O") return row.lo;
+  const x = row.extra && row.extra[0];
+  return x && (x.lo === "L" || x.lo === "O") ? x.lo : "";
+}
+function rowPassesFilter(row) {
+  if (loFilter === "all" || !row.unit) return true;
+  return rowLoKind(row) === loFilter;
+}
+
 function renderRows() {
   const tbody = document.getElementById("fleet-tbody");
   tbody.innerHTML = "";
@@ -658,6 +674,7 @@ function renderRows() {
   orderedRows().forEach((row) => {
     const tr = document.createElement("tr");
     tr.dataset.id = row.id;
+    if (!rowPassesFilter(row)) tr.classList.add("lo-filtered");
     if (row.lo) tr.classList.add(`lo-row-${row.lo}`);
     const multi = !!(row.extra && row.extra.length);
     if (multi) tr.classList.add("multi");
@@ -1736,7 +1753,7 @@ async function calcRow(id) {
         const ex = (row.extra || [])[i] || {};
         const kind = ex.lo || (x.target_address && ["port", "customs", "misc"].includes(x.target_address.type) ? x.target_address.type : "");
         updateTargetMarker(id + "_" + (i + 1), x.lat, x.lng, row.unit, kind, i + 2,
-          x.leg_km != null ? "+" + fmtKm(x.leg_km) : "");
+          x.leg_km != null ? fmtKm(x.leg_km) : "");   // v1.78: без "+"
       });
     }
   } catch (e) {
@@ -1893,8 +1910,19 @@ function moveManual(id, dir) {
 (function () {
   const bar = document.getElementById("sort-bar");
   if (!bar) return;
-  const mark = () => bar.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.sort === sortMode));
+  const mark = () => {
+    bar.querySelectorAll("button[data-sort]").forEach((b) => b.classList.toggle("on", b.dataset.sort === sortMode));
+    bar.querySelectorAll("button[data-flt]").forEach((b) => b.classList.toggle("on", b.dataset.flt === loFilter));
+  };
   bar.addEventListener("click", (e) => {
+    const f = e.target.closest("button[data-flt]");
+    if (f) {
+      loFilter = f.dataset.flt;
+      try { localStorage.setItem("fleet-lo-filter", loFilter); } catch (err) {}
+      mark();
+      renderRows();
+      return;
+    }
     const b = e.target.closest("button[data-sort]");
     if (!b) return;
     if (b.dataset.sort === "manual" && sortMode !== "manual") {

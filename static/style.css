@@ -791,3 +791,9 @@ button.hitch-ic:hover { background: #e6dfcc; }
 
 /* ---------- v1.77: км в плашке таргета ---------- */
 .mk-tbadge .tb-km { margin-left: 4px; font-weight: 600; color: #444; white-space: nowrap; }
+
+/* ---------- v1.78: фильтр L/O ---------- */
+#fleet-tbody tr.lo-filtered { display: none; }
+.sort-bar .flt-sep { width: 14px; }
+.sort-bar button[data-flt="L"].on { background: #1F5A99; border-color: #1F5A99; }
+.sort-bar button[data-flt="O"].on { background: #9a7400; border-color: #9a7400; }
