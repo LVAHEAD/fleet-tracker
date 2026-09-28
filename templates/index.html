@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fleet ETA Tracker</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
+<meta name="theme-color" content="#fafafa">
 </head>
 <body>
 
@@ -16,6 +18,7 @@
   <button class="main-tab-btn active" data-tab="fleet">Флот</button>
   <button class="main-tab-btn" data-tab="route">From → To</button>
   <button class="main-tab-btn" data-tab="gf" data-wip>GF построитель</button>
+  <button class="main-tab-btn m-only" data-tab="maps" data-locator>Локатор</button>
   <span class="main-tabs-spacer"></span>
   <button class="main-tab-btn ref-tab" data-tab="bans">Запреты</button>
   <button class="main-tab-btn ref-tab" data-tab="ferries" data-wip>Паромы</button>
@@ -35,6 +38,7 @@
   <button type="button" data-sort="OL" title="Сначала выгрузки, потом погрузки; внутри — по срочности">O → L</button>
   <label class="auto-lbl" title="Как часто пересчитывать все строки (без перестановки). Строка, которая стала опаздывать, мигает до клика.">автообновление
     <select id="auto-refresh"><option value="0">выкл</option><option value="15">15 мин</option><option value="30">30 мин</option><option value="60">60 мин</option></select></label>
+  <button type="button" class="m-edit-btn" id="m-edit-btn" title="Правка строк на телефоне">✎ правка</button>
   <button type="button" data-sort="manual" title="Свой порядок: перетаскивайте строки за ⠿ (на телефоне — ↑/↓ в меню ⋯)">руками</button>
 </div>
 <table id="fleet-table">
@@ -65,6 +69,10 @@
 
 
 <div id="map"></div>
+<button type="button" class="m-map-close" id="m-map-close">← К списку</button>
+<button type="button" class="m-fab" id="m-fab-add" title="Добавить строку" hidden>+</button>
+<button type="button" class="m-fab" id="m-fab-map" title="Карта">🗺</button>
+<button type="button" class="m-fab" id="m-fab-refresh" title="Обновить всё">↻</button>
 
 <datalist id="units-list"></datalist>
 <datalist id="points-list"></datalist>
@@ -229,6 +237,7 @@
 <script src="{{ url_for('static', filename='gusage.js') }}"></script>
 <script src="{{ url_for('static', filename='changelog.js') }}"></script>
 <script src="{{ url_for('static', filename='wip.js') }}"></script>
+<script src="{{ url_for('static', filename='mobile.js') }}"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_js_key }}&libraries=geometry&callback=initMap" async defer></script>
 </body>
 </html>

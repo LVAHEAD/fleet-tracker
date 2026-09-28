@@ -1713,7 +1713,7 @@ function calcAllRows(opts) {
   // v1.53: после "Обновить всё" (и загрузки) — пересортировать по выбранному режиму;
   // v1.59: автообновление строки не переставляет
   const resortAfter = !(opts && opts.auto);
-  Promise.allSettled(jobs).then(() => { if (resortAfter && sortMode !== "added") resort(); });
+  return Promise.allSettled(jobs).then(() => { if (resortAfter && sortMode !== "added") resort(); });
 }
 
 // ---------- v1.59: автообновление Флота; v1.64: период на выбор — выкл / 15 / 30 / 60 мин ----------
