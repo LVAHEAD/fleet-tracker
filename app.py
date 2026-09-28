@@ -1,8 +1,11 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.75
+Версия: 1.76
 
 История изменений:
+1.76 (2026-09-28) — телефон: карта Флота снова открывается по 🗺 / тапу по карточке (Google Maps
+    перебивал position:fixed — карта была высотой 0); номера точек в таблице — бледные, в цвет L/O;
+    From → To: "Похожие рейсы" в раскрывашке — видны заголовок и "Ориентир", рейсы по клику (запоминается)
 1.75 (2026-09-28) — карта: кнопка "🚩 Все / 🚩 Выбранная / 🚩 Выкл" слева сверху — таргеты всех машин,
     только выбранной строки (клик по строке) или никаких; режим запоминается; плашки машин с км — как были;
     колонка "Дистанция" -> "KM", уже — под 9999.9
@@ -515,7 +518,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.75"
+APP_VERSION = "1.76"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"

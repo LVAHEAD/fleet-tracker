@@ -301,11 +301,24 @@ function renderFreights(f) {
       ${e.eur_km_hist != null ? ` · ${e.eur_km_hist.toFixed(2)} €/км в истории` : ""}
       <span class="frt-muted">(${e.n} рейсов, ${routeEscape(e.basis)})</span>
     </div>` : "";
+  // v1.76: таблица рейсов — в раскрывашке (заголовок и "Ориентир" видны всегда), состояние запоминается
+  let open = false;
+  try { open = localStorage.getItem("frtOpen") === "1"; } catch (err) { /* ignore */ }
   el.innerHTML = `
-    <div class="frt-head">Похожие рейсы (${routeEscape(f.query)}): ${f.total}
+    <div class="frt-head frt-toggle" role="button" tabindex="0" title="Показать / скрыть рейсы">
+      <span class="frt-caret">▸</span> Похожие рейсы (${routeEscape(f.query)}): ${f.total}
       <span class="frt-muted">— ${routeEscape(levels)}${f.total > f.trips.length ? `, показаны ${f.trips.length} свежих` : ""}</span></div>
     ${est}
     <table class="frt-table">${rows}</table>`;
+  const setOpen = (v) => {
+    open = v;
+    el.classList.toggle("frt-open", open);
+    try { localStorage.setItem("frtOpen", open ? "1" : "0"); } catch (err) { /* ignore */ }
+  };
+  el.classList.toggle("frt-open", open);
+  const head = el.querySelector(".frt-toggle");
+  head.addEventListener("click", () => setOpen(!open));
+  head.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); setOpen(!open); } });
   el.hidden = false;
 }
 

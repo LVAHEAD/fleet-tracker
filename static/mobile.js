@@ -31,7 +31,13 @@
   // ---------- карта Флота во весь экран ----------
   function openMap() {
     body.classList.add("m-map-open");
-    if (window.google && window.map) google.maps.event.trigger(window.map, "resize");
+    // v1.76: map объявлена в app.js через let — это не window.map
+    const m = (typeof map !== "undefined" && map) ? map : null;
+    if (window.google && m) {
+      const c = m.getCenter();
+      google.maps.event.trigger(m, "resize");
+      if (c) m.setCenter(c);
+    }
     try { history.pushState({ mMap: 1 }, ""); } catch (e) { /* ignore */ }
   }
   function closeMap(fromPop) {
