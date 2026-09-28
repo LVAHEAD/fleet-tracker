@@ -274,18 +274,20 @@ function targetLabel(label, lo) {
 
 // v1.30: подпись таргета — белая плашка с рамкой цвета L/O над флажком
 const targetBadges = {}; // rowId -> BadgeOverlay
-function targetBadgeParts(label, lo) {
+// v1.74: "⬇️ OB-3280 [5]" — ⬇️ погрузка, ⬆️ выгрузка, ⏺️ другое; номер точки — кружок
+function targetBadgeParts(label, lo, n) {
   const c = targetColors(lo);
-  const text = String(label || "").includes("→") ? label : `→ ${label || ""}`;
+  const icon = lo === "L" ? "⬇️" : lo === "O" ? "⬆️" : "⏺️";
+  const chip = n ? ` <span class="pn-chip" style="background:${c.stroke}">${n}</span>` : "";
   return {
-    html: `<span style="color:${c.label}">${escapeHtml(text)}</span>`,
+    html: `<span style="color:${c.label}"><span class="tb-ic">${icon}</span> ${escapeHtml(label || "")}${chip}</span>`,
     cls: "mk-tbadge",
     border: c.fill,
   };
 }
 
-function setTargetBadge(rowId, lat, lng, label, lo) {
-  const t = targetBadgeParts(label, lo);
+function setTargetBadge(rowId, lat, lng, label, lo, n) {
+  const t = targetBadgeParts(label, lo, n);
   if (targetBadges[rowId]) targetBadges[rowId].update(new google.maps.LatLng(lat, lng), t.html, t.cls);
   else targetBadges[rowId] = makeBadge(lat, lng, t.html, t.cls, 34, null);
   const b = targetBadges[rowId];
@@ -294,7 +296,7 @@ function setTargetBadge(rowId, lat, lng, label, lo) {
   setTimeout(applyBorder, 0); // div создаётся в onAdd — после setMap
 }
 
-function updateTargetMarker(rowId, lat, lng, label, lo) {
+function updateTargetMarker(rowId, lat, lng, label, lo, n) {
   if (lat == null || lng == null) return;
   if (!map) return; // таргет-маркер не критичен при ранней загрузке, пропускаем
   const pos = { lat, lng };
@@ -310,7 +312,8 @@ function updateTargetMarker(rowId, lat, lng, label, lo) {
     });
   }
   targetMarkers[rowId]._label = label;
-  setTargetBadge(rowId, lat, lng, label, lo);
+  targetMarkers[rowId]._n = n;
+  setTargetBadge(rowId, lat, lng, label, lo, n);
 }
 
 // Перекрасить уже стоящий флажок без пересчёта маршрута (после клика по L/O)
@@ -319,7 +322,7 @@ function recolorTargetMarker(rowId, label, lo) {
   if (!m) return;
   m.setIcon(flagIcon(lo));
   const p = m.getPosition();
-  setTargetBadge(rowId, p.lat(), p.lng(), m._label || label, lo);
+  setTargetBadge(rowId, p.lat(), p.lng(), m._label || label, lo, m._n);
 }
 
 function removeTargetMarker(rowId) {
@@ -344,7 +347,12 @@ function removeExtraTargets(rowId, fromK) {
     if (targetBadges[key]) { targetBadges[key].setMap(null); delete targetBadges[key]; }
   });
 }
-const STOP_NUM = ["", "①", "②", "③", "④", "⑤", "⑥", "⑦"];
+const STOP_NUM = ["", "①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩", "⑪", "⑫", "⑬", "⑭", "⑮", "⑯", "⑰", "⑱", "⑲", "⑳"];
+const MAX_STOPS = 12;   // v1.74: точек в строке максимум (1 основная + 11 следующих)
+// v1.74: номер точки — белая цифра в залитом кружке цвета L/O (вместо мелких ①②)
+function numChip(n, lo) {
+  return `<span class="pn-chip pn-${lo === "L" ? "L" : lo === "O" ? "O" : "x"}">${n}</span>`;
+}
 let routeExtraLines = [];
 
 function drawRoute(rowId) {
@@ -508,6 +516,8 @@ function applyLoToRow(tr, row) {
   tr.classList.remove("lo-row-L", "lo-row-O");
   if (row.lo) tr.classList.add(`lo-row-${row.lo}`);
   recolorTargetMarker(row.id, row.unit, markerKind(row));
+  const chip = row.extra && row.extra.length ? tr.querySelector(".target-wrap:not(.x-stop) .stop-n") : null;
+  if (chip) chip.innerHTML = numChip(1, row.lo);
 }
 
 // ---------- v1.53: сортировка Флота ----------
@@ -606,7 +616,7 @@ function renderRows() {
       <td class="status-cell ${statusClass}">${statusHtml}</td>
       <td>
         <div class="target-wrap">
-          ${multi ? `${foldable(row) ? `<span class="lead"><button class="fold-t" title="${row.open ? "Свернуть точки" : escapeHtml(foldTitle(row, cached))}">${row.open ? "▾" : "▸"}</button></span>` : ""}<span class="stop-n">①</span>` : ""}
+          <span class="lead">${foldable(row) ? `<button class="fold-t" title="${row.open ? "Свернуть точки" : escapeHtml(foldTitle(row, cached))}">${row.open ? "▾" : "▸"}</button>` : ""}</span><span class="stop-n">${multi ? numChip(1, row.lo) : ""}</span>
           <button class="lo-btn ${loClass(row.lo)}" title="${loTitle(row.lo)}">${loText(row.lo)}</button>
           ${cached && cached.targetBadge ? cached.targetBadge : '<span class="cc-badge target-cc" hidden></span>'}
           <input list="points-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" title="${escapeHtml(row.target)}" placeholder="ГПС, город, код или машина" />
@@ -618,7 +628,8 @@ function renderRows() {
         `<input class="xd-input${folded(row) && i >= 1 ? " fold-hide" : ""}" data-k="${i + 1}" name="delivery-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.delivery)}" title="${escapeHtml(x.delivery)}" placeholder="${deliveryPlaceholder(x.lo)}" />`).join("")}</td>
       <td class="dist-cell ${distMuted}" style="text-align:right">${distHtml}</td>
       <td class="eta-cell ${etaMuted}${cached && cached.late ? " eta-late" : ""}" title="${escapeHtml(composedEta ? composedEta.title : (cached && cached.etaTip ? cached.etaTip : ""))}">${etaHtml}</td>
-      <td class="note-cell"><div class="note-wrap"><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" title="${escapeHtml(row.note)}" placeholder="примечание" />${row.com ? '<span class="com-tri" title="Комментарий"></span>' : ""}<button class="com-ic${row.com ? " has" : ""}" title="${row.com ? "Комментарий — клик, чтобы изменить" : "Добавить комментарий"}">${COM_SVG(!!row.com)}</button></div></td>
+      <td class="note-cell"><div class="note-wrap"><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" title="${escapeHtml(row.note)}" placeholder="примечание" />${row.com ? '<span class="com-tri" title="Комментарий"></span>' : ""}<button class="com-ic${row.com ? " has" : ""}" title="${row.com ? "Комментарий — клик, чтобы изменить" : "Добавить комментарий"}">${COM_SVG(!!row.com)}</button></div>${(row.extra || []).map((x, i) =>
+        `<div class="note-wrap xn-wrap${folded(row) && i >= 1 ? " fold-hide" : ""}"><input class="xn-input" data-k="${i + 1}" name="note-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.note || "")}" title="${escapeHtml(x.note || "")}" placeholder="примечание к ${i + 2}" /><span class="com-sp"></span></div>`).join("")}</td>
       <td class="row-actions">
         <button class="refresh-row-btn" title="Обновить строку">↻</button>
         <span class="wide-acts">
@@ -775,7 +786,8 @@ function attachRowHandlers() {
       e.stopPropagation();
       const row = rows.find((r) => r.id === id);
       if (!row) return;
-      row.extra = (row.extra || []).concat([{ lo: "", target: "", delivery: "" }]);
+      if ((row.extra || []).length + 1 >= MAX_STOPS) return;   // v1.74: максимум 12 точек
+      row.extra = (row.extra || []).concat([{ lo: "", target: "", delivery: "", note: "" }]);
       row.open = true;
       saveRows();
       renderRows();
@@ -803,6 +815,14 @@ function attachRowHandlers() {
       saveRows();
       calcRow(id);
     }));
+    tr.querySelectorAll(".xn-input").forEach((inp) => inp.addEventListener("change", (e) => {
+      const row = rows.find((r) => r.id === id);
+      const x = row && row.extra && row.extra[Number(inp.dataset.k) - 1];
+      if (!x) return;
+      x.note = e.target.value;
+      e.target.title = e.target.value;
+      saveRows();
+    }));
     tr.querySelectorAll(".xd-input").forEach((inp) => inp.addEventListener("change", (e) => {
       const row = rows.find((r) => r.id === id);
       const x = row && row.extra && row.extra[Number(inp.dataset.k) - 1];
@@ -824,7 +844,9 @@ function attachRowHandlers() {
       b.title = loTitle(x.lo);
       const d = tr.querySelector(`.xd-input[data-k="${k}"]`);
       if (d) d.placeholder = deliveryPlaceholder(x.lo);
-      recolorTargetMarker(id + "_" + k, row.unit + " " + STOP_NUM[k + 1], x.lo);
+      recolorTargetMarker(id + "_" + k, row.unit, x.lo);
+      const chip = tr.querySelector(`.x-stop[data-k="${k}"] .stop-n`);
+      if (chip) chip.innerHTML = numChip(k + 1, x.lo);
     }));
     tr.querySelector(".trl-btn-w").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -877,14 +899,15 @@ function extraTargetsHtml(row, cached) {
     const last = k === ex.length;
     const hide = folded(row) && k >= 2 ? " fold-hide" : "";
     return `<div class="target-wrap x-stop${hide}" data-k="${k}">
-      ${foldable(row) ? '<span class="lead"></span>' : ""}<span class="stop-n">${STOP_NUM[k + 1]}</span>
+      <span class="lead"></span><span class="stop-n">${numChip(k + 1, x.lo)}</span>
       <button class="lo-btn xlo-btn ${loClass(x.lo)}" data-k="${k}" title="${loTitle(x.lo)}">${loText(x.lo)}</button>
       ${badge}
       <input list="points-list" class="xt-input" data-k="${k}" name="target-${row.id}-${k}" autocomplete="off" value="${escapeHtml(x.target)}" title="${escapeHtml(ce && ce.error ? ce.error : x.target)}" placeholder="следующая точка" />
       <button class="stop-x" data-k="${k}" title="Убрать эту точку">×</button>
       ${folded(row) && k === 1
         ? `<button class="fold-more" title="${escapeHtml(foldTitle(row, cached))}">+${row.extra.length - 1}</button>`
-        : last ? '<button class="add-stop" title="Добавить ещё таргет">+</button>' : '<span class="add-stop-sp"></span>'}
+        : last && ex.length + 1 < MAX_STOPS ? '<button class="add-stop" title="Добавить ещё таргет">+</button>'
+        : last ? `<span class="add-stop-sp" title="Максимум ${MAX_STOPS} точек"></span>` : '<span class="add-stop-sp"></span>'}
     </div>`;
   }).join("");
 }
@@ -898,13 +921,17 @@ function plTochek(n) {
   if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "точки";
   return "точек";
 }
+// v1.74: подсказка к ▸ / "+N" — все скрытые точки: номер, название, ETA, примечание
 function foldTitle(row, cached) {
   const n = row.extra.length - 1;             // скрыто точек
-  const lastI = row.extra.length - 1;
-  const last = row.extra[lastI];
-  const ce = cached && cached.extra && cached.extra[lastI];
-  const e = ce && (ce.eta_tacho || ce.eta_local);
-  return `Ещё ${n} ${plTochek(n)} — клик, чтобы показать все\nПоследняя ${STOP_NUM[lastI + 2]} ${(ce && ce.badge ? ce.badge + " " : "") + (last.target || "—")}${e ? "\n⏱ " + e : ""}`;
+  const lines = [`Ещё ${n} ${plTochek(n)} — клик, чтобы показать все`];
+  row.extra.forEach((x, i) => {
+    if (i < 1) return;
+    const ce = cached && cached.extra && cached.extra[i];
+    const e = ce && (ce.eta_tacho || ce.eta_local);
+    lines.push(`${STOP_NUM[i + 2]} ${(ce && ce.badge ? ce.badge + " " : "") + (x.target || "—")}${e ? " — " + e : ""}${x.note ? " · «" + x.note + "»" : ""}`);
+  });
+  return lines.join("\n");
 }
 
 function distCellHtml(row, c) {
@@ -933,7 +960,7 @@ function etaCellHtml(row, c, composed) {
       tip = ce.error;
     } else if (ce && (ce.eta_tacho || ce.eta_local)) {
       const wk = ce.tacho_weeklimit ? '<span class="wk-mark" title="Недельный лимит вождения кончится по пути">56</span>' : "";
-      inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}</span><span class="eta-simple">через ${STOP_NUM[i + 1]}</span>`;
+      inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}</span><span class="eta-simple">после ${i + 1}</span>`;
       tip = [`Точка ${STOP_NUM[i + 2]}: ${x.target}`,
              `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]}, всего ${ce.dist_km.toFixed(1)} км`,
              `+30 мин на каждой точке до неё`,
@@ -1638,8 +1665,8 @@ async function calcRow(id) {
       } else if (data.target_lat != null && data.target_lng != null) {
         // если машина-цель не в таблице — флажок в её позиции, подпись "→ номер"
         const multi = row.extra && row.extra.length;
-        const label = (data.target_is_truck ? `${row.unit} → ${data.target_unit}` : row.unit) + (multi ? " ①" : "");
-        updateTargetMarker(id, data.target_lat, data.target_lng, label, markerKind(row));
+        const label = data.target_is_truck ? `${row.unit} → ${data.target_unit}` : row.unit;
+        updateTargetMarker(id, data.target_lat, data.target_lng, label, markerKind(row), multi ? 1 : null);
       } else {
         removeTargetMarker(id);
       }
@@ -1649,7 +1676,7 @@ async function calcRow(id) {
         if (x.lat == null || x.lng == null) return;
         const ex = (row.extra || [])[i] || {};
         const kind = ex.lo || (x.target_address && ["port", "customs", "misc"].includes(x.target_address.type) ? x.target_address.type : "");
-        updateTargetMarker(id + "_" + (i + 1), x.lat, x.lng, `${row.unit} ${STOP_NUM[i + 2]}`, kind);
+        updateTargetMarker(id + "_" + (i + 1), x.lat, x.lng, row.unit, kind, i + 2);
       });
     }
   } catch (e) {

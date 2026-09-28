@@ -1,8 +1,14 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.73
+Версия: 1.74
 
 История изменений:
+1.74 (2026-09-28) — Флот: у каждой точки своё примечание (верхнее — общее на рейс; в свёрнутой
+    строке — в подсказке к "+N" вместе с ETA); до 12 точек в строке (было 7, 8-я была "undefined");
+    номера точек — белая цифра в кружке цвета L/O вместо мелких ①②; на карте плашка точки
+    "⬇️ OB-3280 [5]" (⬇️ погрузка, ⬆️ выгрузка, ⏺️ другое); колонка Таргета ровная во всех строках
+    (слоты под ▸ и номер есть всегда); поле таргета не уже ~150 px — сжимается Примечание,
+    на узком экране — горизонтальная прокрутка
 1.73 (2026-09-28) — мобильная версия (телефон, экран до 767 px; десктоп без изменений): вкладки
     Флот · From → To · Локатор, остальные — в меню "⋯"; Флот — карточками (машина, статус, таргет,
     Delivery / осталось км, крупно ETA, примечание); по умолчанию режим просмотра, "✎ правка" —
@@ -506,7 +512,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.73"
+APP_VERSION = "1.74"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -4052,7 +4058,7 @@ def api_calc():
 
         # v1.64: следующие точки той же машины (2-я, 3-я выгрузка...) — цепочкой от
         # предыдущей точки, плюс UNLOAD_STOP_SEC на каждую предыдущую точку
-        extras = [str(x or "").strip() for x in (payload.get("extra") or [])][:6]
+        extras = [str(x or "").strip() for x in (payload.get("extra") or [])][:11]   # v1.74: до 12 точек
         if extras and result.get("target_lat") is not None:
             try:
                 result["extra"] = calc_extra_stops(extras, units, unit, result, tacho, sim)

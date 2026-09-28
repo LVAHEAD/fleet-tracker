@@ -734,3 +734,37 @@ button.hitch-ic:hover { background: #e6dfcc; }
 .trl-ed-pick { font-size: 11px; padding: 0 5px; margin: 0 2px 2px 0; border: 1px solid #d8cfb8; background: #f1eee6; color: #5c4a1e; border-radius: 8px; cursor: pointer; }
 .trl-ed-pick:hover { background: #e6dfcc; }
 .trl-ed { width: 250px; }
+
+/* ---------- v1.74: номера точек, ровная колонка Таргета, ширины, примечания точек ---------- */
+/* номер точки — белая цифра в залитом кружке цвета L/O */
+.pn-chip { display: inline-block; min-width: 18px; height: 18px; line-height: 18px; padding: 0 4px; box-sizing: border-box;
+  border-radius: 9px; text-align: center; font-size: 11.5px; font-weight: 700; color: #fff; background: #4B5058; vertical-align: middle; }
+.pn-chip.pn-L { background: #1F5A99; }
+.pn-chip.pn-O { background: #9a7400; }
+.pn-chip.pn-x { background: #6b7078; }
+.stop-n { flex: 0 0 22px; width: 22px; font-size: inherit; line-height: 1; display: inline-grid; place-items: center; }
+.mk-tbadge .pn-chip { margin-left: 3px; }
+.mk-tbadge .tb-ic { font-size: 13px; }
+/* одна сетка во всех строках: [▸][№][L/O][код][поле] — пустые слоты тоже занимают место */
+.target-wrap > .lead { flex: 0 0 18px; }
+/* Таргет не сжимается до нуля: поле минимум ~150 px, колонка ~340 px; Примечание сжимается первым */
+@media (min-width: 768px) {
+  #fleet-table { min-width: 1290px; }
+  #fleet-table .col-target { width: 340px; }
+  .target-input, .xt-input { min-width: 150px !important; }
+  .note-wrap .note-input, .xn-input { min-width: 0; }
+}
+@media (min-width: 1500px) {
+  #fleet-table .col-target { width: auto; }
+  #fleet-table .col-note { width: 22%; }
+}
+/* примечания следующих точек — на линии своих точек */
+.xn-wrap { margin-top: 4px; height: var(--stop-h, 28px); }
+.xn-input { flex: 1; min-width: 0; border-style: dashed; background: #fbfcfe; }
+.xn-input:focus, .xn-input:not(:placeholder-shown) { border-style: solid; background: #fff; }
+.com-sp { flex: 0 0 26px; }
+#fleet-tbody tr.multi .note-cell { vertical-align: top; }
+@media (min-width: 1500px) {
+  #fleet-table .col-actions { width: 142px; }            /* v1.74: + кнопка 🔗 (v1.71) не влезала */
+  body.sort-manual #fleet-table .col-actions { width: 236px; }
+}
