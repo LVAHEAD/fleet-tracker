@@ -788,3 +788,6 @@ button.hitch-ic:hover { background: #e6dfcc; }
 .pn-chip.pn-L { background: #DCEBFB; color: #1F5A99; box-shadow: inset 0 0 0 1px #A9CBEF; }
 .pn-chip.pn-O { background: #FFF4C2; color: #7A5C00; box-shadow: inset 0 0 0 1px #EBD37A; }
 .pn-chip.pn-x { background: #F7F7F8; color: #6b7078; box-shadow: inset 0 0 0 1px #DADCE0; }
+
+/* ---------- v1.77: км в плашке таргета ---------- */
+.mk-tbadge .tb-km { margin-left: 4px; font-weight: 600; color: #444; white-space: nowrap; }
