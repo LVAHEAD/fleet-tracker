@@ -62,10 +62,60 @@ function initMap() {
   });
   pendingPositions = {};
 
+  addTargetModeControl();
   window.googleMapsReady = true;
   if (window.onGoogleMapsReady) window.onGoogleMapsReady();
   (window._gmQueue || []).forEach((fn) => fn());
   window._gmQueue = [];
+}
+
+// ---------- v1.75: режим таргетов на карте — Все / Выбранная / Выкл ----------
+const TARGET_MODES = { all: "🚩 Все", sel: "🚩 Выбранная", off: "🚩 Выкл" };
+const TARGET_MODE_NEXT = { all: "sel", sel: "off", off: "all" };
+const TARGET_MODE_TIP = {
+  all: "Таргеты всех машин. Клик — только выбранной строки",
+  sel: "Таргеты только выбранной строки (клик по строке в таблице). Клик — выключить таргеты",
+  off: "Таргеты скрыты, видны только машины. Клик — показать все",
+};
+let targetMode = "all";
+try { targetMode = localStorage.getItem("fleet-target-mode") || "all"; } catch (e) {}
+if (!TARGET_MODES[targetMode]) targetMode = "all";
+let selectedRowId = null;
+function targetVisible(key) {
+  if (targetMode === "all") return true;
+  if (targetMode === "off") return false;
+  return selectedRowId != null && String(key).split("_")[0] === String(selectedRowId);
+}
+// only — ключ строки: пересчитать только её флажки (после расчёта строки)
+function applyTargetVisibility(only) {
+  if (!map) return;
+  const pre = only != null ? String(only) : null;
+  const touch = (obj) => Object.keys(obj).forEach((key) => {
+    if (pre != null && key !== pre && !key.startsWith(pre + "_")) return;
+    const want = targetVisible(key) ? map : null;
+    const o = obj[key];
+    if (o && o.getMap && o.getMap() !== want) o.setMap(want);
+  });
+  touch(targetMarkers);
+  touch(targetBadges);
+}
+function addTargetModeControl() {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "tgt-mode-btn";
+  const paint = () => {
+    btn.textContent = TARGET_MODES[targetMode];
+    btn.title = TARGET_MODE_TIP[targetMode];
+    btn.classList.toggle("tgt-mode-dim", targetMode !== "all");
+  };
+  paint();
+  btn.addEventListener("click", () => {
+    targetMode = TARGET_MODE_NEXT[targetMode];
+    try { localStorage.setItem("fleet-target-mode", targetMode); } catch (e) {}
+    paint();
+    applyTargetVisibility();
+  });
+  map.controls[google.maps.ControlPosition.TOP_LEFT].push(btn);
 }
 
 // --- v1.30: плашки на карте (как в Mapon) — HTML-слой поверх карты ---
@@ -83,6 +133,7 @@ function makeBadge(lat, lng, html, className, offsetY, onClick) {
         this.div.className = this.cls;
         this.div.innerHTML = this.html;
         this.div.style.position = "absolute";
+        if (this.border) this.div.style.borderColor = this.border;   // v1.75: цвет рамки после скрытия/показа
         if (this.click) {
           this.div.style.cursor = "pointer";
           this.div.addEventListener("click", (e) => { e.stopPropagation(); this.click(); });
@@ -291,6 +342,7 @@ function setTargetBadge(rowId, lat, lng, label, lo, n) {
   if (targetBadges[rowId]) targetBadges[rowId].update(new google.maps.LatLng(lat, lng), t.html, t.cls);
   else targetBadges[rowId] = makeBadge(lat, lng, t.html, t.cls, 34, null);
   const b = targetBadges[rowId];
+  b.border = t.border;
   const applyBorder = () => { if (b.div) b.div.style.borderColor = t.border; };
   applyBorder();
   setTimeout(applyBorder, 0); // div создаётся в onAdd — после setMap
@@ -314,6 +366,7 @@ function updateTargetMarker(rowId, lat, lng, label, lo, n) {
   targetMarkers[rowId]._label = label;
   targetMarkers[rowId]._n = n;
   setTargetBadge(rowId, lat, lng, label, lo, n);
+  applyTargetVisibility(rowId);
 }
 
 // Перекрасить уже стоящий флажок без пересчёта маршрута (после клика по L/O)
@@ -357,6 +410,8 @@ let routeExtraLines = [];
 
 function drawRoute(rowId) {
   const pos = rowPositions[rowId];
+  selectedRowId = rowId;           // v1.75: для режима таргетов "Выбранная"
+  applyTargetVisibility();
 
   if (routePolyline) {
     routePolyline.setMap(null);

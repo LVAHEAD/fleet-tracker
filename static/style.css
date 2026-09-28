@@ -768,3 +768,10 @@ button.hitch-ic:hover { background: #e6dfcc; }
   #fleet-table .col-actions { width: 142px; }            /* v1.74: + кнопка 🔗 (v1.71) не влезала */
   body.sort-manual #fleet-table .col-actions { width: 236px; }
 }
+
+/* ---------- v1.75: колонка KM уже, кнопка режима таргетов на карте ---------- */
+#fleet-table .col-dist { width: 62px; }
+.tgt-mode-btn { margin: 10px 0 0 10px; height: 40px; padding: 0 12px; border: 0; border-radius: 2px; background: #fff;
+  box-shadow: rgba(0,0,0,.3) 0 1px 4px -1px; font: 500 14px Roboto, Arial, sans-serif; color: #222; cursor: pointer; }
+.tgt-mode-btn:hover { background: #ebebeb; }
+.tgt-mode-btn.tgt-mode-dim { color: #b3261e; }
