@@ -1,8 +1,12 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.79
+Версия: 1.80
 
 История изменений:
+1.80 (2026-09-28) — Флот: весь интерфейс в масштабе 90% на большом экране (было удобно при zoom 90%);
+    заголовки Таргет и Delivery по центру, KM — и заголовок, и цифры по центру; у пройденной точки
+    остаётся код региона; фикс: после перерисовки пропадал ETA точек после пройденной ①;
+    разделитель между машинами ярче
 1.79 (2026-09-28) — Флот: пройденные точки ✓ — трак стоял ≥15 мин в 500 м от точки за последние 48 ч
     и уже уехал дальше 1 км (история стоянок Mapon, кеш 10 мин) — точка бледная, в KM/ETA "✓ время";
     км и ETA считаются от машины сразу до первой непройденной; клик по номеру точки — отметить
@@ -527,7 +531,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.79"
+APP_VERSION = "1.80"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -3974,10 +3978,17 @@ def points_done(pts, manual, unit, units):
         m = manual[i] if i < len(manual) else None
         info = {"done": False, "auto": False, "at": None, "manual": m}
         auto_at = None
-        if tstr and m is None and unit.get("lat") is not None:
+        t, lat, lng = None, None, None
+        if tstr:
             try:
                 t = resolve_fleet_target(tstr, units, unit)
                 lat, lng = t.get("lat"), t.get("lng")
+                if lat is not None:       # v1.80: код региона и у пройденной точки
+                    info["badge"], info["badge_hint"] = target_badge_info(tstr, lat, lng, t.get("target_address"))
+            except Exception:
+                t = None
+        if t is not None and m is None and unit.get("lat") is not None:
+            try:
                 # точка-машина (перецеп) двигается — по истории не проверяем
                 if lat is not None and not t.get("target_is_truck") \
                         and haversine_km(unit["lat"], unit["lng"], lat, lng) > DONE_LEFT_KM:

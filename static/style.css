@@ -813,3 +813,17 @@ button.hitch-ic:hover { background: #e6dfcc; }
 @media (min-width: 1500px) and (max-width: 1799px) {
   #fleet-table .col-note { width: 200px; }
 }
+
+/* ---------- v1.80: масштаб 90% на большом экране, выравнивание заголовков, разделители ---------- */
+@media (min-width: 1500px) {
+  body { zoom: 0.9; }
+  /* карты Google — без масштаба, иначе клики и перетаскивание мимо */
+  #map, #route-map, #locatorMap { zoom: 1.11112; }
+}
+#fleet-table th.th-center { text-align: center; }
+#fleet-tbody td.dist-cell { text-align: center; }
+.dist-cell .sl { justify-content: center; }
+/* разделитель между машинами — заметнее */
+#fleet-tbody > tr > td { border-bottom: 2px solid #d3d9e0; }
+/* у пройденной точки код региона читается */
+.target-wrap.pt-done .cc-badge { opacity: .8; }

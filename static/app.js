@@ -40,6 +40,12 @@ let rowPositions = {}; // rowId -> {unitLat, unitLng, targetLat, targetLng, poly
 let routePolyline = null; // текущая нарисованная линия маршрута (одна за раз)
 
 // v1.24: несколько вкладок могут ждать загрузки Google Maps — очередь вместо одного колбэка
+// v1.80: масштаб интерфейса (body { zoom: .9 } на большом экране)
+function uiZoom() {
+  const z = parseFloat(getComputedStyle(document.body).zoom);
+  return z > 0 ? z : 1;
+}
+
 window.whenGoogleMaps = function (fn) {
   if (window.googleMapsReady) fn();
   else (window._gmQueue = window._gmQueue || []).push(fn);
@@ -684,7 +690,9 @@ function renderRows() {
     const distHtml = cached ? distCellHtml(row, cached) : "—";
     const distMuted = cached ? "" : "muted";
     const composedEta = cached && cached.etaCore ? composeEta(row, cached) : null;
-    const etaHtml = composedEta ? etaCellHtml(row, cached, composedEta) : (cached ? cached.eta : "—");
+    // v1.80: строка без основного ETA (① пройдена) — всё равно рисуем ETA следующих точек
+    const etaHtml = composedEta ? etaCellHtml(row, cached, composedEta)
+      : (cached && cached.extra && cached.extra.length ? etaCellHtml(row, cached, null) : (cached ? cached.eta : "—"));
     const etaMuted = cached ? "" : "muted";
     tr.innerHTML = `
       <td><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" placeholder="номер" /></td>
@@ -701,7 +709,7 @@ function renderRows() {
       </td>
       <td class="delivery-td"><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" title="${escapeHtml(row.delivery)}" placeholder="${deliveryPlaceholder(row.lo)}" />${(row.extra || []).map((x, i) =>
         `<input class="xd-input${folded(row) && i >= 1 ? " fold-hide" : ""}" data-k="${i + 1}" name="delivery-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.delivery)}" title="${escapeHtml(x.delivery)}" placeholder="${deliveryPlaceholder(x.lo)}" />`).join("")}</td>
-      <td class="dist-cell ${distMuted}" style="text-align:right">${distHtml}</td>
+      <td class="dist-cell ${distMuted}">${distHtml}</td>
       <td class="eta-cell ${etaMuted}${cached && cached.late ? " eta-late" : ""}" title="${escapeHtml(composedEta ? composedEta.title : (cached && cached.etaTip ? cached.etaTip : ""))}">${etaHtml}</td>
       <td class="note-cell"><div class="note-wrap"><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" title="${escapeHtml(row.note)}" placeholder="примечание" />${row.com ? '<span class="com-tri" title="Комментарий"></span>' : ""}<button class="com-ic${row.com ? " has" : ""}" title="${row.com ? "Комментарий — клик, чтобы изменить" : "Добавить комментарий"}">${COM_SVG(!!row.com)}</button></div>${(row.extra || []).map((x, i) =>
         `<div class="note-wrap xn-wrap${folded(row) && i >= 1 ? " fold-hide" : ""}"><input class="xn-input" data-k="${i + 1}" name="note-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.note || "")}" title="${escapeHtml(x.note || "")}" placeholder="примечание к ${i + 2}" /><span class="com-sp"></span></div>`).join("")}</td>
@@ -812,8 +820,9 @@ function attachRowHandlers() {
       const r = e.currentTarget.getBoundingClientRect();
       const h = menu.offsetHeight, w = menu.offsetWidth;
       const up = r.bottom + 4 + h > window.innerHeight;
-      menu.style.top = (up ? r.top - 4 - h : r.bottom + 4) + "px";
-      menu.style.left = Math.max(8, r.right - w) + "px";
+      const z = uiZoom();   // v1.80: страница в масштабе 90% — координаты окна делим на масштаб
+      menu.style.top = (up ? r.top - 4 - h * z : r.bottom + 4) / z + "px";
+      menu.style.left = Math.max(8, r.right - w * z) / z + "px";
     });
 
     tr.querySelector(".add-btn-w").addEventListener("click", (e) => { e.stopPropagation(); tr.querySelector(".add-btn").click(); });
@@ -1046,7 +1055,7 @@ function etaCellHtml(row, c, composed) {
       tip = ce.error;
     } else if (ce && (ce.eta_tacho || ce.eta_local)) {
       const wk = ce.tacho_weeklimit ? '<span class="wk-mark" title="Недельный лимит вождения кончится по пути">56</span>' : "";
-      inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}</span><span class="eta-simple">после ${i + 1}</span>`;
+      inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}</span><span class="eta-simple">${ce.from_truck ? "от машины" : "после " + (i + 1)}</span>`;
       tip = [`Точка ${STOP_NUM[i + 2]}: ${x.target}`,
              `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]}, всего ${ce.dist_km.toFixed(1)} км`,
              `+30 мин на каждой точке до неё`,
@@ -1142,8 +1151,10 @@ let comPop = null, comEd = null, comHideT = null;
 function placeFloat(el, anchor, dx) {
   const a = anchor.getBoundingClientRect();
   const w = el.offsetWidth, h = el.offsetHeight;
-  el.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, a.right - w + (dx || 0))) + "px";
-  el.style.top = (a.bottom + 6 + h < window.innerHeight ? a.bottom + 6 : Math.max(8, a.top - 6 - h)) + "px";
+  const z = uiZoom();
+  const W = w * z, H = h * z;
+  el.style.left = Math.max(8, Math.min(window.innerWidth - W - 8, a.right - W + (dx || 0))) / z + "px";
+  el.style.top = (a.bottom + 6 + H < window.innerHeight ? a.bottom + 6 : Math.max(8, a.top - 6 - H)) / z + "px";
 }
 
 function hideComPop() {
@@ -1337,8 +1348,9 @@ function openTrailerEditor(id, anchor) {
     <div class="trl-ed-b"><button class="trl-ed-ok">Привязать</button><button class="trl-ed-cancel">Отмена</button></div>`;
   document.body.appendChild(trlEd);
   const r = anchor.getBoundingClientRect();
-  trlEd.style.top = Math.min(window.innerHeight - trlEd.offsetHeight - 8, r.bottom + 4) + "px";
-  trlEd.style.left = Math.max(8, r.right - trlEd.offsetWidth) + "px";
+  const z = uiZoom();
+  trlEd.style.top = Math.min(window.innerHeight - trlEd.offsetHeight * z - 8, r.bottom + 4) / z + "px";
+  trlEd.style.left = Math.max(8, r.right - trlEd.offsetWidth * z) / z + "px";
   const inp = trlEd.querySelector(".trl-ed-in");
   const err = trlEd.querySelector(".trl-ed-err");
   // v1.72: ближайший по GPS — сразу в поле, ещё два — кнопками под полем
@@ -1702,7 +1714,10 @@ async function calcRow(id) {
     const dovoz = data.target_dovoz
       ? `<span class="dovoz-badge" title="Основная машина везёт до Базы, дальше довоз (${escapeHtml(data.target_dovoz)})">+довоз ${escapeHtml(data.target_dovoz)}</span>`
       : "";
-    const targetBadge = data.target_badge && !data.first_done
+    if (data.first_done) {                     // v1.80: у пройденной ① — её код (ESxx)
+      data.target_badge = data.first_done.badge; data.target_code_hint = data.first_done.badge_hint; data.target_dovoz = null;
+    }
+    const targetBadge = data.target_badge
       ? `<span class="target-cc-wrap target-cc"><span class="cc-badge" title="${escapeHtml(data.target_code_hint || data.target_badge)}">${escapeHtml(data.target_badge)}</span>${dovoz}</span>`
       : '<span class="cc-badge target-cc" hidden></span>';
     const oldTb = tr.querySelector(".target-cc");
@@ -1850,11 +1865,12 @@ function remapDone(data) {
   const dn = data.points_done;
   if (!dn) return data;
   const act = data.active_idx || [];
-  const doneItem = (i) => ({ done: true, done_at: dn[i].at, done_auto: dn[i].auto });
+  const doneItem = (i) => ({ done: true, done_at: dn[i].at, done_auto: dn[i].auto,
+    badge: dn[i].badge || null, badge_hint: dn[i].badge_hint || null });
   const main = data.target_lat != null ? {
     dist_km: data.dist_km, leg_km: data.dist_km, eta_local: data.eta_local, eta_tacho: data.eta_tacho,
     tacho_weeklimit: data.tacho_weeklimit, badge: data.target_badge, badge_hint: data.target_code_hint,
-    lat: data.target_lat, lng: data.target_lng, polyline: null, bans_route: data.bans_route,
+    lat: data.target_lat, lng: data.target_lng, polyline: null, bans_route: data.bans_route, from_truck: true,
     target_address: data.target_address,
   } : { error: "нет координат" };
   const activeItems = [main].concat(data.extra || []);
@@ -1899,7 +1915,7 @@ function toggleDone(id, k) {
 function extraCalc(data) {
   return (data.extra || []).map((x) => ({
     error: x.error || null,
-    done: !!x.done, done_at: x.done_at || null, done_auto: !!x.done_auto,
+    done: !!x.done, done_at: x.done_at || null, done_auto: !!x.done_auto, from_truck: !!x.from_truck,
     dist_km: x.dist_km, leg_km: x.leg_km,
     eta_tacho: x.eta_tacho || null, eta_local: x.eta_local || null,
     tacho_weeklimit: !!x.tacho_weeklimit,
