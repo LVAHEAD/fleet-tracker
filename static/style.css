@@ -827,3 +827,9 @@ button.hitch-ic:hover { background: #e6dfcc; }
 #fleet-tbody > tr > td { border-bottom: 2px solid #d3d9e0; }
 /* у пройденной точки код региона читается */
 .target-wrap.pt-done .cc-badge { opacity: .8; }
+
+/* ---------- v1.81: трак на объекте точки — её строка бледно-зелёная ---------- */
+.pt-here { background: #dff3e3 !important; border-radius: 4px; box-shadow: 0 0 0 3px #dff3e3; }
+.target-wrap.pt-here input, .xn-wrap.pt-here input, .note-wrap.pt-here input { background: #f3fbf4; }
+input.pt-here { background: #f3fbf4 !important; box-shadow: 0 0 0 3px #dff3e3; }
+.ot-pill .pn-chip { min-width: 15px; height: 15px; line-height: 15px; font-size: 10px; margin-left: 2px; }

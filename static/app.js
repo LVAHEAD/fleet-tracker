@@ -1623,8 +1623,12 @@ async function calcRow(id) {
     const pauseIc = (data.tacho_rest_ahead || data.tacho_resting_now)
       ? `<span class="tacho-pause" title="${escapeHtml(tachoTip)}"></span>` : "";
     // v1.59: трак на объекте таргета (полигон Mapon или радиус 300 м)
+    // v1.81: на какой точке стоит (первая непройденная) — номер в плашке, подсветка её строки
+    const otIdx = data.on_target ? ((data.active_idx && data.active_idx.length) ? data.active_idx[0] : 0) : null;
+    const otMulti = otIdx != null && row.extra && row.extra.length;
+    const otLo = otIdx ? ((row.extra[otIdx - 1] || {}).lo) : row.lo;
     const ot = data.on_target
-      ? `<span class="ot-pill" title="${escapeHtml(data.on_target.how === "object" ? "На объекте Mapon: " + data.on_target.name : "В радиусе 300 м от таргета")}">📍 на объекте</span>` : "";
+      ? `<span class="ot-pill" title="${escapeHtml(data.on_target.how === "object" ? "На объекте Mapon: " + data.on_target.name : "В радиусе 300 м от таргета")}">📍 на объекте${otMulti ? " " + numChip(otIdx + 1, otLo) : ""}</span>` : "";
     // v1.70: прицеп — рефка; сцепка тягач ↔ прицеп (угадана по координатам)
     const trTag = data.is_trailer ? '<span class="trl-tag" title="Прицеп">П</span>' : "";
     const reeferHtml = data.is_trailer ? reeferPillHtml(data) : "";
@@ -1692,7 +1696,7 @@ async function calcRow(id) {
     } else if (data.first_done || data.all_done || (data.extra && data.extra.length)) {
       // v1.79: ① пройдена (или все точки) — ✓ вместо км/ETA, следующие точки как обычно
       distText = data.first_done ? '<span class="done-km">✓</span>' : "—";
-      etaText = data.first_done ? doneEtaHtml(data.first_done) : "—";
+      etaText = data.first_done ? '<span class="eta-nb-sp"></span>' + doneEtaHtml(data.first_done) : "—";   // v1.81: ровно с остальными
       const cx = { dist: distText, eta: etaText, extra: extraCalc(data) };
       distCell.innerHTML = distCellHtml(row, cx);
       etaCell.innerHTML = etaCellHtml(row, cx, null);
@@ -1726,7 +1730,7 @@ async function calcRow(id) {
     lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, etaCore, bansR, tipLines,
                          etaStr: data.eta_tacho || data.eta_local, extra: extraCalc(data),
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual })),
-                         allDone: !!data.all_done };
+                         allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null };
     applyDoneClasses(tr, row, lastCalcText[id]);
     // v1.64: плашки кодов у следующих точек
     (lastCalcText[id].extra || []).forEach((ce, i) => {
@@ -1886,6 +1890,18 @@ function applyDoneClasses(tr, row, c) {
   if (!tr) return;
   const flags = (c && c.doneFlags) || [];
   tr.classList.toggle("row-done", !!(c && c.allDone));
+  // v1.81: трак на объекте точки k — её строка бледно-зелёная во всех колонках
+  tr.querySelectorAll(".pt-here").forEach((el) => el.classList.remove("pt-here"));
+  const h = c && c.hereIdx != null ? c.hereIdx : null;
+  if (h != null) {
+    const pick = (sel) => tr.querySelector(sel);
+    [h === 0 ? pick(".target-wrap:not(.x-stop)") : pick(`.x-stop[data-k="${h}"]`),
+     h === 0 ? pick(".delivery-input") : pick(`.xd-input[data-k="${h}"]`),
+     tr.querySelectorAll(".dist-cell .sl")[h],
+     tr.querySelectorAll(".eta-cell .sl")[h],
+     h === 0 ? pick(".note-wrap:not(.xn-wrap)") : pick(`.xn-input[data-k="${h}"]`) && pick(`.xn-input[data-k="${h}"]`).closest(".xn-wrap"),
+    ].forEach((el) => { if (el) el.classList.add("pt-here"); });
+  }
   tr.querySelectorAll("#fleet-tbody .target-wrap, .target-wrap").forEach((w) => {
     const k = w.classList.contains("x-stop") ? Number(w.dataset.k) : 0;
     const f = flags[k];
