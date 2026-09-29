@@ -845,3 +845,4 @@ input.pt-here { background: #f3fbf4 !important; box-shadow: 0 0 0 3px #dff3e3; }
 }
 /* поле таргета никогда не залезает на Delivery — лишнее обрезается внутри колонки */
 #fleet-table td:nth-child(3) { overflow: hidden; }
+.title-user { font-size: 12px; font-weight: 400; color: #999; margin-left: 12px; vertical-align: middle; }

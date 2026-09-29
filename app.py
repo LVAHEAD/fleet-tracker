@@ -1,8 +1,10 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.84
+Версия: 1.85
 
 История изменений:
+1.85 (2026-09-29) — 2.0a, подготовка к входу через Google (IAP на Cloud Run): сервер читает e-mail
+    вошедшего из заголовка IAP, рядом с заголовком — "👤 e-mail"; GET /api/me; без IAP всё как было
 1.84 (2026-09-29) — "Запреты": фикс 429 от nakordoni.eu:
     - кеш по странам: удачные группы стран сохраняются сразу; на 429 обновление
       останавливается (пауза по Retry-After, не меньше 30 мин), потом докачиваются
@@ -548,7 +550,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.84"
+APP_VERSION = "1.85"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -3320,9 +3322,23 @@ def _compute_multi_route(points, api_key):
 
 # ---------- Routes ----------
 
+# v1.84 (2.0a): кто вошёл — IAP кладёт e-mail в заголовок "accounts.google.com:user@gmail.com".
+# Без IAP (локально / до включения) — None. Заголовку можно верить только за IAP.
+def current_user_email():
+    v = request.headers.get("X-Goog-Authenticated-User-Email") or ""
+    v = v.split(":", 1)[-1].strip().lower()
+    return v or None
+
+
 @app.route("/")
 def index():
-    return render_template("index.html", google_maps_js_key=GOOGLE_MAPS_JS_KEY, app_version=APP_VERSION)
+    return render_template("index.html", google_maps_js_key=GOOGLE_MAPS_JS_KEY, app_version=APP_VERSION,
+                           user_email=current_user_email())
+
+
+@app.route("/api/me")
+def api_me():
+    return jsonify({"email": current_user_email(), "iap": current_user_email() is not None})
 
 
 @app.route("/api/units")
