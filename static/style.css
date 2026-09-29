@@ -833,3 +833,15 @@ button.hitch-ic:hover { background: #e6dfcc; }
 .target-wrap.pt-here input, .xn-wrap.pt-here input, .note-wrap.pt-here input { background: #f3fbf4; }
 input.pt-here { background: #f3fbf4 !important; box-shadow: 0 0 0 3px #dff3e3; }
 .ot-pill .pn-chip { min-width: 15px; height: 15px; line-height: 15px; font-size: 10px; margin-left: 2px; }
+
+/* ---------- v1.82: ноутбук (1500–1799 px, интерфейс 90%) — Таргету больше места ---------- */
+@media (min-width: 1500px) and (max-width: 1799px) {
+  #fleet-table .col-status { width: 180px; }
+  #fleet-table .col-eta    { width: 192px; }
+  #fleet-table .col-note   { width: 150px; }
+  #fleet-table .col-delivery { width: 110px; }
+  body.sort-manual #fleet-table .col-actions { width: 200px; }
+  .target-input, .xt-input { min-width: 120px !important; }
+}
+/* поле таргета никогда не залезает на Delivery — лишнее обрезается внутри колонки */
+#fleet-table td:nth-child(3) { overflow: hidden; }

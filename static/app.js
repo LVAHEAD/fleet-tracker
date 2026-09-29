@@ -1040,7 +1040,9 @@ function distCellHtml(row, c) {
 }
 
 function etaCellHtml(row, c, composed) {
-  const first = composed ? composed.html : (c.eta || "—");
+  // v1.82: ① пройдена — кнопка NB/🚫 на строке первой непройденной точки (c.nbAt — её индекс в extra)
+  const nbAt = c.nbAt != null ? c.nbAt : null;
+  const first = composed && nbAt == null ? composed.html : (c.eta || "—");
   if (!row.extra || !row.extra.length) return first;
   const lines = [`<div class="sl">${first}</div>`];
   row.extra.forEach((x, i) => {
@@ -1061,6 +1063,10 @@ function etaCellHtml(row, c, composed) {
              `+30 мин на каждой точке до неё`,
              ce.eta_tacho ? `⏱ По тахографу: ${ce.eta_tacho}` : "",
              `Простой ETA: ${ce.eta_local}`].filter(Boolean).join("\n");
+    }
+    if (nbAt === i && composed) {
+      lines.push(`<div class="sl${folded(row) && i >= 1 ? " fold-hide" : ""}" title="${escapeHtml(composed.title || tip)}">${composed.html}</div>`);
+      return;
     }
     lines.push(`<div class="sl${folded(row) && i >= 1 ? " fold-hide" : ""}" title="${escapeHtml(tip)}"><span class="eta-nb-sp"></span>${inner}</div>`);
   });
@@ -1138,7 +1144,7 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
     const cell = tr.querySelector(".eta-cell");
     cell.innerHTML = etaCellHtml(row, c, composed);
     cell.title = composed.title;
-    c.eta = composed.html;
+    if (c.nbAt == null) c.eta = composed.html;
     c.etaTip = composed.title;
   }
 });
@@ -1698,9 +1704,23 @@ async function calcRow(id) {
       distText = data.first_done ? '<span class="done-km">✓</span>' : "—";
       etaText = data.first_done ? '<span class="eta-nb-sp"></span>' + doneEtaHtml(data.first_done) : "—";   // v1.81: ровно с остальными
       const cx = { dist: distText, eta: etaText, extra: extraCalc(data) };
+      // v1.82: запреты по пути — кнопка NB/🚫 у первой непройденной точки
+      let composed = null;
+      const act0 = data.active_idx && data.active_idx.length ? data.active_idx[0] : null;
+      if (data.first_done && act0 != null && data.target_lat != null) {
+        const et = data.eta_tacho || data.eta_local;
+        const wk = data.tacho_weeklimit ? '<span class="wk-mark" title="Недельный лимит вождения кончится по пути">56</span>' : "";
+        etaCore = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(et || "—")}</span><span class="eta-simple">от машины</span>`;
+        bansR = (data.bans_route || []).slice();
+        (data.extra || []).forEach((x, i) => (x.bans_route || []).forEach((b) => bansR.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
+        tipLines = ["Простой ETA: " + (data.eta_local || "—")].concat(data.eta_tacho ? ["⏱ По тахографу: " + data.eta_tacho] : [])
+          .concat(data.route_countries && data.route_countries.length > 1 ? ["Страны: " + data.route_countries.join(" → ")] : []);
+        Object.assign(cx, { etaCore, bansR, tipLines, nbAt: act0 - 1 });
+        composed = composeEta(row, cx);
+      }
       distCell.innerHTML = distCellHtml(row, cx);
-      etaCell.innerHTML = etaCellHtml(row, cx, null);
-      etaCell.title = "";
+      etaCell.innerHTML = etaCellHtml(row, cx, composed);
+      etaCell.title = composed ? composed.title : "";
       etaCell.classList.remove("eta-late");
       distCell.classList.remove("muted");
       etaCell.classList.remove("muted");
@@ -1730,7 +1750,8 @@ async function calcRow(id) {
     lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, etaCore, bansR, tipLines,
                          etaStr: data.eta_tacho || data.eta_local, extra: extraCalc(data),
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual })),
-                         allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null };
+                         allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null,
+                         nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };
     applyDoneClasses(tr, row, lastCalcText[id]);
     // v1.64: плашки кодов у следующих точек
     (lastCalcText[id].extra || []).forEach((ce, i) => {
@@ -1874,7 +1895,7 @@ function remapDone(data) {
   const main = data.target_lat != null ? {
     dist_km: data.dist_km, leg_km: data.dist_km, eta_local: data.eta_local, eta_tacho: data.eta_tacho,
     tacho_weeklimit: data.tacho_weeklimit, badge: data.target_badge, badge_hint: data.target_code_hint,
-    lat: data.target_lat, lng: data.target_lng, polyline: null, bans_route: data.bans_route, from_truck: true,
+    lat: data.target_lat, lng: data.target_lng, polyline: null, bans_route: null, from_truck: true,
     target_address: data.target_address,
   } : { error: "нет координат" };
   const activeItems = [main].concat(data.extra || []);
