@@ -1,6 +1,8 @@
 /*
 Fleet ETA Tracker — вкладка "Запреты" (справочная)
-Версия: 1.38 — отметка "данные от …", мягкий показ ошибки при последних удачных данных.
+Версия: 1.84 — последние удачные данные хранятся в браузере (показ при 429 на сервере),
+  "нет данных по: …" для недокачанных стран.
+Ранее 1.38 — отметка "данные от …", мягкий показ ошибки при последних удачных данных.
 Ранее 1.37 — только наши страны (фильтр на сервере), русские ссылки nakordoni, без trafficban.
 Ранее 1.36 — данные nakordoni.eu через /api/bans (кеш на сервере 30 мин):
   - "Сейчас действует" — плашки стран с часами;
@@ -102,14 +104,45 @@ Fleet ETA Tracker — вкладка "Запреты" (справочная)
       : (when ? `<div class="bans-when">${when}</div>` : "");
   }
 
+  // v1.84: последние удачные данные — в браузере (после деплоя у сервера кеш пустой)
+  const LS_KEY = "fleet.bans.last";
+  function saveLast(d) {
+    try { if (d && d.days && !(d.missing && d.missing.length)) localStorage.setItem(LS_KEY, JSON.stringify(d)); } catch (e) {}
+  }
+  function readLast() {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || "null"); } catch (e) { return null; }
+  }
+
   async function load(refresh) {
+    let d = null, err = null;
     try {
       const res = await fetch("/api/bans" + (refresh ? "?refresh=1" : ""));
-      const d = await res.json();
-      if (d.error && !d.days) { nowEl.innerHTML = `<span class="bans-err">${esc(d.error)}</span>`; return; }
-      render(d);
+      d = await res.json();
+      if (d.error && !d.days) { err = d.error; d = null; }
     } catch (e) {
-      nowEl.innerHTML = '<span class="bans-err">Не удалось загрузить запреты</span>';
+      err = "Не удалось загрузить запреты";
+    }
+    if (d) {
+      saveLast(d);
+      // сервер отдал частичные данные — дополняем недостающие страны из браузера
+      const last = readLast();
+      if (d.missing && d.missing.length && last && last.days) {
+        const miss = new Set(d.missing);
+        const pick = (arr) => (arr || []).filter((b) => miss.has(b.cc));
+        const byDate = {};
+        (d.days || []).forEach((x) => { byDate[x.date] = x.bans.slice(); });
+        last.days.forEach((x) => { if (byDate[x.date]) byDate[x.date].push(...pick(x.bans)); });
+        d = { ...d, now: (d.now || []).concat(pick(last.now)),
+              days: Object.keys(byDate).sort().map((k) => ({ date: k, bans: byDate[k] })) };
+      }
+      render(d);
+      return;
+    }
+    const last = readLast();
+    if (last) {
+      render({ ...last, error: err, loaded_at: last.loaded_at ? `${last.loaded_at} (сохранено в браузере)` : null });
+    } else {
+      nowEl.innerHTML = `<span class="bans-err">${esc(err)}</span>`;
     }
   }
 

@@ -1,8 +1,16 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.83
+Версия: 1.84
 
 История изменений:
+1.84 (2026-09-29) — "Запреты": фикс 429 от nakordoni.eu:
+    - кеш по странам: удачные группы стран сохраняются сразу; на 429 обновление
+      останавливается (пауза по Retry-After, не меньше 30 мин), потом докачиваются
+      только недостающие страны; показываются частичные данные + "нет данных по: …"
+    - одно обновление фида за раз: вкладка и проверка запретов по пути больше не
+      качают фид параллельно; пауза между запросами 3 с
+    - браузер помнит последние удачные данные: если сервер (новый инстанс после
+      деплоя) получил 429 и данных нет — показываются сохранённые, с датой
 1.83 (2026-09-29) — ночной запрет Австрии 22:00–05:00 для MAN (без L-наклейки "lärmarm"): если по
     тахо-ETA MAN едет по Австрии ночью — 🚫 "AT ночь 22–05 (MAN без L)", только предупреждение,
     ETA не сдвигается; марка — из Mapon (make / название / VIN); DAF и Volvo — с наклейкой, не
@@ -540,7 +548,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.83"
+APP_VERSION = "1.84"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -4404,25 +4412,32 @@ def api_freights():
     })
 
 
-# ---------- v1.36/v1.38: запреты движения грузовиков (nakordoni.eu, бесплатный JSON-фид) ----------
-# v1.38: фид ответил 429 (Too Many Requests) на 18 запросов подряд. Теперь страны
-# запрашиваются группами (country=DE,AT,FR — фид это понимает), строго по одному
-# запросу с паузой; обновление раз в 3 часа; после 429 — пауза; ручное обновление
-# не чаще раза в 10 минут; при ошибке отдаются последние удачные данные.
+# ---------- v1.36/v1.38/v1.84: запреты движения грузовиков (nakordoni.eu, бесплатный JSON-фид) ----------
+# v1.84: кеш по странам. Раньше любой 429 посреди обновления выбрасывал всё, а после
+# каждого деплоя / нового инстанса Cloud Run кеш пустой -> снова 6 запросов подряд,
+# плюс вкладка и проверка запретов по пути могли качать фид одновременно (12 запросов).
+# Теперь: одно обновление за раз (общий замок), удачные страны сохраняются сразу,
+# после 429 — стоп и пауза (Retry-After, не меньше 30 мин), потом докачиваются только
+# недостающие страны; пауза между запросами 3 с.
 BANS_URL = "https://nakordoni.eu/api/truckban_json.php"
 BANS_TTL = 3 * 3600          # данные о запретах меняются редко
 BANS_MANUAL_MIN = 600        # "↻ Обновить" не чаще раза в 10 минут
 BANS_COOLDOWN_429 = 1800     # после 429 не трогаем фид 30 минут
 BANS_GROUP = 3               # стран в одном запросе: фид принимает не больше 3 (иначе 400)
-BANS_PAUSE = 1.2             # пауза между запросами, сек
+BANS_PAUSE = 3.0             # пауза между запросами, сек
 BANS_FULL_TYPES = {"Sunday", "Holiday", "General"}   # запрет по всей стране — выделяем
 BANS_ADR_WORDS = ("dangerous", "adr", "hazard", "опасн", "небезпеч")  # ADR не возим — скрываем
 _bans_cache = {"data": None, "at": 0.0, "error": None, "blocked_until": 0.0}
-_bans_lock = threading.Lock()
+_bans_cc = {}                # v1.84: cc -> {"at", "upcoming": [...], "current": [...]}
+_bans_window = {"w": None}
+_bans_lock = threading.Lock()          # короткий — на чтение/запись кеша
+_bans_fetch_lock = threading.Lock()    # v1.84: одно обновление фида за раз
 
 
 class BansRateLimited(RuntimeError):
-    pass
+    def __init__(self, msg, retry_after=0):
+        super().__init__(msg)
+        self.retry_after = retry_after
 
 
 class BansBadRequest(RuntimeError):
@@ -4433,7 +4448,11 @@ def _bans_get(params):
     r = requests.get(BANS_URL, params={"lang": "ru", **params}, timeout=20,
                      headers={"User-Agent": "fleet-eta-tracker"})
     if r.status_code == 429:
-        raise BansRateLimited("nakordoni: слишком много запросов (429)")
+        try:
+            ra = int(r.headers.get("Retry-After") or 0)
+        except ValueError:
+            ra = 0
+        raise BansRateLimited("nakordoni: слишком много запросов (429)", ra)
     if r.status_code == 400:
         raise BansBadRequest(f"nakordoni: 400 для {params.get('country')}")
     r.raise_for_status()
@@ -4448,9 +4467,25 @@ def _is_adr(b):
     return any(w in t for w in BANS_ADR_WORDS)
 
 
-def _bans_fetch_group(codes, out):
+def _bans_store(codes, d):
+    """v1.84: ответ по группе стран -> в кеш по странам (страна без запретов тоже отмечается)."""
+    import time
+    now = time.time()
+    part = {c: {"at": now, "upcoming": [], "current": []} for c in codes}
+    for key, dst in (("upcoming_bans", "upcoming"), ("current_bans", "current")):
+        for b in d.get(key) or []:
+            cc = b.get("country_code")
+            if cc in part:
+                part[cc][dst].append(b)
+    with _bans_lock:
+        _bans_cc.update(part)
+        if d.get("window"):
+            _bans_window["w"] = d["window"]
+
+
+def _bans_fetch_group(codes):
     """Запрос по группе стран; если ответ обрезан или 400 — делим группу пополам;
-    страну, на которую фид отвечает 400, пропускаем (не ломаем всё обновление)."""
+    страну, на которую фид отвечает 400, пропускаем. 429 — пробрасываем (стоп)."""
     import time
     try:
         d = _bans_get({"country": ",".join(codes)})
@@ -4458,30 +4493,33 @@ def _bans_fetch_group(codes, out):
         time.sleep(BANS_PAUSE)
         if len(codes) > 1:
             half = len(codes) // 2
-            _bans_fetch_group(codes[:half], out)
-            _bans_fetch_group(codes[half:], out)
+            _bans_fetch_group(codes[:half])
+            _bans_fetch_group(codes[half:])
+        else:
+            _bans_store(codes, {})   # фид не знает страну — считаем "без запретов", не спрашиваем снова
         return
     time.sleep(BANS_PAUSE)
     if d.get("truncated") and len(codes) > 1:
         half = len(codes) // 2
-        _bans_fetch_group(codes[:half], out)
-        _bans_fetch_group(codes[half:], out)
+        _bans_fetch_group(codes[:half])
+        _bans_fetch_group(codes[half:])
         return
-    out.append(d)
+    _bans_store(codes, d)
 
 
-def fetch_bans():
+def _bans_build():
+    """Собрать данные вкладки из кеша по странам (даже если часть стран не скачалась)."""
+    with _bans_lock:
+        cc_data = dict(_bans_cc)
+        window = _bans_window["w"]
     codes = sorted(OUR_COUNTRIES)
-    responses = []
-    for k in range(0, len(codes), BANS_GROUP):
-        _bans_fetch_group(codes[k:k + BANS_GROUP], responses)
-
     seen, upcoming, current = set(), [], []
-    window = None
-    for src in responses:
-        window = window or src.get("window")
-        for key, dst in (("upcoming_bans", upcoming), ("current_bans", current)):
-            for b in src.get(key) or []:
+    for cc in codes:
+        src = cc_data.get(cc)
+        if not src:
+            continue
+        for key, dst in (("upcoming", upcoming), ("current", current)):
+            for b in src[key]:
                 if _is_adr(b) or b.get("country_code") not in OUR_COUNTRIES:
                     continue
                 k = (key, b.get("country_code"), b.get("date"), b.get("time_from"), b.get("time_until"),
@@ -4507,8 +4545,49 @@ def fetch_bans():
         "now": current,
         "days": [{"date": d, "bans": by_day[d]} for d in sorted(by_day)],
         "countries": codes,
-        "requests": len(responses),
+        "missing": [c for c in codes if c not in cc_data],
     }
+
+
+def _bans_refresh(max_age=BANS_TTL):
+    """v1.84: докачать страны старше max_age. Вызывать под _bans_fetch_lock.
+    Удачные группы сохраняются сразу; на 429 — стоп и пауза."""
+    import time
+    now = time.time()
+    with _bans_lock:
+        if now < _bans_cache["blocked_until"]:
+            return
+        need = [c for c in sorted(OUR_COUNTRIES)
+                if c not in _bans_cc or now - _bans_cc[c]["at"] > max_age]
+    err = None
+    try:
+        for k in range(0, len(need), BANS_GROUP):
+            _bans_fetch_group(need[k:k + BANS_GROUP])
+    except BansRateLimited as e:
+        err = str(e)
+        with _bans_lock:
+            _bans_cache["blocked_until"] = time.time() + max(BANS_COOLDOWN_429, e.retry_after)
+    except Exception as e:
+        err = str(e)
+        with _bans_lock:
+            _bans_cache["blocked_until"] = time.time() + 300
+    with _bans_lock:
+        have = bool(_bans_cc)
+        oldest = min((v["at"] for v in _bans_cc.values()), default=0.0)
+    data = _bans_build() if have else None
+    if data and data["missing"] and not err:
+        err = "нет данных по: " + ", ".join(data["missing"])
+    with _bans_lock:
+        if data:
+            _bans_cache.update(data=data, at=oldest)
+        _bans_cache["error"] = err
+
+
+def fetch_bans():
+    """Совместимость: полное обновление (все страны)."""
+    with _bans_fetch_lock:
+        _bans_refresh(max_age=0)
+    return _bans_cache["data"]
 
 
 @app.route("/api/bans")
@@ -4518,17 +4597,17 @@ def api_bans():
     now = time.time()
     with _bans_lock:
         age = now - _bans_cache["at"]
-        want = _bans_cache["data"] is None or age > BANS_TTL or (
-            request.args.get("refresh") == "1" and age > BANS_MANUAL_MIN)
-        if want and now >= _bans_cache["blocked_until"]:
+        stale = _bans_cache["data"] is None or age > BANS_TTL or bool(
+            (_bans_cache["data"] or {}).get("missing"))
+        manual = request.args.get("refresh") == "1" and age > BANS_MANUAL_MIN
+    if stale or manual:
+        # если уже качает фоновое обновление — ждём его (до 40 с), а не шлём второй поток запросов
+        if _bans_fetch_lock.acquire(timeout=40):
             try:
-                _bans_cache.update(data=fetch_bans(), at=now, error=None)
-            except BansRateLimited as e:
-                _bans_cache["error"] = str(e)
-                _bans_cache["blocked_until"] = now + BANS_COOLDOWN_429
-            except Exception as e:
-                _bans_cache["error"] = str(e)
-                _bans_cache["blocked_until"] = now + 300
+                _bans_refresh(max_age=BANS_MANUAL_MIN if manual else BANS_TTL)
+            finally:
+                _bans_fetch_lock.release()
+    with _bans_lock:
         data = _bans_cache["data"]
         loaded = _bans_cache["at"]
         err = _bans_cache["error"]
@@ -4652,32 +4731,21 @@ def _ban_window_utc(b):
 
 
 def bans_cached():
-    """Данные о запретах из кеша; если кеша нет/устарел — обновление в фоне (не ждём)."""
+    """Данные о запретах из кеша; если кеша нет/устарел — обновление в фоне (не ждём).
+    v1.84: через общий замок — не качает фид одновременно с вкладкой "Запреты"."""
     import time
     now = time.time()
     with _bans_lock:
         data = _bans_cache["data"]
-        stale = data is None or now - _bans_cache["at"] > BANS_TTL
-        busy = _bans_cache.get("loading")
+        stale = data is None or now - _bans_cache["at"] > BANS_TTL or bool((data or {}).get("missing"))
         blocked = now < _bans_cache["blocked_until"]
-        if stale and not busy and not blocked:
-            _bans_cache["loading"] = True
-
-            def job():
-                try:
-                    d = fetch_bans()
-                    with _bans_lock:
-                        _bans_cache.update(data=d, at=time.time(), error=None)
-                except BansRateLimited as e:
-                    with _bans_lock:
-                        _bans_cache.update(error=str(e), blocked_until=time.time() + BANS_COOLDOWN_429)
-                except Exception as e:
-                    with _bans_lock:
-                        _bans_cache.update(error=str(e), blocked_until=time.time() + 300)
-                finally:
-                    with _bans_lock:
-                        _bans_cache["loading"] = False
-            threading.Thread(target=job, daemon=True).start()
+    if stale and not blocked and _bans_fetch_lock.acquire(blocking=False):
+        def job():
+            try:
+                _bans_refresh()
+            finally:
+                _bans_fetch_lock.release()
+        threading.Thread(target=job, daemon=True).start()
     return data
 
 
