@@ -1,8 +1,12 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 1.82
+Версия: 1.83
 
 История изменений:
+1.83 (2026-09-29) — ночной запрет Австрии 22:00–05:00 для MAN (без L-наклейки "lärmarm"): если по
+    тахо-ETA MAN едет по Австрии ночью — 🚫 "AT ночь 22–05 (MAN без L)", только предупреждение,
+    ETA не сдвигается; марка — из Mapon (make / название / VIN); DAF и Volvo — с наклейкой, не
+    проверяем; From → To — для MAN-тягача в From, без тягача — с пометкой "если MAN"
 1.82 (2026-09-29) — фикс: при пройденной ① пропадала кнопка запретов NB/🚫 — теперь она у первой
     непройденной точки (запреты по пути от машины и по следующим плечам); ноутбук (экран 1500–1799 px):
     Статус, ETA, Примечание, Delivery уже — поле таргета больше не наезжает на Delivery
@@ -536,7 +540,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "1.82"
+APP_VERSION = "1.83"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -3156,6 +3160,7 @@ def resolve_point(raw, units_getter):
             "near_code": code,
             "code": code if d <= NEAR_LABEL_MAX_KM else None,
             "is_truck": True,
+            "unit": unit,   # v1.83: марка для ночного запрета AT
         }
 
     # v1.62: "lv" / "Латвия" — просто База
@@ -3905,7 +3910,8 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim):
         item["badge"], item["badge_hint"] = target_badge_info(tstr, lat, lng, t.get("target_address"))
         if leg_poly and leg_km >= 5:
             try:
-                hits, _bst = bans_on_route(leg_poly, leg_km, None, prev_arr + UNLOAD_STOP_SEC)
+                hits, _bst = bans_on_route(leg_poly, leg_km, None, prev_arr + UNLOAD_STOP_SEC,
+                                           at_night=needs_at_night_ban(unit))
                 item["bans_route"] = bans_hits_text(hits, lambda ts: loc(ts).strftime("%d/%m %H:%M"))
             except Exception:
                 pass
@@ -4188,7 +4194,8 @@ def api_calc():
         if (result.get("route_polyline") and result.get("dist_km")
                 and result["dist_km"] >= 5 and not result.get("on_target")):
             try:
-                hits, bst = bans_on_route(result["route_polyline"], result["dist_km"], stops)
+                hits, bst = bans_on_route(result["route_polyline"], result["dist_km"], stops,
+                                         at_night=needs_at_night_ban(unit))
                 loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M")
                 result["bans_route"] = bans_hits_text(hits, loc)
                 result["bans_status"] = bst
@@ -4294,9 +4301,12 @@ def api_route():
             # v1.45: запреты по пути — при выезде сейчас, соло (4:30/45, 9 ч, отдых 11 ч)
             try:
                 sim = tacho_eta(FRESH_SOLO_TACHO, total)
-                hits, bst = bans_on_route(polyline, total, sim["stops"])
+                # v1.83: ночь в Австрии — для MAN-тягача в первой точке; без тягача — "если MAN"
+                tu = points[0].get("unit") if points[0].get("is_truck") else None
+                at_n = needs_at_night_ban(tu) if tu else True
+                hits, bst = bans_on_route(polyline, total, sim["stops"], at_night=at_n)
                 loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M")
-                result["bans_route"] = bans_hits_text(hits, loc)
+                result["bans_route"] = bans_hits_text(hits, loc, "MAN без L" if tu else "если MAN")
                 result["bans_status"] = bst
             except Exception as e:
                 result["bans_status"] = f"ошибка: {e}"
@@ -4671,14 +4681,52 @@ def bans_cached():
     return data
 
 
-def bans_on_route(polyline, dist_km, stops=None, t0=None):
+# ---------- v1.83: ночной запрет Австрии для MAN (нет наклейки "L" / lärmarm) ----------
+AT_NIGHT_FROM, AT_NIGHT_UNTIL = "22:00", "05:00"
+BRAND_WMI = {"WMA": "MAN", "XLR": "DAF", "YV2": "VOLVO", "YB3": "VOLVO", "YV5": "VOLVO"}
+
+
+def unit_brand(u):
+    """Марка тягача из данных Mapon: make, затем название/метка, затем VIN (WMI). None — не знаем."""
+    u = u or {}
+    for k in ("make", "vehicle_make", "brand", "vehicle_title", "label"):
+        t = str(u.get(k) or "").upper()
+        for b in ("MAN", "DAF", "VOLVO"):
+            if re.search(rf"\b{b}\b", t):
+                return b
+    vin = str(u.get("vin") or "").upper().strip()
+    return BRAND_WMI.get(vin[:3]) if len(vin) >= 3 else None
+
+
+def needs_at_night_ban(u):
+    """Правило для всего парка (29.09.2026): все MAN без L-наклейки, DAF/Volvo — с ней."""
+    return unit_brand(u) == "MAN" and not is_trailer(u)
+
+
+def _at_night_bans(t0, horizon_sec):
+    """Ночные окна 22:00–05:00 (Вена) на весь горизонт рейса — как запреты AT."""
+    out = {}
+    d0 = datetime.fromtimestamp(t0 - 86400, timezone.utc).date()
+    for i in range(int(horizon_sec // 86400) + 3):
+        b = {"cc": "AT", "date": (d0 + timedelta(days=i)).isoformat(), "from": AT_NIGHT_FROM,
+             "until": AT_NIGHT_UNTIL, "type": "NightAT", "details": "ночной запрет для траков без L-наклейки"}
+        w = _ban_window_utc(b)
+        if w:
+            out[(b["date"], "night")] = (b, w)
+    return out
+
+
+def bans_on_route(polyline, dist_km, stops=None, t0=None, at_night=False):
     """Полные запреты (воскресные/праздничные/общие), под которые попадает вождение
     по маршруту. Возвращает (hits, status): hits = [{cc, date, from, until, type,
-    enter_ts}], status = "ok" | "loading"."""
+    enter_ts}], status = "ok" | "loading".
+    v1.83: at_night=True (MAN / "если MAN") — плюс ночной запрет Австрии 22:00–05:00."""
     import time
     data = bans_cached()
-    if data is None:
+    if data is None and not at_night:
         return [], "loading"
+    status = "ok" if data is not None else "loading"
+    data = data or {}
     t0 = float(t0 or time.time())
     v = TACHO_SPEED_KMH / 3600.0
     drive = _drive_intervals(t0, stops, float(dist_km or 0) / v)
@@ -4689,6 +4737,9 @@ def bans_on_route(polyline, dist_km, stops=None, t0=None):
         w = _ban_window_utc(b)
         if w:
             bans.setdefault(b["cc"], {})[(b["date"], b.get("from"), b.get("until"))] = (b, w)
+    if at_night:
+        horizon = (drive[-1][1] - t0) if drive else 0
+        bans.setdefault("AT", {}).update(_at_night_bans(t0, horizon))
     hits = []
     for cc, km_a, km_b in route_countries(polyline, dist_km):
         if cc not in bans:
@@ -4708,13 +4759,16 @@ def bans_on_route(polyline, dist_km, stops=None, t0=None):
                 hits.append({"cc": cc, "date": b["date"], "from": b.get("from"), "until": b.get("until"),
                              "type": b.get("type"), "details": b.get("details"), "enter_ts": enter})
     hits.sort(key=lambda h: (h["date"], h["cc"]))
-    return hits, "ok"
+    return hits, status
 
 
-def bans_hits_text(hits, loc):
+def bans_hits_text(hits, loc, at_label="MAN без L"):
     TYPE_RU = {"Sunday": "воскр.", "Holiday": "праздн.", "General": "общий"}
     out = []
     for h in hits:
+        if h.get("type") == "NightAT":   # v1.83
+            out.append(f"AT ночь {h['date'][8:10]}/{h['date'][5:7]} 22–05 ({at_label}), въезд ~{loc(h['enter_ts'])}")
+            continue
         d = datetime.strptime(h["date"], "%Y-%m-%d").strftime("%d/%m")
         out.append(f"{h['cc']} {d} {(h['from'] or '')[:5]}–{(h['until'] or '')[:5]} "
                    f"({TYPE_RU.get(h['type'], h['type'] or '')}), въезд ~{loc(h['enter_ts'])}")
