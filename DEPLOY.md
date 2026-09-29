@@ -59,3 +59,24 @@ Firestore — код был написан (v2.01), но решили пока �
     git add region_codes_geonames.json && git commit -m "GeoNames codes" && git push
 
 Коды из GPS_Codes.xlsx главнее — совпадающие коды из GeoNames не используются.
+
+## Доступ (IAP, вход через Google) — с v1.85
+
+Пускает только тех, кто в списке IAP. Команды — в Cloud Shell
+(проект my-n8n-bot-496614). Доступ начинает работать через ~5–10 минут.
+
+Добавить пользователя:
+
+    gcloud iap web add-iam-policy-binding --member=user:EMAIL@gmail.com \
+      --role=roles/iap.httpsResourceAccessor \
+      --region=europe-west1 --resource-type=cloud-run --service=fleet-eta-tracker
+
+Убрать пользователя — то же самое, но `remove-iam-policy-binding`.
+
+Кто сейчас в списке:
+
+    gcloud iap web get-iam-policy --region=europe-west1 \
+      --resource-type=cloud-run --service=fleet-eta-tracker
+
+Добавлять в "Test users" (Google Auth Platform → Audience) не нужно.
+Выключить вход совсем (откат): `gcloud run services update fleet-eta-tracker --region=europe-west1 --no-iap`
