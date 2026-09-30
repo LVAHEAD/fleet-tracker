@@ -333,24 +333,25 @@
     const pop = document.createElement("div");
     pop.id = "trash-pop";
     pop.className = "trash-pop";
-    pop.innerHTML = '<div class="tp-h">🗑 Корзина — удалённые за 24 ч <button class="tp-x" title="Закрыть">×</button></div><div class="tp-b">загружаю…</div>';
+    pop.innerHTML = '<div class="tp-h"><span>Корзина <span class="tp-sub">— удалённое за 24 ч</span></span><button class="tp-x" title="Закрыть">×</button></div><div class="tp-b">загружаю…</div>';
     document.body.appendChild(pop);
     const r = btn.getBoundingClientRect();
     pop.style.top = (window.scrollY + r.bottom + 4) + "px";
-    pop.style.left = Math.max(8, window.scrollX + r.right - 420) + "px";
+    pop.style.left = Math.max(8, window.scrollX + r.right - 360) + "px";
     pop.querySelector(".tp-x").addEventListener("click", closeTrash);
     const body = pop.querySelector(".tp-b");
     try {
       const res = await fetch("/api/fleet/trash");
       const d = await res.json();
       if (!d.ok) throw new Error(d.error);
-      if (!d.rows.length) { body.textContent = "пусто"; return; }
+      if (!d.rows.length) { body.innerHTML = '<div class="tp-empty">пусто</div>'; return; }
       body.innerHTML = d.rows.map((x) => {
         const w = x.row;
         const pts = [w.target].concat((w.extra || []).map((e) => e.target)).filter(Boolean).join(" → ");
-        return `<div class="tp-r" data-id="${escapeHtml(String(w.id))}"><b>${escapeHtml(w.unit || "—")}</b> ${escapeHtml(pts)}`
-          + `<span class="tp-m">удалил ${escapeHtml(shortUser(x.meta.deleted_by))}, ${fmtTs(x.meta.deleted_at)}</span>`
-          + '<button class="tp-back">↩ вернуть</button></div>';
+        return `<div class="tp-r" data-id="${escapeHtml(String(w.id))}"><div class="tp-t">`
+          + `<div class="tp-l"><b>${escapeHtml(w.unit || "—")}</b> <span class="tp-pts" title="${escapeHtml(pts)}">${escapeHtml(pts)}</span></div>`
+          + `<div class="tp-m">удалил ${escapeHtml(shortUser(x.meta.deleted_by))}, ${fmtTs(x.meta.deleted_at)}</div></div>`
+          + '<button class="tp-back" title="Вернуть строку во Флот">↩ вернуть</button></div>';
       }).join("");
       body.querySelectorAll(".tp-back").forEach((b) => b.addEventListener("click", async () => {
         const row = b.closest(".tp-r");
@@ -381,7 +382,7 @@
     b.id = "trash-btn";
     b.className = "trash-btn";
     b.title = "Удалённые строки за последние 24 часа — можно вернуть";
-    b.textContent = "🗑 корзина";
+    b.textContent = "корзина";
     bar.appendChild(b);
     b.addEventListener("click", (e) => { e.stopPropagation(); if (document.getElementById("trash-pop")) closeTrash(); else openTrash(b); });
     document.addEventListener("click", (e) => { if (!e.target.closest("#trash-pop, #trash-btn")) closeTrash(); });

@@ -868,13 +868,24 @@ input.pt-here { background: #f3fbf4 !important; box-shadow: 0 0 0 3px #dff3e3; }
 #fleet-tbody .lock-chip { display: inline-block; margin-top: 2px; font-size: 11px; color: #b7791f; font-weight: 600; }
 #fleet-tbody tr.no-del .del-btn, #fleet-tbody tr.no-del .del-btn-w { display: none; }
 .sort-bar .trash-btn { margin-left: 8px; }
-.trash-pop { position: absolute; z-index: 3000; width: 420px; max-height: 60vh; overflow: auto; background: #fff;
-  border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 13px; }
-.trash-pop .tp-h { padding: 8px 10px; font-weight: 600; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
-.trash-pop .tp-x { border: 0; background: none; font-size: 16px; cursor: pointer; }
-.trash-pop .tp-b { padding: 6px 10px; }
-.trash-pop .tp-r { padding: 6px 0; border-bottom: 1px solid #f2f2f2; }
-.trash-pop .tp-m { display: block; color: #888; font-size: 11px; }
-.trash-pop .tp-back { float: right; margin-top: -18px; cursor: pointer; }
+.trash-pop { position: absolute; z-index: 3000; width: 360px; max-height: 60vh; overflow: auto; background: #fff;
+  border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.16); font-size: 13px; }
+.trash-pop .tp-h { padding: 8px 8px 8px 12px; font-weight: 600; border-bottom: 1px solid #eee; display: flex;
+  align-items: center; justify-content: space-between; }
+.trash-pop .tp-sub { font-weight: 400; color: #999; font-size: 12px; }
+.trash-pop .tp-x { border: 0; background: none; font-size: 18px; line-height: 1; color: #999; cursor: pointer; padding: 2px 6px; }
+.trash-pop .tp-x:hover { color: #333; }
+.trash-pop .tp-b { padding: 2px 0; }
+.trash-pop .tp-empty { padding: 10px 12px; color: #999; }
+.trash-pop .tp-r { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-bottom: 1px solid #f3f3f3; }
+.trash-pop .tp-r:last-child { border-bottom: 0; }
+.trash-pop .tp-r:hover { background: #fafafa; }
+.trash-pop .tp-t { flex: 1; min-width: 0; }
+.trash-pop .tp-l { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trash-pop .tp-pts { color: #555; }
+.trash-pop .tp-m { color: #999; font-size: 11px; margin-top: 1px; }
+.trash-pop .tp-back { flex: none; font-size: 12px; padding: 3px 9px; border: 1px solid #ccc; border-radius: 12px;
+  background: #fff; cursor: pointer; }
+.trash-pop .tp-back:hover { background: #eef6ff; border-color: #9cc3ef; }
 .fleet-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #333; color: #fff;
   padding: 9px 16px; border-radius: 8px; font-size: 14px; z-index: 5000; box-shadow: 0 4px 16px rgba(0,0,0,.25); }

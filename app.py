@@ -1,8 +1,13 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 2.02
+Версия: 2.03
 
 История изменений:
+2.03 (2026-09-30) — Флот: правила маршрутов как в From → To — на Норвегию/Швецию паромы Путтгарден–Рёдбю
+    (или Росток–Гедсер) + Хельсингёр–Хельсингборг, Италия ↔ Германия через Инсбрук (раньше Флот ехал, как
+    скажет Google, напр. Испания → Осло через паром Хиртсхальс); трак уже в Дании — через Хельсингёр;
+    корзина аккуратнее: компактное окно, строка = машина + точки, ниже кто/когда удалил,
+    кнопка "↩ вернуть" ровно справа; кнопка "корзина" без иконки
 2.02 (2026-09-30) — 🔒 строку правит один: пока кто-то в полях строки, у остальных она заблокирована
     ("🔒 имя", поля не редактируются; сама снимается через минуту, если человек ушёл); удалять строку
     может только тот, кто её создал, или её диспетчер (и админ), у остальных 🗑 нет; корзина "🗑 корзина"
@@ -565,7 +570,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "2.02"
+APP_VERSION = "2.03"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -2624,6 +2629,12 @@ def pick_waypoints_by_country(from_country, from_lat, from_lng, to_country, to_l
     if {from_country, to_country} == {"IT", "DE"}:
         return [INNSBRUCK]
 
+    # v2.03: трак уже в Дании (после Рёдбю/Гедсера) — на Норвегию/Швецию только через Хельсингёр–Хельсингборг
+    if from_country == "DK" and to_country in SCANDI:
+        return [HELSINGOR, HELSINGBORG]
+    if from_country in SCANDI and to_country == "DK":
+        return [HELSINGBORG, HELSINGOR]
+
     # Паромы на/из Норвегии-Швеции
     if from_country in SCANDI and to_country not in SCANDI:
         pair = _ferry_pair_for_country(to_country, to_lat, to_lng)
@@ -2639,6 +2650,15 @@ def pick_waypoints_by_country(from_country, from_lat, from_lng, to_country, to_l
             return [south_port, dk_port, HELSINGOR, HELSINGBORG]
 
     return None
+
+
+def fleet_waypoints(lat1, lng1, lat2, lng2):
+    """v2.03: правила маршрутов (паромы на Скандинавию, Инсбрук) и для строк Флота —
+    страны точек по ближайшему коду региона."""
+    try:
+        return pick_waypoints_by_country(_country_at(lat1, lng1), lat1, lng1, _country_at(lat2, lng2), lat2, lng2)
+    except Exception:
+        return None
 
 
 # ---------- v1.22: ближайший код региона, машина как точка, многоточечный маршрут ----------
@@ -3923,7 +3943,8 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim):
         if lat is None:
             out.append({"error": f"Не удалось распознать: {tstr}"})
             break
-        leg_km, leg_poly = road_distance_km_google(prev_lat, prev_lng, lat, lng, GOOGLE_API_KEY)
+        leg_km, leg_poly = road_distance_km_google(prev_lat, prev_lng, lat, lng, GOOGLE_API_KEY,
+                                                   fleet_waypoints(prev_lat, prev_lng, lat, lng))   # v2.03
         cum_km += leg_km
         n_stops += 1
         dwell = n_stops * UNLOAD_STOP_SEC
@@ -4172,7 +4193,10 @@ def api_calc():
 
         if target_lat is not None:
             cur_lat, cur_lng = unit["lat"], unit["lng"]
-            dist_km, polyline = road_distance_km_google(cur_lat, cur_lng, target_lat, target_lng, GOOGLE_API_KEY)
+            wps = fleet_waypoints(cur_lat, cur_lng, target_lat, target_lng)   # v2.03: паромы/Инсбрук и во Флоте
+            dist_km, polyline = road_distance_km_google(cur_lat, cur_lng, target_lat, target_lng, GOOGLE_API_KEY, wps)
+            if wps:
+                result["waypoints_applied"] = True
             _, eta_local = calc_eta(dist_km)
             result["dist_km"] = round(dist_km, 1)
             result["eta_local"] = eta_local.strftime("%d/%m %H:%M")
