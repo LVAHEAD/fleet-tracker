@@ -852,3 +852,12 @@ input.pt-here { background: #f3fbf4 !important; box-shadow: 0 0 0 3px #dff3e3; }
 .fleet-import { margin: 6px 0; padding: 8px 12px; background: #eef6ff; border: 1px solid #b8d4f5; border-radius: 6px; font-size: 13px; }
 .fleet-import button { margin-left: 8px; font-size: 13px; padding: 3px 10px; cursor: pointer; }
 .fleet-import .fi-msg { margin-left: 8px; color: #555; }
+/* v2.01: диспетчер строки, "мои / все" */
+.sort-bar .own-flt { display: none; }
+.sort-bar.has-own .own-flt { display: inline-flex; align-items: center; gap: 4px; }
+#fleet-tbody .disp-sel { display: block; margin-top: 3px; max-width: 100%; font-size: 11px; color: #888; border: 1px solid transparent;
+  background: transparent; padding: 0 2px; border-radius: 4px; cursor: pointer;
+  -webkit-appearance: none; appearance: none; }
+#fleet-tbody .disp-sel:hover { border-color: #ccc; }
+#fleet-tbody .disp-sel.other { color: #2b6cb0; font-weight: 600; }
+#fleet-tbody .disp-sel.none { color: #bbb; }

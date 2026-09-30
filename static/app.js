@@ -491,7 +491,9 @@ function saveRows() {
 }
 
 function emptyRow() {
-  return { id: window.newRowId ? window.newRowId() : rowIdCounter++, unit: "", lo: "", target: "", delivery: "", note: "" };   // v2.00: уникальный id на всех
+  const r = { id: window.newRowId ? window.newRowId() : rowIdCounter++, unit: "", lo: "", target: "", delivery: "", note: "" };
+  if (typeof fleetMe === "function" && fleetMe()) r.disp = fleetMe();   // v2.01: ответственный — кто создал
+  return r;   // v2.00: уникальный id на всех
 }
 
 async function loadUnitsList() {
@@ -670,8 +672,46 @@ function rowLoKind(row) {
   return x && (x.lo === "L" || x.lo === "O") ? x.lo : "";
 }
 function rowPassesFilter(row) {
-  if (loFilter === "all" || !row.unit) return true;
+  if (!row.unit) return true;
+  if (ownFilter === "mine" && fleetMe() && rowDisp(row) !== fleetMe()) return false;   // v2.01
+  if (loFilter === "all") return true;
   return rowLoKind(row) === loFilter;
+}
+
+// ---------- v2.01: диспетчер строки + фильтр "Мои / Все" ----------
+// disp — e-mail ответственного; у новой строки — кто создал; у старых без disp — создатель (мета сервера).
+let ownFilter = "all";
+try { ownFilter = localStorage.getItem("fleet-own-filter") || "all"; } catch (e) {}
+if (!["all", "mine"].includes(ownFilter)) ownFilter = "all";
+function fleetMe() {
+  const u = window.fleetSync && window.fleetSync.mode === "server" ? window.fleetSync.user : "";
+  return u && u !== "local" ? String(u).toLowerCase() : "";
+}
+function rowDisp(row) {
+  if (row.disp) return String(row.disp).toLowerCase();
+  const m = window.fleetSync && window.fleetSync.meta[String(row.id)];
+  return m && m.created_by && m.created_by !== "local" ? String(m.created_by).toLowerCase() : "";
+}
+const dispShort = (u) => String(u || "").split("@")[0].split(".")[0].slice(0, 12);
+function knownDispatchers() {
+  const set = new Set();
+  if (fleetMe()) set.add(fleetMe());
+  rows.forEach((r) => { const d = rowDisp(r); if (d) set.add(d); });
+  const meta = (window.fleetSync && window.fleetSync.meta) || {};
+  Object.values(meta).forEach((m) => {
+    [m.created_by, m.updated_by].forEach((u) => { if (u && u !== "local") set.add(String(u).toLowerCase()); });
+  });
+  return Array.from(set).sort();
+}
+function dispHtml(row) {
+  if (!fleetMe()) return "";
+  const d = rowDisp(row);
+  const opts = knownDispatchers();
+  if (d && !opts.includes(d)) opts.push(d);
+  return `<select class="disp-sel${d && d !== fleetMe() ? " other" : ""}${d ? "" : " none"}" title="Диспетчер (ответственный за строку)">`
+    + `<option value=""${d ? "" : " selected"}>👤 —</option>`
+    + opts.map((u) => `<option value="${escapeHtml(u)}"${u === d ? " selected" : ""}>👤 ${escapeHtml(dispShort(u))}</option>`).join("")
+    + "</select>";
 }
 
 function renderRows() {
@@ -696,7 +736,7 @@ function renderRows() {
       : (cached && cached.extra && cached.extra.length ? etaCellHtml(row, cached, null) : (cached ? cached.eta : "—"));
     const etaMuted = cached ? "" : "muted";
     tr.innerHTML = `
-      <td><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" title="${escapeHtml(window.fleetMetaTitle ? window.fleetMetaTitle(row.id) : "")}" placeholder="номер" /></td>
+      <td><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" title="${escapeHtml(window.fleetMetaTitle ? window.fleetMetaTitle(row.id) : "")}" placeholder="номер" />${dispHtml(row)}</td>
       <td class="status-cell ${statusClass}">${statusHtml}</td>
       <td>
         <div class="target-wrap">
@@ -779,6 +819,11 @@ function attachRowHandlers() {
 
     tr.querySelector(".unit-input").addEventListener("change", (e) => {
       updateRowField(id, "unit", e.target.value);
+    });
+    const dsel = tr.querySelector(".disp-sel");
+    if (dsel) dsel.addEventListener("change", (e) => {   // v2.01
+      setRowField(id, "disp", e.target.value);
+      renderRows();
     });
     tr.querySelector(".target-input").addEventListener("change", (e) => {
       updateRowField(id, "target", e.target.value);
@@ -2063,8 +2108,19 @@ function moveManual(id, dir) {
   const mark = () => {
     bar.querySelectorAll("button[data-sort]").forEach((b) => b.classList.toggle("on", b.dataset.sort === sortMode));
     bar.querySelectorAll("button[data-flt]").forEach((b) => b.classList.toggle("on", b.dataset.flt === loFilter));
+    bar.querySelectorAll("button[data-own]").forEach((b) => b.classList.toggle("on", b.dataset.own === ownFilter));
+    bar.classList.toggle("has-own", !!fleetMe());
   };
+  window.fleetMarkBar = mark;
   bar.addEventListener("click", (e) => {
+    const o = e.target.closest("button[data-own]");
+    if (o) {
+      ownFilter = o.dataset.own;
+      try { localStorage.setItem("fleet-own-filter", ownFilter); } catch (err) {}
+      mark();
+      renderRows();
+      return;
+    }
     const f = e.target.closest("button[data-flt]");
     if (f) {
       loFilter = f.dataset.flt;

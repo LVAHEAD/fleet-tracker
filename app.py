@@ -1,8 +1,11 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 2.00
+Версия: 2.01
 
 История изменений:
+2.01 (2026-09-30) — диспетчер строки: под номером машины "👤 имя" (выбор из списка), у новой строки —
+    кто её создал, у старых — кто создал на сервере; чужие строки — имя синим; фильтр "все / мои"
+    слева от "Показать" (мои — где я диспетчер; пустые строки видны всегда; карта показывает всех)
 2.00 (2026-09-30) — ОБЩИЙ ФЛОТ: строки Флота хранятся на сервере (Firestore), у всех одинаковые —
     на ноуте, телефоне и у диспетчеров; изменения других подтягиваются раз в 15 с; правка по полям
     (двое правят разные поля одной строки — ничего не теряется); на номере машины подсказка
@@ -558,7 +561,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "2.00"
+APP_VERSION = "2.01"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"

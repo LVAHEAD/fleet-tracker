@@ -288,6 +288,7 @@
     });
     if (!rows.length) rows.push(emptyRow());
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(rows)); } catch (e) { /* ignore */ }
+    if (window.fleetMarkBar) window.fleetMarkBar();   // v2.01: кнопки "Мои / Все"
     renderRows();
     calcAllRows();
   }
