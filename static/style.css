@@ -861,3 +861,20 @@ input.pt-here { background: #f3fbf4 !important; box-shadow: 0 0 0 3px #dff3e3; }
 #fleet-tbody .disp-sel:hover { border-color: #ccc; }
 #fleet-tbody .disp-sel.other { color: #2b6cb0; font-weight: 600; }
 #fleet-tbody .disp-sel.none { color: #bbb; }
+/* v2.02: блокировка, удаление, корзина */
+#fleet-tbody tr.row-locked td { background: #f4f4f6 !important; }
+#fleet-tbody tr.row-locked input, #fleet-tbody tr.row-locked select { color: #777; }
+#fleet-tbody tr.row-locked .stop-n, #fleet-tbody tr.row-locked .drag-h { pointer-events: none; }
+#fleet-tbody .lock-chip { display: inline-block; margin-top: 2px; font-size: 11px; color: #b7791f; font-weight: 600; }
+#fleet-tbody tr.no-del .del-btn, #fleet-tbody tr.no-del .del-btn-w { display: none; }
+.sort-bar .trash-btn { margin-left: 8px; }
+.trash-pop { position: absolute; z-index: 3000; width: 420px; max-height: 60vh; overflow: auto; background: #fff;
+  border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 13px; }
+.trash-pop .tp-h { padding: 8px 10px; font-weight: 600; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+.trash-pop .tp-x { border: 0; background: none; font-size: 16px; cursor: pointer; }
+.trash-pop .tp-b { padding: 6px 10px; }
+.trash-pop .tp-r { padding: 6px 0; border-bottom: 1px solid #f2f2f2; }
+.trash-pop .tp-m { display: block; color: #888; font-size: 11px; }
+.trash-pop .tp-back { float: right; margin-top: -18px; cursor: pointer; }
+.fleet-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #333; color: #fff;
+  padding: 9px 16px; border-radius: 8px; font-size: 14px; z-index: 5000; box-shadow: 0 4px 16px rgba(0,0,0,.25); }

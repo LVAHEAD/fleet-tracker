@@ -54,7 +54,8 @@
     if (!m) return "";
     const out = [];
     if (m.created_by) out.push(`Создал: ${shortUser(m.created_by)}, ${fmtTs(m.created_at)}`);
-    if (m.updated_by && m.updated_at && m.updated_at !== m.created_at) out.push(`Изменил: ${shortUser(m.updated_by)}, ${fmtTs(m.updated_at)}`);
+    const ed = m.edited_at || m.updated_at;   // v2.02: время правки, а не блокировки
+    if (m.updated_by && ed && ed !== m.created_at) out.push(`Изменил: ${shortUser(m.updated_by)}, ${fmtTs(ed)}`);
     return out.join("\n");
   };
 
@@ -147,7 +148,11 @@
         m.updated_at = d.now;
         S.meta[id] = m;
       });
-      if (bad.size) { setStatus("error", d.errors[0].error); setTimeout(S.schedule, 10000); }
+      const denied = (d.errors || []).filter((e) => /может только/.test(e.error || ""));
+      if (denied.length) {                       // v2.02: удалить нельзя — вернуть строку с сервера
+        toast("🗑 " + denied[0].error);
+        loadAll().catch(() => {});
+      } else if (bad.size) { setStatus("error", d.errors[0].error); setTimeout(S.schedule, 10000); }
       else setStatus("ok");
     } catch (e) {
       setStatus("error", e.message);
@@ -187,6 +192,7 @@
       return;
     }
     S.since = d.now;
+    S.skew = d.now - Date.now();
     let changed = false;
     (d.changes || []).forEach((ch) => {
       const id = key(ch.row.id);
@@ -224,8 +230,161 @@
     });
     // пустая строка-заглушка, если другой удалил всё
     if (!rows.length) { rows.push(emptyRow()); changed = true; }
+    const sig = lockSig();                      // v2.02: чья-то 🔒 появилась / снялась / истекла
+    if (sig !== S.lockSig) { S.lockSig = sig; changed = true; }
     if (changed) { S.pendingRender = true; flush(); }
     if (!S.pushing) setStatus("ok");
+  }
+
+  // ---------- v2.02: 🔒 блокировка строки, права на удаление, корзина ----------
+  S.skew = 0;
+  S.lockedId = null;
+  S.lockTimer = null;
+  S.lockSig = "";
+  S.admin = false;
+  const serverNow = () => Date.now() + (S.skew || 0);
+  const me = () => String(S.user || "").toLowerCase();
+
+  window.fleetLockedBy = function (id) {
+    if (S.mode !== "server") return "";
+    const m = S.meta[key(id)];
+    if (!m || !m.lock_by || String(m.lock_by).toLowerCase() === me()) return "";
+    return (m.lock_until || 0) > serverNow() ? m.lock_by : "";
+  };
+  function lockSig() {
+    return rows.filter((r) => window.fleetLockedBy(r.id)).map((r) => key(r.id) + ":" + window.fleetLockedBy(r.id)).join(",");
+  }
+  window.fleetCanDelete = function (row) {
+    if (S.mode !== "server" || S.admin) return true;
+    const m = S.meta[key(row.id)];
+    const created = String((m && m.created_by) || "").toLowerCase();
+    if (!created || created === "local") return true;
+    const disp = String(row.disp || created).toLowerCase();
+    return me() === created || me() === disp;
+  };
+
+  function toast(msg) {
+    const t = document.createElement("div");
+    t.className = "fleet-toast";
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 4500);
+  }
+  window.fleetToast = toast;
+
+  async function lockReq(id, release) {
+    try {
+      const r = await fetch("/api/fleet/lock", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: key(id), release: !!release }),
+      });
+      return { status: r.status, d: await r.json() };
+    } catch (e) {
+      return { status: 0, d: {} };
+    }
+  }
+  async function acquire(id) {
+    if (S.mode !== "server" || S.lockedId === key(id)) return;
+    if (S.lockedId) release();
+    S.lockedId = key(id);
+    const { status, d } = await lockReq(id, false);
+    if (status === 409) {
+      S.meta[key(id)] = Object.assign(S.meta[key(id)] || {}, { lock_by: d.locked_by, lock_until: d.lock_until });
+      if (S.lockedId === key(id)) S.lockedId = null;
+      const a = document.activeElement;
+      if (a && a.blur) a.blur();
+      S.lockSig = lockSig();
+      renderRows();
+      toast(`🔒 Эту строку сейчас правит ${shortUser(d.locked_by)} — подождите`);
+      return;
+    }
+    clearInterval(S.lockTimer);
+    S.lockTimer = setInterval(() => { if (S.lockedId) lockReq(S.lockedId, false); }, 25000);
+  }
+  function release() {
+    if (!S.lockedId) return;
+    const id = S.lockedId;
+    S.lockedId = null;
+    clearInterval(S.lockTimer);
+    lockReq(id, true);
+  }
+  document.addEventListener("focusin", (e) => {
+    const tr = e.target && e.target.closest && e.target.closest("#fleet-tbody tr");
+    if (tr && tr.dataset.id) acquire(tr.dataset.id);
+  });
+  document.addEventListener("focusout", () => {
+    setTimeout(() => {
+      const a = document.activeElement;
+      const tr = a && a.closest && a.closest("#fleet-tbody tr");
+      if (!tr && !document.querySelector(".com-ed, .trl-ed")) release();
+    }, 400);
+  });
+  window.addEventListener("pagehide", () => {
+    if (!S.lockedId) return;
+    try {
+      navigator.sendBeacon("/api/fleet/lock", new Blob([JSON.stringify({ id: S.lockedId, release: true })], { type: "application/json" }));
+    } catch (e) { /* ignore */ }
+  });
+
+  // корзина
+  function closeTrash() { const el = document.getElementById("trash-pop"); if (el) el.remove(); }
+  async function openTrash(btn) {
+    closeTrash();
+    const pop = document.createElement("div");
+    pop.id = "trash-pop";
+    pop.className = "trash-pop";
+    pop.innerHTML = '<div class="tp-h">🗑 Корзина — удалённые за 24 ч <button class="tp-x" title="Закрыть">×</button></div><div class="tp-b">загружаю…</div>';
+    document.body.appendChild(pop);
+    const r = btn.getBoundingClientRect();
+    pop.style.top = (window.scrollY + r.bottom + 4) + "px";
+    pop.style.left = Math.max(8, window.scrollX + r.right - 420) + "px";
+    pop.querySelector(".tp-x").addEventListener("click", closeTrash);
+    const body = pop.querySelector(".tp-b");
+    try {
+      const res = await fetch("/api/fleet/trash");
+      const d = await res.json();
+      if (!d.ok) throw new Error(d.error);
+      if (!d.rows.length) { body.textContent = "пусто"; return; }
+      body.innerHTML = d.rows.map((x) => {
+        const w = x.row;
+        const pts = [w.target].concat((w.extra || []).map((e) => e.target)).filter(Boolean).join(" → ");
+        return `<div class="tp-r" data-id="${escapeHtml(String(w.id))}"><b>${escapeHtml(w.unit || "—")}</b> ${escapeHtml(pts)}`
+          + `<span class="tp-m">удалил ${escapeHtml(shortUser(x.meta.deleted_by))}, ${fmtTs(x.meta.deleted_at)}</span>`
+          + '<button class="tp-back">↩ вернуть</button></div>';
+      }).join("");
+      body.querySelectorAll(".tp-back").forEach((b) => b.addEventListener("click", async () => {
+        const row = b.closest(".tp-r");
+        b.disabled = true;
+        try {
+          const rr = await fetch("/api/fleet/restore", {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: row.dataset.id }),
+          });
+          const dd = await rr.json();
+          if (!dd.ok) throw new Error(dd.error);
+          row.remove();
+          await pull();
+          toast("↩ Строка возвращена");
+        } catch (e) {
+          b.disabled = false;
+          toast("Не удалось вернуть: " + e.message);
+        }
+      }));
+    } catch (e) {
+      body.textContent = "ошибка: " + e.message;
+    }
+  }
+  function addTrashButton() {
+    const bar = document.getElementById("sort-bar");
+    if (!bar || document.getElementById("trash-btn")) return;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.id = "trash-btn";
+    b.className = "trash-btn";
+    b.title = "Удалённые строки за последние 24 часа — можно вернуть";
+    b.textContent = "🗑 корзина";
+    bar.appendChild(b);
+    b.addEventListener("click", (e) => { e.stopPropagation(); if (document.getElementById("trash-pop")) closeTrash(); else openTrash(b); });
+    document.addEventListener("click", (e) => { if (!e.target.closest("#trash-pop, #trash-btn")) closeTrash(); });
   }
 
   // ---------- перенос Флота из браузера ----------
@@ -276,6 +435,8 @@
     if (!d.ok) throw new Error(d.error || r.status);
     S.user = d.user;
     S.since = d.now;
+    S.skew = d.now - Date.now();
+    S.admin = !!d.admin;
     S.synced.clear();
     S.meta = {};
     const mine = {};
@@ -316,6 +477,7 @@
     let backup = localRows;
     try { backup = JSON.parse(localStorage.getItem(BACKUP_KEY) || "null") || localRows; } catch (e) { /* ignore */ }
     importBanner(backup);
+    addTrashButton();
     setInterval(pull, PULL_MS);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) pull(); });
   };

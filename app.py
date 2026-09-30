@@ -1,8 +1,12 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 2.01
+Версия: 2.02
 
 История изменений:
+2.02 (2026-09-30) — 🔒 строку правит один: пока кто-то в полях строки, у остальных она заблокирована
+    ("🔒 имя", поля не редактируются; сама снимается через минуту, если человек ушёл); удалять строку
+    может только тот, кто её создал, или её диспетчер (и админ), у остальных 🗑 нет; корзина "🗑 корзина"
+    в строке фильтров — удалённое за 24 ч, кто и когда удалил, ↩ вернуть
 2.01 (2026-09-30) — диспетчер строки: под номером машины "👤 имя" (выбор из списка), у новой строки —
     кто её создал, у старых — кто создал на сервере; чужие строки — имя синим; фильтр "все / мои"
     слева от "Показать" (мои — где я диспетчер; пустые строки видны всегда; карта показывает всех)
@@ -561,7 +565,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Если не задан отдельно, используется тот же GOOGLE_API_KEY.
 GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "2.01"
+APP_VERSION = "2.02"
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
@@ -5020,8 +5024,8 @@ def _fs_decode(doc):
         except Exception:
             data[k] = None
     rid = doc["name"].rsplit("/", 1)[-1]
-    meta = {k: val(f.get(k)) for k in ("created_by", "created_at", "updated_by", "updated_at",
-                                         "deleted", "deleted_by", "deleted_at")}
+    meta = {k: val(f.get(k)) for k in ("created_by", "created_at", "updated_by", "updated_at", "edited_at",
+                                         "deleted", "deleted_by", "deleted_at", "lock_by", "lock_until")}
     return {"id": rid, "data": data, "meta": meta}
 
 
@@ -5059,6 +5063,12 @@ class FleetStoreFS:
     def purge(self, rid):
         _fs_check(requests.delete(f"{FS_BASE}/{FLEET_COLL}/{rid}", headers=_fs_headers(), timeout=20))
 
+    def get(self, rid):
+        r = requests.get(f"{FS_BASE}/{FLEET_COLL}/{rid}", headers=_fs_headers(), timeout=20)
+        if r.status_code == 404:
+            return None
+        return _fs_decode(_fs_check(r).json())
+
 
 class FleetStoreMem:
     """Для локальной проверки без Firestore (FLEET_STORE=memory)."""
@@ -5082,12 +5092,31 @@ class FleetStoreMem:
     def purge(self, rid):
         self.docs.pop(rid, None)
 
+    def get(self, rid):
+        d = self.docs.get(rid)
+        return {"id": rid, "data": dict(d["data"]), "meta": dict(d["meta"])} if d else None
+
 
 FLEET_STORE = FleetStoreMem() if os.environ.get("FLEET_STORE") == "memory" else FleetStoreFS()
 
 
 def _fleet_user():
     return current_user_email() or "local"
+
+
+# v2.02: кто может удалять любую строку (кроме создателя и диспетчера строки)
+FLEET_ADMINS = {e.strip().lower() for e in (os.environ.get("FLEET_ADMINS") or "vladimirs.head@gmail.com").split(",") if e.strip()}
+FLEET_LOCK_MS = 60 * 1000
+
+
+def _fleet_can_delete(user, d):
+    if user in FLEET_ADMINS:
+        return True
+    created = str(d["meta"].get("created_by") or "").lower()
+    disp = str(d["data"].get("disp") or "").lower()
+    if not created or created == "local":
+        return True
+    return user.lower() in (created, disp)
 
 
 def _fleet_row_out(d):
@@ -5143,7 +5172,8 @@ def api_fleet():
             else:
                 live.append(_fleet_row_out(d))
         live.sort(key=lambda x: (x["meta"].get("created_at") or 0, str(x["row"]["id"])))
-        return jsonify({"ok": True, "now": now, "user": _fleet_user(), "rows": live, "trash_count": len(trash)})
+        return jsonify({"ok": True, "now": now, "user": _fleet_user(), "rows": live, "trash_count": len(trash),
+                        "admin": _fleet_user() in FLEET_ADMINS, "lock_ms": FLEET_LOCK_MS})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 503
 
@@ -5160,10 +5190,16 @@ def api_fleet_sync():
         try:
             rid = _fleet_rid(op.get("id"))
             if op.get("delete"):
+                d = FLEET_STORE.get(rid)
+                if d is None:
+                    done += 1
+                    continue
+                if not _fleet_can_delete(user, d):
+                    raise PermissionError("удалить строку может только тот, кто её создал, или её диспетчер")
                 FLEET_STORE.patch(rid, meta={"deleted": True, "deleted_by": user, "deleted_at": now,
-                                             "updated_by": user, "updated_at": now})
+                                             "updated_by": user, "updated_at": now, "lock_by": "", "lock_until": 0})
             else:
-                meta = {"updated_by": user, "updated_at": now}
+                meta = {"updated_by": user, "updated_at": now, "edited_at": now}
                 if op.get("new"):
                     meta.update(created_by=user, created_at=now, deleted=False)
                 unset = [k for k in (op.get("unset") or []) if FLEET_FIELD_RE.match(str(k)) and k != "id"]
@@ -5173,6 +5209,63 @@ def api_fleet_sync():
             errors.append({"id": op.get("id"), "error": str(e)})
     code = 200 if not errors else (207 if done else 503)
     return jsonify({"ok": not errors, "now": now, "done": done, "errors": errors}), code
+
+
+@app.route("/api/fleet/lock", methods=["POST"])
+def api_fleet_lock():
+    """v2.02: 🔒 строку правит один человек. {id} — занять/продлить на 60 с, {id, release:true} — отпустить.
+    Занято другим — 409 {locked_by}."""
+    body = request.get_json(force=True, silent=True) or {}
+    user, now = _fleet_user(), _now_ms()
+    try:
+        rid = _fleet_rid(body.get("id"))
+        d = FLEET_STORE.get(rid)
+        if d is None or d["meta"].get("deleted"):
+            return jsonify({"ok": True, "now": now, "none": True})
+        m = d["meta"]
+        other = m.get("lock_by") and m.get("lock_by") != user and (m.get("lock_until") or 0) > now
+        if body.get("release"):
+            if m.get("lock_by") == user:
+                FLEET_STORE.patch(rid, meta={"lock_by": "", "lock_until": 0, "updated_at": now})
+            return jsonify({"ok": True, "now": now})
+        if other:
+            return jsonify({"ok": False, "now": now, "locked_by": m["lock_by"], "lock_until": m["lock_until"]}), 409
+        FLEET_STORE.patch(rid, meta={"lock_by": user, "lock_until": now + FLEET_LOCK_MS, "updated_at": now})
+        return jsonify({"ok": True, "now": now, "lock_until": now + FLEET_LOCK_MS})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 503
+
+
+@app.route("/api/fleet/trash")
+def api_fleet_trash():
+    """v2.02: корзина — удалённые за последние 24 ч, новые сверху."""
+    now = _now_ms()
+    try:
+        out = []
+        for d in FLEET_STORE.query(None):
+            m = d["meta"]
+            if m.get("deleted") and now - (m.get("deleted_at") or 0) <= FLEET_TRASH_MS:
+                out.append(_fleet_row_out(d))
+        out.sort(key=lambda x: -(x["meta"].get("deleted_at") or 0))
+        return jsonify({"ok": True, "now": now, "rows": out})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 503
+
+
+@app.route("/api/fleet/restore", methods=["POST"])
+def api_fleet_restore():
+    body = request.get_json(force=True, silent=True) or {}
+    user, now = _fleet_user(), _now_ms()
+    try:
+        rid = _fleet_rid(body.get("id"))
+        d = FLEET_STORE.get(rid)
+        if d is None:
+            return jsonify({"ok": False, "error": "строка уже удалена насовсем"}), 404
+        FLEET_STORE.patch(rid, meta={"deleted": False, "deleted_by": "", "deleted_at": 0,
+                                     "updated_by": user, "updated_at": now, "edited_at": now})
+        return jsonify({"ok": True, "now": now})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 503
 
 
 @app.route("/api/fleet/import", methods=["POST"])

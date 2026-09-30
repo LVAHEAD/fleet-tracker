@@ -777,6 +777,18 @@ function renderRows() {
       </td>
     `;
     if (blinkRows.has(row.id)) tr.classList.add("row-blink");
+    // v2.02: 🔒 строку сейчас правит другой — только смотреть; 🗑 — только создатель / диспетчер
+    const lockBy = window.fleetLockedBy ? window.fleetLockedBy(row.id) : "";
+    if (lockBy) {
+      tr.classList.add("row-locked");
+      tr.querySelectorAll("input, select, button").forEach((el) => { if (!el.classList.contains("refresh-row-btn")) el.disabled = true; });
+      const ch = document.createElement("span");
+      ch.className = "lock-chip";
+      ch.textContent = "🔒 " + dispShort(lockBy);
+      ch.title = `Строку сейчас правит ${lockBy}. Блокировка снимается, когда он выйдет из строки (или через минуту).`;
+      tr.querySelector("td").appendChild(ch);
+    }
+    if (window.fleetCanDelete && !window.fleetCanDelete(row)) tr.classList.add("no-del");
     tbody.appendChild(tr);
     markDeliveryInput(tr, row);
     applyDoneClasses(tr, row, lastCalcText[row.id]);
