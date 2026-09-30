@@ -846,3 +846,9 @@ input.pt-here { background: #f3fbf4 !important; box-shadow: 0 0 0 3px #dff3e3; }
 /* поле таргета никогда не залезает на Delivery — лишнее обрезается внутри колонки */
 #fleet-table td:nth-child(3) { overflow: hidden; }
 .title-user { font-size: 12px; font-weight: 400; color: #999; margin-left: 12px; vertical-align: middle; }
+/* v2.00: общий Флот */
+.sync-status { font-size: 12px; font-weight: 400; color: #8a8; margin-left: 10px; vertical-align: middle; cursor: default; }
+.sync-status[data-st="error"], .sync-status[data-st="local"] { color: #d9822b; }
+.fleet-import { margin: 6px 0; padding: 8px 12px; background: #eef6ff; border: 1px solid #b8d4f5; border-radius: 6px; font-size: 13px; }
+.fleet-import button { margin-left: 8px; font-size: 13px; padding: 3px 10px; cursor: pointer; }
+.fleet-import .fi-msg { margin-left: 8px; color: #555; }

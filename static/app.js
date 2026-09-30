@@ -487,10 +487,11 @@ function saveRows() {
   } catch (e) {
     // localStorage недоступен — молча продолжаем без сохранения
   }
+  if (window.fleetSync) window.fleetSync.schedule();   // v2.00: общий Флот на сервере
 }
 
 function emptyRow() {
-  return { id: rowIdCounter++, unit: "", lo: "", target: "", delivery: "", note: "" };
+  return { id: window.newRowId ? window.newRowId() : rowIdCounter++, unit: "", lo: "", target: "", delivery: "", note: "" };   // v2.00: уникальный id на всех
 }
 
 async function loadUnitsList() {
@@ -695,7 +696,7 @@ function renderRows() {
       : (cached && cached.extra && cached.extra.length ? etaCellHtml(row, cached, null) : (cached ? cached.eta : "—"));
     const etaMuted = cached ? "" : "muted";
     tr.innerHTML = `
-      <td><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" placeholder="номер" /></td>
+      <td><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" title="${escapeHtml(window.fleetMetaTitle ? window.fleetMetaTitle(row.id) : "")}" placeholder="номер" /></td>
       <td class="status-cell ${statusClass}">${statusHtml}</td>
       <td>
         <div class="target-wrap">
@@ -2129,4 +2130,5 @@ loadAddressList(false);
   const main = document.getElementById("refresh-btn");
   if (top && main) top.addEventListener("click", () => main.click());
 })();
-calcAllRows();
+// v2.00: общий Флот — сначала загрузка с сервера (там же calcAllRows), без сервера — как раньше
+if (window.fleetSync) window.fleetSync.start(); else calcAllRows();
