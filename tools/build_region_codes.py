@@ -8,7 +8,7 @@ Fleet ETA Tracker — дополнение кодов регионов из GeoN
 (AT10, CH80, BG10 ...), координаты = среднее по всем индексам зоны,
 место = населённый пункт, ближайший к этому центру.
 
-Результат — region_codes_geonames.json в корне проекта. Приложение при старте
+Результат — data/region_codes_geonames.json. Приложение при старте
 добавляет эти коды к REGION_CODES из GPS_Codes.xlsx, НЕ перезаписывая
 существующие (ваши коды главнее).
 
@@ -35,7 +35,7 @@ DEFAULT_COUNTRIES = [
     "GR", "RS", "BA", "MK", "MD", "IE", "TR",
 ]
 URL = "https://download.geonames.org/export/zip/{cc}.zip"
-OUT = Path(__file__).resolve().parent.parent / "region_codes_geonames.json"
+OUT = Path(__file__).resolve().parent.parent / "data" / "region_codes_geonames.json"
 
 
 def download(cc):

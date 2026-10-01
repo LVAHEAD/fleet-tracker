@@ -38,7 +38,7 @@ fleet-tracker/
 │  ├─ services/            # fleet_calc.py (тело api_calc), route_calc.py (тело api_route)
 │  ├─ store/fleet_store.py # Firestore / Memory, права, 🔒, корзина
 │  └─ api/                 # Blueprints: fleet.py calc.py mapon.py reference.py meta.py
-└─ tests/                  # pytest + фикстуры
+└─ tests/                  # unittest + фикстуры
 ```
 
 Зависимости идут только вниз: `api → services → domain + clients → utils/config`.
@@ -50,7 +50,7 @@ fleet-tracker/
 
 | Билд | Шаг | Что делаем | Риск |
 |---|---|---|---|
-| **v3.00** | 0 + 1 | `tests/`: pytest на `tacho_eta`, `pick_waypoints`, `bans_on_route`, `points_done`, `similar_freights`; эталон списка `/api/*` маршрутов; `FRESH_SOLO_TACHO` → фикстуры. Changelog → `CHANGELOG.md` (`parse_changelog` читает файл), `REGION_CODES` → `data/region_codes.json`, geonames → `data/` | низкий |
+| **v3.00** | 0 + 1 | `tests/` на unittest: тахо-ETA, паромы и Инсбрук, ночь Австрии для MAN, ✓ пройдено, разбор фрахта, справочники; эталон списка `/api/*` маршрутов. Changelog → `CHANGELOG.md` (`parse_changelog` читает файл), `REGION_CODES` → `data/region_codes.json`, geonames → `data/` | низкий |
 | v3.01 | 2 | Каркас `fetat/`: `config.py` (env + все константы), `utils/` (haversine, polyline, WKT, время, `TTLCache`). `app.py` пока импортирует из них | низкий |
 | v3.02 | 3 | `clients/`: Mapon (с семафором), Google Routes (кеш, along-route, квота), геокодер, Sheets, Firestore, nakordoni, Monitoring — вместе со своими кешами | средний |
 | v3.03 | 4 | `domain/`: tacho, routing_rules, bans (+ ночь Австрии для MAN), regions, points, trailers, addresses (+ FIN/EE → База), freights | средний |
@@ -64,13 +64,15 @@ fleet-tracker/
 2. Имена функций и константы при переезде не переименовываем. Переименования — отдельным шагом, если понадобятся.
 3. Кеши — изменяемые словари: модуль-владелец создаёт их один раз, остальные импортируют модуль, а не переменную. `global _cc_points` (сейчас `_country_at`) переделать на словарь-кеш.
 4. Пути к данным — от `Path(__file__)`, не от текущей папки.
-5. Новых зависимостей в `requirements.txt` для прода не добавляем. `pytest` нужен только для локальных тестов.
+5. Новых зависимостей не добавляем. Тесты — на стандартном `unittest` (pytest их тоже запускает).
+6. `FRESH_SOLO_TACHO` — не тестовая заготовка: им пользуется `/api/route` (тахо-ETA «свежего одиночки» в From → To). При переезде — в `domain/tacho.py`.
+7. Тесты обращаются к коду через `tests/__init__.py` (`A`). Переносим функцию — дописываем её в `A`, сами тесты не трогаем.
 
 ## Проверка каждого шага
 
 До push:
 - `python -m py_compile` по всем файлам;
-- `pytest` зелёный;
+- `python -m unittest discover -s tests` зелёный;
 - список маршрутов `app.url_map` совпадает с эталоном;
 - `FLEET_STORE=memory` и локальный запуск: `/` и `/api/region-codes` отвечают 200.
 
@@ -85,7 +87,7 @@ fleet-tracker/
 
 ## Статус
 
-- [ ] v3.00 — тесты + данные наружу
+- [x] v3.00 — тесты + данные наружу (27 тестов; app.py 5341 → 3710 строк, 307 → 173 КБ)
 - [ ] v3.01 — каркас, config, utils
 - [ ] v3.02 — clients
 - [ ] v3.03 — domain
