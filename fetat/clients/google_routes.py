@@ -78,6 +78,43 @@ def _quota_day():
         return (datetime.now(timezone.utc) - timedelta(hours=7)).strftime("%Y-%m-%d")
 
 
+def _riga_hour():
+    """v3.15: час по Риге "00".."23" — для почасового лога запросов."""
+    from fetat.config import RIGA_UTC_OFFSET
+    return (datetime.now(timezone.utc) + timedelta(hours=RIGA_UTC_OFFSET)).strftime("%H")
+
+
+def hourly_from_stats(st):
+    """v3.15: {"10": {"c": 3, "h": 20}, ...} из ключей c_hr_HH / h_hr_HH."""
+    out = {}
+    for k, v in (st or {}).items():
+        if k.startswith(("c_hr_", "h_hr_")):
+            hh = k[5:]
+            out.setdefault(hh, {"c": 0, "h": 0})[k[0]] = int(v or 0)
+    return out
+
+
+def own_forecast(st, days_in_month, now_hour=None):
+    """v3.15: прогноз на месяц по нашему темпу: запросы в Google за часы с первой записи
+    сегодня по текущий час включительно, в среднем за час × 24 × дней в месяце."""
+    hourly = hourly_from_stats(st)
+    if not hourly:
+        return None
+    if now_hour is None:
+        now_hour = _riga_hour()
+    # сутки Google начинаются в 10:00 по Риге (полночь по Тихоокеанскому) — часы идут 10..23, 00..09
+    order = [f"{(10 + i) % 24:02d}" for i in range(24)]
+    start = min(order.index(h) for h in hourly if h in order)
+    end = order.index(now_hour) if now_hour in order else len(order) - 1
+    if end < start:
+        end = start
+    hours = order[start:end + 1]
+    calls = sum(hourly.get(h, {}).get("c", 0) for h in hours)
+    return {"hours": len(hours), "calls": calls,
+            "per_hour": round(calls / len(hours), 1),
+            "forecast": int(round(calls / len(hours) * 24 * days_in_month))}
+
+
 def _route_stat(kind, what=None):
     """kind: "calls" (ушло в Google) | "cache_hits" (взято из кеша); what — truck / leg / multi."""
     import time
@@ -95,6 +132,7 @@ def _route_stat(kind, what=None):
         keys.append(f"{short}_kind_{what}")
     if short == "c":
         keys.append(f"c_user_{user}")
+    keys.append(f"{short}_hr_{_riga_hour()}")      # v3.15: почасовой лог (час по Риге)
     with _route_cache_lock:
         if _stats_flush["day"] not in (None, day):
             _stats_buf.clear()          # сутки сменились до отправки — старое уже не важно

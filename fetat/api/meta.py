@@ -6,7 +6,8 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, jsonify, render_template, request
 
 from fetat import APP_VERSION
-from fetat.clients.google_routes import _quota_day, _route_stats, read_route_stats, ROUTES_FREE_MONTH
+from fetat.clients.google_routes import (_quota_day, _route_stats, read_route_stats, ROUTES_FREE_MONTH,
+                                         hourly_from_stats, own_forecast)
 from fetat.clients.monitoring import _gusage_cache, _monitoring_sum
 from fetat.config import GOOGLE_MAPS_JS_KEY, ROOT_DIR
 
@@ -75,6 +76,13 @@ def _with_stats(out):
         out["stats"] = st
         out["cache_hits"] = st.get("h", out.get("cache_hits", 0))
         out["calls_local"] = st.get("c", out.get("calls_local", 0))
+        # v3.15: почасовой лог и прогноз по нашему темпу (рядом с прогнозом по суткам Google)
+        out["hourly"] = hourly_from_stats(st)
+        import calendar
+        now = datetime.now(timezone.utc)
+        own = own_forecast(st, calendar.monthrange(now.year, now.month)[1])
+        if own:
+            out["forecast_own"] = own
     return out
 
 

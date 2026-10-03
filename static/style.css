@@ -933,3 +933,17 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 .fold-more { flex: 0 0 auto; width: auto; min-width: 22px; padding: 0 4px; white-space: nowrap; position: relative; }
 .fold-more.has-com::after { content: ""; position: absolute; top: -1px; right: -1px; width: 0; height: 0;
   border-top: 7px solid #e8a317; border-left: 7px solid transparent; }
+
+/* v3.15: 👤/👥 соло / экипаж, у одиночки — остаток недели (часы) */
+#fleet-tbody .crew-b { margin-left: 4px; padding: 0 4px; font-size: 12px; line-height: 18px; border: 1px solid transparent;
+  border-radius: 9px; background: transparent; color: #555; cursor: pointer; white-space: nowrap; vertical-align: middle; }
+#fleet-tbody .crew-b:hover { border-color: #ccc; }
+#fleet-tbody .crew-b.crew-man { border-color: #9aa5b1; border-style: dashed; }
+#fleet-tbody .crew-b.crew-warn { background: #fff3c4; color: #8a6200; font-weight: 600; }
+#fleet-tbody .crew-b.crew-red { background: #fde2e1; color: #b42318; font-weight: 600; }
+
+/* v3.15: пустой фильтр «мои», нет в листе «Диспетчеры» */
+#fleet-tbody tr.own-empty td { padding: 14px 10px; color: #666; text-align: center; background: #fff; }
+#fleet-tbody tr.own-empty button { font-size: 12px; padding: 2px 8px; }
+.disp-hint { margin: -6px 0 8px; font-size: 12px; color: #8a6200; }
+body.no-disp .own-flt button[data-own="mine"] { display: none; }

@@ -28,9 +28,11 @@ v3.13: разбивка за сутки — что и кто дёрнул Google
         "Запросы к Google Routes (маршруты)",
         `Месяц: ${fmt(d.month)} из ${fmt(d.free)} бесплатных`,
         `Сегодня (сутки Google): ${fmt(d.today)}`,
-        `Прогноз на месяц: ~${fmt(d.forecast)}` + (over ? ` — сверх бесплатного ~${fmt(over)}` : " — в пределах бесплатного"),
+        `Прогноз на месяц (по суткам Google): ~${fmt(d.forecast)}` + (over ? ` — сверх бесплатного ~${fmt(over)}` : " — в пределах бесплатного"),
+        ...ownForecast(d.forecast_own, d.free),
         `Кеш сегодня сэкономил: ${fmt(d.cache_hits)} запросов`,
         ...breakdown(d.stats),
+        ...hourlyLines(d.hourly),
         "Клик — отчёт по оплате в Google Cloud",
       ].join("\n");
     } catch (e) {
@@ -56,6 +58,27 @@ v3.13: разбивка за сутки — что и кто дёрнул Google
     part("c_kind_", KIND, "В Google — что:");
     part("c_user_", null, "В Google — кто:");
     return out;
+  }
+  // v3.15: прогноз по нашему темпу — запросы нашего сервера в Google за сегодняшние часы
+  function ownForecast(f, free) {
+    if (!f) return [];
+    const over = Math.max(0, f.forecast - free);
+    return [`Прогноз на месяц (по нашему темпу ${fmt(f.per_hour)}/ч за ${f.hours} ч): ~${fmt(f.forecast)}` +
+      (over ? ` — сверх бесплатного ~${fmt(over)}` : " — в пределах бесплатного")];
+  }
+  // v3.15: почасовой лог (час по Риге; сутки Google начинаются в 10:00)
+  function hourlyLines(h) {
+    if (!h) return [];
+    const order = Array.from({ length: 24 }, (_, i) => String((10 + i) % 24).padStart(2, "0"));
+    const hrs = order.filter((k) => h[k]);
+    if (!hrs.length) return [];
+    const max = Math.max(1, ...hrs.map((k) => h[k].c || 0));
+    return ["По часам (Рига) — в Google / из кеша:",
+      ...hrs.map((k) => {
+        const c = h[k].c || 0;
+        const bar = c ? "▇".repeat(Math.max(1, Math.round((c / max) * 10))) : "·";
+        return `  ${k}:00  ${bar} ${fmt(c)} / ${fmt(h[k].h || 0)}`;
+      })];
   }
   load();
   setInterval(load, 10 * 60 * 1000);

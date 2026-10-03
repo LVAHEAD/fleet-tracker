@@ -5,7 +5,7 @@ Fleet ETA Tracker — страница /notebook (v3.08): вся таблица 
 */
 (function () {
   const N = Notebook;
-  const STATUS_ORDER = { new: 0, work: 1, later: 2, done: 3 };
+  const STATUS_ORDER = { new: 0, work: 1, later: 2, done: 3, rejected: 4 };
   const KEY = "fetatNotebookPage";
   let items = [];
   let st = { cat: "", status: "open", where: "", q: "", sort: "created_at", asc: false };
@@ -31,7 +31,7 @@ Fleet ETA Tracker — страница /notebook (v3.08): вся таблица 
     const q = st.q.trim().toLowerCase();
     let out = items.filter((it) =>
       (!st.cat || it.category === st.cat) &&
-      (!st.status || (st.status === "open" ? it.status !== "done" : it.status === st.status)) &&
+      (!st.status || (st.status === "open" ? !N.isClosed(it.status) : it.status === st.status)) &&
       (!st.where || it.where === st.where) &&
       (!q || [it.title, it.description, ...(it.comments || []).map((c) => c.text)].join(" ").toLowerCase().includes(q)));
     const val = (it) => {
@@ -61,7 +61,7 @@ Fleet ETA Tracker — страница /notebook (v3.08): вся таблица 
     const body = $("nbpBody");
     if (!list.length) { body.innerHTML = '<tr><td colspan="9" class="nbp-empty">Ничего не найдено</td></tr>'; return; }
     body.innerHTML = list.map((it) => `
-      <tr data-id="${N.esc(it.id)}"${it.status === "done" ? ' class="done"' : ""}>
+      <tr data-id="${N.esc(it.id)}"${N.isClosed(it.status) ? ' class="done"' : ""}>
         <td>${N.esc(N.fmtDate(it.created_at, true))}</td>
         <td>${N.catChip(it.category)}</td>
         <td>${N.esc(it.where || "")}</td>

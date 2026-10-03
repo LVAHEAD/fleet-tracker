@@ -225,6 +225,52 @@ def unit_stops(unit_id, days=3, min_sec=2 * 3600):
     return [x for x in out if x["end"] - x["start"] >= min_sec or x["now"]]
 
 
+# v3.15: сколько трак ехал по суткам за неделю (по GPS, отрезки "route" из route/list) —
+# подстраховка определения экипажа, когда во втором слоте тахографа сейчас нет карты.
+DRIVE_DAYS_TTL = 6 * 3600
+
+
+_drive_days_cache = {}          # unit_id -> {"at", "data"}
+
+
+def unit_driving_days(unit_id, days=7):
+    """{"YYYY-MM-DD": секунды движения} по суткам UTC за days дней (кеш DRIVE_DAYS_TTL).
+    Ошибка — пустой dict (определение экипажа тогда только по тахографу)."""
+    import time
+    now = time.time()
+    c = _drive_days_cache.get(unit_id)
+    if c and now - c["at"] < DRIVE_DAYS_TTL:
+        return c["data"]
+    out = {}
+    try:
+        d = mapon_get("https://mapon.com/api/v1/route/list.json",
+                      {"key": MAPON_API_KEY, "unit_id": unit_id,
+                       "from": _iso_utc(now - days * 86400), "till": _iso_utc(now)}, timeout=30)
+        for u in (d.get("data") or {}).get("units") or []:
+            for r in u.get("routes") or []:
+                if r.get("type") != "route":
+                    continue
+                try:
+                    s_raw = (r.get("start") or {}).get("time")
+                    e_raw = (r.get("end") or {}).get("time")
+                    s_ts = datetime.strptime(s_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+                    e_ts = (datetime.strptime(e_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+                            if e_raw else now)
+                except Exception:
+                    continue
+                # отрезок через полночь делим по суткам
+                while s_ts < e_ts:
+                    day0 = datetime.fromtimestamp(s_ts, timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+                    nxt = min(e_ts, (day0 + timedelta(days=1)).timestamp())
+                    k = day0.strftime("%Y-%m-%d")
+                    out[k] = out.get(k, 0) + (nxt - s_ts)
+                    s_ts = nxt
+    except Exception:
+        return c["data"] if c else {}
+    _drive_days_cache[unit_id] = {"at": now, "data": out}
+    return out
+
+
 MAPON_BASE = "https://mapon.com/api/v1/"
 
 

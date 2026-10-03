@@ -6,7 +6,7 @@
   const PULL_MS = 15000;
   const BACKUP_KEY = "fleet-rows-local-backup";
   const IMPORTED_KEY = "fleet-imported";
-  const RECALC_FIELDS = ["unit", "target", "extra", "lo", "done", "trailer"];
+  const RECALC_FIELDS = ["unit", "target", "extra", "lo", "done", "trailer", "crew"];   // v3.15: crew — соло/экипаж
   const PERSONAL = ["open"];   // свёрнуто/развёрнуто — у каждого своё, на сервер не шлём
 
   const S = {

@@ -12,7 +12,7 @@
 .nb-tab.open { right: 380px; opacity: 1; }
 
 .nb-panel {
-  position: fixed; top: 0; right: -400px; width: 380px; height: 100vh; z-index: 1500;
+  position: fixed; top: 0; right: -480px; width: 460px;   /* v3.15: шире — шесть тегов категорий в одну строку */ height: 100vh; z-index: 1500;
   display: flex; flex-direction: column;
   background: #fafafa; border-left: 1px solid #d0d0d0; box-shadow: -4px 0 16px rgba(0,0,0,.10);
   transition: right .25s ease; font-size: 13px; color: #1a1a1a;
@@ -150,3 +150,18 @@
   .nb-modal-bg { inset: auto; top: 0; left: 0; width: calc(100vw / 0.9); height: calc(100vh / 0.9); }
   .nb-modal { max-height: calc(90vh / 0.9); }
 }
+
+/* v3.15: категория и статус в карточке — ряды тегов */
+.nb-cats { flex-wrap: nowrap; }
+.nb-cats button { white-space: nowrap; }
+.nb-v-cats, .nb-sts { margin: 8px 0 0; }
+.nb-sts { display: flex; flex-wrap: wrap; gap: 5px; }
+.nb-sts button { padding: 3px 10px; border-radius: 12px; font-size: 12px; color: #666; }
+.nb-v-cats button:disabled, .nb-sts button:disabled { cursor: default; opacity: .75; }
+.nb-sts button.on[data-st="new"] { background: #fff6d6; border-color: #e0c56a; color: #8a6200; }
+.nb-sts button.on[data-st="work"] { background: #e3eefb; border-color: #9dbbe0; color: #2a5a9e; }
+.nb-sts button.on[data-st="done"] { background: #e2f3ea; border-color: #94c9ab; color: #1f7a4d; }
+.nb-sts button.on[data-st="later"] { background: #f0f0f0; border-color: #ccc; color: #777; }
+.nb-sts button.on[data-st="rejected"] { background: #f3e6e6; border-color: #d4a8a8; color: #8a3a3a; }
+.nb-st-rejected { border-color: #d4a8a8; color: #8a3a3a; }
+.nb-modal h3 { margin-top: 10px; }

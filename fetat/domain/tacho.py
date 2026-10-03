@@ -109,6 +109,52 @@ WEEK_MAX_SEC = 56 * 3600         # вождение за календарную 
 FORTNIGHT_MAX_SEC = 90 * 3600    # за две соседние недели
 
 
+TEAM_HIST_DAY_SEC = 10.5 * 3600  # v3.15: трак ехал дольше этого за сутки — значит экипаж
+
+
+def crew_mode(tacho, override=None, drive_days=None):
+    """v3.15: соло или экипаж. Возвращает (team, src, hist_max_sec).
+    override "solo"/"team" — ручная правка диспетчера; иначе карта во втором слоте тахографа
+    (два водителя — экипаж); если карта одна — история трака за неделю (сутки с ездой
+    дольше TEAM_HIST_DAY_SEC — экипаж: второй водитель мог вынуть карту на стоянке)."""
+    hist_max = max((drive_days or {}).values(), default=0.0)
+    if override in ("solo", "team"):
+        return override == "team", "manual", hist_max
+    if len((tacho or {}).get("drivers") or []) >= 2:
+        return True, "tacho", hist_max
+    if hist_max > TEAM_HIST_DAY_SEC:
+        return True, "hist", hist_max
+    return False, "tacho", hist_max
+
+
+def _team(tacho):
+    """Экипаж: решение crew_mode (поле "team"), без него — по числу карт в тахографе."""
+    if "team" in tacho:
+        return bool(tacho["team"])
+    return len(tacho["drivers"]) >= 2
+
+
+def week_left_info(tacho):
+    """v3.15: остаток вождения на неделю для одиночки (секунды) и какой лимит режет.
+    Mapon отдаёт остаток недели уже с учётом правила 90 ч за две недели."""
+    d0 = next((d for d in tacho["drivers"] if d.get("current_state") == "DRIVING"), tacho["drivers"][0])
+    week = d0.get("week") or {}
+    left = week.get("driving_remaining")
+    if left is None:
+        return None
+    left = max(0.0, float(left))
+    out = {"left": left, "limit": "56 ч"}
+    driven = week.get("driving")
+    if driven is not None:
+        out["driven"] = float(driven)
+        if left < WEEK_MAX_SEC - float(driven) - 60:
+            out["limit"] = "90 ч за 2 недели"
+    nfw = week.get("next_fixed_week_driving_remaining")
+    if nfw is not None:
+        out["next"] = float(nfw)
+    return out
+
+
 def _next_monday_utc(ts):
     """Ближайший понедельник 00:00 UTC после ts (граница недели тахографа)."""
     d = datetime.fromtimestamp(ts, timezone.utc)
@@ -132,7 +178,7 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None):
     v = TACHO_SPEED_KMH / 3600.0
     km_left = max(0.0, float(dist_km or 0))
     drivers = tacho["drivers"]
-    team = len(drivers) >= 2
+    team = _team(tacho)
     d0 = next((d for d in drivers if d.get("current_state") == "DRIVING"), drivers[0])
     today = d0.get("today", {}) or {}
     week = d0.get("week", {}) or {}
@@ -187,7 +233,8 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None):
             until_break = CONT_DRIVE_SEC
 
     if team:
-        day_left = min(TEAM_DAY_SEC, sum(float((d.get("today") or {}).get("driving_remaining") or 0) for d in drivers))
+        day_left = min(TEAM_DAY_SEC, sum(float((d.get("today") or {}).get("driving_remaining") or 0) for d in drivers)
+                       + (9 * 3600 if len(drivers) < 2 else 0))   # v3.15: карта второго не вставлена — считаем его свежим
         until_break = inf
     else:
         day_left = float(today.get("driving_remaining") or 0)
@@ -285,9 +332,10 @@ def tacho_summary(tacho, sim=None, weekly=None):
     loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M")
     parts = []
     state = {"DRIVING": "едет", "REST": "отдыхает", "AVAILABLE": "готовность", "WORK": "работа"}.get(d0.get("current_state"), d0.get("current_state") or "")
-    team = len(tacho["drivers"]) >= 2
+    team = _team(tacho)
     if team:
-        parts.append("экипаж")
+        parts.append({"manual": "экипаж (вручную)", "hist": "экипаж (по истории: ехал > 10 ч за сутки)"}
+                     .get(tacho.get("crew_src"), "экипаж"))
     if state:
         rest_now = float(nowd.get("rest") or 0)
         parts.append(state + (f" {_hm(rest_now)}" if d0.get("current_state") == "REST" and rest_now >= 3600 else ""))

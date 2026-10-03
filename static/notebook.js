@@ -9,7 +9,8 @@ Fleet ETA Tracker — блокнот ФЕТАТ (v3.08).
 const Notebook = (() => {
   const CATS = [["Bug", "Баг"], ["Feature", "Фича"], ["Design", "Дизайн"], ["Rule", "Правило"], ["Data", "Данные"], ["Discuss", "Обсудить"]];
   const CAT_LABEL = Object.fromEntries(CATS);
-  const STATUSES = [["new", "новое"], ["work", "в работе"], ["done", "готово"], ["later", "отложено"]];
+  const STATUSES = [["new", "новое"], ["work", "в работе"], ["done", "готово"], ["later", "отложено"], ["rejected", "отклонено"]];
+  const isClosed = (s) => s === "done" || s === "rejected";   // v3.15: в списке — серые
   const STATUS_LABEL = Object.fromEntries(STATUSES);
   const WHERE = ["Флот", "From → To", "GF построитель", "Карты стран", "Локатор", "Запреты", "Паромы", "Truck Info", "[.]", "Общее"];
   const TAB_WHERE = { fleet: "Флот", route: "From → To", gf: "GF построитель", maps: "Карты стран", bans: "Запреты",
@@ -340,7 +341,7 @@ const Notebook = (() => {
     const box = $(".nb-list");
     if (!items.length) { box.innerHTML = '<div class="nb-empty">Записей пока нет</div>'; return; }
     box.innerHTML = items.map((it) => `
-      <div class="nb-item${it.status === "done" ? " done" : ""}" data-id="${esc(it.id)}">
+      <div class="nb-item${isClosed(it.status) ? " done" : ""}" data-id="${esc(it.id)}">
         ${it.thumb ? `<img class="nb-thumb" src="${esc(it.thumb)}" alt="">` : '<div class="nb-thumb nb-thumb-empty"></div>'}
         <div class="nb-item-body">
           <div class="nb-item-title">${esc(it.title)}</div>
@@ -412,14 +413,25 @@ const Notebook = (() => {
         </div>`;
     }
 
+    // v3.15: категория и статус — ряды тегов, переключаются кликом (автор и админ), без «✎ Редактировать»
+    function tagsHtml() {
+      const dis = it.can_edit ? "" : " disabled";
+      const tip = it.can_edit ? "" : ' title="Менять может автор или админ"';
+      return `<div class="nb-cats nb-v-cats"${tip}>${CATS.map(([v, l]) =>
+          `<button type="button" data-cat="${v}"${v === it.category ? ' class="on"' : ""}${dis}>${l}</button>`).join("")}</div>
+        <div class="nb-sts"${tip}>${STATUSES.map(([v, l]) =>
+          `<button type="button" data-st="${v}"${v === it.status ? ' class="on"' : ""}${dis}>${l}</button>`).join("")}</div>`;
+    }
+
     function viewHtml() {
       return `
         <button type="button" class="nb-x" title="Закрыть (Esc)">×</button>
         <div class="nb-modal-meta">
-          ${catChip(it.category)}${statusChip(it.status)}${prioChip(it.priority)}
+          ${prioChip(it.priority)}
           ${esc(it.where || "")}${it.where ? " · " : ""}${esc(fmtDate(it.created_at, true))} · ${esc(it.author)}
           ${it.updated_by && it.updated_at !== it.created_at ? `<span class="nb-upd">· изм. ${esc(who(it.updated_by))} ${esc(fmtDate(it.updated_at, true))}</span>` : ""}
         </div>
+        ${tagsHtml()}
         <h3>${esc(it.title)}</h3>
         ${it.description ? `<div class="nb-modal-desc">${esc(it.description).replace(/\n/g, "<br>")}</div>` : ""}
         ${it.image ? `<img class="nb-modal-img" src="${esc(it.image)}" alt="" title="Клик — крупнее / мельче">` : ""}
@@ -457,6 +469,21 @@ const Notebook = (() => {
       box.querySelector(".nb-x").addEventListener("click", shut);
       const big = box.querySelector(".nb-modal-img");
       if (big) big.addEventListener("click", () => box.classList.toggle("wide"));
+      if (it.can_edit) {
+        const quick = async (field, value, btn) => {
+          if (it[field] === value) return;
+          box.querySelectorAll(".nb-v-cats button, .nb-sts button").forEach((b) => { b.disabled = true; });
+          try {
+            const fresh = await api("/api/notebook/" + encodeURIComponent(id), jsonOpts("PATCH", { [field]: value }));
+            it = Object.assign({}, it, fresh);
+            render();
+            if (panel && isOpen) loadList();
+            changed();
+          } catch (e) { alert(e.message); render(); }
+        };
+        box.querySelectorAll(".nb-v-cats button").forEach((b) => b.addEventListener("click", () => quick("category", b.dataset.cat, b)));
+        box.querySelectorAll(".nb-sts button").forEach((b) => b.addEventListener("click", () => quick("status", b.dataset.st, b)));
+      }
       const ed = box.querySelector(".nb-edit");
       if (ed) ed.addEventListener("click", () => { editing = true; newShot = undefined; render(); });
       const del = box.querySelector(".nb-del");
@@ -566,7 +593,7 @@ const Notebook = (() => {
     init: () => { if (!panel) build(); }, open, close, toggle, showItem,
     onChange: (f) => listeners.push(f),
     api, esc, fmtDate, who, catChip, statusChip, prioChip, forClaude, copyText,
-    CATS, STATUSES, CAT_LABEL, STATUS_LABEL, WHERE,
+    CATS, STATUSES, CAT_LABEL, STATUS_LABEL, WHERE, isClosed,
   };
 })();
 

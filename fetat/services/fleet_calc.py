@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 
 from fetat.clients.google_routes import road_distance_km_google
-from fetat.clients.mapon import fetch_group_unit_ids, fetch_reefer_units, fetch_units, get_tacho
+from fetat.clients.mapon import fetch_group_unit_ids, fetch_reefer_units, fetch_units, get_tacho, unit_driving_days
 from fetat.config import GOOGLE_API_KEY, HEAD_TRUCK_GROUP_ID, MAPON_API_KEY, WEST_EUROPE_OFFSET
 from fetat.domain.bans import (bans_hits_text, bans_near_text, bans_on_route, countries_times_text, country_chain,
                                needs_at_night_ban)
@@ -13,7 +13,7 @@ from fetat.domain.points import (
 )
 from fetat.domain.regions import nearest_region_code
 from fetat.domain.routing_rules import fleet_waypoints
-from fetat.domain.tacho import calc_eta, tacho_eta, tacho_summary
+from fetat.domain.tacho import calc_eta, crew_mode, tacho_eta, tacho_summary, week_left_info
 from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM
 from fetat.utils.geo import haversine_km
 from fetat.utils.timefmt import format_duration, round_to_15min
@@ -176,13 +176,31 @@ def _apply_points_done(result, payload, target_str, unit, units):
     return target_str, active_extras
 
 
-def _add_tacho(result, unit, trailer):
-    """v1.33: тахограф — ETA по режиму труда и отдыха + подробности. Возвращает (tacho, sim)."""
-    # v1.33: тахограф — ETA по режиму труда и отдыха + подробности
+def _add_tacho(result, unit, trailer, crew=None):
+    """v1.33: тахограф — ETA по режиму труда и отдыха + подробности. Возвращает (tacho, sim).
+    v3.15: crew — ручная правка "solo"/"team"; иначе тахограф (2 карты) + история трака за неделю."""
     tacho, sim = None, None
     try:
         tacho, terr = (None, None) if trailer else get_tacho(unit.get("unit_id"))
         if tacho:
+            days = None
+            if crew not in ("solo", "team") and len(tacho["drivers"]) < 2:
+                days = unit_driving_days(unit.get("unit_id"))
+            team, src, hist_max = crew_mode(tacho, crew, days)
+            tacho = dict(tacho, team=team, crew_src=src)     # копия: кеш тахографа не трогаем
+            result["crew"] = "team" if team else "solo"
+            result["crew_src"] = src
+            if hist_max:
+                result["crew_hist_max_h"] = round(hist_max / 3600, 1)
+            if not team:
+                wk = week_left_info(tacho)
+                if wk:
+                    result["week_left_sec"] = int(wk["left"])
+                    result["week_limit"] = wk["limit"]
+                    if wk.get("driven") is not None:
+                        result["week_driven_sec"] = int(wk["driven"])
+                    if wk.get("next") is not None:
+                        result["week_next_sec"] = int(wk["next"])
             sim = None
             if result.get("dist_km") is not None:
                 sim = tacho_eta(tacho, result["dist_km"])
@@ -193,7 +211,7 @@ def _add_tacho(result, unit, trailer):
                 result["_sim_stops"] = sim["stops"]
             d0 = next((d for d in tacho["drivers"] if d.get("current_state") == "DRIVING"), tacho["drivers"][0])
             result["tacho_resting_now"] = d0.get("current_state") == "REST"
-            result["tacho_team"] = len(tacho["drivers"]) >= 2
+            result["tacho_team"] = team
             result["tacho_summary"] = tacho_summary(tacho, sim)
             result["tacho_weeklimit"] = bool(sim and sim.get("week", {}).get("hit"))
         else:
@@ -307,7 +325,7 @@ def calc_row(payload):
             result["target_lng"] = target_lng
             result["route_polyline"] = polyline
 
-        tacho, sim = _add_tacho(result, unit, trailer)
+        tacho, sim = _add_tacho(result, unit, trailer, payload.get("crew"))
 
         # v1.64: следующие точки той же машины (2-я, 3-я выгрузка...) — цепочкой от
         # предыдущей точки, плюс UNLOAD_STOP_SEC на каждую предыдущую точку

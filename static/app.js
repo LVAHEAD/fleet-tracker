@@ -746,7 +746,7 @@ if (!["all", "mine"].includes(ownFilter) && !String(ownFilter).includes("@")) ow
 function rowPassesOwn(row) {
   if (ownFilter === "all") return true;
   const d = rowDisp(row);
-  if (ownFilter === "mine") return !fleetMe() || d === fleetMe();
+  if (ownFilter === "mine") return !fleetMe() || !meInSheet() || d === fleetMe();   // v3.15: нет в листе — «мои» = все
   return d === ownFilter;
 }
 function fleetMe() {
@@ -784,6 +784,32 @@ function dispEntry(u) {
   return DISP_LIST.find((d) => d.email === e) || DISP_LIST.find((d) => dispShort(d.email).toLowerCase() === k) || null;
 }
 function dispTag(u) { const d = dispEntry(u); return d ? d.tag : ""; }
+// v3.15: вошедший есть в листе «Диспетчеры» (точное совпадение e-mail; до загрузки листа — считаем, что есть)
+let DISP_LOADED = false;
+function meInSheet() {
+  const me = fleetMe();
+  return !me || !DISP_LOADED || DISP_LIST.some((d) => String(d.email).toLowerCase() === me);
+}
+// v3.15: фон аппы — бледно в цвет вошедшего диспетчера; нет в листе — «мои» скрыт, подсказка под заголовком
+function mixHex(hex, base, k) {
+  const p = (h) => (String(h).match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i) || []).slice(1).map((x) => parseInt(x, 16));
+  const a = p(hex), b = p(base);
+  if (a.length !== 3 || b.length !== 3) return "";
+  return "#" + a.map((x, i) => Math.round(x * k + b[i] * (1 - k)).toString(16).padStart(2, "0")).join("");
+}
+function applyMyDispLook() {
+  const me = fleetMe();
+  const mine = me ? DISP_LIST.find((d) => String(d.email).toLowerCase() === me) : null;
+  const bg = mine && mine.color ? mixHex(mine.color, "#fafafa", 0.5) : "";
+  document.body.style.background = bg || "";
+  const missing = !meInSheet();
+  document.body.classList.toggle("no-disp", missing);
+  const hint = document.getElementById("disp-hint");
+  if (hint) {
+    hint.hidden = !missing;
+    hint.textContent = missing ? `Тебя нет в листе «Диспетчеры» (${me}) — нет инициалов и цвета, фильтр «мои» скрыт. Попроси админа добавить.` : "";
+  }
+}
 function canAssign() { return !fleetMe() || !!(window.fleetSync && window.fleetSync.canAssign); }
 // цвет рамки — тот же оттенок темнее; белый -> серый
 function shadeHex(hex, k) {
@@ -808,8 +834,10 @@ function loadDispatchers() {
   fetch("/api/dispatchers").then((r) => r.json()).then((d) => {
     if (!d || !d.ok) return;
     if (d.dispatchers && d.dispatchers.length) DISP_LIST = d.dispatchers;
+    DISP_LOADED = true;
     if (window.fleetSync) window.fleetSync.canAssign = !!d.can_assign;
     applyDispColors();
+    applyMyDispLook();
     fillDispSelects();
     renderRows();
     refreshBadgeLooks();
@@ -827,6 +855,39 @@ function dispHtml(row) {
     + `<option value=""${d ? "" : " selected"}>👤 —</option>`
     + opts.map((u) => `<option value="${escapeHtml(u)}"${u === d ? " selected" : ""}>👤 ${escapeHtml(dispLabel(u))}</option>`).join("")
     + "</select>";
+}
+
+// v3.15: соло / экипаж. Авто — по второму слоту тахографа (+ история трака за неделю),
+// клик по кругу: авто → 👤 соло вручную → 👥 экипаж вручную → авто.
+// У одиночки справа — остаток вождения на неделю целыми часами (вниз).
+function crewHtml(row, cached) {
+  const c = cached && cached.crew;
+  const crew = row.crew || (c && c.crew);
+  if (!crew) return '<button class="crew-b" hidden></button>';
+  const man = !!row.crew;
+  const hm = (sec) => `${Math.floor(sec / 3600)}:${String(Math.floor((sec % 3600) / 60)).padStart(2, "0")}`;
+  const tip = [];
+  let txt = crew === "team" ? "👥" : "👤", cls = "";
+  if (crew === "team") {
+    tip.push(man ? "Экипаж — поставлено вручную" :
+      c && c.src === "hist" ? `Экипаж — по истории: трак ехал ${c.hmax} ч за сутки (карта второго сейчас не вставлена)` :
+      "Экипаж — две карты в тахографе");
+  } else {
+    tip.push(man ? "Одиночка — поставлено вручную" : "Одиночка — одна карта в тахографе" +
+      (c && c.hmax ? `, за неделю максимум ${c.hmax} ч езды в сутки` : ""));
+    if (c && c.crew === "solo" && c.wl != null) {
+      txt += " " + Math.floor(c.wl / 3600);
+      cls = c.wl < 4.5 * 3600 ? " crew-red" : c.wl < 9 * 3600 ? " crew-warn" : "";
+      tip.push(`Осталось вождения на неделю: ${hm(c.wl)} (режет лимит ${c.lim || "56 ч"})`);
+      if (c.driven != null) tip.push(`Наезжено на этой неделе: ${hm(c.driven)}`);
+      if (c.next != null) tip.push(`С понедельника доступно: ${hm(c.next)}`);
+      tip.push("Неделя тахографа — с пн 00:00 UTC");
+    } else if (c && c.crew === "team") {
+      tip.push("Остаток недели не показан: по тахографу это экипаж");
+    }
+  }
+  tip.push(man ? "Клик — " + (row.crew === "solo" ? "экипаж вручную" : "снова авто") : "Клик — поставить вручную: одиночка");
+  return `<button class="crew-b${man ? " crew-man" : ""}${cls}" title="${escapeHtml(tip.join("\n"))}">${txt}</button>`;
 }
 
 function renderRows() {
@@ -851,7 +912,7 @@ function renderRows() {
       : (cached && cached.extra && cached.extra.length ? etaCellHtml(row, cached, null) : (cached ? cached.eta : "—"));
     const etaMuted = cached ? "" : "muted";
     tr.innerHTML = `
-      <td class="unit-cell"${dispTag(rowDisp(row)) ? ` data-dc="${dispTag(rowDisp(row))}"` : ""}><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" title="${escapeHtml(window.fleetMetaTitle ? window.fleetMetaTitle(row.id) : "")}" placeholder="номер" />${dispHtml(row)}</td>
+      <td class="unit-cell"${dispTag(rowDisp(row)) ? ` data-dc="${dispTag(rowDisp(row))}"` : ""}><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" title="${escapeHtml(window.fleetMetaTitle ? window.fleetMetaTitle(row.id) : "")}" placeholder="номер" />${crewHtml(row, cached)}${dispHtml(row)}</td>
       <td class="status-cell ${statusClass}">${statusHtml}</td>
       <td>
         <div class="target-wrap${hideK(row, 0) ? " fold-hide" : ""}">
@@ -1928,6 +1989,7 @@ async function calcRow(id, why) {
         { unit: row.unit, target: row.target },
         row.extra && row.extra.length ? { extra: row.extra.map((x) => x.target || "") } : {},
         row.trailer ? { trailer: row.trailer } : {},
+        row.crew ? { crew: row.crew } : {},
         { done: doneManualArray(row), why: why || "edit" })),
     });
     const data = await res.json();
@@ -2091,10 +2153,14 @@ async function calcRow(id, why) {
     const fv0 = folded(row) ? foldVisible(row).join() : "";   // v3.11: окно свёрнутых точек до расчёта
     lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo,
                          etaStr: data.eta_tacho || data.eta_local, extra: extraCalc(data),
+                         crew: data.crew ? { crew: data.crew, src: data.crew_src, wl: data.week_left_sec, lim: data.week_limit,
+                                             driven: data.week_driven_sec, next: data.week_next_sec, hmax: data.crew_hist_max_h } : null,
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual })),
                          allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null,
                          nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };
     applyDoneClasses(tr, row, lastCalcText[id]);
+    const cb = tr.querySelector(".crew-b");     // v3.15: 👤/👥
+    if (cb) cb.outerHTML = crewHtml(row, lastCalcText[id]);
     markDeliveryInput(tr, row);   // v3.13: у пройденной ① «дата в прошлом» не показываем
     stripeRow(tr, row);   // v3.10: пройденные точки меняют L/O строки
     // v3.11: пройденные точки сдвинули окно свёрнутой строки — перерисовать
@@ -2490,9 +2556,29 @@ function moveManual(id, dir) {
   fillDispSelects();
   // после каждой перерисовки строк — обновить подпись «свернуть / развернуть все»
   const origRender = renderRows;
-  renderRows = function () { origRender.apply(this, arguments); mark(); };
+  renderRows = function () { origRender.apply(this, arguments); mark(); emptyOwnRow(); applyMyDispLook(); };
   mark();
 })();
+
+// v3.15: фильтр «мои» / диспетчер, а строк с машинами у него нет — подсказка вместо пустой таблицы
+function emptyOwnRow() {
+  const tbody = document.getElementById("fleet-tbody");
+  const old = tbody.querySelector("tr.own-empty");
+  if (old) old.remove();
+  if (ownFilter === "all" || (ownFilter === "mine" && (!fleetMe() || !meInSheet()))) return;
+  if (rows.some((r) => r.unit && rowPassesOwn(r))) return;
+  const who = ownFilter === "mine" ? "У тебя пока нет рейсов" : `У ${escapeHtml(dispTag(ownFilter) || dispShort(ownFilter))} пока нет рейсов`;
+  const tr = document.createElement("tr");
+  tr.className = "own-empty";
+  tr.innerHTML = `<td colspan="20">${who} · <button type="button" class="own-empty-all">показать все</button>`
+    + ` <button type="button" class="own-empty-add">+ Добавить строку</button></td>`;
+  tbody.prepend(tr);
+  tr.querySelector(".own-empty-all").addEventListener("click", () => {
+    const b = document.querySelector('.own-flt button[data-own="all"]');
+    if (b) b.click();
+  });
+  tr.querySelector(".own-empty-add").addEventListener("click", () => document.getElementById("add-row-btn").click());
+}
 
 document.getElementById("add-row-btn").addEventListener("click", () => {
   rows.push(emptyRow());
@@ -2543,3 +2629,19 @@ if (window.fleetSync) window.fleetSync.start(); else calcAllRows();
 // v3.11: диспетчеры из листа
 applyDispColors();
 loadDispatchers();
+
+// v3.15: 👤/👥 — авто → соло вручную → экипаж вручную → авто; пересчёт строки (тахо-ETA меняется)
+document.getElementById("fleet-tbody").addEventListener("click", (e) => {
+  const b = e.target.closest(".crew-b");
+  if (!b) return;
+  e.stopPropagation();
+  const id = Number(b.closest("tr").dataset.id);
+  const row = rows.find((r) => r.id === id);
+  if (!row) return;
+  if (!row.crew) row.crew = "solo";
+  else if (row.crew === "solo") row.crew = "team";
+  else delete row.crew;
+  saveRows();
+  b.outerHTML = crewHtml(row, lastCalcText[id]);
+  calcRow(id, "edit");
+});
