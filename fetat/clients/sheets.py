@@ -1,4 +1,5 @@
 """Google Sheets: чтение листов таблицы «Fleet Tracker — данные» сервисным аккаунтом Cloud Run."""
+
 import requests
 
 from fetat.config import SHEET_ID

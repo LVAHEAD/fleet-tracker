@@ -1,5 +1,5 @@
 """Прицепы: тип юнита, сводка рефа, угадывание сцепки тягач–прицеп."""
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fetat.config import WEST_EUROPE_OFFSET
 from fetat.domain.addresses import base_point

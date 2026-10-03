@@ -1,4 +1,5 @@
 """Cloud Monitoring: сколько запросов к Routes API за месяц."""
+
 import requests
 
 from fetat.config import GOOGLE_PROJECT_ID

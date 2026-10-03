@@ -1,7 +1,8 @@
 """Google Routes API: км и время по дорогам, кеш маршрутов, точки вдоль маршрута, счётчик запросов."""
-import requests
 import threading
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+
+import requests
 
 from fetat.utils.geo import _decode_polyline, _encode_polyline, haversine_km
 

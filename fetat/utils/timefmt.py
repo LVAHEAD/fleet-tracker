@@ -1,5 +1,5 @@
 """Время: форматирование, округление, ISO и метки по Риге."""
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fetat.config import RIGA_UTC_OFFSET
 

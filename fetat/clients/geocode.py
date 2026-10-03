@@ -1,7 +1,8 @@
 """Геокодинг: Nominatim (OpenStreetMap) с запасным Photon, кеш на сутки."""
 import re
-import requests
 import threading
+
+import requests
 
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"

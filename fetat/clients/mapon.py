@@ -1,8 +1,9 @@
 """Mapon API: машины и прицепы, группы, тахограф, история водителя, стоянки, объекты.
 Не больше 3 одновременных запросов (лимит Mapon — 5)."""
-import requests
 import threading
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+
+import requests
 
 from fetat.config import MAPON_API_KEY
 from fetat.utils.geo import _wkt_points

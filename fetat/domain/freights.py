@@ -1,10 +1,10 @@
 """База фрахтов (лист «Фрахты»): разбор ячеек, контрактные клиенты, похожие рейсы и ориентир цены."""
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fetat.clients.sheets import read_sheet_values
 from fetat.config import FREIGHT_SHEET, SETTINGS_SHEET
-from fetat.domain.addresses import ADDRESS_TTL_SEC, DOVOZ_COUNTRY_WORDS, base_point
+from fetat.domain.addresses import ADDRESS_TTL_SEC, base_point, DOVOZ_COUNTRY_WORDS
 from fetat.domain.regions import REGION_CODES
 from fetat.utils.geo import haversine_km
 from fetat.utils.text import _hkey

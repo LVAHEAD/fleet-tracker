@@ -1,5 +1,6 @@
 """Принудительные маршруты: Италия ↔ Германия через Инсбрук, паромы на Норвегию/Швецию."""
 
+
 from fetat.domain.regions import _country_at, get_region_country
 from fetat.utils.geo import haversine_km
 

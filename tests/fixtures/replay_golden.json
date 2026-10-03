@@ -80,6 +80,49 @@
    "window": null
   }
  ],
+ "calc_all_done": [
+  200,
+  {
+   "active_idx": [],
+   "all_done": true,
+   "direction": null,
+   "dist_km": null,
+   "duration_str": "0ч 20м",
+   "eta_local": null,
+   "is_trailer": false,
+   "last_update": "2026-10-07T05:59:00Z",
+   "number": "OI-1778",
+   "points_done": [
+    {
+     "at": null,
+     "auto": false,
+     "badge": "IT63",
+     "badge_hint": "IT · около IT63",
+     "done": true,
+     "manual": true
+    }
+   ],
+   "speed": 80,
+   "status": "driving",
+   "status_ru": "едет",
+   "tacho_error": "нет данных водителя",
+   "unit_code_hint": "IT · около IT30",
+   "unit_country": "IT",
+   "unit_lat": 45.4,
+   "unit_lng": 11.9
+  }
+ ],
+ "calc_ambiguous": [
+  409,
+  {
+   "candidates": [
+    "OI-1778",
+    "NP-2044",
+    "C-640A"
+   ],
+   "error": "Найдено несколько машин, уточните запрос"
+  }
+ ],
  "calc_code": [
   200,
   {
@@ -129,6 +172,12 @@
    "unit_country": "IT",
    "unit_lat": 45.4,
    "unit_lng": 11.9
+  }
+ ],
+ "calc_empty": [
+  400,
+  {
+   "error": "Не указана машина"
   }
  ],
  "calc_gps_multi": [
@@ -220,6 +269,148 @@
    "unit_lng": 11.9
   }
  ],
+ "calc_linked_trailer": [
+  200,
+  {
+   "active_idx": [
+    0
+   ],
+   "bans_route": [],
+   "bans_status": "ok",
+   "direction": null,
+   "dist_km": 1543.2,
+   "duration_str": "11ч 6м",
+   "eta_local": "08/10 02:00",
+   "is_trailer": false,
+   "last_update": "2026-10-07T05:59:00Z",
+   "linked_trailer": {
+    "far": false,
+    "km": 0.01,
+    "lat": 56.9501,
+    "lng": 24.0301,
+    "number": "C-640A",
+    "reefer": null,
+    "status": "standing"
+   },
+   "number": "NP-2044",
+   "points_done": [
+    {
+     "at": null,
+     "auto": false,
+     "badge": "LV10",
+     "badge_hint": "LV · около LV10",
+     "done": false,
+     "manual": null
+    }
+   ],
+   "route_countries": [
+    "LV",
+    "LT",
+    "PL",
+    "CZ",
+    "DE",
+    "AT",
+    "DE",
+    "AT",
+    "DE",
+    "AT",
+    "DE",
+    "CZ",
+    "PL",
+    "LT",
+    "LV"
+   ],
+   "route_polyline": "o`rzIojtqC~raz@nxalAow`z@kuplA",
+   "speed": 0,
+   "status": "standing",
+   "status_ru": "стоит",
+   "tacho_error": "нет данных водителя",
+   "target_badge": "LV10",
+   "target_code_hint": "LV · около LV10",
+   "target_lat": 56.9456,
+   "target_lng": 24.1063,
+   "unit_code_hint": "LV · около LV10",
+   "unit_country": "LV",
+   "unit_lat": 56.95,
+   "unit_lng": 24.03
+  }
+ ],
+ "calc_manual_done": [
+  200,
+  {
+   "active_idx": [
+    1,
+    2
+   ],
+   "bans_route": [],
+   "bans_status": "ok",
+   "direction": null,
+   "dist_km": 1543.2,
+   "duration_str": "0ч 20м",
+   "eta_local": "08/10 02:00",
+   "extra": [
+    {
+     "badge": "LV10",
+     "badge_hint": "LV · около LV10",
+     "bans_route": [],
+     "dist_km": 3086.4,
+     "eta_local": "09/10 00:30",
+     "lat": 56.9456,
+     "leg_km": 1543.2,
+     "lng": 24.1063,
+     "polyline": "_zzeIga_|@nlje@wnqGow`z@kuplA"
+    }
+   ],
+   "is_trailer": false,
+   "last_update": "2026-10-07T05:59:00Z",
+   "number": "OI-1778",
+   "points_done": [
+    {
+     "at": null,
+     "auto": false,
+     "badge": "IT63",
+     "badge_hint": "IT · около IT63",
+     "done": true,
+     "manual": true
+    },
+    {
+     "at": null,
+     "auto": false,
+     "badge": "DE20",
+     "badge_hint": "DE · около DE20",
+     "done": false,
+     "manual": null
+    },
+    {
+     "at": null,
+     "auto": false,
+     "badge": "LV10",
+     "badge_hint": "LV · около LV10",
+     "done": false,
+     "manual": false
+    }
+   ],
+   "route_countries": [
+    "IT",
+    "AT",
+    "DE"
+   ],
+   "route_polyline": "_ebtG_fsgAoflJ~s`Bolje@vnqG",
+   "speed": 80,
+   "status": "driving",
+   "status_ru": "едет",
+   "tacho_error": "нет данных водителя",
+   "target_badge": "DE20",
+   "target_code_hint": "DE · около DE20",
+   "target_lat": 53.5544,
+   "target_lng": 9.9946,
+   "unit_code_hint": "IT · около IT30",
+   "unit_country": "IT",
+   "unit_lat": 45.4,
+   "unit_lng": 11.9,
+   "waypoints_applied": true
+  }
+ ],
  "calc_standing": [
   200,
   {
@@ -292,6 +483,12 @@
    "unit_lng": 24.0301
   }
  ],
+ "calc_unknown": [
+  404,
+  {
+   "error": "Машина 'ZZ-0000' не найдена"
+  }
+ ],
  "fleet": [
   200,
   {
@@ -318,7 +515,7 @@
   200,
   {
    "cache_hits": 0,
-   "calls_local": 8,
+   "calls_local": 11,
    "error": "No module named 'google.auth'",
    "free": 10000,
    "local_day": "2026-10-06"
@@ -445,6 +642,12 @@
   200,
   {
    "items": []
+  }
+ ],
+ "route_empty": [
+  400,
+  {
+   "error": "Заполните хотя бы одно поле — From или To"
   }
  ],
  "route_es_se": [
@@ -580,6 +783,31 @@
     }
    ],
    "route_polyline": "_qwdGknvqAozvYj|cLow`z@kuplA",
+   "waypoints_applied": false
+  }
+ ],
+ "route_one_point": [
+  200,
+  {
+   "dist_km": null,
+   "duration_h": null,
+   "legs": [],
+   "points": [
+    {
+     "address": null,
+     "code": "LV10",
+     "dovoz": null,
+     "geo": null,
+     "is_truck": false,
+     "kind": "O",
+     "label": "LV10 — Riga",
+     "lat": 56.9456,
+     "lng": 24.1063,
+     "num": 1,
+     "raw": "LV10"
+    }
+   ],
+   "route_polyline": null,
    "waypoints_applied": false
   }
  ],

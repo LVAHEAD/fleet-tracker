@@ -74,7 +74,7 @@ fleet-tracker/
 - `python -m py_compile` по всем файлам;
 - `python -m unittest discover -s tests` зелёный;
 - список маршрутов `app.url_map` совпадает с эталоном;
-- эталонный прогон API (`tests/test_replay.py`) совпадает с `tests/fixtures/replay_golden.json` — 19 вызовов `/api/*` с подменённой сетью и замороженным временем;
+- эталонный прогон API (`tests/test_replay.py`) совпадает с `tests/fixtures/replay_golden.json` — 27 вызовов `/api/*` с подменённой сетью и замороженным временем;
 - `FLEET_STORE=memory` и локальный запуск: `/` и `/api/region-codes` отвечают 200.
 
 После деплоя (проверяет Владимир):
@@ -98,6 +98,6 @@ fleet-tracker/
 - [x] v3.01 — каркас, config, utils (+ тесты utils)
 - [x] v3.02 — clients (+ эталонный прогон API)
 - [x] v3.03 — domain (+ тест направления зависимостей)
-- [ ] v3.04 — store + services
+- [x] v3.04 — store + services (calc_row разбит на блоки; эталонный прогон — 27 вызовов)
 - [ ] v3.05 — blueprints, app.py → shim
 - [ ] позже — фронтенд app.js

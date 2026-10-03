@@ -48,8 +48,9 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 | `fetat/domain/trailers.py` | реф, сцепка тягач–прицеп |
 | `fetat/domain/addresses.py` | адресная база, FIN/EE → База |
 | `fetat/domain/freights.py` | база фрахтов, контрактники, похожие рейсы |
-| `fetat/services/` | `fleet_calc.py` (/api/calc), `route_calc.py` (/api/route) |
-| `fetat/store/fleet_store.py` | общий Флот: права, 🔒, корзина 24 ч |
+| `fetat/services/fleet_calc.py` | строка Флота: `calc_row(payload) -> (ответ, код)` и блоки `_unit_status`, `_add_trailer_info`, `_apply_points_done`, `_add_tacho`, `_add_route_context`, `_add_code_badges`; следующие точки `calc_extra_stops` |
+| `fetat/services/route_calc.py` | From → To: `route_calc(payload) -> (ответ, код)`, мультимаршрут с паромами |
+| `fetat/store/fleet_store.py` | общий Флот: Firestore / память, права на удаление, 🔒, корзина 24 ч, проверка полей |
 | `fetat/api/` | Blueprints: fleet, calc, mapon, reference, meta |
 | `data/` | `region_codes.json`, `region_codes_geonames.json` |
 | `tests/` | unittest + фикстуры; код через `A` из `tests/__init__.py` (ищет имя во всех модулях, подмена ставится везде) |

@@ -1,6 +1,6 @@
 """Тахограф (EU 561/2006 в упрощении проекта): простой ETA, тахо-ETA, недельный отдых, лимиты 56/90 ч.
 Правила — CLAUDE.md → Предметные правила."""
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fetat.clients.mapon import ACT_DAYS, get_driver_rests
 from fetat.config import WEST_EUROPE_OFFSET

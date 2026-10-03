@@ -1,5 +1,5 @@
 """Точки и таргеты: разбор ввода (код, GPS, город, адрес, машина), подписи, ✓ пройдено, «на объекте»."""
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fetat.clients.geocode import geocode, geocode_city
 from fetat.clients.mapon import mapon_objects, unit_stops
@@ -8,9 +8,9 @@ from fetat.domain.addresses import (
     address_public, base_point, dovoz_country, find_address, is_base_word,
 )
 from fetat.domain.regions import (
-    OUR_COUNTRIES, REGION_CODES, get_region_country, nearest_region_code,
+    get_region_country, nearest_region_code, OUR_COUNTRIES, REGION_CODES,
 )
-from fetat.utils.geo import _point_in_poly, haversine_km, parse_gps
+from fetat.utils.geo import haversine_km, parse_gps, _point_in_poly
 from fetat.utils.text import normalize
 from fetat.utils.timefmt import format_duration
 

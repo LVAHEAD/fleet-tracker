@@ -1,6 +1,6 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 3.03
+Версия: 3.04
 
 История изменений — CHANGELOG.md. План рефакторинга — REFACTOR.md.
 """
@@ -106,6 +106,20 @@ from fetat.domain.bans import (
     route_countries, unit_brand,
 )
 
+from fetat.store.fleet_store import (
+    FLEET_COLL, FLEET_FIELD_RE, FLEET_LOCK_MS, FLEET_STORE, FLEET_TRASH_MS, FLEET_VALUE_MAX,
+    FleetStoreFS, FleetStoreMem, _fleet_can_delete, _fleet_clean, _fleet_rid, _fleet_row_out,
+    _fp,
+)
+from fetat.services.route_calc import (
+    route_calc,
+    MAX_INTERMEDIATES, _compute_multi_route, compute_multi_route,
+)
+from fetat.services.fleet_calc import (
+    calc_row,
+    UNLOAD_STOP_SEC, calc_extra_stops,
+)
+
 app = Flask(__name__)
 
 
@@ -116,9 +130,6 @@ app = Flask(__name__)
 import threading
 
 
-# ---------- v1.33: тахограф (Mapon unit_data/driving_time_extended) и ETA по нему ----------
-
-
 # ---------- Правила принудительных маршрутов (обход Швейцарии, паромы на Скандинавию) ----------
 # Пока применяются только во вкладке From -> To (/api/route), где обе точки заданы
 # кодами регионов — страна извлекается из первых двух букв кода. Для вкладки "Флот"
@@ -126,86 +137,7 @@ import threading
 # геокодинга, поэтому там правила пока не применяются.
 
 
-# ---------- v1.22: ближайший код региона, машина как точка, многоточечный маршрут ----------
-
-MAX_INTERMEDIATES = 25      # лимит Routes API на промежуточные точки (вместе с паромами/Инсбруком)
-
-
 # ---------- v1.29: база фрахтов (лист "Фрахты") ----------
-
-
-# ---------- v1.31: лист "Настройки" (контрактные клиенты) ----------
-
-
-def compute_multi_route(points, api_key):
-    """v1.50: кеш 15 мин по набору точек (повторное "Рассчитать" не тратит запрос)."""
-    import time
-    key = tuple((round(p["lat"], 4), round(p["lng"], 4), p.get("country")) for p in points)
-    now = time.time()
-    with _route_cache_lock:
-        hit = _route_cache.get(("multi",) + key)
-        if hit and now - hit[0] < ROUTE_CACHE_TTL:
-            _route_stat("cache_hits")
-            return hit[1]
-        _route_stat("calls")
-    res = _compute_multi_route(points, api_key)
-    with _route_cache_lock:
-        _route_cache[("multi",) + key] = (now, res)
-    return res
-
-
-def _compute_multi_route(points, api_key):
-    """points — список dict из resolve_point в порядке следования (минимум 2).
-    Один запрос к Routes API: точки пользователя — обычные intermediates (каждая
-    начинает новый leg), паромы/Инсбрук — via-точки (через них маршрут проходит,
-    но leg не разбивается). Так legs ответа = отрезкам между точками пользователя.
-    Возвращает (legs, polyline), legs = [{dist_km, waypoints_applied}, ...]."""
-    intermediates = []
-    leg_rules = []
-    for i in range(len(points) - 1):
-        a, b = points[i], points[i + 1]
-        wps = pick_waypoints_by_country(a["country"], a["lat"], a["lng"],
-                                        b["country"], b["lat"], b["lng"]) or []
-        leg_rules.append(bool(wps))
-        for wlat, wlng in wps:
-            intermediates.append({"via": True, "location": {"latLng": {"latitude": wlat, "longitude": wlng}}})
-        if i + 1 < len(points) - 1:  # следующая точка пользователя — не финальная
-            intermediates.append({"location": {"latLng": {"latitude": b["lat"], "longitude": b["lng"]}}})
-
-    if len(intermediates) > MAX_INTERMEDIATES:
-        raise ValueError(
-            f"Слишком много точек: {len(intermediates)} промежуточных (вместе с паромами/Инсбруком), "
-            f"Routes API допускает максимум {MAX_INTERMEDIATES}"
-        )
-
-    first, last = points[0], points[-1]
-    body = {
-        "origin": {"location": {"latLng": {"latitude": first["lat"], "longitude": first["lng"]}}},
-        "destination": {"location": {"latLng": {"latitude": last["lat"], "longitude": last["lng"]}}},
-        "travelMode": "DRIVE",
-        "routingPreference": "TRAFFIC_UNAWARE",   # v1.50: без пробок — дешевле (Essentials), ETA и так км/70
-    }
-    if intermediates:
-        body["intermediates"] = intermediates
-    headers = {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": api_key,
-        "X-Goog-FieldMask": "routes.distanceMeters,routes.legs.distanceMeters,routes.polyline.encodedPolyline",
-    }
-    resp = requests.post(ROUTES_API_URL, json=body, headers=headers, timeout=30)
-    resp.raise_for_status()
-    data = resp.json()
-    if "routes" not in data or not data["routes"]:
-        raise RuntimeError(f"Routes API вернул пустой ответ: {data}")
-    route = data["routes"][0]
-    api_legs = route.get("legs", [])
-    legs = []
-    for i in range(len(points) - 1):
-        # поле с нулём Routes API не передаёт (как в фиксе v1.21) — считаем 0
-        meters = api_legs[i].get("distanceMeters", 0) if i < len(api_legs) else 0
-        legs.append({"dist_km": meters / 1000, "waypoints_applied": leg_rules[i]})
-    polyline = route.get("polyline", {}).get("encodedPolyline")
-    return legs, polyline
 
 
 # ---------- Routes ----------
@@ -644,377 +576,21 @@ def api_mapon_check():
     return resp
 
 
-def calc_extra_stops(extras, units, unit, first, tacho, sim):
-    """v1.64: точки 2..N строки Флота. Для каждой: км от машины по цепочке, км плеча,
-    ETA (простой и по тахографу) с учётом UNLOAD_STOP_SEC на каждой предыдущей точке,
-    запреты на плече, плашка кода региона, координаты и линия плеча для карты."""
-    import time
-    loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET))
-    now = time.time()
-    prev_lat, prev_lng = first["target_lat"], first["target_lng"]
-    cum_km = float(first.get("dist_km") or 0)
-    # приезд на 1-ю точку
-    prev_arr = sim["eta_ts"] if sim else now + cum_km / 70 * 3600
-    out = []
-    n_stops = 0          # сколько точек уже пройдено (на каждой UNLOAD_STOP_SEC)
-    for tstr in extras:
-        if not tstr:
-            out.append({"empty": True})
-            continue
-        try:
-            t = resolve_fleet_target(tstr, units, unit)
-        except ValueError as e:
-            out.append({"error": str(e)})
-            break
-        lat, lng = t.pop("lat"), t.pop("lng")
-        if lat is None:
-            out.append({"error": f"Не удалось распознать: {tstr}"})
-            break
-        leg_km, leg_poly = road_distance_km_google(prev_lat, prev_lng, lat, lng, GOOGLE_API_KEY,
-                                                   fleet_waypoints(prev_lat, prev_lng, lat, lng))   # v2.03
-        cum_km += leg_km
-        n_stops += 1
-        dwell = n_stops * UNLOAD_STOP_SEC
-        simple_ts = now + cum_km / 70 * 3600 + dwell
-        item = dict(t)
-        item.update({
-            "lat": lat, "lng": lng,
-            "dist_km": round(cum_km, 1),
-            "leg_km": round(leg_km, 1),
-            "polyline": leg_poly,
-            "eta_local": round_to_15min(loc(simple_ts)).strftime("%d/%m %H:%M"),
-        })
-        arr = simple_ts
-        if tacho:
-            try:
-                sk = tacho_eta(tacho, cum_km)
-                arr = sk["eta_ts"] + dwell
-                item["eta_tacho"] = round_to_15min(loc(arr)).strftime("%d/%m %H:%M")
-                item["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sk["stops"])
-                item["tacho_weeklimit"] = bool(sk.get("week", {}).get("hit"))
-            except Exception:
-                pass
-        item["badge"], item["badge_hint"] = target_badge_info(tstr, lat, lng, t.get("target_address"))
-        if leg_poly and leg_km >= 5:
-            try:
-                hits, _bst = bans_on_route(leg_poly, leg_km, None, prev_arr + UNLOAD_STOP_SEC,
-                                           at_night=needs_at_night_ban(unit))
-                item["bans_route"] = bans_hits_text(hits, lambda ts: loc(ts).strftime("%d/%m %H:%M"))
-            except Exception:
-                pass
-        out.append(item)
-        prev_lat, prev_lng, prev_arr = lat, lng, arr
-    return out
-
-
-UNLOAD_STOP_SEC = 30 * 60   # v1.64: время на выгрузку/погрузку между точками одной машины
-
 # ---------- v1.79: "точка пройдена" ✓ — по истории стоянок трака в Mapon ----------
 
 
 @app.route("/api/calc", methods=["POST"])
 def api_calc():
-    """
-    body: {"unit": "OI1779", "target": "43.30726, -8.48246" | "Oslo" | "NO01" | ""}
-    Возвращает статус машины и, если задан target, расстояние/ETA по дорогам.
-    """
-    if not MAPON_API_KEY:
-        return jsonify({"error": "MAPON_API_KEY не настроен на сервере"}), 500
-
-    payload = request.get_json(force=True, silent=True) or {}
-    unit_query = payload.get("unit", "")
-    target_str = payload.get("target", "")
-
-    if not unit_query:
-        return jsonify({"error": "Не указана машина"}), 400
-
-    try:
-        units = fetch_units(MAPON_API_KEY)
-        exact = find_unit_exact(units, unit_query)
-        matches = [exact] if exact else find_unit_by_label(units, unit_query)
-        if not matches:
-            return jsonify({"error": f"Машина '{unit_query}' не найдена"}), 404
-        if len(matches) > 1:
-            return jsonify({
-                "error": "Найдено несколько машин, уточните запрос",
-                "candidates": [u.get("number") for u in matches],
-            }), 409
-
-        unit = matches[0]
-        state = unit.get("state", {})
-        status_name = state.get("name")
-        duration_sec = state.get("duration", 0)
-
-        result = {
-            "number": unit.get("number"),
-            "status": status_name,
-            "status_ru": STATUS_RU.get(status_name, status_name),
-            "duration_str": format_duration(duration_sec),
-            "speed": unit.get("speed"),
-            # v1.30: курс (градусы) для стрелки на плашке, если Mapon его отдаёт
-            "direction": next((unit.get(k) for k in ("direction", "course", "heading", "angle")
-                               if isinstance(unit.get(k), (int, float))), None),
-            "last_update": unit.get("last_update"),
-            "unit_lat": unit.get("lat"),
-            "unit_lng": unit.get("lng"),
-            "dist_km": None,
-            "eta_local": None,
-        }
-
-        # v1.70: прицеп — рефка и тягач рядом; у тягача — прицеп рядом (Mapon их не связывает)
-        trailer = is_trailer(unit)
-        result["is_trailer"] = trailer
-        try:
-            truck_ids = fetch_group_unit_ids(MAPON_API_KEY, HEAD_TRUCK_GROUP_ID)
-            h = find_hitch(unit, units, truck_ids)
-            if h:
-                result["hitch"] = h
-        except Exception:
-            pass
-        if trailer:
-            try:
-                result["reefer"] = reefer_summary(fetch_reefer_units().get(unit.get("unit_id")))
-            except Exception as e:
-                result["reefer_error"] = str(e)
-        # v1.71: прицеп, привязанный к тягачу вручную (строка Флота) — где он и что с рефкой
-        lt = str(payload.get("trailer") or "").strip()
-        if lt and not trailer:
-            tu = find_unit_exact(units, lt)
-            if tu is None:
-                result["linked_trailer"] = {"number": lt, "error": "прицеп не найден в Mapon"}
-            else:
-                info = {"number": tu.get("number") or lt, "lat": tu.get("lat"), "lng": tu.get("lng"),
-                        "status": (tu.get("state") or {}).get("name")}
-                if None not in (unit.get("lat"), unit.get("lng"), tu.get("lat"), tu.get("lng")):
-                    info["km"] = round(haversine_km(unit["lat"], unit["lng"], tu["lat"], tu["lng"]), 2)
-                    info["far"] = info["km"] > TRAILER_FAR_KM
-                try:
-                    info["reefer"] = reefer_summary(fetch_reefer_units().get(tu.get("unit_id")))
-                except Exception as e:
-                    info["reefer_error"] = str(e)
-                result["linked_trailer"] = info
-
-        # v1.79: пройденные точки (✓) — считаем от машины сразу до первой непройденной
-        pts_all = [target_str] + [str(x or "").strip() for x in (payload.get("extra") or [])][:11]
-        manual = [(v if v in (True, False) else None) for v in (payload.get("done") or [])]
-        active_extras = pts_all[1:]
-        if any(pts_all):
-            try:
-                dn = points_done(pts_all, manual, unit, units)
-            except Exception:
-                dn = [{"done": False} for _ in pts_all]
-            result["points_done"] = dn
-            active = [i for i, p in enumerate(pts_all) if not dn[i]["done"]]
-            result["active_idx"] = active
-            if not active:
-                result["all_done"] = True
-                target_str, active_extras = "", []
-            else:
-                target_str = pts_all[active[0]]
-                active_extras = [pts_all[i] for i in active[1:]]
-
-        try:
-            tgt = resolve_fleet_target(target_str, units, unit)
-        except ValueError as e:
-            return jsonify({"error": str(e)}), 400
-        target_lat, target_lng = tgt.pop("lat"), tgt.pop("lng")
-        result.update(tgt)
-        if target_lat is not None and not GOOGLE_API_KEY:
-            return jsonify({"error": "GOOGLE_API_KEY не настроен на сервере"}), 500
-
-        if target_lat is not None:
-            cur_lat, cur_lng = unit["lat"], unit["lng"]
-            wps = fleet_waypoints(cur_lat, cur_lng, target_lat, target_lng)   # v2.03: паромы/Инсбрук и во Флоте
-            dist_km, polyline = road_distance_km_google(cur_lat, cur_lng, target_lat, target_lng, GOOGLE_API_KEY, wps)
-            if wps:
-                result["waypoints_applied"] = True
-            _, eta_local = calc_eta(dist_km)
-            result["dist_km"] = round(dist_km, 1)
-            result["eta_local"] = eta_local.strftime("%d/%m %H:%M")
-            result["target_lat"] = target_lat
-            result["target_lng"] = target_lng
-            result["route_polyline"] = polyline
-
-        # v1.33: тахограф — ETA по режиму труда и отдыха + подробности
-        tacho, sim = None, None
-        try:
-            tacho, terr = (None, None) if trailer else get_tacho(unit.get("unit_id"))
-            if tacho:
-                sim = None
-                if result.get("dist_km") is not None:
-                    sim = tacho_eta(tacho, result["dist_km"])
-                    eta_t = round_to_15min(datetime.fromtimestamp(sim["eta_ts"], timezone.utc)
-                                           + timedelta(hours=WEST_EUROPE_OFFSET))
-                    result["eta_tacho"] = eta_t.strftime("%d/%m %H:%M")
-                    result["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sim["stops"])
-                    result["_sim_stops"] = sim["stops"]
-                d0 = next((d for d in tacho["drivers"] if d.get("current_state") == "DRIVING"), tacho["drivers"][0])
-                result["tacho_resting_now"] = d0.get("current_state") == "REST"
-                result["tacho_team"] = len(tacho["drivers"]) >= 2
-                result["tacho_summary"] = tacho_summary(tacho, sim)
-                result["tacho_weeklimit"] = bool(sim and sim.get("week", {}).get("hit"))
-            else:
-                result["tacho_error"] = terr
-        except Exception as e:
-            result["tacho_error"] = str(e)
-
-        # v1.64: следующие точки той же машины (2-я, 3-я выгрузка...) — цепочкой от
-        # предыдущей точки, плюс UNLOAD_STOP_SEC на каждую предыдущую точку
-        extras = active_extras   # v1.74: до 12 точек; v1.79: без пройденных
-        if extras and result.get("target_lat") is not None:
-            try:
-                result["extra"] = calc_extra_stops(extras, units, unit, result, tacho, sim)
-            except Exception as e:
-                result["extra"] = [{"error": str(e)} for _ in extras]
-
-        # v1.59: цепочка стран по маршруту (без времени)
-        if result.get("route_polyline") and result.get("dist_km"):
-            try:
-                result["route_countries"] = country_chain(result["route_polyline"], result["dist_km"])
-            except Exception:
-                pass
-        # v1.59: трак на объекте таргета (полигон Mapon или радиус вокруг точки)
-        if result.get("target_lat") is not None:
-            try:
-                ot = on_target(unit["lat"], unit["lng"], result["target_lat"], result["target_lng"])
-                if ot:
-                    result["on_target"] = ot
-            except Exception:
-                pass
-
-        # v1.45: полные запреты по пути (по тахо-симуляции, иначе без остановок)
-        stops = result.pop("_sim_stops", None)
-        # v1.60: трак на объекте или до таргета меньше 5 км — запреты не проверяем
-        if (result.get("route_polyline") and result.get("dist_km")
-                and result["dist_km"] >= 5 and not result.get("on_target")):
-            try:
-                hits, bst = bans_on_route(result["route_polyline"], result["dist_km"], stops,
-                                         at_night=needs_at_night_ban(unit))
-                loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M")
-                result["bans_route"] = bans_hits_text(hits, loc)
-                result["bans_status"] = bst
-            except Exception as e:
-                result["bans_status"] = f"ошибка: {e}"
-
-        # v1.31: страна машины и код региона таргета (плашки в таблице)
-        try:
-            if result.get("unit_lat") is not None:
-                code, d = nearest_region_code(result["unit_lat"], result["unit_lng"])
-                if code:
-                    result["unit_country"] = code[:2]
-                    result["unit_code_hint"] = f"{code[:2]} · около {code}" + (f" ({round(d)} км)" if d > NEAR_LABEL_MAX_KM else "")
-            if result.get("target_lat") is not None:
-                result["target_badge"], result["target_code_hint"] = target_badge_info(
-                    target_str, result["target_lat"], result["target_lng"], result.get("target_address"))
-        except Exception:
-            pass
-
-        return jsonify(result)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 502
+    """Строка Флота — fetat/services/fleet_calc.py: calc_row."""
+    body, code = calc_row(request.get_json(force=True, silent=True) or {})
+    return jsonify(body), code
 
 
 @app.route("/api/route", methods=["POST"])
 def api_route():
-    """
-    body: {"from": ["OI-4310", "IT20", ...], "to": ["SE25", "59.9, 10.8", ...]}
-    (старый формат {"from": "ES30", "to": "SE25"} тоже принимается).
-    Каждое поле — машина (номер из Mapon) / GPS / код региона / город.
-    Пустые поля пропускаются. Маршрут строго по порядку: from1..fromN -> to1..toM.
-    Если точка всего одна — просто показываем её, без маршрута.
-    """
-    if not GOOGLE_API_KEY:
-        return jsonify({"error": "GOOGLE_API_KEY не настроен на сервере"}), 500
-
-    payload = request.get_json(force=True, silent=True) or {}
-
-    def as_list(v):
-        if isinstance(v, list):
-            return [str(x).strip() for x in v if str(x or "").strip()]
-        v = str(v or "").strip()
-        return [v] if v else []
-
-    froms = as_list(payload.get("from"))
-    tos = as_list(payload.get("to"))
-    if not froms and not tos:
-        return jsonify({"error": "Заполните хотя бы одно поле — From или To"}), 400
-
-    # Список машин из Mapon запрашиваем максимум один раз и только если он нужен
-    units_cache = {}
-    def units_getter():
-        if "units" not in units_cache:
-            units_cache["units"] = fetch_units(MAPON_API_KEY)
-        return units_cache["units"]
-
-    try:
-        points = []
-        for kind, values in (("L", froms), ("O", tos)):
-            for n, raw in enumerate(values, start=1):
-                try:
-                    pt = resolve_point(raw, units_getter)
-                except ValueError as e:
-                    field = "From" if kind == "L" else "To"
-                    return jsonify({"error": f"{field}{n}: {e}"}), 400
-                pt.update({"kind": kind, "num": n, "raw": raw})
-                points.append(pt)
-
-        result = {
-            "points": [
-                {**{k: p[k] for k in ("kind", "num", "label", "lat", "lng", "is_truck", "code")},
-                 "address": p.get("address"), "geo": p.get("geo"), "raw": p.get("raw"),
-                 "dovoz": p.get("dovoz")}
-                for p in points
-            ],
-            "legs": [],
-            "dist_km": None,
-            "duration_h": None,
-            "route_polyline": None,
-            "waypoints_applied": False,
-        }
-
-        if len(points) >= 2:
-            legs, polyline = compute_multi_route(points, GOOGLE_API_KEY)
-            total = 0.0
-            for i, leg in enumerate(legs):
-                a, b = points[i], points[i + 1]
-                total += leg["dist_km"]
-                result["legs"].append({
-                    "from": f"{a['kind']}{a['num']}",
-                    "to": f"{b['kind']}{b['num']}",
-                    "from_code": a.get("code"),
-                    "to_code": b.get("code"),
-                    "dist_km": round(leg["dist_km"], 1),
-                    "duration_h": round(leg["dist_km"] / 70, 3),
-                    "waypoints_applied": leg["waypoints_applied"],
-                })
-            result["dist_km"] = round(total, 1)
-            result["duration_h"] = round(total / 70, 3)  # 70 км/ч; в ч:мм форматирует фронт
-            result["route_polyline"] = polyline
-            result["waypoints_applied"] = any(l["waypoints_applied"] for l in legs)
-            # v1.45: запреты по пути — при выезде сейчас, соло (4:30/45, 9 ч, отдых 11 ч)
-            try:
-                sim = tacho_eta(FRESH_SOLO_TACHO, total)
-                # v1.83: ночь в Австрии — для MAN-тягача в первой точке; без тягача — "если MAN"
-                tu = points[0].get("unit") if points[0].get("is_truck") else None
-                at_n = needs_at_night_ban(tu) if tu else True
-                hits, bst = bans_on_route(polyline, total, sim["stops"], at_night=at_n)
-                loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M")
-                result["bans_route"] = bans_hits_text(hits, loc, "MAN без L" if tu else "если MAN")
-                result["bans_status"] = bst
-            except Exception as e:
-                result["bans_status"] = f"ошибка: {e}"
-
-        # v1.29: похожие рейсы из базы фрахтов — первая погрузка -> последняя выгрузка
-        if len(points) >= 2:
-            try:
-                result["freights"] = similar_freights(points[0], points[-1], result["dist_km"])
-            except Exception as e:
-                result["freights"] = {"error": str(e)}
-
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 502
+    """From → To — fetat/services/route_calc.py: route_calc."""
+    body, code = route_calc(request.get_json(force=True, silent=True) or {})
+    return jsonify(body), code
 
 
 @app.route("/api/region-codes")
@@ -1129,136 +705,11 @@ def api_bans():
     return jsonify({**data, "error": err, "loaded_at": loaded_txt})
 
 
-# ---------- v1.83: ночной запрет Австрии для MAN (нет наклейки "L" / lärmarm) ----------
-
-
 # ---------- v2.00: общий Флот на сервере (Firestore через REST, без лишних библиотек) ----------
-# Документ коллекции fleet_rows = одна строка Флота. Поля строки лежат в map "data" как JSON-строки
-# (правка по полю: два человека правят разные поля одной строки — ничего не теряется).
-# Мета: created_by/at, updated_by/at (мс), deleted (+ by/at) — удалённое 24 ч лежит "в корзине".
-FLEET_COLL = "fleet_rows"
-FLEET_FIELD_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,40}$")
-FLEET_VALUE_MAX = 30000          # байт JSON на одно поле
-FLEET_TRASH_MS = 24 * 3600 * 1000
-
-
-def _fp(name):
-    return name if FLEET_FIELD_RE.match(name) else "`" + name.replace("`", "\\`") + "`"
-
-
-class FleetStoreFS:
-    def query(self, since=None):
-        q = {"from": [{"collectionId": FLEET_COLL}]}
-        if since is not None:
-            q["where"] = {"fieldFilter": {"field": {"fieldPath": "updated_at"}, "op": "GREATER_THAN_OR_EQUAL",
-                                          "value": {"integerValue": str(int(since))}}}
-        r = _fs_check(requests.post(f"{FS_BASE}:runQuery", json={"structuredQuery": q},
-                                    headers=_fs_headers(), timeout=20))
-        return [_fs_decode(x["document"]) for x in r.json() if x.get("document")]
-
-    def patch(self, rid, set_data=None, unset=(), meta=None):
-        fields, mask = {}, []
-        if set_data:
-            fields["data"] = {"mapValue": {"fields": {k: {"stringValue": json.dumps(v, ensure_ascii=False)}
-                                                      for k, v in set_data.items()}}}
-            mask += [f"data.{_fp(k)}" for k in set_data]
-        for k in unset or ():
-            mask.append(f"data.{_fp(k)}")
-        for k, v in (meta or {}).items():
-            mask.append(k)
-            if isinstance(v, bool):
-                fields[k] = {"booleanValue": v}
-            elif isinstance(v, int):
-                fields[k] = {"integerValue": str(v)}
-            elif v is None:
-                fields[k] = {"nullValue": None}
-            else:
-                fields[k] = {"stringValue": str(v)}
-        _fs_check(requests.patch(f"{FS_BASE}/{FLEET_COLL}/{rid}", params=[("updateMask.fieldPaths", m) for m in mask],
-                                 json={"fields": fields}, headers=_fs_headers(), timeout=20))
-
-    def purge(self, rid):
-        _fs_check(requests.delete(f"{FS_BASE}/{FLEET_COLL}/{rid}", headers=_fs_headers(), timeout=20))
-
-    def get(self, rid):
-        r = requests.get(f"{FS_BASE}/{FLEET_COLL}/{rid}", headers=_fs_headers(), timeout=20)
-        if r.status_code == 404:
-            return None
-        return _fs_decode(_fs_check(r).json())
-
-
-class FleetStoreMem:
-    """Для локальной проверки без Firestore (FLEET_STORE=memory)."""
-    def __init__(self):
-        self.docs = {}
-
-    def query(self, since=None):
-        out = []
-        for rid, d in self.docs.items():
-            if since is None or (d["meta"].get("updated_at") or 0) >= since:
-                out.append({"id": rid, "data": dict(d["data"]), "meta": dict(d["meta"])})
-        return out
-
-    def patch(self, rid, set_data=None, unset=(), meta=None):
-        d = self.docs.setdefault(rid, {"data": {}, "meta": {}})
-        d["data"].update(json.loads(json.dumps(set_data or {})))
-        for k in unset or ():
-            d["data"].pop(k, None)
-        d["meta"].update(meta or {})
-
-    def purge(self, rid):
-        self.docs.pop(rid, None)
-
-    def get(self, rid):
-        d = self.docs.get(rid)
-        return {"id": rid, "data": dict(d["data"]), "meta": dict(d["meta"])} if d else None
-
-
-FLEET_STORE = FleetStoreMem() if os.environ.get("FLEET_STORE") == "memory" else FleetStoreFS()
 
 
 def _fleet_user():
     return current_user_email() or "local"
-
-
-FLEET_LOCK_MS = 60 * 1000
-
-
-def _fleet_can_delete(user, d):
-    if user in FLEET_ADMINS:
-        return True
-    created = str(d["meta"].get("created_by") or "").lower()
-    disp = str(d["data"].get("disp") or "").lower()
-    if not created or created == "local":
-        return True
-    return user.lower() in (created, disp)
-
-
-def _fleet_row_out(d):
-    row = dict(d["data"])
-    try:
-        row["id"] = int(d["id"])
-    except ValueError:
-        row["id"] = d["id"]
-    return {"row": row, "meta": {k: v for k, v in d["meta"].items() if v is not None}}
-
-
-def _fleet_rid(v):
-    s = str(v if v is not None else "").strip()
-    if not re.fullmatch(r"\d{1,17}", s):
-        raise ValueError(f"плохой id строки: {v!r}")
-    return s
-
-
-def _fleet_clean(fields):
-    out = {}
-    for k, v in (fields or {}).items():
-        if k == "id" or not FLEET_FIELD_RE.match(str(k)):
-            continue
-        if len(json.dumps(v, ensure_ascii=False)) > FLEET_VALUE_MAX:
-            raise ValueError(f"поле {k} слишком большое")
-        out[k] = v
-    return out
 
 
 @app.route("/api/fleet")
