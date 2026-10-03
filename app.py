@@ -1,6 +1,6 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 3.00
+Версия: 3.01
 
 История изменений — CHANGELOG.md. План рефакторинга — REFACTOR.md.
 """
@@ -14,47 +14,35 @@ from datetime import datetime, timezone, timedelta
 import requests
 from flask import Flask, jsonify, render_template, request
 
-app = Flask(__name__)
+from fetat import APP_VERSION
+from fetat.config import (
+    MAPON_API_KEY, GOOGLE_API_KEY, GOOGLE_MAPS_JS_KEY, HEAD_TRUCK_GROUP_ID,
+    RIGA_UTC_OFFSET, WEST_EUROPE_OFFSET, DATA_DIR,
+    SHEET_ID, ADDRESS_SHEET, FREIGHT_SHEET, SETTINGS_SHEET, GOOGLE_PROJECT_ID, FLEET_ADMINS,
+)
+from fetat.utils.geo import (
+    haversine_km, parse_gps, _GPS_RE, _encode_polyline, _decode_polyline,
+    _wkt_center, _wkt_points, _point_in_poly,
+)
+from fetat.utils.timefmt import (
+    format_duration, round_to_15min, time_now_ts, _iso_ts, _iso_utc, _utc_iso, _hm, _lv, _lv_time, _now_ms,
+)
+from fetat.utils.text import normalize, _hkey
 
-MAPON_API_KEY = os.environ.get("MAPON_API_KEY", "")
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
-# Ключ для клиентского Maps JavaScript API (виден в браузере — это нормально для
-# этого типа ключа, если он ограничен по HTTP referrer в Google Cloud Console).
-# Если не задан отдельно, используется тот же GOOGLE_API_KEY.
-GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
-HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
-APP_VERSION = "3.00"
+app = Flask(__name__)
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
 MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 ROUTES_API_URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
 
-RIGA_UTC_OFFSET = 3
-WEST_EUROPE_OFFSET = RIGA_UTC_OFFSET - 1
-
 STATUS_RU = {"standing": "стоит", "driving": "едет"}
 
-# Справочник кодов регионов (NO01, SE25 и т.п.) → координаты.
-# Сгенерирован из файла GPS_Codes.xlsx; с v3.00 лежит в data/region_codes.json.
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 with open(os.path.join(DATA_DIR, "region_codes.json"), encoding="utf-8") as _f:
     REGION_CODES = json.load(_f)
 
 
 # ---------- Вспомогательные функции (перенесены из Colab-версии) ----------
-
-def format_duration(seconds):
-    days, rem = divmod(int(seconds or 0), 86400)
-    hours, rem = divmod(rem, 3600)
-    minutes = rem // 60
-    if days > 0:
-        return f"{days}д {hours}ч {minutes}м"
-    return f"{hours}ч {minutes}м"
-
-
-def normalize(s):
-    return str(s or "").lower().replace(" ", "").replace("-", "")
 
 
 def find_unit_by_label(units, label_query):
@@ -63,23 +51,6 @@ def find_unit_by_label(units, label_query):
         u for u in units
         if q in normalize(u.get("label", "")) or q in normalize(u.get("number", ""))
     ]
-
-
-def haversine_km(lat1, lng1, lat2, lng2):
-    r = 6371.0
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlmb = math.radians(lng2 - lng1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
-    return 2 * r * math.asin(math.sqrt(a))
-
-
-def round_to_15min(dt: datetime) -> datetime:
-    discard = timedelta(minutes=dt.minute % 15, seconds=dt.second, microseconds=dt.microsecond)
-    dt -= discard
-    if discard >= timedelta(minutes=7.5):
-        dt += timedelta(minutes=15)
-    return dt
 
 
 def calc_eta(dist_km):
@@ -158,13 +129,6 @@ def fetch_reefer_units():
         return _reefer_cache["by_id"]
 
 
-def _iso_ts(s):
-    try:
-        return datetime.fromisoformat(str(s).replace("Z", "+00:00")).timestamp()
-    except Exception:
-        return None
-
-
 def reefer_summary(u):
     """Рефка прицепа -> {type, compartments:[{n, on, set, ret, sup, dev, stale, at}], fuel_l, warn}."""
     rf = (u or {}).get("reefer")
@@ -197,11 +161,6 @@ def reefer_summary(u):
     warn = any(c["dev"] is not None and abs(c["dev"]) > REEFER_DEV_WARN and not c["stale"] for c in comps)
     return {"type": rf.get("refrigerator_type"), "compartments": comps, "fuel_l": fuel,
             "fuel_low": fuel_low, "warn": warn}
-
-
-def time_now_ts():
-    import time
-    return time.time()
 
 
 def find_hitch(unit, units, truck_ids):
@@ -279,10 +238,6 @@ WEEKLY_FULL_SEC = 45 * 3600     # от 45 ч — обычный недельны
 WEEKLY_PERIOD_SEC = 144 * 3600  # следующий недельный — не позже 6×24 ч после конца прошлого
 _act_cache = {}                 # driver_id -> {"at", "data", "error"}
 _act_lock = threading.Lock()
-
-
-def _iso_utc(ts):
-    return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def get_driver_rests(driver_id):
@@ -400,11 +355,6 @@ def weekly_for_tacho(tacho):
             best = dict(w)
         best["need_sec"] = max(best["need_sec"], w["need_sec"])
     return best
-
-
-def _hm(sec):
-    sec = max(0, int(sec))
-    return f"{sec // 3600}:{sec % 3600 // 60:02d}"
 
 
 TEAM_DAY_SEC = 18 * 3600         # v1.47: экипаж — 18 ч вождения в сутки (20 — крайне редко, не считаем)
@@ -801,20 +751,6 @@ ALONG_ROUTE_MAX_OFF_KM = 1.5
 _along_cache = {}   # (target, waypoints) -> {"at", "pts", "cum", "scale"}
 
 
-def _encode_polyline(pts):
-    out, plat, plng = [], 0, 0
-    for la, ln in pts:
-        for v, prev in ((round(la * 1e5), plat), (round(ln * 1e5), plng)):
-            d = v - prev
-            d = ~(d << 1) if d < 0 else d << 1
-            while d >= 0x20:
-                out.append(chr((0x20 | (d & 0x1F)) + 63))
-                d >>= 5
-            out.append(chr(d + 63))
-        plat, plng = round(la * 1e5), round(ln * 1e5)
-    return "".join(out)
-
-
 def _along_remember(tkey, dist_km, polyline, now):
     try:
         pts = _decode_polyline(polyline or "")
@@ -1051,10 +987,6 @@ def find_unit_exact(units, query):
 
 
 # ---------- v1.28: адресная база из Google-таблицы ----------
-# Таблица "Fleet Tracker — данные", лист "Адреса". Доступ — сервисный аккаунт
-# Cloud Run (таблица расшарена на него "Читателем"), ключи не нужны.
-SHEET_ID = os.environ.get("SHEET_ID", "1m0oM8cNixVDM1kgQKCZKPgF-aSQN-0loqdLc-dWkD7g")
-ADDRESS_SHEET = os.environ.get("ADDRESS_SHEET", "Адреса")
 ADDRESS_TTL_SEC = 600  # перечитываем лист не чаще раза в 10 минут
 ADDRESS_TYPES = {"load", "unload", "port", "customs", "misc"}
 
@@ -1081,25 +1013,6 @@ def read_sheet_values(sheet_name, render="FORMATTED_VALUE"):
         raise RuntimeError("Нет доступа к таблице: расшарьте её на сервисный аккаунт приложения (Читатель)")
     resp.raise_for_status()
     return resp.json().get("values", [])
-
-
-_GPS_RE = re.compile(r"(-?\d{1,2}\.\d+)\s*[,;]\s*(-?\d{1,3}\.\d+)")
-
-
-def parse_gps(text):
-    """Первая пара "lat, lng" в тексте -> (lat, lng) или None."""
-    m = _GPS_RE.search(str(text or ""))
-    if not m:
-        return None
-    lat, lng = float(m.group(1)), float(m.group(2))
-    if -90 <= lat <= 90 and -180 <= lng <= 180:
-        return lat, lng
-    return None
-
-
-def _hkey(h):
-    """Заголовок колонки -> ключ: "Full address" -> "fulladdress", "Notes," -> "notes"."""
-    return re.sub(r"[^a-z0-9]", "", str(h or "").lower())
 
 
 def parse_address_rows(values):
@@ -1200,7 +1113,6 @@ def address_public(a):
 
 
 # ---------- v1.29: база фрахтов (лист "Фрахты") ----------
-FREIGHT_SHEET = os.environ.get("FREIGHT_SHEET", "Фрахты")
 FREIGHT_ROAD_FACTOR = 1.25   # км по дорогам ~ км по прямой x 1.25 (для €/км старых рейсов)
 FREIGHT_NEAR_KM = 150        # "соседний регион" — центры в пределах 150 км
 COUNTRY_ALIASES = {"FIN": "FI", "EST": "EE", "LAT": "LV", "LTU": "LT", "SWE": "SE", "NOR": "NO",
@@ -1379,7 +1291,6 @@ def get_freights(force=False):
 
 
 # ---------- v1.31: лист "Настройки" (контрактные клиенты) ----------
-SETTINGS_SHEET = os.environ.get("SETTINGS_SHEET", "Настройки")
 _set_cache = {"contract": [], "loaded_at": 0.0, "error": None}
 
 
@@ -1758,7 +1669,6 @@ def api_units():
 
 
 # ---------- v1.51: счётчик запросов к Google Routes (Cloud Monitoring) ----------
-GOOGLE_PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT") or "my-n8n-bot-496614"
 ROUTES_FREE_MONTH = 10000
 _gusage_cache = {"at": 0.0, "data": None}
 
@@ -1867,8 +1777,6 @@ def api_changelog():
 
 
 # ---------- v1.42: Truck Info — недельные отдыхи, карты, стоянки ----------
-def _lv(ts):
-    return (datetime.fromtimestamp(float(ts), timezone.utc) + timedelta(hours=RIGA_UTC_OFFSET)).strftime("%d.%m %H:%M")
 
 
 def _find_unit(q_raw):
@@ -1968,19 +1876,6 @@ def api_truck_info():
 
 
 # ---------- v1.52: выгрузка объектов Mapon (object/list) ----------
-def _wkt_center(wkt):
-    """Центр объекта из WKT Mapon (по умолчанию широта первой): среднее вершин."""
-    nums = re.findall(r"-?\d+(?:\.\d+)?", str(wkt or ""))
-    pts = [(float(nums[i]), float(nums[i + 1])) for i in range(0, len(nums) - 1, 2)]
-    if len(pts) > 1 and pts[0] == pts[-1]:
-        pts = pts[:-1]
-    if not pts:
-        return None, None, 0
-    lat = sum(p[0] for p in pts) / len(pts)
-    lng = sum(p[1] for p in pts) / len(pts)
-    if abs(lat) > 90:                      # на случай долготы первой
-        lat, lng = lng, lat
-    return round(lat, 5), round(lng, 5), len(pts)
 
 
 @app.route("/api/nearest-units")
@@ -2123,21 +2018,6 @@ def api_mapon_objects():
 
 # ---------- v1.41: служебная проверка новых методов Mapon ----------
 MAPON_BASE = "https://mapon.com/api/v1/"
-
-
-def _utc_iso(ts):
-    from datetime import datetime, timezone
-    return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _lv_time(ts):
-    from datetime import datetime, timezone, timedelta
-    try:
-        from zoneinfo import ZoneInfo
-        tz = ZoneInfo("Europe/Riga")
-    except Exception:
-        tz = timezone(timedelta(hours=3))
-    return datetime.fromtimestamp(int(ts), tz).strftime("%d.%m %H:%M")
 
 
 def _check_daily_activities(driver_id, now, days=14):
@@ -3049,27 +2929,6 @@ COUNTRY_TZ = {"PT": "Europe/Lisbon", "FI": "Europe/Helsinki", "EE": "Europe/Tall
 _cc_points = None
 
 
-def _decode_polyline(enc):
-    pts, i, lat, lng = [], 0, 0, 0
-    while enc and i < len(enc):
-        for which in (0, 1):
-            shift = result = 0
-            while True:
-                b = ord(enc[i]) - 63
-                i += 1
-                result |= (b & 0x1F) << shift
-                shift += 5
-                if b < 0x20:
-                    break
-            d = ~(result >> 1) if result & 1 else result >> 1
-            if which == 0:
-                lat += d
-            else:
-                lng += d
-        pts.append((lat / 1e5, lng / 1e5))
-    return pts
-
-
 def _country_at(lat, lng):
     """Страна точки — по ближайшему коду региона (быстрая плоская метрика)."""
     global _cc_points
@@ -3285,25 +3144,6 @@ ON_TARGET_RADIUS_KM = 0.3   # без объекта — трак в радиус
 _mobj_cache = {"at": 0.0, "items": None}
 
 
-def _wkt_points(wkt):
-    nums = re.findall(r"-?\d+(?:\.\d+)?", str(wkt or ""))
-    pts = [(float(nums[i]), float(nums[i + 1])) for i in range(0, len(nums) - 1, 2)]
-    if pts and any(abs(a) > 90 for a, _ in pts):
-        pts = [(b, a) for a, b in pts]
-    return pts
-
-
-def _point_in_poly(lat, lng, poly):
-    inside, n = False, len(poly)
-    for i in range(n):
-        a, b = poly[i], poly[(i + 1) % n]
-        if (a[1] > lng) != (b[1] > lng):
-            x = a[0] + (lng - a[1]) * (b[0] - a[0]) / ((b[1] - a[1]) or 1e-12)
-            if lat < x:
-                inside = not inside
-    return inside
-
-
 def mapon_objects():
     import time
     now = time.time()
@@ -3364,11 +3204,6 @@ FLEET_TRASH_MS = 24 * 3600 * 1000
 FS_BASE = f"https://firestore.googleapis.com/v1/projects/{GOOGLE_PROJECT_ID}/databases/(default)/documents"
 _fs_tok = {"tok": None, "exp": 0.0}
 _fs_lock = threading.Lock()
-
-
-def _now_ms():
-    import time
-    return int(time.time() * 1000)
 
 
 def _fs_headers():
@@ -3497,8 +3332,6 @@ def _fleet_user():
     return current_user_email() or "local"
 
 
-# v2.02: кто может удалять любую строку (кроме создателя и диспетчера строки)
-FLEET_ADMINS = {e.strip().lower() for e in (os.environ.get("FLEET_ADMINS") or "vladimirs.head@gmail.com").split(",") if e.strip()}
 FLEET_LOCK_MS = 60 * 1000
 
 

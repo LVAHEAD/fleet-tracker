@@ -30,7 +30,7 @@ fleet-tracker/
 ├─ fetat/
 │  ├─ __init__.py          # create_app(), APP_VERSION, регистрация blueprints
 │  ├─ config.py            # ключи из env, SHEET_ID, ID группы, пороги и TTL
-│  ├─ utils/               # geo.py, timefmt.py, cache.py (TTLCache)
+│  ├─ utils/               # geo.py, timefmt.py, text.py
 │  ├─ clients/             # только HTTP + кеш
 │  │  ├─ mapon.py  google_routes.py  geocode.py  sheets.py  firestore.py  nakordoni.py  monitoring.py
 │  ├─ domain/              # чистая логика, без Flask и без HTTP
@@ -51,8 +51,8 @@ fleet-tracker/
 | Билд | Шаг | Что делаем | Риск |
 |---|---|---|---|
 | **v3.00** | 0 + 1 | `tests/` на unittest: тахо-ETA, паромы и Инсбрук, ночь Австрии для MAN, ✓ пройдено, разбор фрахта, справочники; эталон списка `/api/*` маршрутов. Changelog → `CHANGELOG.md` (`parse_changelog` читает файл), `REGION_CODES` → `data/region_codes.json`, geonames → `data/` | низкий |
-| v3.01 | 2 | Каркас `fetat/`: `config.py` (env + все константы), `utils/` (haversine, polyline, WKT, время, `TTLCache`). `app.py` пока импортирует из них | низкий |
-| v3.02 | 3 | `clients/`: Mapon (с семафором), Google Routes (кеш, along-route, квота), геокодер, Sheets, Firestore, nakordoni, Monitoring — вместе со своими кешами | средний |
+| v3.01 | 2 | Каркас `fetat/`: `config.py` (переменные окружения, папка данных, сдвиг времени), `utils/` (geo, timefmt, text). Пороги и URL переезжают позже вместе со своей логикой. `app.py` импортирует из них | низкий |
+| v3.02 | 3 | `clients/`: Mapon (с семафором), Google Routes (кеш, along-route, квота), геокодер, Sheets, Firestore, nakordoni, Monitoring — вместе со своими кешами и URL, кеши как есть | средний |
 | v3.03 | 4 | `domain/`: tacho, routing_rules, bans (+ ночь Австрии для MAN), regions, points, trailers, addresses (+ FIN/EE → База), freights | средний |
 | v3.04 | 5 | `store/fleet_store.py`; `services/`: `api_calc` (202 строки) и `api_route` (101 строка) разбираются на функции | выше среднего |
 | v3.05 | 6 | Blueprints в `api/`, `app.py` → shim. Procfile (`gunicorn app:app`) не меняется | средний |
@@ -85,10 +85,16 @@ fleet-tracker/
 
 Откат: Cloud Run → Revisions → трафик на прошлую ревизию.
 
+## После рефакторинга (найдено по ходу, не чинить внутри 3.x-переезда)
+
+- `RIGA_UTC_OFFSET = 3` задан жёстко. С 25.10.2026 Рига на UTC+2 — метки времени по Риге и «западной Европе» съедут на час. Перейти на `zoneinfo`.
+- Тахо-ETA одиночки считает 10-й час, пока есть продления. Открытый вопрос «не считать 10-й час».
+- Единый `TTLCache` вместо ~20 самописных кешей — по желанию, отдельным билдом.
+
 ## Статус
 
 - [x] v3.00 — тесты + данные наружу (27 тестов; app.py 5341 → 3710 строк, 307 → 173 КБ)
-- [ ] v3.01 — каркас, config, utils
+- [x] v3.01 — каркас, config, utils (+ тесты utils)
 - [ ] v3.02 — clients
 - [ ] v3.03 — domain
 - [ ] v3.04 — store + services

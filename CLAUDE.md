@@ -17,7 +17,7 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 - `//обс` — только обсуждение: без кода, коммитов и деплоя.
 - Версии `vX.YY`: X — ключевое изменение, YY — обычные билды. Сейчас идёт ветка **3.x** (рефакторинг, см. `REFACTOR.md`).
 - Каждый билд:
-  - поднимает `APP_VERSION`;
+  - поднимает `APP_VERSION` в `fetat/__init__.py`;
   - добавляет запись сверху в `CHANGELOG.md` (тест проверяет, что верхняя запись = `APP_VERSION`);
   - коммитится как `vX.YY: кратко что сделано`.
 - Мата и шуток в коде нет. Комментарии и тексты UI — на русском.
@@ -31,8 +31,8 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 | Модуль | Что внутри |
 |---|---|
 | `app.py` | shim: `app = create_app()` |
-| `fetat/config.py` | env-переменные, пороги, TTL |
-| `fetat/utils/` | haversine, polyline, WKT, время, `TTLCache` |
+| `fetat/config.py` | переменные окружения, папка `data/`, сдвиг времени Риги (пороги и TTL живут рядом со своей логикой) |
+| `fetat/utils/` | `geo` (haversine, polyline, WKT, GPS), `timefmt`, `text` |
 | `fetat/clients/mapon.py` | unit/list, группы, тахограф, daily_activities, объекты, стоянки; семафор на 3 запроса |
 | `fetat/clients/google_routes.py` | computeRoutes, кеш маршрутов, along-route, счётчик квоты |
 | `fetat/clients/geocode.py` | Nominatim / Photon |
