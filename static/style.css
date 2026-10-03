@@ -890,3 +890,22 @@ input.pt-here { background: #f3fbf4 !important; box-shadow: 0 0 0 3px #dff3e3; }
 .trash-pop .tp-back:hover { background: #eef6ff; border-color: #9cc3ef; }
 .fleet-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #333; color: #fff;
   padding: 9px 16px; border-radius: 8px; font-size: 14px; z-index: 5000; box-shadow: 0 4px 16px rgba(0,0,0,.25); }
+
+/* ---------- v3.09 ---------- */
+/* номер машины не обрезается */
+#fleet-table .col-unit { width: 112px; }
+body.sort-manual #fleet-table .col-unit { width: 128px; }
+/* ▶ / ■ — в размер плашки страны */
+.status-cell .st-ic { display: inline-grid; place-items: center; width: 22px; height: 26px; margin-right: 5px;
+  font-size: 15px; line-height: 1; vertical-align: middle; flex: 0 0 auto; }
+.status-cell .st-stop { font-size: 17px; }
+/* цвет диспетчера — первая клетка строки */
+#fleet-tbody tr td.unit-cell[data-dc="VL"], #fleet-tbody tr:hover td.unit-cell[data-dc="VL"] { background: #ebebeb; }
+#fleet-tbody tr td.unit-cell[data-dc="VV"], #fleet-tbody tr:hover td.unit-cell[data-dc="VV"] { background: #e8dcf7; }
+#fleet-tbody tr td.unit-cell[data-dc="JZ"], #fleet-tbody tr:hover td.unit-cell[data-dc="JZ"] { background: #eceefc; }
+#fleet-tbody tr td.unit-cell[data-dc="VJ"], #fleet-tbody tr:hover td.unit-cell[data-dc="VJ"] { background: #fde6cc; }
+#fleet-tbody tr td.unit-cell[data-dc="JB"], #fleet-tbody tr:hover td.unit-cell[data-dc="JB"] { background: #dcf1e0; }
+#fleet-tbody tr td.unit-cell[data-dc="AA"], #fleet-tbody tr:hover td.unit-cell[data-dc="AA"] { background: #fff; }
+/* нижняя панель фильтров и сортировки, «свернуть / развернуть все» */
+.sort-bar-bottom { margin-top: 8px; }
+.fold-all-btn[hidden] { display: none; }

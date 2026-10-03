@@ -49,6 +49,14 @@ class FirestoreFormatTest(unittest.TestCase):
         self.assertIn(("updateMask.fieldPaths", "updated_at"), params)
         self.assertIn(("currentDocument.exists", "true"), params)
 
+    def test_401_retries_with_fresh_token(self):
+        doc = {"name": "p/d/fetat_notebook/abc", "fields": {}}
+        calls = []
+        with mock.patch.object(fs, "_fs_headers", side_effect=lambda force=False: calls.append(force) or {}), \
+             mock.patch("requests.get", side_effect=[_Resp(401, {"error": {"message": "x"}}), _Resp(200, doc)]):
+            self.assertEqual(fs.fs_get("fetat_notebook", "abc"), {"id": "abc"})
+        self.assertEqual(calls, [False, True])
+
     def test_get_missing_is_none(self):
         with mock.patch("requests.get", return_value=_Resp(404, {"error": {"message": "nf"}})):
             self.assertIsNone(fs.fs_get("fetat_notebook", "nope"))

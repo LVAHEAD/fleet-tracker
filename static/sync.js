@@ -333,7 +333,7 @@
     const pop = document.createElement("div");
     pop.id = "trash-pop";
     pop.className = "trash-pop";
-    pop.innerHTML = '<div class="tp-h"><span>Корзина <span class="tp-sub">— удалённое за 24 ч</span></span><button class="tp-x" title="Закрыть">×</button></div><div class="tp-b">загружаю…</div>';
+    pop.innerHTML = '<div class="tp-h"><span>Корзина <span class="tp-sub">— удалённое за 7 дней</span></span><button class="tp-x" title="Закрыть">×</button></div><div class="tp-b">загружаю…</div>';
     document.body.appendChild(pop);
     const r = btn.getBoundingClientRect();
     pop.style.top = (window.scrollY + r.bottom + 4) + "px";
@@ -381,11 +381,18 @@
     b.type = "button";
     b.id = "trash-btn";
     b.className = "trash-btn";
-    b.title = "Удалённые строки за последние 24 часа — можно вернуть";
+    b.title = "Удалённые строки за последние 7 дней — можно вернуть";
     b.textContent = "корзина";
     bar.appendChild(b);
-    b.addEventListener("click", (e) => { e.stopPropagation(); if (document.getElementById("trash-pop")) closeTrash(); else openTrash(b); });
-    document.addEventListener("click", (e) => { if (!e.target.closest("#trash-pop, #trash-btn")) closeTrash(); });
+    // v3.09: такая же кнопка в нижней панели (под таблицей)
+    const bottom = document.getElementById("sort-bar-bottom");
+    const bb = bottom ? b.cloneNode(true) : null;
+    if (bb) { bb.removeAttribute("id"); bottom.appendChild(bb); }
+    [b, bb].filter(Boolean).forEach((btn) => btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (document.getElementById("trash-pop")) closeTrash(); else openTrash(btn);
+    }));
+    document.addEventListener("click", (e) => { if (!e.target.closest("#trash-pop, .trash-btn")) closeTrash(); });
   }
 
   // ---------- перенос Флота из браузера ----------

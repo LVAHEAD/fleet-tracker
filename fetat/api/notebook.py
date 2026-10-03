@@ -223,7 +223,8 @@ def notebook_delete(rid):
 
 
 def _save_comments(rid, comments, user):
-    fs_update(NB_COLLECTION, rid, {"comments": comments, "updated_at": _now(), "updated_by": user})
+    # комментарий — не правка записи: updated_* не трогаем (иначе в карточке «изм. …»)
+    fs_update(NB_COLLECTION, rid, {"comments": comments, "commented_at": _now()})
 
 
 @bp.route("/api/notebook/<rid>/comments", methods=["POST"])

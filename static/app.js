@@ -703,6 +703,10 @@ function knownDispatchers() {
   });
   return Array.from(set).sort();
 }
+// v3.09: инициалы и цвет диспетчера (первая клетка строки); ключ — имя из e-mail до точки/@
+const DISP_TAGS = { vladimirs: "VL", ladins: "VV", janis: "JZ", vadims: "VJ", jekaterina: "JB", antons: "AA" };
+function dispTag(u) { return DISP_TAGS[dispShort(u).toLowerCase()] || ""; }
+function dispLabel(u) { return dispTag(u) || dispShort(u); }
 function dispHtml(row) {
   if (!fleetMe()) return "";
   const d = rowDisp(row);
@@ -710,7 +714,7 @@ function dispHtml(row) {
   if (d && !opts.includes(d)) opts.push(d);
   return `<select class="disp-sel${d && d !== fleetMe() ? " other" : ""}${d ? "" : " none"}" title="Диспетчер (ответственный за строку)">`
     + `<option value=""${d ? "" : " selected"}>👤 —</option>`
-    + opts.map((u) => `<option value="${escapeHtml(u)}"${u === d ? " selected" : ""}>👤 ${escapeHtml(dispShort(u))}</option>`).join("")
+    + opts.map((u) => `<option value="${escapeHtml(u)}"${u === d ? " selected" : ""}>👤 ${escapeHtml(dispLabel(u))}</option>`).join("")
     + "</select>";
 }
 
@@ -736,7 +740,7 @@ function renderRows() {
       : (cached && cached.extra && cached.extra.length ? etaCellHtml(row, cached, null) : (cached ? cached.eta : "—"));
     const etaMuted = cached ? "" : "muted";
     tr.innerHTML = `
-      <td><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" title="${escapeHtml(window.fleetMetaTitle ? window.fleetMetaTitle(row.id) : "")}" placeholder="номер" />${dispHtml(row)}</td>
+      <td class="unit-cell"${dispTag(rowDisp(row)) ? ` data-dc="${dispTag(rowDisp(row))}"` : ""}><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" title="${escapeHtml(window.fleetMetaTitle ? window.fleetMetaTitle(row.id) : "")}" placeholder="номер" />${dispHtml(row)}</td>
       <td class="status-cell ${statusClass}">${statusHtml}</td>
       <td>
         <div class="target-wrap">
@@ -2114,17 +2118,51 @@ function moveManual(id, dir) {
 })();
 
 // переключатель режима сортировки
+// v3.09: панель продублирована под таблицей (#sort-bar-bottom), обе синхронны; кнопка «свернуть / развернуть все»
 (function () {
-  const bar = document.getElementById("sort-bar");
-  if (!bar) return;
+  const top = document.getElementById("sort-bar");
+  if (!top) return;
+  const bottom = document.createElement("div");
+  bottom.id = "sort-bar-bottom";
+  bottom.className = "sort-bar sort-bar-bottom";
+  top.querySelectorAll(".own-flt, .flt-lbl, button[data-flt], .flt-sep, button[data-sort], span:not([class])").forEach((el) => {
+    if (el.closest(".own-flt") && el.parentElement !== top) return;
+    bottom.appendChild(el.cloneNode(true));
+  });
+  const table = document.getElementById("fleet-table");
+  if (table) table.after(bottom);
+  const bars = [top, bottom];
+  bars.forEach((bar) => {
+    const fb = document.createElement("button");
+    fb.type = "button";
+    fb.className = "fold-all-btn";
+    const sortLbl = [...bar.children].find((el) => el.tagName === "SPAN" && el.textContent.trim() === "Сортировка:");
+    bar.insertBefore(fb, sortLbl ? (sortLbl.previousElementSibling || sortLbl) : null);
+  });
+  const anyOpen = () => rows.some((r) => foldable(r) && r.open);
   const mark = () => {
-    bar.querySelectorAll("button[data-sort]").forEach((b) => b.classList.toggle("on", b.dataset.sort === sortMode));
-    bar.querySelectorAll("button[data-flt]").forEach((b) => b.classList.toggle("on", b.dataset.flt === loFilter));
-    bar.querySelectorAll("button[data-own]").forEach((b) => b.classList.toggle("on", b.dataset.own === ownFilter));
-    bar.classList.toggle("has-own", !!fleetMe());
+    bars.forEach((bar) => {
+      bar.querySelectorAll("button[data-sort]").forEach((b) => b.classList.toggle("on", b.dataset.sort === sortMode));
+      bar.querySelectorAll("button[data-flt]").forEach((b) => b.classList.toggle("on", b.dataset.flt === loFilter));
+      bar.querySelectorAll("button[data-own]").forEach((b) => b.classList.toggle("on", b.dataset.own === ownFilter));
+      bar.classList.toggle("has-own", !!fleetMe());
+      const fb = bar.querySelector(".fold-all-btn");
+      const has = rows.some((r) => foldable(r));
+      fb.hidden = !has;
+      fb.textContent = anyOpen() ? "▾ свернуть все" : "▸ развернуть все";
+      fb.title = anyOpen() ? "Свернуть точки во всех строках" : "Развернуть точки во всех строках";
+    });
   };
   window.fleetMarkBar = mark;
-  bar.addEventListener("click", (e) => {
+  const onClick = (e) => {
+    if (e.target.closest(".fold-all-btn")) {
+      const open = !anyOpen();
+      rows.forEach((r) => { if (foldable(r)) r.open = open; });
+      saveRows();
+      renderRows();
+      mark();
+      return;
+    }
     const o = e.target.closest("button[data-own]");
     if (o) {
       ownFilter = o.dataset.own;
@@ -2151,7 +2189,11 @@ function moveManual(id, dir) {
     saveSortState();
     mark();
     resort();
-  });
+  };
+  bars.forEach((bar) => bar.addEventListener("click", onClick));
+  // после каждой перерисовки строк — обновить подпись «свернуть / развернуть все»
+  const origRender = renderRows;
+  renderRows = function () { origRender.apply(this, arguments); mark(); };
   mark();
 })();
 

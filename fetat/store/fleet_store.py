@@ -1,18 +1,17 @@
 """Общий Флот (v2.00+): строки в Firestore (или в памяти при FLEET_STORE=memory),
-права на удаление, 🔒 блокировка строки, корзина 24 ч, проверка полей."""
+права на удаление, 🔒 блокировка строки, корзина 7 дней, проверка полей."""
 import json
 import os
 import re
 
-import requests
 
-from fetat.clients.firestore import FS_BASE, _fs_check, _fs_decode, _fs_headers
+from fetat.clients.firestore import FS_BASE, _fs_check, _fs_decode, fs_request
 from fetat.config import FLEET_ADMINS
 
 
 # Документ коллекции fleet_rows = одна строка Флота. Поля строки лежат в map "data" как JSON-строки
 # (правка по полю: два человека правят разные поля одной строки — ничего не теряется).
-# Мета: created_by/at, updated_by/at (мс), deleted (+ by/at) — удалённое 24 ч лежит "в корзине".
+# Мета: created_by/at, updated_by/at (мс), deleted (+ by/at) — удалённое 7 дней лежит "в корзине".
 FLEET_COLL = "fleet_rows"
 
 
@@ -22,7 +21,7 @@ FLEET_FIELD_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,40}$")
 FLEET_VALUE_MAX = 30000          # байт JSON на одно поле
 
 
-FLEET_TRASH_MS = 24 * 3600 * 1000
+FLEET_TRASH_MS = 7 * 24 * 3600 * 1000   # v3.09: корзина — неделя
 
 
 def _fp(name):
@@ -35,8 +34,7 @@ class FleetStoreFS:
         if since is not None:
             q["where"] = {"fieldFilter": {"field": {"fieldPath": "updated_at"}, "op": "GREATER_THAN_OR_EQUAL",
                                           "value": {"integerValue": str(int(since))}}}
-        r = _fs_check(requests.post(f"{FS_BASE}:runQuery", json={"structuredQuery": q},
-                                    headers=_fs_headers(), timeout=20))
+        r = _fs_check(fs_request("post", f"{FS_BASE}:runQuery", json={"structuredQuery": q}, timeout=20))
         return [_fs_decode(x["document"]) for x in r.json() if x.get("document")]
 
     def patch(self, rid, set_data=None, unset=(), meta=None):
@@ -57,14 +55,14 @@ class FleetStoreFS:
                 fields[k] = {"nullValue": None}
             else:
                 fields[k] = {"stringValue": str(v)}
-        _fs_check(requests.patch(f"{FS_BASE}/{FLEET_COLL}/{rid}", params=[("updateMask.fieldPaths", m) for m in mask],
-                                 json={"fields": fields}, headers=_fs_headers(), timeout=20))
+        _fs_check(fs_request("patch", f"{FS_BASE}/{FLEET_COLL}/{rid}", params=[("updateMask.fieldPaths", m) for m in mask],
+                                 json={"fields": fields}, timeout=20))
 
     def purge(self, rid):
-        _fs_check(requests.delete(f"{FS_BASE}/{FLEET_COLL}/{rid}", headers=_fs_headers(), timeout=20))
+        _fs_check(fs_request("delete", f"{FS_BASE}/{FLEET_COLL}/{rid}", timeout=20))
 
     def get(self, rid):
-        r = requests.get(f"{FS_BASE}/{FLEET_COLL}/{rid}", headers=_fs_headers(), timeout=20)
+        r = fs_request("get", f"{FS_BASE}/{FLEET_COLL}/{rid}", timeout=20)
         if r.status_code == 404:
             return None
         return _fs_decode(_fs_check(r).json())

@@ -14,16 +14,32 @@ _fs_tok = {"tok": None, "exp": 0.0}
 _fs_lock = threading.Lock()
 
 
-def _fs_headers():
+def _fs_headers(force=False):
+    """Токен сервисного аккаунта. Обновляется за 5 мин до реального конца жизни (на Cloud Run
+    метаданные отдают токен, которому может остаться меньше часа — v3.09, раньше жили «45 мин» и ловили 401)."""
     import time
     with _fs_lock:
-        if not _fs_tok["tok"] or time.time() > _fs_tok["exp"]:
+        if force or not _fs_tok["tok"] or time.time() > _fs_tok["exp"]:
             import google.auth
             import google.auth.transport.requests
             creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/datastore"])
             creds.refresh(google.auth.transport.requests.Request())
-            _fs_tok.update(tok=creds.token, exp=time.time() + 45 * 60)
+            exp = time.time() + 30 * 60
+            if getattr(creds, "expiry", None):
+                import calendar
+                exp = calendar.timegm(creds.expiry.utctimetuple())   # expiry — наивное время UTC
+            _fs_tok.update(tok=creds.token, exp=max(time.time() + 30, exp - 5 * 60))
         return {"Authorization": f"Bearer {_fs_tok['tok']}"}
+
+
+def fs_request(method, url, **kw):
+    """Запрос к Firestore с токеном; на 401 — новый токен и один повтор."""
+    import requests
+    send = getattr(requests, method)
+    r = send(url, headers=_fs_headers(), **kw)
+    if r.status_code == 401:
+        r = send(url, headers=_fs_headers(force=True), **kw)
+    return r
 
 
 def _fs_check(r):
@@ -111,19 +127,17 @@ def _decode_doc(doc):
 
 def fs_insert(collection: str, doc_id: str, data: dict):
     """Создать документ (если такой id уже есть — ошибка Firestore)."""
-    import requests
     fields = {k: _encode_value(v) for k, v in data.items() if k != "id"}
-    resp = requests.post(f"{FS_BASE}/{collection}", params={"documentId": doc_id},
-                         json={"fields": fields}, headers=_fs_headers(), timeout=20)
+    resp = fs_request("post", f"{FS_BASE}/{collection}", params={"documentId": doc_id},
+                         json={"fields": fields}, timeout=20)
     _fs_check(resp)
     return _decode_doc(resp.json())
 
 
 def fs_get(collection: str, doc_id: str, fields=None):
     """Документ целиком (или только поля fields). Нет документа — None."""
-    import requests
     params = [("mask.fieldPaths", f) for f in fields] if fields else None
-    resp = requests.get(f"{FS_BASE}/{collection}/{doc_id}", params=params, headers=_fs_headers(), timeout=20)
+    resp = fs_request("get", f"{FS_BASE}/{collection}/{doc_id}", params=params, timeout=20)
     if resp.status_code == 404:
         return None
     _fs_check(resp)
@@ -132,7 +146,6 @@ def fs_get(collection: str, doc_id: str, fields=None):
 
 def fs_query(collection: str, fields=None) -> list:
     """Все документы коллекции (постранично). fields — только эти поля (тяжёлые не тянем)."""
-    import requests
     out, token = [], None
     for _ in range(50):
         params = [("pageSize", "300")]
@@ -140,7 +153,7 @@ def fs_query(collection: str, fields=None) -> list:
             params += [("mask.fieldPaths", f) for f in fields]
         if token:
             params.append(("pageToken", token))
-        resp = requests.get(f"{FS_BASE}/{collection}", params=params, headers=_fs_headers(), timeout=30)
+        resp = fs_request("get", f"{FS_BASE}/{collection}", params=params, timeout=30)
         _fs_check(resp)
         js = resp.json()
         out += [_decode_doc(d) for d in js.get("documents", [])]
@@ -152,17 +165,15 @@ def fs_query(collection: str, fields=None) -> list:
 
 def fs_update(collection: str, doc_id: str, data: dict):
     """Обновить только переданные поля (остальные не трогаются). Документ должен существовать."""
-    import requests
     fields = {k: _encode_value(v) for k, v in data.items() if k != "id"}
     params = [("updateMask.fieldPaths", k) for k in fields] + [("currentDocument.exists", "true")]
-    resp = requests.patch(f"{FS_BASE}/{collection}/{doc_id}", params=params,
-                          json={"fields": fields}, headers=_fs_headers(), timeout=20)
+    resp = fs_request("patch", f"{FS_BASE}/{collection}/{doc_id}", params=params,
+                          json={"fields": fields}, timeout=20)
     _fs_check(resp)
     return _decode_doc(resp.json())
 
 
 def fs_delete(collection: str, doc_id: str):
     """Удалить документ."""
-    import requests
-    resp = requests.delete(f"{FS_BASE}/{collection}/{doc_id}", headers=_fs_headers(), timeout=20)
+    resp = fs_request("delete", f"{FS_BASE}/{collection}/{doc_id}", timeout=20)
     _fs_check(resp)
