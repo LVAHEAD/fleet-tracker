@@ -49,7 +49,8 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim):
             out.append({"error": f"Не удалось распознать: {tstr}"})
             break
         leg_km, leg_poly = road_distance_km_google(prev_lat, prev_lng, lat, lng, GOOGLE_API_KEY,
-                                                   fleet_waypoints(prev_lat, prev_lng, lat, lng))   # v2.03
+                                                   fleet_waypoints(prev_lat, prev_lng, lat, lng),   # v2.03
+                                                   kind="leg")   # v3.13: плечо — долгий общий кеш
         cum_km += leg_km
         n_stops += 1
         dwell = n_stops * UNLOAD_STOP_SEC

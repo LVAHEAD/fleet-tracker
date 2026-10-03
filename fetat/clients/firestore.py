@@ -177,3 +177,23 @@ def fs_delete(collection: str, doc_id: str):
     """Удалить документ."""
     resp = fs_request("delete", f"{FS_BASE}/{collection}/{doc_id}", timeout=20)
     _fs_check(resp)
+
+
+def fs_set(collection: str, doc_id: str, data: dict):
+    """v3.13: записать документ целиком (создать или заменить)."""
+    fields = {k: _encode_value(v) for k, v in data.items() if k != "id"}
+    resp = fs_request("patch", f"{FS_BASE}/{collection}/{doc_id}", json={"fields": fields}, timeout=20)
+    _fs_check(resp)
+
+
+def fs_increment(collection: str, doc_id: str, counts: dict):
+    """v3.13: атомарно прибавить к числовым полям документа (документ создаётся сам).
+    counts — {"поле": число}; имена полей — латиница, цифры, «_»."""
+    if not counts:
+        return
+    doc = f"{FS_BASE}/{collection}/{doc_id}".split("/documents/", 1)
+    name = f"projects/{GOOGLE_PROJECT_ID}/databases/(default)/documents/{doc[1]}"
+    body = {"writes": [{"transform": {"document": name, "fieldTransforms": [
+        {"fieldPath": k, "increment": {"integerValue": str(int(v))}} for k, v in counts.items()]}}]}
+    url = f"https://firestore.googleapis.com/v1/projects/{GOOGLE_PROJECT_ID}/databases/(default)/documents:commit"
+    _fs_check(fs_request("post", url, json=body, timeout=20))

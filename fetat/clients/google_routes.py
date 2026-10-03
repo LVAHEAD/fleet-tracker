@@ -10,9 +10,26 @@ from fetat.utils.geo import _decode_polyline, _encode_polyline, haversine_km
 ROUTES_API_URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
 
 
-# v1.50: кеш маршрутов Флота — если трак почти не сдвинулся (~1 км) и таргет тот же,
-# 15 минут отдаём прошлый маршрут, не спрашивая Google (Ctrl+F5, "Обновить всё").
+# v1.50 / v3.13: кеш маршрутов. До v3.13 кеш жил в памяти одного процесса: 2 воркера × N инстансов
+# Cloud Run, сброс при каждом деплое и засыпании — поэтому «кеш сэкономил 0». С v3.13 кеш общий,
+# в Firestore (коллекция routes_cache), плюс память процесса как первый уровень.
+#   • плечо точка → точка не меняется, пока не меняются сами точки: живёт LEG_TTL (30 дней);
+#   • машина → первая непройденная: прошлый ответ отдаём, пока машина в TRUCK_MOVE_KM от места
+#     прошлого запроса и не прошло ROUTE_CACHE_TTL; дальше — остаток по уже известной линии маршрута
+#     (ALONG_ROUTE_*); новый запрос к Google — только при сходе с маршрута или когда линия устарела.
 ROUTE_CACHE_TTL = 15 * 60
+
+
+LEG_TTL = 30 * 24 * 3600
+
+
+TRUCK_MOVE_KM = 3.0
+
+
+ROUTES_CACHE_COLL = "routes_cache"
+
+
+ROUTES_STATS_COLL = "routes_stats"
 
 
 _route_cache = {}
@@ -24,6 +41,35 @@ _route_cache_lock = threading.Lock()
 _route_stats = {"day": None, "calls": 0, "cache_hits": 0}   # v1.51: за сутки квоты (по времени Google)
 
 
+_ctx = threading.local()      # v3.13: кто и зачем считает (для разбивки в счётчике)
+
+
+_stats_buf = {}               # v3.13: счётчики, ещё не отправленные в Firestore
+
+
+_stats_flush = {"at": 0.0, "day": None}
+
+
+STATS_FLUSH_SEC = 60
+
+
+def _shared_on():
+    """Общий кеш и общие счётчики — только с настоящим Firestore (локально и в тестах — память)."""
+    import os
+    return os.environ.get("FLEET_STORE") != "memory"
+
+
+def set_route_ctx(why=None, user=None):
+    """v3.13: причина расчёта (edit / all / auto / sync / route) и пользователь — для разбивки запросов."""
+    _ctx.why = _slug(why) or "other"
+    _ctx.user = _slug((user or "").split("@")[0]) or "anon"
+
+
+def _slug(v):
+    import re
+    return re.sub(r"[^a-z0-9_]", "_", str(v or "").lower())[:30]
+
+
 def _quota_day():
     try:
         from zoneinfo import ZoneInfo
@@ -32,11 +78,67 @@ def _quota_day():
         return (datetime.now(timezone.utc) - timedelta(hours=7)).strftime("%Y-%m-%d")
 
 
-def _route_stat(kind):
+def _route_stat(kind, what=None):
+    """kind: "calls" (ушло в Google) | "cache_hits" (взято из кеша); what — truck / leg / multi."""
+    import time
     day = _quota_day()
     if _route_stats["day"] != day:
         _route_stats.update(day=day, calls=0, cache_hits=0)
     _route_stats[kind] += 1
+    if not _shared_on():
+        return
+    short = "c" if kind == "calls" else "h"
+    why = getattr(_ctx, "why", None) or "other"
+    user = getattr(_ctx, "user", None) or "anon"
+    keys = [short, f"{short}_why_{why}"]
+    if what:
+        keys.append(f"{short}_kind_{what}")
+    if short == "c":
+        keys.append(f"c_user_{user}")
+    with _route_cache_lock:
+        if _stats_flush["day"] not in (None, day):
+            _stats_buf.clear()          # сутки сменились до отправки — старое уже не важно
+        _stats_flush["day"] = day
+        for k in keys:
+            _stats_buf[k] = _stats_buf.get(k, 0) + 1
+        due = time.time() - _stats_flush["at"] >= STATS_FLUSH_SEC
+        if due:
+            _stats_flush["at"] = time.time()
+    if due:
+        threading.Thread(target=flush_route_stats, daemon=True).start()
+
+
+def flush_route_stats():
+    """Отправить накопленные счётчики в Firestore (routes_stats/<сутки Google>)."""
+    from fetat.clients.firestore import fs_increment
+    with _route_cache_lock:
+        buf, day = dict(_stats_buf), _stats_flush["day"]
+        _stats_buf.clear()
+    if not buf or not day:
+        return
+    try:
+        fs_increment(ROUTES_STATS_COLL, day, buf)
+    except Exception:
+        with _route_cache_lock:          # не получилось — вернуть в буфер до следующего раза
+            for k, v in buf.items():
+                _stats_buf[k] = _stats_buf.get(k, 0) + v
+
+
+def read_route_stats(day=None):
+    """Общие счётчики за сутки Google (с учётом ещё не отправленных из этого процесса)."""
+    out = {}
+    if _shared_on():
+        try:
+            from fetat.clients.firestore import fs_get
+            out = fs_get(ROUTES_STATS_COLL, day or _quota_day()) or {}
+            out.pop("id", None)
+        except Exception:
+            out = {}
+    with _route_cache_lock:
+        if _stats_flush["day"] == (day or _quota_day()):
+            for k, v in _stats_buf.items():
+                out[k] = int(out.get(k) or 0) + v
+    return {k: int(v or 0) for k, v in out.items()}
 
 
 # v1.59: "по уже известному маршруту" — если к тому же таргету маршрут запрошен меньше часа
@@ -83,33 +185,123 @@ def _along_lookup(tkey, lat, lng, now):
     return remain, _encode_polyline([(lat, lng)] + pts[best_i:])
 
 
-def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None):
+def _doc_id(key):
+    import hashlib
+    return hashlib.sha1(repr(key).encode("utf-8")).hexdigest()[:32]
+
+
+def _shared_get(key):
+    if not _shared_on():
+        return None
+    try:
+        from fetat.clients.firestore import fs_get
+        return fs_get(ROUTES_CACHE_COLL, _doc_id(key))
+    except Exception:
+        return None
+
+
+def _shared_put(key, data):
+    if not _shared_on():
+        return
+    def put():
+        try:
+            from fetat.clients.firestore import fs_set
+            fs_set(ROUTES_CACHE_COLL, _doc_id(key), data)
+        except Exception:
+            pass
+    threading.Thread(target=put, daemon=True).start()
+
+
+def _wps_key(waypoints):
+    return tuple((round(a, 4), round(b, 4)) for a, b in (waypoints or []))
+
+
+def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None, kind="truck"):
+    """(км, линия маршрута). kind="leg" — плечо между двумя неподвижными точками,
+    kind="truck" — от машины до точки (начало маршрута движется)."""
+    if kind == "leg":
+        return _leg_route(lat1, lng1, lat2, lng2, api_key, waypoints)
+    return _truck_route(lat1, lng1, lat2, lng2, api_key, waypoints)
+
+
+def _leg_route(lat1, lng1, lat2, lng2, api_key, waypoints):
     import time
-    key = (round(lat1, 2), round(lng1, 2), round(lat2, 4), round(lng2, 4),
-           tuple((round(a, 4), round(b, 4)) for a, b in (waypoints or [])))
-    tkey = key[2:]
+    key = ("leg", round(lat1, 4), round(lng1, 4), round(lat2, 4), round(lng2, 4), _wps_key(waypoints))
     now = time.time()
     with _route_cache_lock:
         hit = _route_cache.get(key)
-        if hit and now - hit[0] < ROUTE_CACHE_TTL:
-            _route_stat("cache_hits")
-            return hit[1]
-        along = _along_lookup(tkey, lat1, lng1, now)
-        if along:
-            _route_stat("cache_hits")
-            return along
-        _route_stat("calls")
+    if hit and now - hit[0] < LEG_TTL:
+        _route_stat("cache_hits", "leg")
+        return hit[1]
+    doc = _shared_get(key)
+    if doc and now - float(doc.get("at") or 0) < LEG_TTL and doc.get("dist") is not None:
+        res = (float(doc["dist"]), doc.get("poly"))
+        with _route_cache_lock:
+            _route_cache[key] = (float(doc["at"]), res)
+        _route_stat("cache_hits", "leg")
+        return res
+    _route_stat("calls", "leg")
     res = _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints)
     with _route_cache_lock:
-        if len(_route_cache) > 2000:
-            for k in [k for k, v in _route_cache.items() if now - v[0] >= ROUTE_CACHE_TTL]:
-                _route_cache.pop(k, None)
-        if len(_along_cache) > 500:
-            for k in [k for k, v in _along_cache.items() if now - v["at"] >= ALONG_ROUTE_TTL]:
-                _along_cache.pop(k, None)
+        _trim(now)
         _route_cache[key] = (now, res)
-        _along_remember(tkey, res[0], res[1], now)
+    _shared_put(key, {"at": now, "dist": res[0], "poly": res[1] or ""})
     return res
+
+
+def _truck_route(lat1, lng1, lat2, lng2, api_key, waypoints):
+    import time
+    tkey = ("truck", round(lat2, 4), round(lng2, 4), _wps_key(waypoints))
+    now = time.time()
+    with _route_cache_lock:
+        mem = _route_cache.get(tkey)
+    res = _truck_from_entry(mem, tkey, lat1, lng1, now)
+    if res is None:
+        doc = _shared_get(tkey)
+        if doc and doc.get("dist") is not None and (not mem or float(doc.get("at") or 0) > mem["at"]):
+            entry = {"at": float(doc["at"]), "olat": float(doc["olat"]), "olng": float(doc["olng"]),
+                     "res": (float(doc["dist"]), doc.get("poly"))}
+            with _route_cache_lock:
+                _route_cache[tkey] = entry
+                _along_remember(tkey, entry["res"][0], entry["res"][1], entry["at"])
+            res = _truck_from_entry(entry, tkey, lat1, lng1, now)
+    if res is not None:
+        _route_stat("cache_hits", "truck")
+        return res
+    _route_stat("calls", "truck")
+    res = _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints)
+    entry = {"at": now, "olat": lat1, "olng": lng1, "res": res}
+    with _route_cache_lock:
+        _trim(now)
+        _route_cache[tkey] = entry
+        _along_remember(tkey, res[0], res[1], now)
+    _shared_put(tkey, {"at": now, "olat": lat1, "olng": lng1, "dist": res[0], "poly": res[1] or ""})
+    return res
+
+
+def _truck_from_entry(entry, tkey, lat, lng, now):
+    """Ответ из кеша для машины: рядом с местом прошлого запроса — прошлый ответ;
+    иначе — остаток по известной линии маршрута, если машина на ней."""
+    if not entry:
+        return None
+    if now - entry["at"] < ROUTE_CACHE_TTL and haversine_km(lat, lng, entry["olat"], entry["olng"]) <= TRUCK_MOVE_KM:
+        return entry["res"]
+    with _route_cache_lock:
+        return _along_lookup(tkey, lat, lng, now)
+
+
+def _trim(now):
+    """Не раздувать память процесса (вызывать под _route_cache_lock)."""
+    if len(_route_cache) > 3000:
+        for k in list(_route_cache):
+            v = _route_cache[k]
+            at = v["at"] if isinstance(v, dict) else v[0]
+            ttl = LEG_TTL if k and k[0] == "leg" else ALONG_ROUTE_TTL
+            if now - at >= ttl:
+                _route_cache.pop(k, None)
+    if len(_along_cache) > 500:
+        for k in [k for k, v in _along_cache.items() if now - v["at"] >= ALONG_ROUTE_TTL]:
+            _along_cache.pop(k, None)
 
 
 def _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None):

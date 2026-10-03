@@ -859,7 +859,7 @@ function renderRows() {
           <button class="lo-btn ${loClass(row.lo)}" title="${loTitle(row.lo)}">${loText(row.lo)}</button>
           ${cached && cached.targetBadge ? cached.targetBadge : '<span class="cc-badge target-cc" hidden></span>'}
           <input list="points-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" title="${escapeHtml(row.target)}" placeholder="ГПС, город, код или машина" />
-          ${multi ? '<button class="stop-x" data-k="0" title="Убрать эту точку">×</button><span class="add-stop-sp"></span>' : '<button class="add-stop" title="Добавить ещё таргет (следующая выгрузка / погрузка)">+</button>'}
+          ${multi ? '<button class="stop-x" data-k="0" title="Убрать эту точку">×</button>' + addStopHtml(row, 0) : '<button class="add-stop" data-k="0" title="Добавить ещё таргет (следующая выгрузка / погрузка)">+</button>'}
         </div>
         ${extraTargetsHtml(row, cached)}
       </td>
@@ -1040,19 +1040,29 @@ function attachRowHandlers() {
     }));
 
     // v1.64: несколько таргетов в строке
-    const addStop = tr.querySelector(".add-stop");
-    if (addStop) addStop.addEventListener("click", (e) => {
+    tr.querySelectorAll(".add-stop").forEach((b) => b.addEventListener("click", (e) => {
       e.stopPropagation();
       const row = rows.find((r) => r.id === id);
       if (!row) return;
       if ((row.extra || []).length + 1 >= MAX_STOPS) return;   // v1.74: максимум 12 точек
-      row.extra = (row.extra || []).concat([{ lo: "", target: "", delivery: "", note: "" }]);
+      // v3.13: вставка после точки k (0 — ①); точки ниже сдвигаются со своими полями
+      const ex = row.extra || [];
+      const k = Math.min(Number(b.dataset.k || ex.length), ex.length);
+      ex.splice(k, 0, { lo: "", target: "", delivery: "", note: "" });
+      row.extra = ex;
+      if (row.done) {   // ручные ✓ — по новым номерам
+        const nd = {};
+        Object.keys(row.done).forEach((j) => { nd[Number(j) > k ? Number(j) + 1 : Number(j)] = row.done[j]; });
+        row.done = nd;
+      }
       row.open = true;
+      delete lastCalcText[id];
       saveRows();
       renderRows();
-      const inp = document.querySelector(`#fleet-tbody tr[data-id="${id}"] .xt-input[data-k="${row.extra.length}"]`);
+      const inp = document.querySelector(`#fleet-tbody tr[data-id="${id}"] .xt-input[data-k="${k + 1}"]`);
       if (inp) inp.focus();
-    });
+      if (k + 1 < row.extra.length) calcRow(id);   // вставили в середину — нумерация на сервере сдвинулась
+    }));
     tr.querySelectorAll(".fold-t, .fold-more").forEach((b) => b.addEventListener("click", (e) => {
       e.stopPropagation();
       const row = rows.find((r) => r.id === id);
@@ -1175,10 +1185,17 @@ function extraTargetsHtml(row, cached) {
       <button class="stop-x" data-k="${k}" title="Убрать эту точку">×</button>
       ${fv && fv[1] === k
         ? `<button class="fold-more${hiddenHasCom(row) ? " has-com" : ""}" title="${escapeHtml(foldTitle(row, cached))}">${foldMoreLabel(row)}</button>`
-        : last && ex.length + 1 < MAX_STOPS ? '<button class="add-stop" title="Добавить ещё таргет">+</button>'
-        : last ? `<span class="add-stop-sp" title="Максимум ${MAX_STOPS} точек"></span>` : '<span class="add-stop-sp"></span>'}
+        : addStopHtml(row, k)}
     </div>`;
   }).join("");
+}
+
+// v3.13: «+» у каждой точки — вставить новую точку сразу после неё (у последней — в конец)
+function addStopHtml(row, k) {
+  const n = 1 + (row.extra ? row.extra.length : 0);
+  if (n >= MAX_STOPS) return `<span class="add-stop-sp" title="Максимум ${MAX_STOPS} точек"></span>`;
+  const last = k === n - 1;
+  return `<button class="add-stop${last ? "" : " add-mid"}" data-k="${k}" title="${last ? "Добавить ещё таргет" : `Вставить точку после ${STOP_NUM[k + 1]}`}">+</button>`;
 }
 
 // v1.66: 3 и больше точек — по умолчанию свёрнуто: видны ① ②, дальше сводка
@@ -1334,7 +1351,10 @@ function markDeliveryInput(tr, row) {
   if (!inp || !row) return;
   const w = parseDeliveryWindow(row.delivery);
   const ref = w ? (w.end || w.start) : null;
-  const bad = !!(ref && Date.now() - ref.getTime() > 2 * 86400000);
+  // v3.13: точка ① уже пройдена (✓ авто или вручную) — дата в прошлом нормальна
+  const c = lastCalcText[row.id];
+  const passed = (row.done && row.done[0] === true) || !!(c && c.doneFlags && c.doneFlags[0] && c.doneFlags[0].done);
+  const bad = !passed && !!(ref && Date.now() - ref.getTime() > 2 * 86400000);
   inp.classList.toggle("del-suspect", bad);
   inp.title = bad ? `${row.delivery}\n⚠ Дата в прошлом — проверь (опечатка?)` : (row.delivery || "");
 }
@@ -1345,19 +1365,23 @@ function composeEta(row, c) {
   const bans = c.bansR || [];
   const near = c.nearR || [];
   let btn;
-  if (row.noban) {
-    btn = `<button class="eta-nb nb-on" title="NoBan включён — запреты по пути не показываются. Клик — выключить">NB</button>`;
+  // v3.13: клик по кнопке — по кругу: авто → NB (груз без запретов) → 🚫 вручную (запрет на всю строку) → авто
+  if (row.fban) {
+    btn = `<button class="eta-nb nb-force" title="Запрет поставлен вручную — груз под запретом на всём маршруте. Клик — снова по фиду">🚫</button>`;
+  } else if (row.noban) {
+    btn = `<button class="eta-nb nb-on" title="NoBan включён — запреты по пути не показываются. Клик — поставить запрет вручную">NB</button>`;
   } else if (bans.length) {
     btn = `<button class="eta-nb nb-ban" title="${escapeHtml("Запрет по пути:\n" + bans.join("\n") + "\nКлик — NoBan (груз без запретов)")}">🚫</button>`;
   } else if (near.length) {   // v3.12: запрета по расчёту нет, но выезд из страны меньше чем за 2 ч до его начала
     btn = `<button class="eta-nb nb-near" title="${escapeHtml("Впритык к запрету:\n" + near.join("\n") + "\nКлик — NoBan")}">⚠</button>`;
   } else {
-    btn = `<button class="eta-nb" title="Запретов по пути нет. Клик — NoBan">⊘</button>`;
+    btn = `<button class="eta-nb" title="Запретов по пути нет. Клик — NoBan, ещё клик — запрет вручную">⊘</button>`;
   }
   const tip = (c.tipLines || []).slice();
+  if (row.fban) tip.push("🚫 Запрет поставлен вручную (груз не освобождён, ETA не сдвинут)");
   if (bans.length) {
-    tip.push(row.noban ? "NoBan — запреты по пути скрыты:" : "🚫 Запрет по пути (ETA не сдвинут):", ...bans);
-  } else if (row.noban) {
+    tip.push(row.noban && !row.fban ? "NoBan — запреты по пути скрыты:" : "🚫 Запрет по пути (ETA не сдвинут):", ...bans);
+  } else if (row.noban && !row.fban) {
     tip.push("NoBan включён");
   }
   if (!bans.length && near.length) tip.push("⚠ Впритык к запрету (ETA не сдвинут):", ...near);
@@ -1391,7 +1415,10 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
   const row = rows.find((r) => r.id === id);
   const c = lastCalcText[id];
   if (!row) return;
-  row.noban = !row.noban;
+  // v3.13: авто → NB → запрет вручную → авто
+  if (row.fban) { delete row.fban; delete row.noban; }
+  else if (row.noban) { delete row.noban; row.fban = true; }
+  else row.noban = true;
   saveRows();
   if (c && c.etaCore) {
     const composed = composeEta(row, c);
@@ -1878,7 +1905,8 @@ function updateRowField(id, field, value) {
   }
 }
 
-async function calcRow(id) {
+// v3.13: why — зачем считаем (edit / all / auto / sync), для разбивки запросов к Google
+async function calcRow(id, why) {
   const row = rows.find((r) => r.id === id);
   if (!row || !row.unit) return;
 
@@ -1900,7 +1928,7 @@ async function calcRow(id) {
         { unit: row.unit, target: row.target },
         row.extra && row.extra.length ? { extra: row.extra.map((x) => x.target || "") } : {},
         row.trailer ? { trailer: row.trailer } : {},
-        { done: doneManualArray(row) })),
+        { done: doneManualArray(row), why: why || "edit" })),
     });
     const data = await res.json();
     if (!data.error) remapDone(data);
@@ -2067,6 +2095,7 @@ async function calcRow(id) {
                          allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null,
                          nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };
     applyDoneClasses(tr, row, lastCalcText[id]);
+    markDeliveryInput(tr, row);   // v3.13: у пройденной ① «дата в прошлом» не показываем
     stripeRow(tr, row);   // v3.10: пройденные точки меняют L/O строки
     // v3.11: пройденные точки сдвинули окно свёрнутой строки — перерисовать
     if (fv0 && foldVisible(row).join() !== fv0) scheduleRender();
@@ -2280,7 +2309,7 @@ function extraCalc(data) {
 }
 
 function calcAllRows(opts) {
-  const jobs = rows.filter((r) => r.unit).map((r) => calcRow(r.id));
+  const jobs = rows.filter((r) => r.unit).map((r) => calcRow(r.id, opts && opts.auto ? "auto" : "all"));
   // v1.53: после "Обновить всё" (и загрузки) — пересортировать по выбранному режиму;
   // v1.59: автообновление строки не переставляет
   const resortAfter = !(opts && opts.auto);

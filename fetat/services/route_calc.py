@@ -27,9 +27,9 @@ def compute_multi_route(points, api_key):
     with _route_cache_lock:
         hit = _route_cache.get(("multi",) + key)
         if hit and now - hit[0] < ROUTE_CACHE_TTL:
-            _route_stat("cache_hits")
+            _route_stat("cache_hits", "multi")
             return hit[1]
-        _route_stat("calls")
+        _route_stat("calls", "multi")
     res = _compute_multi_route(points, api_key)
     with _route_cache_lock:
         _route_cache[("multi",) + key] = (now, res)

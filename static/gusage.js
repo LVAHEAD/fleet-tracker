@@ -1,6 +1,7 @@
 /*
 Fleet ETA Tracker — плашка-счётчик запросов к Google Routes (v1.51)
 Месяц / 10 000 бесплатных (Cloud Monitoring), сегодня, прогноз, экономия кеша.
+v3.13: разбивка за сутки — что и кто дёрнул Google (общие счётчики всех процессов).
 Обновление раз в 10 минут. Клик — отчёт по оплате в Google Cloud.
 */
 (function () {
@@ -29,6 +30,7 @@ Fleet ETA Tracker — плашка-счётчик запросов к Google Rou
         `Сегодня (сутки Google): ${fmt(d.today)}`,
         `Прогноз на месяц: ~${fmt(d.forecast)}` + (over ? ` — сверх бесплатного ~${fmt(over)}` : " — в пределах бесплатного"),
         `Кеш сегодня сэкономил: ${fmt(d.cache_hits)} запросов`,
+        ...breakdown(d.stats),
         "Клик — отчёт по оплате в Google Cloud",
       ].join("\n");
     } catch (e) {
@@ -36,6 +38,24 @@ Fleet ETA Tracker — плашка-счётчик запросов к Google Rou
       el.classList.add("gu-err");
       el.title = "Счётчик Google: ошибка запроса";
     }
+  }
+  const WHY = { edit: "правка строки", all: "«Обновить всё» / загрузка", auto: "автообновление",
+    sync: "чужие правки", route: "From → To", other: "прочее" };
+  const KIND = { truck: "машина → точка", leg: "точка → точка", multi: "From → To" };
+  // v3.13: сколько ушло в Google и сколько взято из кеша — по причинам, видам и людям
+  function breakdown(st) {
+    if (!st) return [];
+    const out = [`Сегодня наш сервер: в Google ${fmt(st.c || 0)}, из кеша ${fmt(st.h || 0)}`];
+    const part = (prefix, names, title) => {
+      const items = Object.keys(st).filter((k) => k.startsWith(prefix) && st[k] > 0)
+        .sort((a, b) => st[b] - st[a])
+        .map((k) => { const n = k.slice(prefix.length); return `  ${names ? (names[n] || n) : n}: ${fmt(st[k])}`; });
+      if (items.length) out.push(title, ...items);
+    };
+    part("c_why_", WHY, "В Google — почему:");
+    part("c_kind_", KIND, "В Google — что:");
+    part("c_user_", null, "В Google — кто:");
+    return out;
   }
   load();
   setInterval(load, 10 * 60 * 1000);

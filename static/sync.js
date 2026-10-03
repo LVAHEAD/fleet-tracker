@@ -175,7 +175,7 @@
     renderRows();
     const ids = Array.from(S.pendingRecalc);
     S.pendingRecalc.clear();
-    ids.forEach((id) => { if (rows.some((r) => r.id === id && r.unit)) calcRow(id); });
+    ids.forEach((id) => { if (rows.some((r) => r.id === id && r.unit)) calcRow(id, "sync"); });
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(rows)); } catch (e) { /* ignore */ }
   }
   document.addEventListener("focusout", () => setTimeout(flush, 50));

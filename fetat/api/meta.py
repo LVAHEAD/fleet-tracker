@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, jsonify, render_template, request
 
 from fetat import APP_VERSION
-from fetat.clients.google_routes import _quota_day, _route_stats, ROUTES_FREE_MONTH
+from fetat.clients.google_routes import _quota_day, _route_stats, read_route_stats, ROUTES_FREE_MONTH
 from fetat.clients.monitoring import _gusage_cache, _monitoring_sum
 from fetat.config import GOOGLE_MAPS_JS_KEY, ROOT_DIR
 
@@ -37,7 +37,7 @@ def api_google_usage():
     import time
     now = time.time()
     if _gusage_cache["data"] and now - _gusage_cache["at"] < 600 and request.args.get("refresh") != "1":
-        return jsonify(_gusage_cache["data"])
+        return jsonify(_with_stats(dict(_gusage_cache["data"])))
     try:
         from zoneinfo import ZoneInfo
         pt = ZoneInfo("America/Los_Angeles")
@@ -65,7 +65,17 @@ def api_google_usage():
     except Exception as e:
         out["error"] = str(e)
     _gusage_cache.update(at=now, data=out)
-    return jsonify(out)
+    return jsonify(_with_stats(dict(out)))
+
+
+def _with_stats(out):
+    """v3.13: общие счётчики всех процессов за сутки Google: из кеша / в Google, по причинам и людям."""
+    st = read_route_stats()
+    if st:
+        out["stats"] = st
+        out["cache_hits"] = st.get("h", out.get("cache_hits", 0))
+        out["calls_local"] = st.get("c", out.get("calls_local", 0))
+    return out
 
 
 CHANGELOG_PATH = os.path.join(ROOT_DIR, "CHANGELOG.md")
