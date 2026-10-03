@@ -141,13 +141,16 @@ def read_route_stats(day=None):
     return {k: int(v or 0) for k, v in out.items()}
 
 
-# v1.59: "по уже известному маршруту" — если к тому же таргету маршрут запрошен меньше часа
-# назад, а трак едет по нему (ближе ~1.5 км к линии), остаток км считаем сами по линии,
-# без запроса к Google. Новый маршрут — при смене таргета, сходе с маршрута или раз в час.
-ALONG_ROUTE_TTL = 60 * 60
+# v1.59 / v3.14: «ведение по маршруту». Линию маршрута берём у Google один раз, дальше машину ведём
+# по ней сами: находим ближайший отрезок линии (проекция на отрезок, а не только на вершины —
+# на трассе вершины бывают редко) и считаем остаток км по линии, без запроса к Google.
+# Новый запрос — только если машина ушла с линии дальше ALONG_ROUTE_MAX_OFF_KM, сменилась точка
+# (другой ключ) или линии больше ALONG_ROUTE_TTL. Маршрут считаем без пробок (TRAFFIC_UNAWARE),
+# так что «свежесть» нужна только на случай другой дороги — 3 часов хватает.
+ALONG_ROUTE_TTL = 3 * 3600
 
 
-ALONG_ROUTE_MAX_OFF_KM = 1.5
+ALONG_ROUTE_MAX_OFF_KM = 2.0
 
 
 _along_cache = {}   # (target, waypoints) -> {"at", "pts", "cum", "scale"}
@@ -167,22 +170,42 @@ def _along_remember(tkey, dist_km, polyline, now):
         pass
 
 
+def _project(lat, lng, a, b):
+    """Ближайшая к (lat, lng) точка отрезка a–b: (доля 0..1 вдоль отрезка, расстояние км).
+    Локально плоская проекция — на отрезках линии маршрута (единицы км) этого достаточно."""
+    import math
+    kx = 111.32 * math.cos(math.radians(lat))
+    ky = 110.57
+    ax, ay = (a[1] - lng) * kx, (a[0] - lat) * ky
+    bx, by = (b[1] - lng) * kx, (b[0] - lat) * ky
+    dx, dy = bx - ax, by - ay
+    l2 = dx * dx + dy * dy
+    t = 0.0 if l2 <= 0 else max(0.0, min(1.0, -(ax * dx + ay * dy) / l2))
+    px, py = ax + t * dx, ay + t * dy
+    return t, math.hypot(px, py)
+
+
 def _along_lookup(tkey, lat, lng, now):
     c = _along_cache.get(tkey)
     if not c or now - c["at"] > ALONG_ROUTE_TTL:
         return None
     pts, cum = c["pts"], c["cum"]
-    best_i, best_d = None, float("inf")
-    for i, (la, ln) in enumerate(pts):
-        if abs(la - lat) > 0.1 or abs(ln - lng) > 0.2:
+    best = None   # (расстояние, индекс начала отрезка, доля)
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        # грубый отсев: оба конца отрезка далеко по широте/долготе
+        if (min(a[0], b[0]) - lat > 0.1 or lat - max(a[0], b[0]) > 0.1
+                or min(a[1], b[1]) - lng > 0.2 or lng - max(a[1], b[1]) > 0.2):
             continue
-        d = haversine_km(lat, lng, la, ln)
-        if d < best_d:
-            best_i, best_d = i, d
-    if best_i is None or best_d > ALONG_ROUTE_MAX_OFF_KM:
+        t, d = _project(lat, lng, a, b)
+        if best is None or d < best[0]:
+            best = (d, i, t)
+    if best is None or best[0] > ALONG_ROUTE_MAX_OFF_KM:
         return None
-    remain = max(0.0, (cum[-1] - cum[best_i]) * c["scale"] + best_d)
-    return remain, _encode_polyline([(lat, lng)] + pts[best_i:])
+    d, i, t = best
+    seg = cum[i + 1] - cum[i]
+    remain = max(0.0, (cum[-1] - cum[i] - t * seg) * c["scale"] + d)
+    return remain, _encode_polyline([(lat, lng)] + pts[i + 1:])
 
 
 def _doc_id(key):
