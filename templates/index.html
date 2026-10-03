@@ -6,6 +6,7 @@
 <title>Fleet ETA Tracker</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='notebook.css') }}">
 <meta name="theme-color" content="#fafafa">
 </head>
 <body>
@@ -233,6 +234,7 @@
 
 <div class="version-tag">v{{ app_version }}</div>
 
+<script src="{{ url_for('static', filename='notebook.js') }}"></script>
 <script src="{{ url_for('static', filename='sync.js') }}"></script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 <script src="{{ url_for('static', filename='postcode-maps.js') }}"></script>
