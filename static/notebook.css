@@ -1,4 +1,4 @@
-/* Блокнот ФЕТАТ (v3.07): язычок у правого края + выезжающая панель */
+/* Блокнот ФЕТАТ (v3.07–v3.08): язычок у правого края + выезжающая панель */
 
 .nb-tab {
   position: fixed; right: 0; top: 50%; transform: translateY(-50%);
@@ -25,11 +25,14 @@
 .nb-x:hover { color: #1a1a1a; background: #f0f0f0; }
 
 .nb-form { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #e0e0e0; background: #fff; }
-.nb-cats { display: flex; gap: 6px; }
-.nb-cats button { padding: 3px 12px; border-radius: 12px; font-size: 12px; color: #666; }
+.nb-cats { display: flex; flex-wrap: wrap; gap: 5px; }
+.nb-cats button { padding: 3px 10px; border-radius: 12px; font-size: 12px; color: #666; }
 .nb-cats button.on[data-cat="Bug"] { background: #fbe3e0; border-color: #e0a59d; color: #a2342a; }
 .nb-cats button.on[data-cat="Feature"] { background: #e3eefb; border-color: #9dbbe0; color: #2a5a9e; }
-.nb-cats button.on[data-cat="Thought"] { background: #f1ecdb; border-color: #d3c79c; color: #7a6526; }
+.nb-cats button.on[data-cat="Design"] { background: #efe3fb; border-color: #c2a0e0; color: #6a3a9e; }
+.nb-cats button.on[data-cat="Rule"] { background: #e2f3ea; border-color: #94c9ab; color: #1f7a4d; }
+.nb-cats button.on[data-cat="Data"] { background: #fbefd9; border-color: #e0bf86; color: #a8650b; }
+.nb-cats button.on[data-cat="Discuss"] { background: #ececec; border-color: #bbb; color: #444; }
 .nb-form input[type="text"], .nb-form textarea {
   font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; background: #fff; color: #1a1a1a; }
 .nb-form textarea { min-height: 64px; resize: vertical; }
@@ -64,7 +67,10 @@
 .nb-cat { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 11px; margin-right: 4px; }
 .nb-cat-Bug { background: #fbe3e0; color: #a2342a; }
 .nb-cat-Feature { background: #e3eefb; color: #2a5a9e; }
-.nb-cat-Thought { background: #f1ecdb; color: #7a6526; }
+.nb-cat-Design { background: #efe3fb; color: #6a3a9e; }
+.nb-cat-Rule { background: #e2f3ea; color: #1f7a4d; }
+.nb-cat-Data { background: #fbefd9; color: #a8650b; }
+.nb-cat-Discuss { background: #ececec; color: #444; }
 
 .nb-modal-bg { position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,.35);
   display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -79,6 +85,57 @@
 .nb-modal.wide .nb-modal-img { cursor: zoom-out; }
 .nb-modal-acts { margin-top: 12px; text-align: right; }
 .nb-del { color: #c0392b; }
+
+/* v3.08: Где / статус / приоритет, комментарии, правка */
+.nb-head-acts { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 400; }
+.nb-head-acts a { color: #555; }
+.nb-row2, .nb-row3 { display: flex; gap: 6px; }
+.nb-row2 select, .nb-row3 select { flex: 1; min-width: 0; font-size: 12px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 6px; background: #fff; }
+.nb-list-head > span { display: flex; gap: 6px; align-items: center; }
+.nb-claude { padding: 2px 8px; font-size: 12px; }
+.nb-st { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 11px; margin-right: 4px; border: 1px solid #ddd; color: #666; }
+.nb-st-work { border-color: #9dbbe0; color: #2a5a9e; }
+.nb-st-done { border-color: #94c9ab; color: #1f7a4d; }
+.nb-st-later { border-color: #ccc; color: #999; }
+.nb-prio { display: inline-block; font-size: 11px; margin-right: 4px; color: #555; font-variant-numeric: tabular-nums; }
+.nb-prio.hot { color: #c0392b; font-weight: 600; }
+.nb-item.done .nb-item-title { color: #999; text-decoration: line-through; }
+.nb-upd { color: #aaa; }
+.nb-modal-acts { display: flex; justify-content: flex-end; gap: 8px; }
+.nb-ed { display: flex; flex-direction: column; gap: 8px; }
+.nb-ed input[type="text"], .nb-ed textarea { font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; }
+.nb-ed textarea { min-height: 120px; resize: vertical; }
+.nb-ed .nb-shot { min-height: 70px; }
+.nb-ed .nb-shot-img { max-height: 320px; }
+.nb-coms { margin-top: 14px; border-top: 1px solid #eee; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.nb-coms-title { font-weight: 600; font-size: 13px; }
+.nb-com { background: #f7f7f7; border-radius: 6px; padding: 6px 8px; }
+.nb-com-meta { color: #999; font-size: 11px; display: flex; justify-content: space-between; align-items: center; }
+.nb-com-del { border: 0; background: none; color: #aaa; padding: 0 4px; font-size: 14px; }
+.nb-com-del:hover { color: #c0392b; background: none; }
+.nb-com-text { overflow-wrap: anywhere; line-height: 1.4; }
+.nb-com-add { display: flex; gap: 6px; align-items: flex-end; }
+.nb-com-input { flex: 1; font: inherit; font-size: 13px; min-height: 38px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; resize: vertical; }
+
+/* страница /notebook */
+.nbp-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.nbp-head a { color: #555; font-size: 13px; }
+.nbp-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; font-size: 12px; }
+.nbp-filters select, .nbp-filters input { font-size: 12px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 6px; background: #fff; }
+.nbp-filters input { width: 200px; }
+.nbp-count { color: #999; margin-left: auto; }
+.nbp-table th { cursor: pointer; white-space: nowrap; user-select: none; }
+.nbp-table th.sorted::after { content: " ▾"; color: #999; }
+.nbp-table th.sorted.asc::after { content: " ▴"; }
+.nbp-table td { vertical-align: top; }
+.nbp-table tbody tr { cursor: pointer; }
+.nbp-table tbody tr:hover td { background: #f6f8fb; }
+.nbp-table tr.done td { color: #999; }
+.nbp-table tr.done .nbp-title { text-decoration: line-through; }
+.nbp-title { font-weight: 500; }
+.nbp-desc { color: #888; font-size: 12px; max-width: 520px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nbp-table .nb-thumb { width: 48px; height: 34px; }
+.nbp-empty { padding: 30px; text-align: center; color: #999; }
 
 /* телефон: язычка нет (вызов из меню ⋯), панель во всю ширину */
 @media (max-width: 767px) {

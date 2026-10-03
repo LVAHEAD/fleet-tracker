@@ -126,6 +126,41 @@ class NotebookApiTest(unittest.TestCase):
         self.assertEqual(self.c.delete(f"/api/notebook/{rid}", headers=ME).status_code, 200)
         self.assertNotIn(rid, self.db)
 
+    def test_fields_legacy_and_validation(self):
+        rid = self.add(category="Thought", where="Флот", priority=9).get_json()["id"]
+        full = self.c.get(f"/api/notebook/{rid}", headers=ME).get_json()
+        self.assertEqual((full["category"], full["where"], full["priority"], full["status"]), ("Discuss", "Флот", 9, "new"))
+        self.assertEqual(self.add(priority=11).status_code, 400)
+        r = self.c.patch(f"/api/notebook/{rid}", json={"status": "work", "priority": None}, headers=ME).get_json()
+        self.assertEqual((r["status"], r["priority"], r["title"]), ("work", None, "Не считает ⑧"))
+
+    def test_patch_image(self):
+        rid = self.add(image=IMG, thumb=IMG).get_json()["id"]
+        self.c.patch(f"/api/notebook/{rid}", json={"title": "x"}, headers=ME)
+        self.assertEqual(self.db[rid]["image"], IMG)          # без ключа image скрин не трогаем
+        self.c.patch(f"/api/notebook/{rid}", json={"image": None}, headers=ME)
+        self.assertEqual((self.db[rid]["image"], self.db[rid]["has_image"]), (None, False))
+
+    def test_comments(self):
+        rid = self.add().get_json()["id"]
+        self.assertEqual(self.c.post(f"/api/notebook/{rid}/comments", json={"text": " "}, headers=OTHER).status_code, 400)
+        r = self.c.post(f"/api/notebook/{rid}/comments", json={"text": "проверил"}, headers=OTHER)
+        self.assertEqual(r.status_code, 201)
+        cid = r.get_json()["comments"][0]["id"]
+        lst = self.c.get("/api/notebook", headers=ME).get_json()["items"][0]
+        self.assertEqual(lst["comments"][0]["text"], "проверил")
+        self.assertTrue(lst["comments"][0]["can_delete"])      # админ
+        self.c.post(f"/api/notebook/{rid}/comments", json={"text": "моё"}, headers=ME)
+        mine = self.db[rid]["comments"][1]["id"]
+        self.assertEqual(self.c.delete(f"/api/notebook/{rid}/comments/{mine}", headers=OTHER).status_code, 403)
+        self.assertEqual(self.c.delete(f"/api/notebook/{rid}/comments/{cid}", headers=OTHER).status_code, 200)
+        self.assertEqual([c["text"] for c in self.db[rid]["comments"]], ["моё"])
+
+    def test_page(self):
+        r = self.c.get("/notebook", headers=ME)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("notebook-page.js", r.get_data(as_text=True))
+
 
 if __name__ == "__main__":
     unittest.main()

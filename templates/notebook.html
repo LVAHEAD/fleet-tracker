@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Блокнот ФЕТАТ</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='notebook.css') }}">
+<meta name="theme-color" content="#fafafa">
+</head>
+<body data-page="notebook">
+<div class="nbp-head">
+  <h1>📓 Блокнот ФЕТАТ <span class="notes-hint">v{{ app_version }}</span></h1>
+  <span>
+    {% if user_email %}<span class="notes-hint">👤 {{ user_email }}</span> · {% endif %}
+    <a href="/">← в Fleet ETA Tracker</a>
+  </span>
+</div>
+
+<div class="nbp-filters">
+  <select id="nbpCat"><option value="">все категории</option></select>
+  <select id="nbpStatus"><option value="">все статусы</option><option value="open">открытые</option></select>
+  <select id="nbpWhere"><option value="">везде</option></select>
+  <input type="search" id="nbpSearch" placeholder="Поиск по тексту и комментариям">
+  <button type="button" id="nbpAdd">+ Запись</button>
+  <button type="button" id="nbpClaude" title="Скопировать показанные записи текстом — вставить в чат с Claude">📋 Для Claude</button>
+  <span class="nbp-count" id="nbpCount"></span>
+</div>
+
+<table class="nbp-table">
+  <thead><tr>
+    <th data-sort="created_at">Дата</th>
+    <th data-sort="category">Категория</th>
+    <th data-sort="where">Где</th>
+    <th data-sort="title">Запись</th>
+    <th data-sort="status">Статус</th>
+    <th data-sort="priority">Приор.</th>
+    <th data-sort="author">Автор</th>
+    <th data-sort="comments">💬</th>
+    <th></th>
+  </tr></thead>
+  <tbody id="nbpBody"><tr><td colspan="9" class="nbp-empty">Загрузка…</td></tr></tbody>
+</table>
+
+<script src="{{ url_for('static', filename='notebook.js') }}"></script>
+<script src="{{ url_for('static', filename='notebook-page.js') }}"></script>
+</body>
+</html>

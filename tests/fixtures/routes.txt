@@ -22,8 +22,11 @@
 /api/notebook/<rid> DELETE
 /api/notebook/<rid> GET
 /api/notebook/<rid> PATCH
+/api/notebook/<rid>/comments POST
+/api/notebook/<rid>/comments/<cid> DELETE
 /api/region-codes GET
 /api/route POST
 /api/truck-info GET
 /api/units GET
+/notebook GET
 /static/<path:filename> GET

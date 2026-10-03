@@ -1,15 +1,24 @@
 /*
-Fleet ETA Tracker — блокнот ФЕТАТ (v3.07).
+Fleet ETA Tracker — блокнот ФЕТАТ (v3.08).
 Язычок 📓 у правого края на всех вкладках (на телефоне — пункт в меню ⋯) открывает панель:
-форма (название, категория, описание, скриншот Ctrl+V / перетащить / выбрать файл) и последние записи.
+форма (категория, Где, приоритет, название, описание, скриншот) и последние записи.
+Карточка записи: просмотр, полное редактирование (включая скриншот), комментарии, удаление.
+«📋 Для Claude» — копирует записи текстом. Вся таблица — страница /notebook (notebook-page.js).
 Скриншот сжимается здесь же: JPEG до 1280 px + миниатюра 200 px. Закрыть: ×, язычок, Esc, клик мимо.
 */
 const Notebook = (() => {
-  const CAT_LABEL = { Bug: "Баг", Feature: "Фича", Thought: "Мысль" };
+  const CATS = [["Bug", "Баг"], ["Feature", "Фича"], ["Design", "Дизайн"], ["Rule", "Правило"], ["Data", "Данные"], ["Discuss", "Обсудить"]];
+  const CAT_LABEL = Object.fromEntries(CATS);
+  const STATUSES = [["new", "новое"], ["work", "в работе"], ["done", "готово"], ["later", "отложено"]];
+  const STATUS_LABEL = Object.fromEntries(STATUSES);
+  const WHERE = ["Флот", "From → To", "GF построитель", "Карты стран", "Локатор", "Запреты", "Паромы", "Truck Info", "[.]", "Общее"];
+  const TAB_WHERE = { fleet: "Флот", route: "From → To", gf: "GF построитель", maps: "Карты стран", bans: "Запреты",
+    ferries: "Паромы", truckinfo: "Truck Info", notes: "[.]" };
   const IMG_MAX_PX = 1280;
   const IMG_MAX_CHARS = 700000;
   const THUMB_PX = 200;
   let panel, tab, isOpen = false, shot = null;   // shot = {image, thumb}
+  const listeners = [];                          // кому сообщить, что записи изменились
 
   const $ = (sel) => panel.querySelector(sel);
 
@@ -27,101 +36,44 @@ const Notebook = (() => {
 
   function who(email) { return String(email || "").split("@")[0]; }
 
-  // ---------- разметка ----------
-  function build() {
-    tab = document.createElement("button");
-    tab.type = "button";
-    tab.className = "nb-tab";
-    tab.title = "Блокнот: баги, фичи, мысли";
-    tab.textContent = "📓";
-    tab.addEventListener("click", (e) => { e.stopPropagation(); toggle(); });
-    document.body.appendChild(tab);
+  function catChip(c) { return `<span class="nb-cat nb-cat-${esc(c)}">${esc(CAT_LABEL[c] || c)}</span>`; }
+  function statusChip(s) { return `<span class="nb-st nb-st-${esc(s)}">${esc(STATUS_LABEL[s] || s)}</span>`; }
+  function prioChip(p) { return p ? `<span class="nb-prio${p >= 8 ? " hot" : ""}" title="Приоритет">${p}/10</span>` : ""; }
 
-    panel = document.createElement("aside");
-    panel.className = "nb-panel";
-    panel.setAttribute("aria-hidden", "true");
-    panel.innerHTML = `
-      <div class="nb-head">
-        <b>📓 Блокнот</b>
-        <button type="button" class="nb-x" title="Закрыть (Esc)">×</button>
-      </div>
-      <div class="nb-form">
-        <div class="nb-cats">
-          <button type="button" data-cat="Bug">Баг</button>
-          <button type="button" data-cat="Feature">Фича</button>
-          <button type="button" data-cat="Thought" class="on">Мысль</button>
-        </div>
-        <input type="text" class="nb-title" maxlength="200" placeholder="Коротко: что и где">
-        <textarea class="nb-desc" maxlength="4000" placeholder="Подробности (необязательно)"></textarea>
-        <div class="nb-shot" tabindex="0" title="Ctrl+V — вставить скриншот, или перетащите файл, или кликните">
-          <span class="nb-shot-hint">Скриншот: Ctrl+V, перетащить или клик</span>
-          <img class="nb-shot-img" alt="" hidden>
-          <button type="button" class="nb-shot-x" title="Убрать скриншот" hidden>×</button>
-        </div>
-        <input type="file" class="nb-file" accept="image/*" hidden>
-        <div class="nb-actions">
-          <span class="nb-msg"></span>
-          <button type="button" class="nb-save">Добавить</button>
-        </div>
-      </div>
-      <div class="nb-list-head">
-        <b>Последние</b>
-        <select class="nb-filter">
-          <option value="">все</option>
-          <option value="Bug">баги</option>
-          <option value="Feature">фичи</option>
-          <option value="Thought">мысли</option>
-        </select>
-      </div>
-      <div class="nb-list"></div>`;
-    document.body.appendChild(panel);
-    wire();
+  function options(list, sel) {
+    return list.map(([v, l]) => `<option value="${esc(v)}"${v === sel ? " selected" : ""}>${esc(l)}</option>`).join("");
+  }
+  function whereOptions(sel) {
+    const list = WHERE.includes(sel) || !sel ? WHERE : [sel, ...WHERE];
+    return options(list.map((w) => [w, w]), sel);
+  }
+  function prioOptions(sel) {
+    return options([["", "приоритет —"], ...Array.from({ length: 10 }, (_, i) => [String(10 - i), `${10 - i}/10`])],
+      sel == null ? "" : String(sel));
   }
 
-  // ---------- события ----------
-  function wire() {
-    $(".nb-x").addEventListener("click", close);
-    $(".nb-filter").addEventListener("change", loadList);
-    $(".nb-save").addEventListener("click", save);
-    $(".nb-title").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } });
-
-    panel.querySelectorAll(".nb-cats button").forEach((b) => b.addEventListener("click", () => {
-      panel.querySelectorAll(".nb-cats button").forEach((x) => x.classList.toggle("on", x === b));
-    }));
-
-    const zone = $(".nb-shot"), file = $(".nb-file");
-    zone.addEventListener("click", (e) => { if (!e.target.closest(".nb-shot-x")) file.click(); });
-    file.addEventListener("change", () => { if (file.files[0]) takeImage(file.files[0]); file.value = ""; });
-    zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("hover"); });
-    zone.addEventListener("dragleave", () => zone.classList.remove("hover"));
-    zone.addEventListener("drop", (e) => {
-      e.preventDefault(); zone.classList.remove("hover");
-      const f = e.dataTransfer && e.dataTransfer.files[0];
-      if (f) takeImage(f);
-    });
-    $(".nb-shot-x").addEventListener("click", (e) => { e.stopPropagation(); setShot(null); });
-
-    // Ctrl+V картинки — только пока панель открыта
-    document.addEventListener("paste", (e) => {
-      if (!isOpen || !e.clipboardData) return;
-      for (const it of e.clipboardData.items) {
-        if (it.type.startsWith("image/")) { e.preventDefault(); takeImage(it.getAsFile()); return; }
-      }
-    });
-
-    document.addEventListener("keydown", (e) => {
-      if (e.key !== "Escape" || !isOpen) return;
-      if (document.querySelector(".nb-modal-bg")) return;   // сначала закрывается карточка
-      close();
-    });
-
-    // клик мимо панели — закрыть (карточку записи и язычок не считаем)
-    document.addEventListener("mousedown", (e) => {
-      if (!isOpen) return;
-      if (panel.contains(e.target) || tab.contains(e.target) || e.target.closest(".nb-modal-bg, .tabs-more-wrap")) return;
-      close();
-    });
+  // где я сейчас: активная вкладка (в Картах стран — Локатор, если он открыт)
+  function currentWhere() {
+    if (document.body.dataset.page === "notebook") return "Общее";
+    const act = document.querySelector(".main-tab-btn.active");
+    const t = act && act.dataset.tab;
+    if (t === "maps") {
+      const lv = document.getElementById("locatorView");
+      if (lv && !lv.hidden) return "Локатор";
+    }
+    return TAB_WHERE[t] || "Общее";
   }
+
+  async function api(url, opts) {
+    let r;
+    try { r = await fetch(url, opts); } catch (e) { throw new Error("Нет связи с сервером"); }
+    const js = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(js.error || `Ошибка ${r.status}`);
+    return js;
+  }
+  const jsonOpts = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+  function changed() { listeners.forEach((f) => { try { f(); } catch (e) { /* ignore */ } }); }
 
   // ---------- скриншот ----------
   function loadImg(src) {
@@ -145,9 +97,8 @@ const Notebook = (() => {
     return c.toDataURL("image/jpeg", quality);
   }
 
-  async function takeImage(f) {
-    if (!f || !f.type.startsWith("image/")) { msg("Это не картинка", true); return; }
-    msg("Сжимаю скриншот…");
+  async function compress(f) {
+    if (!f || !f.type.startsWith("image/")) throw new Error("Это не картинка");
     const url = URL.createObjectURL(f);
     try {
       const im = await loadImg(url);
@@ -156,23 +107,182 @@ const Notebook = (() => {
         image = toJpeg(im, px, q);
         if (image.length <= IMG_MAX_CHARS) break;
       }
-      if (image.length > IMG_MAX_CHARS) { msg("Скриншот слишком большой", true); return; }
-      setShot({ image, thumb: toJpeg(im, THUMB_PX, 0.7) });
-      msg(`Скриншот ${Math.round(image.length * 0.75 / 1024)} КБ`);
-    } catch (e) {
-      msg(e.message, true);
+      if (image.length > IMG_MAX_CHARS) throw new Error("Скриншот слишком большой");
+      return { image, thumb: toJpeg(im, THUMB_PX, 0.7) };
     } finally {
       URL.revokeObjectURL(url);
     }
   }
 
+  // зона скриншота: Ctrl+V (пока зона «активна»), перетащить, клик — выбрать файл, × — убрать
+  function shotZone(zone, onPick, onClear) {
+    const file = document.createElement("input");
+    file.type = "file"; file.accept = "image/*"; file.hidden = true;
+    zone.appendChild(file);
+    zone.addEventListener("click", (e) => { if (!e.target.closest(".nb-shot-x")) file.click(); });
+    file.addEventListener("change", () => { if (file.files[0]) onPick(file.files[0]); file.value = ""; });
+    zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("hover"); });
+    zone.addEventListener("dragleave", () => zone.classList.remove("hover"));
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault(); zone.classList.remove("hover");
+      const f = e.dataTransfer && e.dataTransfer.files[0];
+      if (f) onPick(f);
+    });
+    zone.querySelector(".nb-shot-x").addEventListener("click", (e) => { e.stopPropagation(); onClear(); });
+  }
+
+  function showShot(zone, src) {
+    const img = zone.querySelector(".nb-shot-img");
+    img.hidden = !src;
+    img.src = src || "";
+    zone.querySelector(".nb-shot-hint").hidden = !!src;
+    zone.querySelector(".nb-shot-x").hidden = !src;
+  }
+
+  const SHOT_HTML = `
+    <span class="nb-shot-hint">Скриншот: Ctrl+V, перетащить или клик</span>
+    <img class="nb-shot-img" alt="" hidden>
+    <button type="button" class="nb-shot-x" title="Убрать скриншот" hidden>×</button>`;
+
+  function imageFromPaste(e) {
+    if (!e.clipboardData) return null;
+    for (const it of e.clipboardData.items) if (it.type.startsWith("image/")) return it.getAsFile();
+    return null;
+  }
+
+  // ---------- «📋 Для Claude» ----------
+  function forClaude(items, title) {
+    const lines = [`Блокнот ФЕТАТ — ${title || "записи"}: ${items.length}`];
+    items.forEach((it, i) => {
+      const head = [CAT_LABEL[it.category] || it.category, it.where, STATUS_LABEL[it.status] || it.status,
+        it.priority ? `приоритет ${it.priority}/10` : ""].filter(Boolean).join(" · ");
+      lines.push("", `${i + 1}. [${head}] ${it.title}`);
+      lines.push(`   ${fmtDate(it.created_at, true)}, ${who(it.author)}${it.has_image ? ", есть скриншот" : ""}`);
+      if (it.description) lines.push(...it.description.split("\n").map((l) => "   " + l));
+      (it.comments || []).forEach((c) => lines.push(`   — ${who(c.author)} ${fmtDate(c.at, true)}: ${c.text.replace(/\n/g, " ")}`));
+    });
+    return lines.join("\n");
+  }
+
+  async function copyText(text, btn) {
+    let ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; } catch (e) {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { ok = document.execCommand("copy"); } catch (e2) { ok = false; }
+      ta.remove();
+    }
+    if (btn) {
+      const was = btn.textContent;
+      btn.textContent = ok ? "✓ скопировано" : "не скопировалось";
+      setTimeout(() => { btn.textContent = was; }, 1800);
+    }
+    return ok;
+  }
+
+  // ---------- панель ----------
+  function build() {
+    tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "nb-tab";
+    tab.title = "Блокнот: баги, фичи, правила, данные";
+    tab.textContent = "📓";
+    tab.addEventListener("click", (e) => { e.stopPropagation(); toggle(); });
+    document.body.appendChild(tab);
+
+    panel = document.createElement("aside");
+    panel.className = "nb-panel";
+    panel.setAttribute("aria-hidden", "true");
+    panel.innerHTML = `
+      <div class="nb-head">
+        <b>📓 Блокнот</b>
+        <span class="nb-head-acts">
+          <a href="/notebook" target="_blank" rel="noopener" title="Вся таблица в новой вкладке">все записи ↗</a>
+          <button type="button" class="nb-x" title="Закрыть (Esc)">×</button>
+        </span>
+      </div>
+      <div class="nb-form">
+        <div class="nb-cats">${CATS.map(([v, l]) => `<button type="button" data-cat="${v}"${v === "Bug" ? ' class="on"' : ""}>${l}</button>`).join("")}</div>
+        <div class="nb-row2">
+          <select class="nb-where" title="Где">${whereOptions("Флот")}</select>
+          <select class="nb-prio-sel" title="Приоритет">${prioOptions(null)}</select>
+        </div>
+        <input type="text" class="nb-title" maxlength="200" placeholder="Коротко: что и где">
+        <textarea class="nb-desc" maxlength="4000" placeholder="Подробности (необязательно)"></textarea>
+        <div class="nb-shot" tabindex="0" title="Ctrl+V — вставить скриншот, или перетащите файл, или кликните">${SHOT_HTML}</div>
+        <div class="nb-actions">
+          <span class="nb-msg"></span>
+          <button type="button" class="nb-save">Добавить</button>
+        </div>
+      </div>
+      <div class="nb-list-head">
+        <b>Последние</b>
+        <span>
+          <select class="nb-filter">
+            <option value="">все</option>
+            ${CATS.map(([v, l]) => `<option value="${v}">${l.toLowerCase()}</option>`).join("")}
+          </select>
+          <button type="button" class="nb-claude" title="Скопировать показанные записи текстом — вставить в чат с Claude">📋 Для Claude</button>
+        </span>
+      </div>
+      <div class="nb-list"></div>`;
+    document.body.appendChild(panel);
+    wire();
+  }
+
+  let lastItems = [];
+
+  function wire() {
+    $(".nb-x").addEventListener("click", close);
+    $(".nb-filter").addEventListener("change", loadList);
+    $(".nb-save").addEventListener("click", save);
+    $(".nb-title").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } });
+    $(".nb-claude").addEventListener("click", (e) => {
+      const f = $(".nb-filter");
+      copyText(forClaude(lastItems, f.value ? f.options[f.selectedIndex].text : "последние"), e.currentTarget);
+    });
+
+    panel.querySelectorAll(".nb-cats button").forEach((b) => b.addEventListener("click", () => {
+      panel.querySelectorAll(".nb-cats button").forEach((x) => x.classList.toggle("on", x === b));
+    }));
+
+    const zone = $(".nb-shot");
+    shotZone(zone, takeImage, () => setShot(null));
+
+    // Ctrl+V картинки — пока панель открыта и карточка записи не в режиме правки
+    document.addEventListener("paste", (e) => {
+      if (!isOpen || document.querySelector(".nb-modal-bg")) return;
+      const f = imageFromPaste(e);
+      if (f) { e.preventDefault(); takeImage(f); }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape" || !isOpen) return;
+      if (document.querySelector(".nb-modal-bg")) return;   // сначала закрывается карточка
+      close();
+    });
+
+    // клик мимо панели — закрыть (карточку записи, язычок и меню ⋯ не считаем)
+    document.addEventListener("mousedown", (e) => {
+      if (!isOpen) return;
+      if (panel.contains(e.target) || tab.contains(e.target) || e.target.closest(".nb-modal-bg, .tabs-more-wrap")) return;
+      close();
+    });
+  }
+
+  async function takeImage(f) {
+    msg("Сжимаю скриншот…");
+    try {
+      const s = await compress(f);
+      setShot(s);
+      msg(`Скриншот ${Math.round(s.image.length * 0.75 / 1024)} КБ`);
+    } catch (e) { msg(e.message, true); }
+  }
+
   function setShot(s) {
     shot = s;
-    const img = $(".nb-shot-img");
-    img.hidden = !s;
-    img.src = s ? s.image : "";
-    $(".nb-shot-hint").hidden = !!s;
-    $(".nb-shot-x").hidden = !s;
+    showShot($(".nb-shot"), s && s.image);
     if (!s) msg("");
   }
 
@@ -182,52 +292,47 @@ const Notebook = (() => {
     m.classList.toggle("err", !!isErr);
   }
 
-  // ---------- сохранение ----------
   async function save() {
     const title = $(".nb-title").value.trim();
     if (!title) { msg("Нужно название", true); $(".nb-title").focus(); return; }
-    const cat = (panel.querySelector(".nb-cats button.on") || {}).dataset;
+    const cat = panel.querySelector(".nb-cats button.on");
     const btn = $(".nb-save");
     btn.disabled = true;
     msg("Сохраняю…");
     try {
-      const r = await fetch("/api/notebook", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          category: cat ? cat.cat : "Thought",
-          description: $(".nb-desc").value.trim(),
-          image: shot ? shot.image : null,
-          thumb: shot ? shot.thumb : null,
-        }),
-      });
-      const js = await r.json().catch(() => ({}));
-      if (!r.ok) { msg(js.error || `Ошибка ${r.status}`, true); return; }
+      await api("/api/notebook", jsonOpts("POST", {
+        title,
+        category: cat ? cat.dataset.cat : "Bug",
+        where: $(".nb-where").value,
+        priority: $(".nb-prio-sel").value || null,
+        description: $(".nb-desc").value.trim(),
+        image: shot ? shot.image : null,
+        thumb: shot ? shot.thumb : null,
+      }));
       $(".nb-title").value = "";
       $(".nb-desc").value = "";
+      $(".nb-prio-sel").value = "";
       setShot(null);
       msg("✓ Добавлено");
       setTimeout(() => { if ($(".nb-msg").textContent === "✓ Добавлено") msg(""); }, 2500);
       loadList();
+      changed();
     } catch (e) {
-      msg("Нет связи с сервером", true);
+      msg(e.message, true);
     } finally {
       btn.disabled = false;
     }
   }
 
-  // ---------- список ----------
   async function loadList() {
     const box = $(".nb-list");
     const cat = $(".nb-filter").value;
     try {
-      const r = await fetch("/api/notebook?limit=30" + (cat ? "&category=" + encodeURIComponent(cat) : ""));
-      const js = await r.json().catch(() => ({}));
-      if (!r.ok) { box.innerHTML = `<div class="nb-empty err">${esc(js.error || "Ошибка " + r.status)}</div>`; return; }
-      renderList(js.items || []);
+      const js = await api("/api/notebook?limit=30" + (cat ? "&category=" + encodeURIComponent(cat) : ""));
+      lastItems = js.items || [];
+      renderList(lastItems);
     } catch (e) {
-      box.innerHTML = '<div class="nb-empty err">Нет связи с сервером</div>';
+      box.innerHTML = `<div class="nb-empty err">${esc(e.message)}</div>`;
     }
   }
 
@@ -235,13 +340,13 @@ const Notebook = (() => {
     const box = $(".nb-list");
     if (!items.length) { box.innerHTML = '<div class="nb-empty">Записей пока нет</div>'; return; }
     box.innerHTML = items.map((it) => `
-      <div class="nb-item" data-id="${esc(it.id)}">
+      <div class="nb-item${it.status === "done" ? " done" : ""}" data-id="${esc(it.id)}">
         ${it.thumb ? `<img class="nb-thumb" src="${esc(it.thumb)}" alt="">` : '<div class="nb-thumb nb-thumb-empty"></div>'}
         <div class="nb-item-body">
           <div class="nb-item-title">${esc(it.title)}</div>
           <div class="nb-item-meta">
-            <span class="nb-cat nb-cat-${esc(it.category)}">${esc(CAT_LABEL[it.category] || it.category)}</span>
-            ${esc(fmtDate(it.created_at))} · ${esc(who(it.author))}
+            ${catChip(it.category)}${it.status !== "new" ? statusChip(it.status) : ""}${prioChip(it.priority)}
+            ${esc(it.where || "")}${it.where ? " · " : ""}${esc(fmtDate(it.created_at))} · ${esc(who(it.author))}${it.comments.length ? ` · 💬 ${it.comments.length}` : ""}
           </div>
         </div>
       </div>`).join("");
@@ -251,45 +356,188 @@ const Notebook = (() => {
   // ---------- карточка записи ----------
   async function showItem(id) {
     let it;
-    try {
-      const r = await fetch("/api/notebook/" + encodeURIComponent(id));
-      it = await r.json();
-      if (!r.ok) { msg(it.error || `Ошибка ${r.status}`, true); return; }
-    } catch (e) { msg("Нет связи с сервером", true); return; }
+    try { it = await api("/api/notebook/" + encodeURIComponent(id)); } catch (e) { alert(e.message); return; }
 
     const bg = document.createElement("div");
     bg.className = "nb-modal-bg";
-    bg.innerHTML = `
-      <div class="nb-modal">
+    bg.innerHTML = '<div class="nb-modal"></div>';
+    document.body.appendChild(bg);
+    const box = bg.querySelector(".nb-modal");
+    let editing = false, newShot;   // newShot: undefined — не трогали, null — убрать, {image, thumb} — заменить
+
+    const shut = () => {
+      bg.remove();
+      document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("paste", onPaste, true);
+    };
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      if (editing) { editing = false; render(); } else shut();
+    };
+    const onPaste = (e) => {
+      if (!editing) return;
+      const f = imageFromPaste(e);
+      if (f) { e.preventDefault(); e.stopPropagation(); pick(f); }
+    };
+    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("paste", onPaste, true);
+    bg.addEventListener("mousedown", (e) => { if (e.target === bg && !editing) shut(); });
+
+    async function pick(f) {
+      const m = box.querySelector(".nb-ed-msg");
+      if (m) m.textContent = "Сжимаю скриншот…";
+      try {
+        newShot = await compress(f);
+        showShot(box.querySelector(".nb-shot"), newShot.image);
+        if (m) m.textContent = "";
+      } catch (e) { if (m) m.textContent = e.message; }
+    }
+
+    function commentsHtml() {
+      const list = it.comments.map((c) => `
+        <div class="nb-com" data-cid="${esc(c.id)}">
+          <div class="nb-com-meta">${esc(who(c.author))} · ${esc(fmtDate(c.at, true))}
+            ${c.can_delete ? '<button type="button" class="nb-com-del" title="Удалить комментарий">×</button>' : ""}</div>
+          <div class="nb-com-text">${esc(c.text).replace(/\n/g, "<br>")}</div>
+        </div>`).join("");
+      return `
+        <div class="nb-coms">
+          <div class="nb-coms-title">Комментарии${it.comments.length ? ` (${it.comments.length})` : ""}</div>
+          ${list}
+          <div class="nb-com-add">
+            <textarea class="nb-com-input" maxlength="2000" placeholder="Комментарий… (Ctrl+Enter — отправить)"></textarea>
+            <button type="button" class="nb-com-send">Отправить</button>
+          </div>
+        </div>`;
+    }
+
+    function viewHtml() {
+      return `
         <button type="button" class="nb-x" title="Закрыть (Esc)">×</button>
         <div class="nb-modal-meta">
-          <span class="nb-cat nb-cat-${esc(it.category)}">${esc(CAT_LABEL[it.category] || it.category)}</span>
-          ${esc(fmtDate(it.created_at, true))} · ${esc(it.author)}
+          ${catChip(it.category)}${statusChip(it.status)}${prioChip(it.priority)}
+          ${esc(it.where || "")}${it.where ? " · " : ""}${esc(fmtDate(it.created_at, true))} · ${esc(it.author)}
+          ${it.updated_by && it.updated_at !== it.created_at ? `<span class="nb-upd">· изм. ${esc(who(it.updated_by))} ${esc(fmtDate(it.updated_at, true))}</span>` : ""}
         </div>
         <h3>${esc(it.title)}</h3>
         ${it.description ? `<div class="nb-modal-desc">${esc(it.description).replace(/\n/g, "<br>")}</div>` : ""}
         ${it.image ? `<img class="nb-modal-img" src="${esc(it.image)}" alt="" title="Клик — крупнее / мельче">` : ""}
-        ${it.can_edit ? '<div class="nb-modal-acts"><button type="button" class="nb-del">🗑 Удалить</button></div>' : ""}
-      </div>`;
-    document.body.appendChild(bg);
-    const shut = () => { bg.remove(); document.removeEventListener("keydown", onKey, true); };
-    const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); shut(); } };
-    document.addEventListener("keydown", onKey, true);
-    bg.addEventListener("click", (e) => { if (e.target === bg || e.target.closest(".nb-x")) shut(); });
-    const big = bg.querySelector(".nb-modal-img");
-    if (big) big.addEventListener("click", () => bg.querySelector(".nb-modal").classList.toggle("wide"));
-    const del = bg.querySelector(".nb-del");
-    if (del) del.addEventListener("click", async () => {
-      if (!confirm(`Удалить запись «${it.title}»?`)) return;
-      del.disabled = true;
-      try {
-        const r = await fetch("/api/notebook/" + encodeURIComponent(id), { method: "DELETE" });
-        const js = await r.json().catch(() => ({}));
-        if (!r.ok) { alert(js.error || `Ошибка ${r.status}`); del.disabled = false; return; }
-        shut();
-        loadList();
-      } catch (e) { alert("Нет связи с сервером"); del.disabled = false; }
-    });
+        ${it.can_edit ? '<div class="nb-modal-acts"><button type="button" class="nb-edit">✎ Редактировать</button><button type="button" class="nb-del">🗑 Удалить</button></div>' : ""}
+        ${commentsHtml()}`;
+    }
+
+    function editHtml() {
+      return `
+        <div class="nb-ed">
+          <div class="nb-cats">${CATS.map(([v, l]) => `<button type="button" data-cat="${v}"${v === it.category ? ' class="on"' : ""}>${l}</button>`).join("")}</div>
+          <div class="nb-row3">
+            <select class="nb-ed-where" title="Где">${whereOptions(it.where || "Общее")}</select>
+            <select class="nb-ed-status" title="Статус">${options(STATUSES, it.status)}</select>
+            <select class="nb-ed-prio" title="Приоритет">${prioOptions(it.priority)}</select>
+          </div>
+          <input type="text" class="nb-ed-title" maxlength="200" value="${esc(it.title)}">
+          <textarea class="nb-ed-desc" maxlength="4000" placeholder="Подробности">${esc(it.description || "")}</textarea>
+          <div class="nb-shot" tabindex="0" title="Ctrl+V — заменить скриншот, или перетащите файл, или кликните">${SHOT_HTML}</div>
+          <div class="nb-actions">
+            <span class="nb-msg nb-ed-msg"></span>
+            <button type="button" class="nb-ed-cancel">Отмена</button>
+            <button type="button" class="nb-save nb-ed-save">Сохранить</button>
+          </div>
+        </div>`;
+    }
+
+    function render() {
+      box.classList.toggle("editing", editing);
+      box.innerHTML = editing ? editHtml() : viewHtml();
+      if (editing) wireEdit(); else wireView();
+    }
+
+    function wireView() {
+      box.querySelector(".nb-x").addEventListener("click", shut);
+      const big = box.querySelector(".nb-modal-img");
+      if (big) big.addEventListener("click", () => box.classList.toggle("wide"));
+      const ed = box.querySelector(".nb-edit");
+      if (ed) ed.addEventListener("click", () => { editing = true; newShot = undefined; render(); });
+      const del = box.querySelector(".nb-del");
+      if (del) del.addEventListener("click", async () => {
+        if (!confirm(`Удалить запись «${it.title}»?`)) return;
+        del.disabled = true;
+        try {
+          await api("/api/notebook/" + encodeURIComponent(id), { method: "DELETE" });
+          shut();
+          if (panel && isOpen) loadList();
+          changed();
+        } catch (e) { alert(e.message); del.disabled = false; }
+      });
+      const input = box.querySelector(".nb-com-input");
+      const send = async () => {
+        const text = input.value.trim();
+        if (!text) return;
+        const sb = box.querySelector(".nb-com-send");
+        sb.disabled = true;
+        try {
+          const js = await api(`/api/notebook/${encodeURIComponent(id)}/comments`, jsonOpts("POST", { text }));
+          it.comments = js.comments;
+          render();
+          if (panel && isOpen) loadList();
+          changed();
+        } catch (e) { alert(e.message); sb.disabled = false; }
+      };
+      box.querySelector(".nb-com-send").addEventListener("click", send);
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); } });
+      box.querySelectorAll(".nb-com-del").forEach((b) => b.addEventListener("click", async () => {
+        if (!confirm("Удалить комментарий?")) return;
+        const cid = b.closest(".nb-com").dataset.cid;
+        try {
+          const js = await api(`/api/notebook/${encodeURIComponent(id)}/comments/${encodeURIComponent(cid)}`, { method: "DELETE" });
+          it.comments = js.comments;
+          render();
+          changed();
+        } catch (e) { alert(e.message); }
+      }));
+    }
+
+    function wireEdit() {
+      box.querySelectorAll(".nb-cats button").forEach((b) => b.addEventListener("click", () => {
+        box.querySelectorAll(".nb-cats button").forEach((x) => x.classList.toggle("on", x === b));
+      }));
+      const zone = box.querySelector(".nb-shot");
+      showShot(zone, it.image);
+      shotZone(zone, pick, () => { newShot = null; showShot(zone, null); });
+      box.querySelector(".nb-ed-cancel").addEventListener("click", () => { editing = false; render(); });
+      box.querySelector(".nb-ed-title").focus();
+      box.querySelector(".nb-ed-save").addEventListener("click", async () => {
+        const m = box.querySelector(".nb-ed-msg");
+        const title = box.querySelector(".nb-ed-title").value.trim();
+        if (!title) { m.textContent = "Нужно название"; return; }
+        const cat = box.querySelector(".nb-cats button.on");
+        const body = {
+          title,
+          category: cat ? cat.dataset.cat : it.category,
+          where: box.querySelector(".nb-ed-where").value,
+          status: box.querySelector(".nb-ed-status").value,
+          priority: box.querySelector(".nb-ed-prio").value || null,
+          description: box.querySelector(".nb-ed-desc").value.trim(),
+        };
+        if (newShot !== undefined) {
+          body.image = newShot ? newShot.image : null;
+          body.thumb = newShot ? newShot.thumb : null;
+        }
+        const sb = box.querySelector(".nb-ed-save");
+        sb.disabled = true;
+        m.textContent = "Сохраняю…";
+        try {
+          it = await api("/api/notebook/" + encodeURIComponent(id), jsonOpts("PATCH", body));
+          editing = false;
+          render();
+          if (panel && isOpen) loadList();
+          changed();
+        } catch (e) { m.textContent = e.message; sb.disabled = false; }
+      });
+    }
+
+    render();
   }
 
   // ---------- открыть / закрыть ----------
@@ -299,6 +547,7 @@ const Notebook = (() => {
     panel.classList.add("open");
     tab.classList.add("open");
     panel.setAttribute("aria-hidden", "false");
+    $(".nb-where").innerHTML = whereOptions(currentWhere());
     loadList();
     setTimeout(() => $(".nb-title").focus(), 250);
   }
@@ -313,7 +562,12 @@ const Notebook = (() => {
 
   function toggle() { isOpen ? close() : open(); }
 
-  return { init: () => { if (!panel) build(); }, open, close, toggle };
+  return {
+    init: () => { if (!panel) build(); }, open, close, toggle, showItem,
+    onChange: (f) => listeners.push(f),
+    api, esc, fmtDate, who, catChip, statusChip, prioChip, forClaude, copyText,
+    CATS, STATUSES, CAT_LABEL, STATUS_LABEL, WHERE,
+  };
 })();
 
 document.addEventListener("DOMContentLoaded", () => Notebook.init());
