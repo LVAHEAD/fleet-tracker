@@ -36,13 +36,13 @@
   <span class="own-flt"><button type="button" data-own="all" title="Строки всех диспетчеров">все</button><button type="button" data-own="mine" title="Только мои строки (где я диспетчер)">мои</button><span class="flt-sep"></span></span>
   <span class="flt-lbl">Показать:</span>
   <button type="button" data-flt="all" title="Все строки">все</button>
-  <button type="button" data-flt="L" title="Только погрузки — по первой точке (если она без отметки — по второй)">L</button>
-  <button type="button" data-flt="O" title="Только выгрузки — по первой точке (если она без отметки — по второй)">O</button>
+  <button type="button" data-flt="L" title="Только погрузки — по первой непройденной точке (если она без отметки — по следующей)">L</button>
+  <button type="button" data-flt="O" title="Только выгрузки — по первой непройденной точке (если она без отметки — по следующей)">O</button>
   <span class="flt-sep"></span>
   <span>Сортировка:</span>
   <button type="button" data-sort="added" title="В том порядке, как добавляли строки">как добавляли</button>
-  <button type="button" data-sort="LO" title="Сначала погрузки, потом выгрузки; внутри — сначала опаздывающие и с меньшим запасом до Delivery">L → O</button>
-  <button type="button" data-sort="OL" title="Сначала выгрузки, потом погрузки; внутри — по срочности">O → L</button>
+  <button type="button" data-sort="LO" title="Сначала погрузки, потом выгрузки; внутри — по TimeSlot первой непройденной точки (раньше — выше), без TimeSlot — в конце">L → O</button>
+  <button type="button" data-sort="OL" title="Сначала выгрузки, потом погрузки; внутри — по TimeSlot первой непройденной точки, без TimeSlot — в конце">O → L</button>
   <label class="auto-lbl" title="Как часто пересчитывать все строки (без перестановки). Строка, которая стала опаздывать, мигает до клика.">автообновление
     <select id="auto-refresh"><option value="0">выкл</option><option value="15">15 мин</option><option value="30">30 мин</option><option value="60">60 мин</option></select></label>
   <button type="button" class="m-edit-btn" id="m-edit-btn" title="Правка строк на телефоне">✎ правка</button>
@@ -64,7 +64,7 @@
       <th>Машина</th>
       <th>Статус</th>
       <th class="th-center">Таргет</th>
-      <th class="th-center">Delivery</th>
+      <th class="th-center" title="Срок или окно «с–по» для точки: 03.10 15:00 · 03.10 09-15 · 03.10 22:00 – 04.10 06:00">TimeSlot</th>
       <th class="th-center" title="Дистанция, км">KM</th>
       <th class="th-eta">ETA</th>
       <th>Примечание</th>

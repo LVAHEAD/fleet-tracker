@@ -909,3 +909,6 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 /* нижняя панель фильтров и сортировки, «свернуть / развернуть все» */
 .sort-bar-bottom { margin-top: 8px; }
 .fold-all-btn[hidden] { display: none; }
+.fold-all-btn:disabled { opacity: .45; cursor: default; }
+/* v3.10: опоздание к TimeSlot у любой непройденной точки */
+.eta-cell .sl-late .eta-x-t, .eta-cell .sl-late .eta-tacho { color: #c0392b; }

@@ -580,8 +580,7 @@ function applyLoToRow(tr, row) {
   btn.textContent = loText(row.lo);
   btn.title = loTitle(row.lo);
   tr.querySelector(".delivery-input").placeholder = deliveryPlaceholder(row.lo);
-  tr.classList.remove("lo-row-L", "lo-row-O");
-  if (row.lo) tr.classList.add(`lo-row-${row.lo}`);
+  stripeRow(tr, row);   // v3.10: по первой непройденной точке
   recolorTargetMarker(row.id, row.unit, markerKind(row));
   const chip = row.extra && row.extra.length ? tr.querySelector(".target-wrap:not(.x-stop) .stop-n") : null;
   if (chip) chip.innerHTML = numChip(1, row.lo);
@@ -606,17 +605,15 @@ function saveSortState() {
   } catch (e) { /* ignore */ }
 }
 
-function urgencyKey(row) {
-  // v1.55: [0, …] — опаздывающие (ETA позже конца окна), по Delivery;
-  // [1, начало окна Delivery (или срок)] — остальные по Delivery, раньше — выше;
-  // [2, ETA] — без распознанной даты Delivery.
-  const c = lastCalcText[row.id];
-  const w = parseDeliveryWindow(row.delivery);
-  const etaD = c && c.etaStr ? parseEta(c.etaStr) : null;
-  const dKey = w ? (w.start || w.end) : null;
-  if (dKey && w.end && etaD && etaD > w.end) return [0, dKey.getTime()];
-  if (dKey) return [1, dKey.getTime()];
-  return [2, etaD ? etaD.getTime() : Infinity];
+// v3.10: ключ сортировки — TimeSlot первой непройденной точки (начало окна, иначе срок);
+// без TimeSlot — null (такие строки в конце своей группы, в порядке добавления).
+// Опаздывающие наверх не поднимаем.
+function slotKey(row) {
+  const k = firstOpenIdx(row);
+  const p = k >= 0 ? pointOf(row, k) : null;
+  const w = p ? parseDeliveryWindow(p.delivery) : null;
+  const t = w ? (w.start || w.end) : null;
+  return t ? t.getTime() : null;
 }
 
 function computeOrder() {
@@ -632,12 +629,13 @@ function computeOrder() {
     const rank = sortMode === "LO" ? { L: 0, O: 1 } : { O: 0, L: 1 };
     const idx = new Map(rows.map((r, i) => [r.id, i]));
     return rows.slice().sort((a, b) => {
-      const ra = a.lo in rank ? rank[a.lo] : 2, rb = b.lo in rank ? rank[b.lo] : 2;
+      const la = rowLoKind(a), lb = rowLoKind(b);
+      const ra = la in rank ? rank[la] : 2, rb = lb in rank ? rank[lb] : 2;
       if (ra !== rb) return ra - rb;
       if (ra === 2) return idx.get(a.id) - idx.get(b.id);
-      const ka = urgencyKey(a), kb = urgencyKey(b);
-      if (ka[0] !== kb[0]) return ka[0] - kb[0];
-      if (ka[1] !== kb[1]) return ka[1] < kb[1] ? -1 : 1;
+      const ka = slotKey(a), kb = slotKey(b);
+      if (ka != null && kb != null && ka !== kb) return ka - kb;
+      if ((ka == null) !== (kb == null)) return ka == null ? 1 : -1;
       return idx.get(a.id) - idx.get(b.id);
     }).map((r) => r.id);
   }
@@ -661,15 +659,41 @@ function orderedRows() {
 }
 
 // ---------- v1.78: фильтр L/O во Флоте ----------
-// Строка — по L/O первой точки; если у неё нет отметки — по второй точке (если есть);
+// v3.10: строка — по L/O первой НЕПРОЙДЕННОЙ точки; если у неё нет отметки — по следующей;
 // иначе только в "Все". Пустые строки (без машины) видны всегда. Карту фильтр не трогает.
+// Тот же признак — полоска строки и сортировка L → O / O → L.
 let loFilter = "all";
 try { loFilter = localStorage.getItem("fleet-lo-filter") || "all"; } catch (e) {}
 if (!["all", "L", "O"].includes(loFilter)) loFilter = "all";
+// точка k: 0 — основная (row.lo / row.delivery), k ≥ 1 — row.extra[k - 1]
+function pointOf(row, k) {
+  return k === 0 ? { lo: row.lo, delivery: row.delivery } : (row.extra && row.extra[k - 1]) || null;
+}
+// индекс первой непройденной точки (ручные отметки row.done важнее авто), -1 — все пройдены
+function firstOpenIdx(row) {
+  const n = 1 + (row.extra ? row.extra.length : 0);
+  const c = lastCalcText[row.id];
+  const fl = c && c.doneFlags;
+  const man = row.done || {};
+  for (let k = 0; k < n; k++) {
+    const d = man[k] === true ? true : man[k] === false ? false : !!(fl && fl[k] && fl[k].done);
+    if (!d) return k;
+  }
+  return -1;
+}
 function rowLoKind(row) {
-  if (row.lo === "L" || row.lo === "O") return row.lo;
-  const x = row.extra && row.extra[0];
-  return x && (x.lo === "L" || x.lo === "O") ? x.lo : "";
+  const k = firstOpenIdx(row);
+  if (k < 0) return "";
+  const isLo = (p) => p && (p.lo === "L" || p.lo === "O");
+  const p = pointOf(row, k);
+  if (isLo(p)) return p.lo;
+  const q = pointOf(row, k + 1);
+  return isLo(q) ? q.lo : "";
+}
+function stripeRow(tr, row) {
+  tr.classList.remove("lo-row-L", "lo-row-O");
+  const kind = rowLoKind(row);
+  if (kind) tr.classList.add(`lo-row-${kind}`);
 }
 function rowPassesFilter(row) {
   if (!row.unit) return true;
@@ -726,7 +750,7 @@ function renderRows() {
     const tr = document.createElement("tr");
     tr.dataset.id = row.id;
     if (!rowPassesFilter(row)) tr.classList.add("lo-filtered");
-    if (row.lo) tr.classList.add(`lo-row-${row.lo}`);
+    stripeRow(tr, row);
     const multi = !!(row.extra && row.extra.length);
     if (multi) tr.classList.add("multi");
     const cached = lastCalcText[row.id];
@@ -819,8 +843,8 @@ function loTitle(lo) {
 }
 function deliveryPlaceholder(lo) {
   if (lo === "L") return "окно погрузки";
-  if (lo === "O") return "окно доставки";
-  return "дата, время";
+  if (lo === "O") return "окно выгрузки";
+  return "дата, время / окно";
 }
 
 function escapeHtml(s) {
@@ -978,6 +1002,7 @@ function attachRowHandlers() {
       x.delivery = e.target.value;
       e.target.title = e.target.value;
       saveRows();
+      recheckLate(id);   // v3.10: красный ETA у этой точки — без пересчёта маршрута
     }));
     tr.querySelectorAll(".xlo-btn").forEach((b) => b.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -995,6 +1020,7 @@ function attachRowHandlers() {
       recolorTargetMarker(id + "_" + k, row.unit, x.lo);
       const chip = tr.querySelector(`.x-stop[data-k="${k}"] .stop-n`);
       if (chip) chip.innerHTML = numChip(k + 1, x.lo);
+      stripeRow(tr, row);
     }));
     tr.querySelector(".trl-btn-w").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1111,6 +1137,9 @@ function etaCellHtml(row, c, composed) {
     const ce = c.extra && c.extra[i];
     let inner = '<span class="eta-x-t">—</span>';
     let tip = "";
+    // v3.10: опоздание к TimeSlot любой непройденной точки — красным
+    const chk = ce && !ce.done && !ce.error ? slotCheck(x.delivery, ce.eta_tacho || ce.eta_local) : { late: false, lines: [] };
+    const lateCls = chk.late ? " sl-late" : "";
     if (ce && ce.done) {
       inner = doneEtaHtml(ce);
       tip = ce.done_auto ? `Точка пройдена: трак стоял здесь, уехал ${ce.done_at}` : "Отмечена пройденной вручную";
@@ -1126,11 +1155,13 @@ function etaCellHtml(row, c, composed) {
              ce.eta_tacho ? `⏱ По тахографу: ${ce.eta_tacho}` : "",
              `Простой ETA: ${ce.eta_local}`].filter(Boolean).join("\n");
     }
+    if (chk.lines.length) tip = chk.lines.join("\n") + (tip ? "\n" + tip : "");
     if (nbAt === i && composed) {
-      lines.push(`<div class="sl${folded(row) && i >= 1 ? " fold-hide" : ""}" title="${escapeHtml(composed.title || tip)}">${composed.html}</div>`);
+      const t = (chk.lines.length ? chk.lines.join("\n") + "\n" : "") + (composed.title || tip);
+      lines.push(`<div class="sl${lateCls}${folded(row) && i >= 1 ? " fold-hide" : ""}" title="${escapeHtml(t)}">${composed.html}</div>`);
       return;
     }
-    lines.push(`<div class="sl${folded(row) && i >= 1 ? " fold-hide" : ""}" title="${escapeHtml(tip)}"><span class="eta-nb-sp"></span>${inner}</div>`);
+    lines.push(`<div class="sl${lateCls}${folded(row) && i >= 1 ? " fold-hide" : ""}" title="${escapeHtml(tip)}"><span class="eta-nb-sp"></span>${inner}</div>`);
   });
   return lines.join("");
 }
@@ -1516,6 +1547,19 @@ function hmOf(h, m, ap, apFallback) {
 }
 function parseDeliveryWindow(txt) {
   const s = String(txt || "");
+  // v3.10: окно «с–по» через даты: "03.10 22:00 – 04.10 06:00", "с 03/10 22 по 04/10 06"
+  const DD = "(\\d{1,2})[\\/.](\\d{1,2})(?:[\\/.]\\d{2,4})?\\s+";
+  const two = s.toLowerCase().match(new RegExp(DD + DT_T + "\\s*(?:-|–|—|to|till|until|до|по)\\s*" + DD + DT_T));
+  if (two) {
+    const a = hmOf(two[3], two[4], two[5], two[10]);
+    const b = hmOf(two[8], two[9], two[10]);
+    const okD = (d, m) => d >= 1 && d <= 31 && m >= 1 && m <= 12;
+    if (a != null && b != null && okD(+two[1], +two[2]) && okD(+two[6], +two[7])) {
+      const start = mkDate(+two[1], +two[2], Math.floor(a / 60), a % 60);
+      const end = mkDate(+two[6], +two[7], Math.floor(b / 60), b % 60);
+      if (end > start) return { start, end };
+    }
+  }
   let day, mon, rest;
   const iso = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})(.*)$/);
   const d = iso ? null : s.match(/(\d{1,2})[\/.](\d{1,2})(?:[\/.]\d{2,4})?(.*)$/);
@@ -1579,17 +1623,26 @@ function deliveryCheck(row, etaStr) {
   // v1.59: дата Delivery сильно в прошлом — скорее опечатка, не красим, а предупреждаем
   const ref = w.end || w.start;
   if (ref && Date.now() - ref.getTime() > 2 * 86400000) {
-    out.lines.push("⚠ Дата Delivery в прошлом — проверь (опечатка?)");
+    out.lines.push("⚠ Дата TimeSlot в прошлом — проверь (опечатка?)");
     return out;
   }
   const hm = (d) => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   if (w.end && etaD > w.end) {
     out.late = true;
-    out.lines.push(`Позже Delivery (${row.delivery}) — окно до ${hm(w.end)}`);
+    out.lines.push(`Позже TimeSlot (${row.delivery}) — ${w.start ? "окно до" : "срок"} ${hm(w.end)}`);
   } else if (w.start && etaD < w.start) {
-    out.lines.push(`⏳ Раньше окна Delivery — с ${hm(w.start)}, будет ждать`);
+    out.lines.push(`⏳ Раньше окна TimeSlot — с ${hm(w.start)}, будет ждать`);
   }
   return out;
+}
+// v3.10: проверка по тексту TimeSlot (любая точка)
+function slotCheck(txt, etaStr) { return deliveryCheck({ delivery: txt }, etaStr); }
+// опаздывает ли хоть одна непройденная следующая точка (② и дальше)
+function extrasLate(row, extra) {
+  return (row.extra || []).some((x, i) => {
+    const ce = extra && extra[i];
+    return !!(ce && !ce.done && !ce.error && slotCheck(x.delivery, ce.eta_tacho || ce.eta_local).late);
+  });
 }
 // "dd/mm HH:MM" (ETA с сервера) -> Date
 function parseEta(txt) {
@@ -1615,9 +1668,12 @@ function recheckLate(id) {
   const c = lastCalcText[id];
   const tr = document.querySelector(`#fleet-tbody tr[data-id="${id}"]`);
   if (!row || !c || !c.etaCore || !tr) return;
-  const chk = deliveryCheck(row, c.etaStr);
+  // v3.10: ① пройдена — её TimeSlot не проверяем; следующие точки проверяет etaCellHtml
+  const firstDone = c.nbAt != null || !!(c.doneFlags && c.doneFlags[0] && c.doneFlags[0].done);
+  const chk = firstDone ? { late: false, lines: [] } : deliveryCheck(row, c.etaStr);
   c.late = chk.late;
-  c.tipLines = (c.tipLines || []).filter((l) => !l.startsWith("Позже Delivery") && !l.startsWith("⏳ Раньше окна") && !l.startsWith("⚠ Дата Delivery"));
+  c.anyLate = c.late || extrasLate(row, c.extra);
+  c.tipLines = (c.tipLines || []).filter((l) => !l.startsWith("Позже TimeSlot") && !l.startsWith("⏳ Раньше окна") && !l.startsWith("⚠ Дата TimeSlot"));
   c.tipLines.unshift(...chk.lines);
   const composed = composeEta(row, c);
   const cell = tr.querySelector(".eta-cell");
@@ -1720,7 +1776,7 @@ async function calcRow(id) {
     let distText = "—";
     let etaText = "—";
     let etaTip = "";
-    let late = false;
+    let late = false, anyLate = false;
     let etaCore = null, bansR = [], tipLines = [];
     if (data.dist_km != null && !data.first_done) {
       distText = data.dist_km.toFixed(1);
@@ -1743,9 +1799,10 @@ async function calcRow(id) {
       (data.extra || []).forEach((x, i) => (x.bans_route || []).forEach((b) => bansR.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
       const chk = deliveryCheck(row, data.eta_tacho || data.eta_local);
       late = chk.late;
-      // v1.59: стала опаздывать с прошлого расчёта — мигать до клика
+      anyLate = late || extrasLate(row, extraCalc(data));
+      // v1.59: стала опаздывать с прошлого расчёта — мигать до клика (v3.10: любая точка)
       const prevC = lastCalcText[id];
-      if (prevC && prevC.etaCore && prevC.late === false && late) {
+      if (prevC && prevC.etaCore && prevC.anyLate === false && anyLate) {
         blinkRows.add(id);
         tr.classList.add("row-blink");
       }
@@ -1780,6 +1837,12 @@ async function calcRow(id) {
         Object.assign(cx, { etaCore, bansR, tipLines, nbAt: act0 - 1 });
         composed = composeEta(row, cx);
       }
+      anyLate = extrasLate(row, cx.extra);
+      const prevC = lastCalcText[id];
+      if (prevC && prevC.etaCore && prevC.anyLate === false && anyLate) {
+        blinkRows.add(id);
+        tr.classList.add("row-blink");
+      }
       distCell.innerHTML = distCellHtml(row, cx);
       etaCell.innerHTML = etaCellHtml(row, cx, composed);
       etaCell.title = composed ? composed.title : "";
@@ -1809,12 +1872,13 @@ async function calcRow(id) {
     const oldTb = tr.querySelector(".target-cc");
     if (oldTb) oldTb.outerHTML = targetBadge;
 
-    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, etaCore, bansR, tipLines,
+    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines,
                          etaStr: data.eta_tacho || data.eta_local, extra: extraCalc(data),
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual })),
                          allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null,
                          nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };
     applyDoneClasses(tr, row, lastCalcText[id]);
+    stripeRow(tr, row);   // v3.10: пройденные точки меняют L/O строки
     // v1.64: плашки кодов у следующих точек
     (lastCalcText[id].extra || []).forEach((ce, i) => {
       const w = tr.querySelector(`.x-stop[data-k="${i + 1}"]`);
@@ -1831,6 +1895,7 @@ async function calcRow(id) {
         const b = w.querySelector(".xlo-btn");
         b.className = `lo-btn xlo-btn ${loClass(row.extra[i].lo)}`;
         b.textContent = loText(row.extra[i].lo);
+        stripeRow(tr, row);
       }
     });
 
@@ -2147,10 +2212,12 @@ function moveManual(id, dir) {
       bar.querySelectorAll("button[data-own]").forEach((b) => b.classList.toggle("on", b.dataset.own === ownFilter));
       bar.classList.toggle("has-own", !!fleetMe());
       const fb = bar.querySelector(".fold-all-btn");
+      // v3.10: кнопка видна всегда; без строк с 3+ точками — бледная и неактивная
       const has = rows.some((r) => foldable(r));
-      fb.hidden = !has;
-      fb.textContent = anyOpen() ? "▾ свернуть все" : "▸ развернуть все";
-      fb.title = anyOpen() ? "Свернуть точки во всех строках" : "Развернуть точки во всех строках";
+      fb.disabled = !has;
+      fb.textContent = has && anyOpen() ? "▾ свернуть все" : "▸ развернуть все";
+      fb.title = !has ? "Сворачиваются строки с 3 и более точками — сейчас таких нет"
+        : anyOpen() ? "Свернуть точки во всех строках" : "Развернуть точки во всех строках";
     });
   };
   window.fleetMarkBar = mark;
