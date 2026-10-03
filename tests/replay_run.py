@@ -64,8 +64,16 @@ c = app.app.test_client()
 res = {}
 def call(name, m, url, body=None):
     r = c.post(url, json=body) if m == "POST" else c.get(url)
-    try: res[name] = [r.status_code, r.get_json()]
-    except Exception: res[name] = [r.status_code, r.data[:200].decode("utf-8", "replace")]
+    j = r.get_json(silent=True)
+    if j is not None:
+        res[name] = [r.status_code, r.mimetype, j]
+    else:
+        res[name] = [r.status_code, r.mimetype, r.data.decode("utf-8", "replace")]
+    if name == "changelog_len":   # история растёт каждый билд — проверяем только формат
+        res[name] = [r.status_code, r.mimetype, sorted(j), sorted(j["items"][0])]
+    if name == "index":           # номер версии в странице меняется каждый билд
+        res[name][2] = res[name][2].replace(app.APP_VERSION, "X.YY")
+call("index", "GET", "/")
 call("units", "GET", "/api/units")
 call("calc_code", "POST", "/api/calc", {"unit": "OI-1778", "target": "LV10"})
 call("calc_gps_multi", "POST", "/api/calc", {"unit": "OI-1778", "target": "45.78075, 12.01714", "extra": ["57.00781, 24.10356", "SE25"]})
@@ -89,6 +97,13 @@ call("truckinfo", "GET", "/api/truck-info?unit=OI-1778")
 call("mapon_units", "GET", "/api/mapon-units")
 call("mapon_objects", "GET", "/api/mapon-objects")
 call("bans", "GET", "/api/bans")
+call("mapon_units_raw", "GET", "/api/mapon-units?unit=OI-1778&raw=1")
+call("mapon_objects_csv", "GET", "/api/mapon-objects?format=csv")
+call("mapon_check", "GET", "/api/mapon-check?unit=OI-1778")
+call("mapon_check_raw", "GET", "/api/mapon-check?unit=OI-1778&raw=1")
+call("nearest_trucks", "GET", "/api/nearest-units?unit=NP-2044&kind=truck")
+call("changelog_len", "GET", "/api/changelog")
+call("me", "GET", "/api/me")
 call("addresses", "GET", "/api/addresses")
 call("freights", "GET", "/api/freights")
 call("gusage", "GET", "/api/google-usage")

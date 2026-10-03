@@ -15,7 +15,7 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
   Push только по явной команде **`//кодим`** или **`//деплой`** (одно и то же).
   До команды: готовим изменения локально, коммитим, докладываем и ждём.
 - `//обс` — только обсуждение: без кода, коммитов и деплоя.
-- Версии `vX.YY`: X — ключевое изменение, YY — обычные билды. Сейчас идёт ветка **3.x** (рефакторинг, см. `REFACTOR.md`).
+- Версии `vX.YY`: X — ключевое изменение, YY — обычные билды. Ветка **3.x** — модульная структура (рефакторинг завершён в v3.05).
 - Каждый билд:
   - поднимает `APP_VERSION` в `fetat/__init__.py`;
   - добавляет запись сверху в `CHANGELOG.md` (тест проверяет, что верхняя запись = `APP_VERSION`);
@@ -25,12 +25,12 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 
 ## Структура
 
-Переезд из монолита идёт по `REFACTOR.md`. Пока шаг не сделан, код лежит в `app.py`.
-Целевая раскладка (что где искать):
+Монолит разбит на модули (v3.00–v3.05, `REFACTOR.md`). Что где искать:
 
 | Модуль | Что внутри |
 |---|---|
-| `app.py` | shim: `app = create_app()` |
+| `app.py` | точка входа gunicorn: `app = create_app()` |
+| `fetat/__init__.py` | `APP_VERSION`, `create_app()` — Flask с `root_path` = корень проекта, регистрация Blueprints |
 | `fetat/config.py` | переменные окружения, папка `data/`, сдвиг времени Риги (пороги и TTL живут рядом со своей логикой) |
 | `fetat/utils/` | `geo` (haversine, polyline, WKT, GPS), `timefmt`, `text` |
 | `fetat/clients/mapon.py` | unit/list, группы, тахограф, daily_activities, объекты, стоянки; семафор на 3 запроса |
@@ -51,10 +51,15 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 | `fetat/services/fleet_calc.py` | строка Флота: `calc_row(payload) -> (ответ, код)` и блоки `_unit_status`, `_add_trailer_info`, `_apply_points_done`, `_add_tacho`, `_add_route_context`, `_add_code_badges`; следующие точки `calc_extra_stops` |
 | `fetat/services/route_calc.py` | From → To: `route_calc(payload) -> (ответ, код)`, мультимаршрут с паромами |
 | `fetat/store/fleet_store.py` | общий Флот: Firestore / память, права на удаление, 🔒, корзина 24 ч, проверка полей |
-| `fetat/api/` | Blueprints: fleet, calc, mapon, reference, meta |
+| `fetat/api/meta.py` | `/`, `/api/me`, `/api/changelog`, `/api/google-usage`; `current_user_email` (IAP) |
+| `fetat/api/mapon.py` | `/api/units`, `/api/truck-info`, `/api/nearest-units`, `/api/mapon-units`, `/api/mapon-objects`, `/api/mapon-check` |
+| `fetat/api/calc.py` | `/api/calc`, `/api/route` → services |
+| `fetat/api/reference.py` | `/api/region-codes`, `/api/locate`, `/api/addresses`, `/api/freights`, `/api/bans` |
+| `fetat/api/fleet.py` | `/api/fleet*`: чтение, sync, 🔒, корзина, восстановление, импорт |
 | `data/` | `region_codes.json`, `region_codes_geonames.json` |
 | `tests/` | unittest + фикстуры; код через `A` из `tests/__init__.py` (ищет имя во всех модулях, подмена ставится везде) |
 
+Новый эндпоинт — в подходящий Blueprint (`bp.route`), логика — в services/domain. Внутри обработчика `current_app`, не `app`.
 Зависимости идут только вниз: `api → services → domain + clients → utils/config`.
 `domain` не импортирует Flask и `requests`: в сеть — только через `fetat.clients`. Следит `tests/test_structure.py`.
 

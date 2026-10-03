@@ -43,6 +43,7 @@
  ],
  "addresses": [
   200,
+  "application/json",
   {
    "addresses": [],
    "error": "No module named 'google.auth'",
@@ -52,6 +53,7 @@
  ],
  "bans": [
   200,
+  "application/json",
   {
    "countries": [
     "AT",
@@ -82,6 +84,7 @@
  ],
  "calc_all_done": [
   200,
+  "application/json",
   {
    "active_idx": [],
    "all_done": true,
@@ -114,6 +117,7 @@
  ],
  "calc_ambiguous": [
   409,
+  "application/json",
   {
    "candidates": [
     "OI-1778",
@@ -125,6 +129,7 @@
  ],
  "calc_code": [
   200,
+  "application/json",
   {
    "active_idx": [
     0
@@ -176,12 +181,14 @@
  ],
  "calc_empty": [
   400,
+  "application/json",
   {
    "error": "Не указана машина"
   }
  ],
  "calc_gps_multi": [
   200,
+  "application/json",
   {
    "active_idx": [
     0,
@@ -271,6 +278,7 @@
  ],
  "calc_linked_trailer": [
   200,
+  "application/json",
   {
    "active_idx": [
     0
@@ -337,6 +345,7 @@
  ],
  "calc_manual_done": [
   200,
+  "application/json",
   {
    "active_idx": [
     1,
@@ -413,6 +422,7 @@
  ],
  "calc_standing": [
   200,
+  "application/json",
   {
    "active_idx": [
     0
@@ -464,6 +474,7 @@
  ],
  "calc_trailer": [
   200,
+  "application/json",
   {
    "direction": null,
    "dist_km": null,
@@ -485,12 +496,28 @@
  ],
  "calc_unknown": [
   404,
+  "application/json",
   {
    "error": "Машина 'ZZ-0000' не найдена"
   }
  ],
+ "changelog_len": [
+  200,
+  "application/json",
+  [
+   "items",
+   "version"
+  ],
+  [
+   "date",
+   "text",
+   "title",
+   "ver"
+  ]
+ ],
  "fleet": [
   200,
+  "application/json",
   {
    "admin": false,
    "lock_ms": 60000,
@@ -503,6 +530,7 @@
  ],
  "freights": [
   200,
+  "application/json",
   {
    "contract_clients": [],
    "error": "No module named 'google.auth'",
@@ -513,6 +541,7 @@
  ],
  "gusage": [
   200,
+  "application/json",
   {
    "cache_hits": 0,
    "calls_local": 11,
@@ -521,8 +550,14 @@
    "local_day": "2026-10-06"
   }
  ],
+ "index": [
+  200,
+  "text/html",
+  "<!DOCTYPE html>\n<html lang=\"ru\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Fleet ETA Tracker</title>\n<link rel=\"stylesheet\" href=\"/static/style.css\">\n<link rel=\"stylesheet\" href=\"/static/mobile.css\">\n<meta name=\"theme-color\" content=\"#fafafa\">\n</head>\n<body>\n\n<div class=\"topbar\">\n  <h1>Fleet ETA Tracker <span class=\"title-version\">vX.YY</span></h1>\n</div>\n\n<nav class=\"main-tabs\">\n  <button class=\"main-tab-btn active\" data-tab=\"fleet\">Флот</button>\n  <button class=\"main-tab-btn\" data-tab=\"route\">From → To</button>\n  <button class=\"main-tab-btn\" data-tab=\"gf\" data-wip>GF построитель</button>\n  <button class=\"main-tab-btn m-only\" data-tab=\"maps\" data-locator>Локатор</button>\n  <span class=\"main-tabs-spacer\"></span>\n  <button class=\"main-tab-btn ref-tab\" data-tab=\"bans\">Запреты</button>\n  <button class=\"main-tab-btn ref-tab\" data-tab=\"ferries\" data-wip>Паромы</button>\n  <button class=\"main-tab-btn ref-tab\" data-tab=\"maps\">Карты стран</button>\n  <button class=\"main-tab-btn ref-tab\" data-tab=\"truckinfo\" data-wip>Truck Info</button>\n  <button class=\"main-tab-btn ref-tab\" data-tab=\"notes\" title=\"Блокнот\">[.]</button>\n  <a id=\"g-usage\" class=\"g-usage\" href=\"https://console.cloud.google.com/billing/reports?project=my-n8n-bot-496614\" target=\"_blank\" rel=\"noopener\" title=\"Запросы к Google Routes\">G …</a>\n</nav>\n\n<!-- ==================== Вкладка: Флот ==================== -->\n<div id=\"tab-fleet\" class=\"tab-panel\">\n\n<div id=\"sort-bar\" class=\"sort-bar\">\n  <span class=\"own-flt\"><button type=\"button\" data-own=\"all\" title=\"Строки всех диспетчеров\">все</button><button type=\"button\" data-own=\"mine\" title=\"Только мои строки (где я диспетчер)\">мои</button><span class=\"flt-sep\"></span></span>\n  <span class=\"flt-lbl\">Показать:</span>\n  <button type=\"button\" data-flt=\"all\" title=\"Все строки\">все</button>\n  <button type=\"button\" data-flt=\"L\" title=\"Только погрузки — по первой точке (если она без отметки — по второй)\">L</button>\n  <button type=\"button\" data-flt=\"O\" title=\"Только выгрузки — по первой точке (если она без отметки — по второй)\">O</button>\n  <span class=\"flt-sep\"></span>\n  <span>Сортировка:</span>\n  <button type=\"button\" data-sort=\"added\" title=\"В том порядке, как добавляли строки\">как добавляли</button>\n  <button type=\"button\" data-sort=\"LO\" title=\"Сначала погрузки, потом выгрузки; внутри — сначала опаздывающие и с меньшим запасом до Delivery\">L → O</button>\n  <button type=\"button\" data-sort=\"OL\" title=\"Сначала выгрузки, потом погрузки; внутри — по срочности\">O → L</button>\n  <label class=\"auto-lbl\" title=\"Как часто пересчитывать все строки (без перестановки). Строка, которая стала опаздывать, мигает до клика.\">автообновление\n    <select id=\"auto-refresh\"><option value=\"0\">выкл</option><option value=\"15\">15 мин</option><option value=\"30\">30 мин</option><option value=\"60\">60 мин</option></select></label>\n  <button type=\"button\" class=\"m-edit-btn\" id=\"m-edit-btn\" title=\"Правка строк на телефоне\">✎ правка</button>\n  <button type=\"button\" data-sort=\"manual\" title=\"Свой порядок: перетаскивайте строки за ⠿ (на телефоне — ↑/↓ в меню ⋯)\">руками</button>\n</div>\n<table id=\"fleet-table\">\n  <colgroup>\n    <col class=\"col-unit\">\n    <col class=\"col-status\">\n    <col class=\"col-target\">\n    <col class=\"col-delivery\">\n    <col class=\"col-dist\">\n    <col class=\"col-eta\">\n    <col class=\"col-note\">\n    <col class=\"col-actions\">\n  </colgroup>\n  <thead>\n    <tr>\n      <th>Машина</th>\n      <th>Статус</th>\n      <th class=\"th-center\">Таргет</th>\n      <th class=\"th-center\">Delivery</th>\n      <th class=\"th-center\" title=\"Дистанция, км\">KM</th>\n      <th class=\"th-eta\">ETA</th>\n      <th>Примечание</th>\n      <th class=\"th-actions\"><button type=\"button\" id=\"add-row-btn\" class=\"refresh-top\" title=\"Добавить строку в конец\">+<span class=\"hdr-txt\"> строка</span></button><button type=\"button\" id=\"refresh-btn\" class=\"refresh-top\" title=\"Обновить всё\">↻</button></th>\n    </tr>\n  </thead>\n  <tbody id=\"fleet-tbody\"></tbody>\n</table>\n\n\n<div id=\"map\"></div>\n<button type=\"button\" class=\"m-map-close\" id=\"m-map-close\">← К списку</button>\n<button type=\"button\" class=\"m-fab\" id=\"m-fab-add\" title=\"Добавить строку\" hidden>+</button>\n<button type=\"button\" class=\"m-fab\" id=\"m-fab-map\" title=\"Карта\">🗺</button>\n<button type=\"button\" class=\"m-fab\" id=\"m-fab-refresh\" title=\"Обновить всё\">↻</button>\n\n<datalist id=\"units-list\"></datalist>\n<datalist id=\"points-list\"></datalist>\n<datalist id=\"trailers-list\"></datalist>\n<datalist id=\"trucks-list\"></datalist>\n\n</div>\n\n<!-- ==================== Вкладка: Карты стран ==================== -->\n<div id=\"tab-maps\" class=\"tab-panel\" hidden>\n  <div class=\"pc-layout\">\n    <div class=\"pc-top\">\n      <nav class=\"pc-tabs\" role=\"tablist\" aria-orientation=\"vertical\" id=\"pcTabs\"></nav>\n      <div class=\"locator-bar\">\n        <button type=\"button\" id=\"locatorBtn\" class=\"locator-btn\">Локатор</button>\n        <input id=\"locatorInput\" list=\"points-list\" autocomplete=\"off\" placeholder=\"код, город, GPS или машина\">\n      </div>\n    </div>\n    <div id=\"locatorView\" class=\"locator-view\" hidden>\n      <div id=\"locatorInfo\" class=\"locator-info\">Клик по точке — код региона. Или введите код, город, GPS или машину в поле выше и нажмите Enter.</div>\n      <div id=\"locatorMap\" class=\"locator-map\"></div>\n      <div class=\"locator-credit\">Коды регионов AT, CH, HU и др.: © <a href=\"https://www.geonames.org\" target=\"_blank\" rel=\"noopener\">GeoNames</a> (<a href=\"https://creativecommons.org/licenses/by/4.0/\" target=\"_blank\" rel=\"noopener\">CC BY 4.0</a>)</div>\n    </div>\n    <main class=\"pc-main\" id=\"pcMain\">\n      <div class=\"pc-toolbar\">\n        <h2 id=\"pcTitle\"></h2>\n        <button type=\"button\" id=\"pcZoomBtn\">Увеличить</button>\n        <a id=\"pcOrigLink\" target=\"_blank\" rel=\"noopener\">Открыть оригинал</a>\n      </div>\n      <div class=\"pc-viewer\" id=\"pcViewer\" role=\"tabpanel\">\n        <img id=\"pcImg\" alt=\"\">\n        <div class=\"pc-status\" id=\"pcStatus\" hidden></div>\n        <div class=\"pc-zones\" id=\"pcZones\" hidden></div>\n      </div>\n    </main>\n  </div>\n</div>\n\n<!-- ==================== Вкладка: [.] блокнот (справочная) ==================== -->\n<div id=\"tab-notes\" class=\"tab-panel\" hidden>\n  <div class=\"notes-layout\">\n    <div class=\"notes-main\">\n      <div class=\"notes-head\">\n        <b>Блокнот</b>\n        <span class=\"notes-hint\">сохраняется автоматически в этом браузере</span>\n        <span id=\"notesSaved\" class=\"notes-saved\"></span>\n      </div>\n      <textarea id=\"notesText\" class=\"notes-text\" spellcheck=\"false\" placeholder=\"Заметки, ссылки, номера…\"></textarea>\n      <div class=\"notes-links-title\">Ссылки из заметок</div>\n      <div id=\"notesLinks\" class=\"notes-links\"></div>\n      <div class=\"changelog-head\"><b>История изменений</b> <span id=\"changelogCount\" class=\"notes-hint\"></span></div>\n      <div id=\"changelog\" class=\"changelog\">Загрузка…</div>\n    </div>\n    <aside class=\"notes-side\">\n      <div class=\"notes-side-title\">Адресная база</div>\n      <div id=\"addrStatus\" class=\"addr-status\">Загрузка…</div>\n      <button type=\"button\" id=\"addrRefreshBtn\">↻ Обновить базу</button>\n      <div id=\"addrProblems\" class=\"addr-problems\"></div>\n      <div class=\"notes-side-title\" style=\"margin-top:14px\">База фрахтов</div>\n      <div id=\"frtStatus\" class=\"addr-status\">Загрузка…</div>\n      <button type=\"button\" id=\"frtRefreshBtn\">↻ Обновить фрахты</button>\n      <div class=\"notes-side-title\" style=\"margin-top:14px\">Полезные ссылки</div>\n      <div class=\"fixed-links\">\n        <a href=\"https://claude.ai/settings/usage\" target=\"_blank\" rel=\"noopener\">Лимиты Claude (подписка)</a>\n        <a href=\"https://console.cloud.google.com/billing/reports?project=my-n8n-bot-496614\" target=\"_blank\" rel=\"noopener\">Расходы Google (billing)</a>\n        <a href=\"https://console.cloud.google.com/google/maps-apis/metrics?project=my-n8n-bot-496614\" target=\"_blank\" rel=\"noopener\">Запросы к Google Maps</a>\n        <a href=\"https://console.cloud.google.com/billing/budgets\" target=\"_blank\" rel=\"noopener\">Бюджеты и уведомления Google</a>\n        <a href=\"https://docs.google.com/spreadsheets/d/1m0oM8cNixVDM1kgQKCZKPgF-aSQN-0loqdLc-dWkD7g/edit\" target=\"_blank\" rel=\"noopener\">Таблица «Fleet Tracker — данные»</a>\n      </div>\n    </aside>\n  </div>\n</div>\n\n<!-- ==================== Вкладка: Запреты (справочная) ==================== -->\n<div id=\"tab-bans\" class=\"tab-panel\" hidden>\n  <div class=\"bans-head\">\n    <div id=\"bansNow\" class=\"bans-now\">Загрузка…</div>\n    <button type=\"button\" id=\"bansRefresh\" class=\"bans-refresh\">↻ Обновить</button>\n  </div>\n  <div id=\"bansCalendar\" class=\"bans-calendar\"></div>\n  <div class=\"bans-legend\">\n    <span class=\"ban-chip ban-full\">DE</span> запрет по всей стране (воскресенье, праздник)\n    <span class=\"ban-chip ban-part\">AT</span> отдельные дороги / участки\n    <span class=\"ban-chip ban-full ban-ours\">DE</span> страна, где сейчас машина или её таргет\n    · запреты только для ADR скрыты\n  </div>\n  <p class=\"bans-note\">Данные: <a href=\"https://nakordoni.eu/\" target=\"_blank\" rel=\"noopener\">nakordoni.eu</a>, обновляются раз в 30 минут; информация справочная — критичные рейсы сверяйте с официальными источниками.\n    Показаны только страны, где мы ездим.</p>\n</div>\n\n<!-- ==================== Вкладка: Паромы (справочная) ==================== -->\n<div id=\"tab-ferries\" class=\"tab-panel\" hidden>\n  <p class=\"ferries-note\">Расписания паромов. Клик по картинке — открыть в полный размер. Пометки терминалов: vuos — Vuosaari, Lansi — Länsisatama (West Harbour), TermA — Terminal A, muuga — Muuga.</p>\n  <a href=\"/static/ferries/ferries.jpg\" target=\"_blank\" rel=\"noopener\" class=\"ferries-link\">\n    <img src=\"/static/ferries/ferries.jpg\" alt=\"Расписания паромов: Helsinki–Tallinn, Rostock–Gedser\" class=\"ferries-img\">\n  </a>\n</div>\n\n<!-- ==================== Вкладка: GF построитель (заглушка, v1.49) ==================== -->\n<div id=\"tab-gf\" class=\"tab-panel\" hidden>\n  <div class=\"truckinfo-empty\">\n    <b>Построитель маршрута GreenFood H-XXX</b>\n  </div>\n</div>\n\n<!-- ==================== Вкладка: Truck Info (рабочая) ==================== -->\n<div id=\"tab-truckinfo\" class=\"tab-panel\" hidden>\n  <div class=\"ti-form\">\n    <input id=\"ti-unit\" list=\"units-list\" placeholder=\"номер трака\" autocomplete=\"off\">\n    <button id=\"ti-go\" type=\"button\">Показать</button>\n    <span class=\"ti-hint\">время — LV (Рига)</span>\n  </div>\n  <p class=\"ti-warn\">Информация носит информативный характер. Мапон может считать не точно!</p>\n  <div id=\"ti-out\" class=\"ti-out\">\n    <div class=\"truckinfo-empty\">\n      <b>Truck Info — проверка машины</b>\n      <p>Водители, недельные отдыхи 24 / 45 ч и срок следующего, вставка/извлечение карт, стоянки за 3 суток.</p>\n    </div>\n  </div>\n</div>\n\n<!-- ==================== Вкладка: From → To ==================== -->\n<div id=\"tab-route\" class=\"tab-panel\" hidden>\n  <div class=\"route-form\">\n    <div class=\"route-group\">\n      <div class=\"route-group-title\">From — погрузки</div>\n      <div id=\"route-from-list\" class=\"route-list\"></div>\n    </div>\n    <span class=\"route-arrow\">→</span>\n    <div class=\"route-group\">\n      <div class=\"route-group-title\">To — выгрузки</div>\n      <div id=\"route-to-list\" class=\"route-list\"></div>\n    </div>\n    <div class=\"route-buttons\">\n      <button id=\"route-calc-btn\">Рассчитать</button>\n      <button id=\"route-clear-btn\" class=\"route-clear-btn\">Очистить</button>\n    </div>\n  </div>\n  <p class=\"route-note\">В поле можно вписать машину (номер), код региона, GPS или город. Маршрут строится строго по порядку: From1 → From2 → … → To1 → To2 → …. Оценка по центрам почтовых зон — для больших зон (север Швеции/Норвегии) погрешность может быть заметной.</p>\n  <div id=\"route-geo-warn\" class=\"route-geo-warn\" hidden></div>\n  <div id=\"route-result\" class=\"route-result\" hidden>\n    <div class=\"route-result-row route-total\"><b id=\"route-dist\"></b> км &nbsp;·&nbsp; в пути ~<b id=\"route-duration\"></b> (при 70 км/ч)</div>\n    <div id=\"route-legs\"></div>\n    <div id=\"route-bans\" class=\"route-bans\" hidden></div>\n    <div class=\"route-result-row route-waypoint-note\" id=\"route-waypoint-note\" hidden>Маршрут скорректирован по вашему правилу (обход/паромы)</div>\n  </div>\n  <div id=\"route-points\" class=\"route-points\" hidden></div>\n  <div id=\"route-freights\" class=\"route-freights\" hidden></div>\n  <div id=\"route-error\" class=\"route-error\" hidden></div>\n  <div id=\"route-map\"></div>\n</div>\n\n<div class=\"version-tag\">vX.YY</div>\n\n<script src=\"/static/sync.js\"></script>\n<script src=\"/static/app.js\"></script>\n<script src=\"/static/postcode-maps.js\"></script>\n<script src=\"/static/route-tab.js\"></script>\n<script src=\"/static/locator.js\"></script>\n<script src=\"/static/notes.js\"></script>\n<script src=\"/static/bans-tab.js\"></script>\n<script src=\"/static/truckinfo.js\"></script>\n<script src=\"/static/gusage.js\"></script>\n<script src=\"/static/changelog.js\"></script>\n<script src=\"/static/wip.js\"></script>\n<script src=\"/static/mobile.js\"></script>\n<script src=\"https://maps.googleapis.com/maps/api/js?key=g&libraries=geometry&callback=initMap\" async defer></script>\n</body>\n</html>"
+ ],
  "locate": [
   200,
+  "application/json",
   {
    "address": null,
    "code": "IT30",
@@ -539,6 +574,7 @@
  ],
  "locate2": [
   200,
+  "application/json",
   {
    "address": null,
    "code": "DE10",
@@ -553,16 +589,82 @@
    "lng": 13.4
   }
  ],
+ "mapon_check": [
+  200,
+  "application/json",
+  {
+   "driver/daily_activities": {
+    "ok": false,
+    "ошибка": "нет driver_id от тахографа"
+   },
+   "driving_time_extended": {
+    "ok": true,
+    "водители": []
+   },
+   "object/list": {
+    "ok": true,
+    "объектов": 0,
+    "примеры": []
+   },
+   "route/list": {
+    "ok": true,
+    "поездок": 0,
+    "последние_стоянки": [],
+    "стоянок": 0
+   },
+   "трак": {
+    "unit_id": 1,
+    "номер": "OI-1778"
+   }
+  }
+ ],
+ "mapon_check_raw": [
+  200,
+  "application/json",
+  {
+   "driver/daily_activities": {
+    "ok": false,
+    "ошибка": "нет driver_id от тахографа"
+   },
+   "driving_time_extended": {
+    "ok": true,
+    "водители": []
+   },
+   "object/list": {
+    "ok": true,
+    "объектов": 0,
+    "примеры": []
+   },
+   "route/list": {
+    "ok": true,
+    "raw": [],
+    "поездок": 0,
+    "последние_стоянки": [],
+    "стоянок": 0
+   },
+   "трак": {
+    "unit_id": 1,
+    "номер": "OI-1778"
+   }
+  }
+ ],
  "mapon_objects": [
   200,
+  "application/json",
   {
    "count": 0,
    "groups": [],
    "objects": []
   }
  ],
+ "mapon_objects_csv": [
+  200,
+  "text/csv",
+  "﻿id;Name;Group;GPS;Точек в полигоне;Создан;Изменён\r\n"
+ ],
  "mapon_units": [
   200,
+  "application/json",
   {
    "count": 3,
    "groups": {},
@@ -638,20 +740,71 @@
    ]
   }
  ],
+ "mapon_units_raw": [
+  200,
+  "application/json",
+  {
+   "include=['reefer', 'temperature', 'fuel', 'in_object', 'driver', 'device', 'can']": {
+    "label": "OI-1778",
+    "last_update": "2026-10-07T05:59:00Z",
+    "lat": 45.4,
+    "lng": 11.9,
+    "number": "OI-1778",
+    "speed": 80,
+    "state": {
+     "duration": 1200,
+     "name": "driving"
+    },
+    "type": "car",
+    "unit_id": 1,
+    "vehicle_title": "MAN TGX"
+   },
+   "группы": []
+  }
+ ],
+ "me": [
+  200,
+  "application/json",
+  {
+   "email": null,
+   "iap": false
+  }
+ ],
  "nearest": [
   200,
+  "application/json",
   {
    "items": []
   }
  ],
+ "nearest_trucks": [
+  200,
+  "application/json",
+  {
+   "items": [
+    {
+     "km": 0.013,
+     "number": "C-640A",
+     "state": "standing"
+    },
+    {
+     "km": 1532.714,
+     "number": "OI-1778",
+     "state": "driving"
+    }
+   ]
+  }
+ ],
  "route_empty": [
   400,
+  "application/json",
   {
    "error": "Заполните хотя бы одно поле — From или To"
   }
  ],
  "route_es_se": [
   200,
+  "application/json",
   {
    "bans_route": [],
    "bans_status": "ok",
@@ -731,6 +884,7 @@
  ],
  "route_it_lv": [
   200,
+  "application/json",
   {
    "bans_route": [],
    "bans_status": "ok",
@@ -788,6 +942,7 @@
  ],
  "route_one_point": [
   200,
+  "application/json",
   {
    "dist_km": null,
    "duration_h": null,
@@ -813,6 +968,7 @@
  ],
  "route_truck": [
   200,
+  "application/json",
   {
    "bans_route": [],
    "bans_status": "ok",
@@ -874,6 +1030,7 @@
  ],
  "truckinfo": [
   200,
+  "application/json",
   {
    "drivers": [],
    "number": "OI-1778",
@@ -884,6 +1041,7 @@
  ],
  "units": [
   200,
+  "application/json",
   {
    "units": [
     {

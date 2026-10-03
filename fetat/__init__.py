@@ -1,3 +1,16 @@
-"""F.ETA.T — пакет приложения. Структура и правила — CLAUDE.md, план переезда — REFACTOR.md."""
+"""F.ETA.T — пакет приложения. Структура и правила — CLAUDE.md, история рефакторинга — REFACTOR.md."""
 
-APP_VERSION = "3.04"
+APP_VERSION = "3.05"
+
+
+def create_app():
+    """Flask-приложение со всеми Blueprints. Шаблоны и static — от корня проекта."""
+    from flask import Flask
+
+    from fetat.api import calc, fleet, mapon, meta, reference
+    from fetat.config import ROOT_DIR
+
+    app = Flask("app", root_path=ROOT_DIR)
+    for bp in (meta.bp, mapon.bp, calc.bp, reference.bp, fleet.bp):
+        app.register_blueprint(bp)
+    return app
