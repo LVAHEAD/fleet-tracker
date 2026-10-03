@@ -287,6 +287,7 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .notes-side { flex: 0 0 260px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; font-size: 13px; }
 .notes-head { display: flex; gap: 10px; align-items: baseline; margin-bottom: 6px; }
 .notes-hint { color: #999; font-size: 12px; }
+.notes-nb-btn { margin-left: auto; padding: 3px 10px; font-size: 12px; }
 .notes-saved { color: #3BB273; font-size: 12px; margin-left: auto; }
 .notes-text {
   width: 100%; min-height: 380px; box-sizing: border-box; resize: vertical;

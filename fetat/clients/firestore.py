@@ -61,124 +61,108 @@ def _fs_decode(doc):
     return {"id": rid, "data": data, "meta": meta}
 
 
-# --- Публичный API для работы с документами ---
+# --- Простые документы (блокнот и т. п.): плоские поля, без обёртки data/meta Флота ---
 
 def _encode_value(v):
-    """Кодирует Python-значение в Firestore格式."""
+    """Python → значение Firestore. Строки остаются строками (без JSON)."""
+    if v is None:
+        return {"nullValue": None}
     if isinstance(v, bool):
         return {"booleanValue": v}
-    elif isinstance(v, int):
+    if isinstance(v, int):
         return {"integerValue": str(v)}
-    elif isinstance(v, str):
-        return {"stringValue": v}
-    elif isinstance(v, float):
+    if isinstance(v, float):
         return {"doubleValue": v}
-    elif v is None:
-        return {"nullValue": "NULL_VALUE"}
-    else:
-        # Для сложных объектов кодируем как JSON строку
-        return {"stringValue": json.dumps(v, default=str)}
+    if isinstance(v, str):
+        return {"stringValue": v}
+    if isinstance(v, dict):
+        return {"mapValue": {"fields": {k: _encode_value(x) for k, x in v.items()}}}
+    if isinstance(v, (list, tuple)):
+        return {"arrayValue": {"values": [_encode_value(x) for x in v]}}
+    return {"stringValue": str(v)}
 
 
-def fs_insert(collection: str, doc_id: str, data: dict):
-    """Вставить документ в Firestore."""
-    import requests
+def _decode_value(v):
+    """Значение Firestore → Python."""
+    if not isinstance(v, dict):
+        return None
+    if "stringValue" in v:
+        return v["stringValue"]
+    if "booleanValue" in v:
+        return bool(v["booleanValue"])
+    if "integerValue" in v:
+        return int(v["integerValue"])
+    if "doubleValue" in v:
+        return float(v["doubleValue"])
+    if "timestampValue" in v:
+        return v["timestampValue"]
+    if "mapValue" in v:
+        return {k: _decode_value(x) for k, x in ((v["mapValue"] or {}).get("fields") or {}).items()}
+    if "arrayValue" in v:
+        return [_decode_value(x) for x in ((v["arrayValue"] or {}).get("values") or [])]
+    return None
 
-    fields = {}
-    for k, v in data.items():
-        fields[k] = _encode_value(v)
 
-    url = f"{FS_BASE}/{collection}/{doc_id}"
-    body = {"fields": fields}
-
-    resp = requests.patch(url, json={"document": body}, headers=_fs_headers())
-    _fs_check(resp)
-    return resp.json()
-
-
-def fs_get(collection: str, doc_id: str) -> dict:
-    """Получить документ из Firestore."""
-    import requests
-
-    url = f"{FS_BASE}/{collection}/{doc_id}"
-    resp = requests.get(url, headers=_fs_headers())
-    _fs_check(resp)
-
-    doc = resp.json()
-    # Декодируем поля обратно в Python
-    data = {}
-    for k, v in (doc.get("fields") or {}).items():
-        if "stringValue" in v:
-            try:
-                data[k] = json.loads(v["stringValue"])
-            except Exception:
-                data[k] = v["stringValue"]
-        elif "booleanValue" in v:
-            data[k] = v["booleanValue"]
-        elif "integerValue" in v:
-            data[k] = int(v["integerValue"])
-        elif "doubleValue" in v:
-            data[k] = float(v["doubleValue"])
-        else:
-            data[k] = None
-
-    data["id"] = doc_id
+def _decode_doc(doc):
+    data = {k: _decode_value(x) for k, x in (doc.get("fields") or {}).items()}
+    data["id"] = doc["name"].rsplit("/", 1)[-1]
     return data
 
 
-def fs_query(collection: str, filters: list) -> list:
-    """Запрос документов из Firestore (пока без фильтров — все документы)."""
+def fs_insert(collection: str, doc_id: str, data: dict):
+    """Создать документ (если такой id уже есть — ошибка Firestore)."""
     import requests
-
-    url = f"{FS_BASE}/{collection}"
-    resp = requests.get(url, headers=_fs_headers())
+    fields = {k: _encode_value(v) for k, v in data.items() if k != "id"}
+    resp = requests.post(f"{FS_BASE}/{collection}", params={"documentId": doc_id},
+                         json={"fields": fields}, headers=_fs_headers(), timeout=20)
     _fs_check(resp)
+    return _decode_doc(resp.json())
 
-    docs = resp.json().get("documents", [])
-    result = []
-    for doc in docs:
-        doc_id = doc["name"].rsplit("/", 1)[-1]
-        data = {}
-        for k, v in (doc.get("fields") or {}).items():
-            if "stringValue" in v:
-                try:
-                    data[k] = json.loads(v["stringValue"])
-                except Exception:
-                    data[k] = v["stringValue"]
-            elif "booleanValue" in v:
-                data[k] = v["booleanValue"]
-            elif "integerValue" in v:
-                data[k] = int(v["integerValue"])
-            elif "doubleValue" in v:
-                data[k] = float(v["doubleValue"])
-            else:
-                data[k] = None
-        data["id"] = doc_id
-        result.append(data)
 
-    return result
+def fs_get(collection: str, doc_id: str, fields=None):
+    """Документ целиком (или только поля fields). Нет документа — None."""
+    import requests
+    params = [("mask.fieldPaths", f) for f in fields] if fields else None
+    resp = requests.get(f"{FS_BASE}/{collection}/{doc_id}", params=params, headers=_fs_headers(), timeout=20)
+    if resp.status_code == 404:
+        return None
+    _fs_check(resp)
+    return _decode_doc(resp.json())
+
+
+def fs_query(collection: str, fields=None) -> list:
+    """Все документы коллекции (постранично). fields — только эти поля (тяжёлые не тянем)."""
+    import requests
+    out, token = [], None
+    for _ in range(50):
+        params = [("pageSize", "300")]
+        if fields:
+            params += [("mask.fieldPaths", f) for f in fields]
+        if token:
+            params.append(("pageToken", token))
+        resp = requests.get(f"{FS_BASE}/{collection}", params=params, headers=_fs_headers(), timeout=30)
+        _fs_check(resp)
+        js = resp.json()
+        out += [_decode_doc(d) for d in js.get("documents", [])]
+        token = js.get("nextPageToken")
+        if not token:
+            break
+    return out
 
 
 def fs_update(collection: str, doc_id: str, data: dict):
-    """Обновить поля документа в Firestore."""
+    """Обновить только переданные поля (остальные не трогаются). Документ должен существовать."""
     import requests
-
-    fields = {}
-    for k, v in data.items():
-        fields[k] = _encode_value(v)
-
-    url = f"{FS_BASE}/{collection}/{doc_id}"
-    body = {"fields": fields}
-
-    resp = requests.patch(url, json={"document": body}, headers=_fs_headers())
+    fields = {k: _encode_value(v) for k, v in data.items() if k != "id"}
+    params = [("updateMask.fieldPaths", k) for k in fields] + [("currentDocument.exists", "true")]
+    resp = requests.patch(f"{FS_BASE}/{collection}/{doc_id}", params=params,
+                          json={"fields": fields}, headers=_fs_headers(), timeout=20)
     _fs_check(resp)
-    return resp.json()
+    return _decode_doc(resp.json())
 
 
 def fs_delete(collection: str, doc_id: str):
-    """Удалить документ из Firestore."""
+    """Удалить документ."""
     import requests
-
-    url = f"{FS_BASE}/{collection}/{doc_id}"
-    resp = requests.delete(url, headers=_fs_headers())
+    resp = requests.delete(f"{FS_BASE}/{collection}/{doc_id}", headers=_fs_headers(), timeout=20)
     _fs_check(resp)

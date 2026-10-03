@@ -115,6 +115,13 @@
       b.addEventListener("click", () => { menu.hidden = true; orig.click(); markMore(); });
       menu.appendChild(b);
     });
+    if (typeof Notebook !== "undefined") {
+      const nb = document.createElement("button");
+      nb.type = "button";
+      nb.textContent = "📓 Блокнот ФЕТАТ";
+      nb.addEventListener("click", () => { menu.hidden = true; Notebook.open(); });
+      menu.appendChild(nb);
+    }
     const usage = nav.querySelector(".g-usage");
     if (usage) {
       const a = document.createElement("a");

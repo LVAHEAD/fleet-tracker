@@ -17,6 +17,11 @@
 /api/mapon-units GET
 /api/me GET
 /api/nearest-units GET
+/api/notebook GET
+/api/notebook POST
+/api/notebook/<rid> DELETE
+/api/notebook/<rid> GET
+/api/notebook/<rid> PATCH
 /api/region-codes GET
 /api/route POST
 /api/truck-info GET

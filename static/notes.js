@@ -95,17 +95,16 @@ Fleet ETA Tracker — вкладка [.] (блокнот)
     if (!frtLoaded) { frtLoaded = true; loadFrt(false); }
   });
 
-  // v3.06: интеграция с Notebook (блокнот с синхронизацией)
-  const notebookBtn = document.createElement("button");
-  notebookBtn.textContent = "📓 Блокнот";
-  notebookBtn.title = "Открыть панель быстрого добавления записей";
-  notebookBtn.style.cssText = "margin-left: 12px; padding: 8px 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 600;";
-  notebookBtn.addEventListener("click", () => {
-    Notebook.open();
-  });
+  // v3.07: кнопка блокнота ФЕТАТ (тот же, что открывает язычок 📓 справа)
   const notesHead = document.querySelector(".notes-head");
   if (notesHead) {
-    notesHead.appendChild(notebookBtn);
+    const nbBtn = document.createElement("button");
+    nbBtn.type = "button";
+    nbBtn.className = "notes-nb-btn";
+    nbBtn.textContent = "📓 Блокнот ФЕТАТ";
+    nbBtn.title = "Баги, фичи, мысли со скриншотами — общие для всех";
+    nbBtn.addEventListener("click", (e) => { e.stopPropagation(); Notebook.open(); });
+    notesHead.appendChild(nbBtn);
   }
   frtBtn.addEventListener("click", async () => {
     frtBtn.disabled = true; frtBtn.textContent = "Обновляю…";
