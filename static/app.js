@@ -1343,11 +1343,14 @@ function markDeliveryInput(tr, row) {
 // NB (зелёная) — NoBan включён, запреты не показываем; ⊘ (бледная) — запретов нет.
 function composeEta(row, c) {
   const bans = c.bansR || [];
+  const near = c.nearR || [];
   let btn;
   if (row.noban) {
     btn = `<button class="eta-nb nb-on" title="NoBan включён — запреты по пути не показываются. Клик — выключить">NB</button>`;
   } else if (bans.length) {
     btn = `<button class="eta-nb nb-ban" title="${escapeHtml("Запрет по пути:\n" + bans.join("\n") + "\nКлик — NoBan (груз без запретов)")}">🚫</button>`;
+  } else if (near.length) {   // v3.12: запрета по расчёту нет, но выезд из страны меньше чем за 2 ч до его начала
+    btn = `<button class="eta-nb nb-near" title="${escapeHtml("Впритык к запрету:\n" + near.join("\n") + "\nКлик — NoBan")}">⚠</button>`;
   } else {
     btn = `<button class="eta-nb" title="Запретов по пути нет. Клик — NoBan">⊘</button>`;
   }
@@ -1357,7 +1360,26 @@ function composeEta(row, c) {
   } else if (row.noban) {
     tip.push("NoBan включён");
   }
+  if (!bans.length && near.length) tip.push("⚠ Впритык к запрету (ETA не сдвинут):", ...near);
+  tip.push(...(c.banInfo || []));
   return { html: btn + (c.etaCore || ""), title: tip.join("\n") };
+}
+
+// v3.12: «впритык» по всем плечам маршрута
+function banNearLines(data) {
+  const out = (data.bans_near || []).slice();
+  (data.extra || []).forEach((x, i) => (x.bans_near || []).forEach((b) => out.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
+  return out;
+}
+// v3.12: по каким странам и когда едет трак + состояние фида запретов
+function banInfoLines(data) {
+  const out = [];
+  if (data.bans_times) out.push("По странам: " + data.bans_times);
+  const st = data.bans_status;
+  if (st === "ok") out.push("Фид запретов: загружен");
+  else if (st === "loading") out.push("Фид запретов ещё грузится — проверка неполная, обнови строку позже");
+  else if (st) out.push("Фид запретов: " + st);
+  return out;
 }
 
 document.getElementById("fleet-tbody").addEventListener("click", (e) => {
@@ -1939,6 +1961,7 @@ async function calcRow(id) {
     let etaTip = "";
     let late = false, anyLate = false;
     let etaCore = null, bansR = [], tipLines = [];
+    let nearR = [], banInfo = [];   // v3.12: «впритык» и подробности проверки запретов
     if (data.dist_km != null && !data.first_done) {
       distText = data.dist_km.toFixed(1);
       distCell.classList.remove("muted");
@@ -1958,6 +1981,8 @@ async function calcRow(id) {
       etaCore = etaText;
       bansR = (data.bans_route || []).slice();
       (data.extra || []).forEach((x, i) => (x.bans_route || []).forEach((b) => bansR.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
+      nearR = banNearLines(data);
+      banInfo = banInfoLines(data);
       const chk = deliveryCheck(row, data.eta_tacho || data.eta_local);
       late = chk.late;
       anyLate = late || extrasLate(row, extraCalc(data));
@@ -1971,7 +1996,7 @@ async function calcRow(id) {
       tip.unshift(...chk.lines);
       tipLines = tip;
       // v1.48: кнопка NoBan / 🚫 в начале ETA
-      const composed = composeEta(row, { etaCore, bansR, tipLines });
+      const composed = composeEta(row, { etaCore, bansR, tipLines, nearR, banInfo });
       etaText = composed.html;
       etaTip = composed.title;
       const cx = { dist: distText, eta: etaText, extra: extraCalc(data) };
@@ -1993,9 +2018,11 @@ async function calcRow(id) {
         etaCore = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(et || "—")}</span><span class="eta-simple">от машины</span>`;
         bansR = (data.bans_route || []).slice();
         (data.extra || []).forEach((x, i) => (x.bans_route || []).forEach((b) => bansR.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
+        nearR = banNearLines(data);
+        banInfo = banInfoLines(data);
         tipLines = ["Простой ETA: " + (data.eta_local || "—")].concat(data.eta_tacho ? ["⏱ По тахографу: " + data.eta_tacho] : [])
           .concat(data.route_countries && data.route_countries.length > 1 ? ["Страны: " + data.route_countries.join(" → ")] : []);
-        Object.assign(cx, { etaCore, bansR, tipLines, nbAt: act0 - 1 });
+        Object.assign(cx, { etaCore, bansR, tipLines, nearR, banInfo, nbAt: act0 - 1 });
         composed = composeEta(row, cx);
       }
       anyLate = extrasLate(row, cx.extra);
@@ -2034,7 +2061,7 @@ async function calcRow(id) {
     if (oldTb) oldTb.outerHTML = targetBadge;
 
     const fv0 = folded(row) ? foldVisible(row).join() : "";   // v3.11: окно свёрнутых точек до расчёта
-    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines,
+    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo,
                          etaStr: data.eta_tacho || data.eta_local, extra: extraCalc(data),
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual })),
                          allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null,

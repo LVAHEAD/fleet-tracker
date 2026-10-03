@@ -5,7 +5,8 @@ from datetime import datetime, timedelta, timezone
 from fetat.clients.google_routes import road_distance_km_google
 from fetat.clients.mapon import fetch_group_unit_ids, fetch_reefer_units, fetch_units, get_tacho
 from fetat.config import GOOGLE_API_KEY, HEAD_TRUCK_GROUP_ID, MAPON_API_KEY, WEST_EUROPE_OFFSET
-from fetat.domain.bans import bans_hits_text, bans_on_route, country_chain, needs_at_night_ban
+from fetat.domain.bans import (bans_hits_text, bans_near_text, bans_on_route, countries_times_text, country_chain,
+                               needs_at_night_ban)
 from fetat.domain.points import (
     find_unit_by_label, find_unit_exact, NEAR_LABEL_MAX_KM, on_target, points_done,
     resolve_fleet_target, STATUS_RU, target_badge_info,
@@ -74,9 +75,13 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim):
         item["badge"], item["badge_hint"] = target_badge_info(tstr, lat, lng, t.get("target_address"))
         if leg_poly and leg_km >= 5:
             try:
+                det = {}
                 hits, _bst = bans_on_route(leg_poly, leg_km, None, prev_arr + UNLOAD_STOP_SEC,
-                                           at_night=needs_at_night_ban(unit))
-                item["bans_route"] = bans_hits_text(hits, lambda ts: loc(ts).strftime("%d/%m %H:%M"))
+                                           at_night=needs_at_night_ban(unit), detail=det)
+                fmt = lambda ts: loc(ts).strftime("%d/%m %H:%M")
+                item["bans_route"] = bans_hits_text(hits, fmt)
+                item["bans_near"] = bans_near_text(det.get("near") or [], fmt)   # v3.12
+                item["bans_times"] = countries_times_text(det.get("countries") or [], fmt)
             except Exception:
                 pass
         out.append(item)
@@ -220,10 +225,13 @@ def _add_route_context(result, unit):
     if (result.get("route_polyline") and result.get("dist_km")
             and result["dist_km"] >= 5 and not result.get("on_target")):
         try:
+            det = {}
             hits, bst = bans_on_route(result["route_polyline"], result["dist_km"], stops,
-                                     at_night=needs_at_night_ban(unit))
+                                     at_night=needs_at_night_ban(unit), detail=det)
             loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M")
             result["bans_route"] = bans_hits_text(hits, loc)
+            result["bans_near"] = bans_near_text(det.get("near") or [], loc)   # v3.12
+            result["bans_times"] = countries_times_text(det.get("countries") or [], loc)
             result["bans_status"] = bst
         except Exception as e:
             result["bans_status"] = f"ошибка: {e}"

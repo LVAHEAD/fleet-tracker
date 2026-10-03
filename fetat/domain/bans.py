@@ -253,11 +253,16 @@ def _at_night_bans(t0, horizon_sec):
     return out
 
 
-def bans_on_route(polyline, dist_km, stops=None, t0=None, at_night=False):
+BANS_NEAR_SEC = 2 * 3600   # v3.12: «впритык» — выезд из страны меньше чем за 2 ч до начала её запрета
+
+
+def bans_on_route(polyline, dist_km, stops=None, t0=None, at_night=False, detail=None):
     """Полные запреты (воскресные/праздничные/общие), под которые попадает вождение
     по маршруту. Возвращает (hits, status): hits = [{cc, date, from, until, type,
     enter_ts}], status = "ok" | "loading".
-    v1.83: at_night=True (MAN / "если MAN") — плюс ночной запрет Австрии 22:00–05:00."""
+    v1.83: at_night=True (MAN / "если MAN") — плюс ночной запрет Австрии 22:00–05:00.
+    v3.12: detail (dict) — заполняется: "countries" = [{cc, enter_ts, exit_ts}] по порядку,
+    "near" = запреты, до начала которых трак успевает выехать из страны меньше чем за BANS_NEAR_SEC."""
     import time
     data = bans_cached()
     if data is None and not at_night:
@@ -277,10 +282,8 @@ def bans_on_route(polyline, dist_km, stops=None, t0=None, at_night=False):
     if at_night:
         horizon = (drive[-1][1] - t0) if drive else 0
         bans.setdefault("AT", {}).update(_at_night_bans(t0, horizon))
-    hits = []
+    hits, near, countries = [], [], []
     for cc, km_a, km_b in route_countries(polyline, dist_km):
-        if cc not in bans:
-            continue
         sa, sb = km_a / v, km_b / v      # секунды вождения от старта до входа/выхода
         # время в стране, когда трак едет
         spans = []
@@ -290,13 +293,46 @@ def bans_on_route(polyline, dist_km, stops=None, t0=None, at_night=False):
                 spans.append((ts + (x0 - before), ts + (x1 - before)))
         if not spans:
             continue
-        enter = spans[0][0]
+        enter, leave = spans[0][0], spans[-1][1]
+        if cc:
+            if countries and countries[-1]["cc"] == cc:
+                countries[-1]["exit_ts"] = leave
+            else:
+                countries.append({"cc": cc, "enter_ts": enter, "exit_ts": leave})
+        if cc not in bans:
+            continue
         for b, (ws, we) in bans[cc].values():
+            item = {"cc": cc, "date": b["date"], "from": b.get("from"), "until": b.get("until"),
+                    "type": b.get("type"), "details": b.get("details"), "enter_ts": enter}
             if any(a < we and e > ws for a, e in spans):
-                hits.append({"cc": cc, "date": b["date"], "from": b.get("from"), "until": b.get("until"),
-                             "type": b.get("type"), "details": b.get("details"), "enter_ts": enter})
+                hits.append(item)
+            elif leave <= ws < leave + BANS_NEAR_SEC:
+                near.append(dict(item, exit_ts=leave, ban_ts=ws))
     hits.sort(key=lambda h: (h["date"], h["cc"]))
+    if detail is not None:
+        hit_keys = {(h["cc"], h["date"]) for h in hits}
+        detail["countries"] = countries
+        detail["near"] = [n for n in near if (n["cc"], n["date"]) not in hit_keys]
     return hits, status
+
+
+def bans_near_text(near, loc):
+    """v3.12: «FR: выезд ~03/10 21:40, запрет с 22:00 — впритык»."""
+    out = []
+    for n in near:
+        out.append(f"{n['cc']}: выезд ~{loc(n['exit_ts'])}, запрет с {(n.get('from') or '')[:5] or loc(n['ban_ts'])} — впритык")
+    return out
+
+
+def countries_times_text(countries, loc):
+    """v3.12: «FR 03/10 10:15–21:40 · BE 21:40–23:05» — когда трак едет по каждой стране."""
+    parts = []
+    for c in countries:
+        a, b = loc(c["enter_ts"]), loc(c["exit_ts"])
+        if a[:5] == b[:5]:
+            b = b[6:]
+        parts.append(f"{c['cc']} {a}–{b}")
+    return " · ".join(parts)
 
 
 def bans_hits_text(hits, loc, at_label="MAN без L"):

@@ -515,6 +515,7 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
   vertical-align: middle; cursor: pointer;
 }
 .eta-nb.nb-ban { border-color: #f0b8b0; background: #fdecea; }
+.eta-nb.nb-near { border-color: #f2d48a; background: #fff6dc; color: #9a6a00; }   /* v3.12: впритык */
 .eta-nb.nb-on { border-color: #9fcdaa; background: #e3f1e6; color: #2d6b3c; font-size: 10px; font-weight: 700; }
 .eta-nb:hover { filter: brightness(0.96); }
 #fleet-tbody tr:not(.lo-row-L):not(.lo-row-O):hover td.status-cell { background: #f6f7fa; }
@@ -921,7 +922,6 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 #fleet-tbody .disp-lbl { display: block; margin-top: 3px; font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #fleet-tbody .disp-lbl.other { color: #2b6cb0; font-weight: 600; }
 /* v3.11: «свернуть / развернуть все» — значок в шапке «Таргет», над построчными ▸ */
-#fleet-table th.th-target { position: relative; }
 .fold-all-th { position: absolute; left: 6px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; padding: 0;
   border: 1px solid #ddd; border-radius: 4px; background: #fff; color: #555; font-size: 11px; line-height: 1; cursor: pointer; }
 .fold-all-th:hover:not(:disabled) { border-color: #2f6fd6; color: #2f6fd6; }
