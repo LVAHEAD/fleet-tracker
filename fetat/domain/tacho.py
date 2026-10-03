@@ -162,7 +162,7 @@ def _next_monday_utc(ts):
     return (mon + timedelta(days=7)).timestamp()
 
 
-def tacho_eta(tacho, dist_km, now_ts=None, weekly=None):
+def tacho_eta(tacho, dist_km, now_ts=None, weekly=None, no_week=False):
     """Симуляция рейса по данным тахографа (v1.46: только суточные нормы + недельный
     лимит вождения для одиночки; недельные отдыхи 24/45 НЕ учитываются — их решает диспетчер).
     Одиночка: 4:30 -> перерыв 45 мин; дневной лимит / окно смены -> суточный отдых
@@ -190,8 +190,9 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None):
     stops = []
     inf = float("inf")
 
-    # недельный лимит — только одиночка
-    if team:
+    # недельный лимит — только одиночка; v3.15b: no_week — следующие точки считаем без него
+    # (стоп по недельному лимиту — только до первой точки, дальше — лишь предупреждение)
+    if team or no_week:
         week_left = inf
         next_week_avail = inf
     else:
@@ -202,7 +203,7 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None):
     week_end = _next_monday_utc(t)
     driven_this_week = 0.0          # сколько симуляция проехала в текущей неделе
     first_rollover = True
-    week_info = {"left": None if team else week_left, "need": km_left / v, "next": None, "hit": False}
+    week_info = {"left": None if (team or no_week) else week_left, "need": km_left / v, "next": None, "hit": False}
 
     def rollover():
         nonlocal week_left, week_end, driven_this_week, first_rollover, ext_left

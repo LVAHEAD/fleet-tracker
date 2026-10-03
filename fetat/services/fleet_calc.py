@@ -13,7 +13,7 @@ from fetat.domain.points import (
 )
 from fetat.domain.regions import nearest_region_code
 from fetat.domain.routing_rules import fleet_waypoints
-from fetat.domain.tacho import calc_eta, crew_mode, tacho_eta, tacho_summary, week_left_info
+from fetat.domain.tacho import TACHO_SPEED_KMH, calc_eta, crew_mode, tacho_eta, tacho_summary, week_left_info
 from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM
 from fetat.utils.geo import haversine_km
 from fetat.utils.timefmt import format_duration, round_to_15min
@@ -66,7 +66,7 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim):
         arr = simple_ts
         if tacho:
             try:
-                sk = tacho_eta(tacho, cum_km)
+                sk = tacho_eta(tacho, cum_km, no_week=True)   # v3.16: недельный стоп — только до первой точки
                 arr = sk["eta_ts"] + dwell
                 item["eta_tacho"] = round_to_15min(loc(arr)).strftime("%d/%m %H:%M")
                 item["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sk["stops"])
@@ -221,6 +221,23 @@ def _add_tacho(result, unit, trailer, crew=None):
     return tacho, sim
 
 
+def _week_short_last(result):
+    """v3.16: одиночка — хватит ли остатка недели до последней непройденной точки (только предупреждение,
+    ETA не сдвигаем): вождение = км до последней точки / 70 км/ч."""
+    left = result.get("week_left_sec")
+    if result.get("crew") != "solo" or left is None:
+        return
+    km = result.get("dist_km")
+    for x in result.get("extra") or []:
+        if x.get("dist_km") is not None:
+            km = x["dist_km"]
+    if km is None:
+        return
+    need = float(km) / TACHO_SPEED_KMH * 3600
+    if need > left:
+        result["week_short_last"] = {"need": int(need), "left": int(left), "short": int(need - left)}
+
+
 def _add_route_context(result, unit):
     """v1.59/v1.45: страны по маршруту, «на объекте», полные запреты по пути."""
     # v1.59: цепочка стран по маршруту (без времени)
@@ -335,6 +352,8 @@ def calc_row(payload):
                 result["extra"] = calc_extra_stops(extras, units, unit, result, tacho, sim)
             except Exception as e:
                 result["extra"] = [{"error": str(e)} for _ in extras]
+
+        _week_short_last(result)
 
         _add_route_context(result, unit)
 

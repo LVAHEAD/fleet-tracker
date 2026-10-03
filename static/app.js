@@ -860,6 +860,11 @@ function dispHtml(row) {
 // v3.15: соло / экипаж. Авто — по второму слоту тахографа (+ история трака за неделю),
 // клик по кругу: авто → 👤 соло вручную → 👥 экипаж вручную → авто.
 // У одиночки справа — остаток вождения на неделю целыми часами (вниз).
+function crewOf(data) {
+  return data.crew ? { crew: data.crew, src: data.crew_src, wl: data.week_left_sec, lim: data.week_limit,
+                       driven: data.week_driven_sec, next: data.week_next_sec, hmax: data.crew_hist_max_h,
+                       short: data.week_short_last || null } : null;
+}
 function crewHtml(row, cached) {
   const c = cached && cached.crew;
   const crew = row.crew || (c && c.crew);
@@ -879,6 +884,12 @@ function crewHtml(row, cached) {
       txt += " " + Math.floor(c.wl / 3600);
       cls = c.wl < 4.5 * 3600 ? " crew-red" : c.wl < 9 * 3600 ? " crew-warn" : "";
       tip.push(`Осталось вождения на неделю: ${hm(c.wl)} (режет лимит ${c.lim || "56 ч"})`);
+      if (c.short) {   // v3.16: до последней точки не хватает — только предупреждение
+        txt += " ⚠";
+        cls = " crew-red";
+        tip.push(`⚠ До последней точки не хватит: нужно ${hm(c.short.need)}, осталось ${hm(c.short.left)}, не хватает ${hm(c.short.short)}`,
+          "Стоп по недельному лимиту в ETA учтён только до первой точки");
+      }
       if (c.driven != null) tip.push(`Наезжено на этой неделе: ${hm(c.driven)}`);
       if (c.next != null) tip.push(`С понедельника доступно: ${hm(c.next)}`);
       tip.push("Неделя тахографа — с пн 00:00 UTC");
@@ -912,7 +923,7 @@ function renderRows() {
       : (cached && cached.extra && cached.extra.length ? etaCellHtml(row, cached, null) : (cached ? cached.eta : "—"));
     const etaMuted = cached ? "" : "muted";
     tr.innerHTML = `
-      <td class="unit-cell"${dispTag(rowDisp(row)) ? ` data-dc="${dispTag(rowDisp(row))}"` : ""}><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" title="${escapeHtml(window.fleetMetaTitle ? window.fleetMetaTitle(row.id) : "")}" placeholder="номер" />${crewHtml(row, cached)}${dispHtml(row)}</td>
+      <td class="unit-cell"${dispTag(rowDisp(row)) ? ` data-dc="${dispTag(rowDisp(row))}"` : ""}><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" title="${escapeHtml(window.fleetMetaTitle ? window.fleetMetaTitle(row.id) : "")}" placeholder="номер" />${dispHtml(row)}</td>
       <td class="status-cell ${statusClass}">${statusHtml}</td>
       <td>
         <div class="target-wrap${hideK(row, 0) ? " fold-hide" : ""}">
@@ -1357,7 +1368,7 @@ function etaCellHtml(row, c, composed) {
       tip = ce.error;
     } else if (ce && (ce.eta_tacho || ce.eta_local)) {
       const wk = ce.tacho_weeklimit ? '<span class="wk-mark" title="Недельный лимит вождения кончится по пути">56</span>' : "";
-      inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}</span><span class="eta-simple">${ce.from_truck ? "от машины" : "после " + (i + 1)}</span>`;
+      inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}</span>`;
       tip = [`Точка ${STOP_NUM[i + 2]}: ${x.target}`,
              `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]}, всего ${ce.dist_km.toFixed(1)} км`,
              `+30 мин на каждой точке до неё`,
@@ -2032,13 +2043,16 @@ async function calcRow(id, why) {
     // у прицепа — вторая строка (рефка + кнопка "к тягачу"); у тягача с привязанным прицепом —
     // вторая строка с прицепом; без привязки — кнопка 🔗? в первой строке (v1.71)
     let hitchHtml = "", line2 = "";
+    // v3.16: 👤/👥 — в начале второй строки статуса, слева от прицепа
+    const crewB = data.is_trailer ? "" : crewHtml(row, { crew: crewOf(data) });
     if (data.is_trailer) {
       hitchHtml = hitchPillHtml(data, false);
       if (reeferHtml || hitchHtml) line2 = `<div class="status-line2">${reeferHtml}${hitchHtml}</div>`;
     } else if (row.trailer) {
-      line2 = `<div class="status-line2">${linkedTrailerHtml(row.trailer, data.linked_trailer)}</div>`;
+      line2 = `<div class="status-line2">${crewB}${linkedTrailerHtml(row.trailer, data.linked_trailer)}</div>`;
     } else {
       hitchHtml = hitchPillHtml(data, true);
+      if (crewB.indexOf("hidden") < 0) line2 = `<div class="status-line2">${crewB}</div>`;
     }
     const statusHtml = `<div class="status-line" title="${escapeHtml(data.status_ru + " " + data.duration_str + (data.on_target ? "\nна объекте" + (data.on_target.name ? ": " + data.on_target.name : "") : "") + (tachoTip ? "\n" + tachoTip : ""))}">${trTag}${statusLine1}${extra}${pauseIc}${ot}${data.is_trailer ? "" : hitchHtml}</div>${line2}`;
     const statusClass = data.status === "driving" ? "status-driving" : "status-standing";
@@ -2105,7 +2119,7 @@ async function calcRow(id, why) {
       if (data.first_done && act0 != null && data.target_lat != null) {
         const et = data.eta_tacho || data.eta_local;
         const wk = data.tacho_weeklimit ? '<span class="wk-mark" title="Недельный лимит вождения кончится по пути">56</span>' : "";
-        etaCore = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(et || "—")}</span><span class="eta-simple">от машины</span>`;
+        etaCore = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(et || "—")}</span>`;
         bansR = (data.bans_route || []).slice();
         (data.extra || []).forEach((x, i) => (x.bans_route || []).forEach((b) => bansR.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
         nearR = banNearLines(data);
@@ -2153,8 +2167,7 @@ async function calcRow(id, why) {
     const fv0 = folded(row) ? foldVisible(row).join() : "";   // v3.11: окно свёрнутых точек до расчёта
     lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo,
                          etaStr: data.eta_tacho || data.eta_local, extra: extraCalc(data),
-                         crew: data.crew ? { crew: data.crew, src: data.crew_src, wl: data.week_left_sec, lim: data.week_limit,
-                                             driven: data.week_driven_sec, next: data.week_next_sec, hmax: data.crew_hist_max_h } : null,
+                         crew: crewOf(data),
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual })),
                          allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null,
                          nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };

@@ -947,3 +947,4 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 #fleet-tbody tr.own-empty button { font-size: 12px; padding: 2px 8px; }
 .disp-hint { margin: -6px 0 8px; font-size: 12px; color: #8a6200; }
 body.no-disp .own-flt button[data-own="mine"] { display: none; }
+#fleet-tbody .status-line2 .crew-b { margin-left: 0; }   /* v3.16 */

@@ -52,3 +52,22 @@ class ForecastTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NoWeekTest(unittest.TestCase):
+    def test_no_week_skips_weekly_stop(self):
+        t = {"drivers": [_drv(driving_remaining=2 * 3600)], "team": False}
+        with_w = tacho_eta(t, 1500, now_ts=1_790_000_000)
+        no_w = tacho_eta(t, 1500, now_ts=1_790_000_000, no_week=True)
+        self.assertTrue(with_w["week"]["hit"])
+        self.assertFalse(no_w["week"]["hit"])
+        self.assertLess(no_w["eta_ts"], with_w["eta_ts"])
+
+    def test_short_last_warning(self):
+        from fetat.services.fleet_calc import _week_short_last
+        r = {"crew": "solo", "week_left_sec": 5 * 3600, "dist_km": 100, "extra": [{"dist_km": 700}]}
+        _week_short_last(r)
+        self.assertEqual(r["week_short_last"]["short"], 5 * 3600)
+        r = {"crew": "solo", "week_left_sec": 20 * 3600, "dist_km": 100, "extra": [{"dist_km": 700}]}
+        _week_short_last(r)
+        self.assertNotIn("week_short_last", r)
