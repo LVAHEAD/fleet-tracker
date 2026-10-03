@@ -1,6 +1,6 @@
 """
 Fleet ETA Tracker — веб-версия Mapon + Google Routes ETA Calculator
-Версия: 3.01
+Версия: 3.02
 
 История изменений — CHANGELOG.md. План рефакторинга — REFACTOR.md.
 """
@@ -29,12 +29,40 @@ from fetat.utils.timefmt import (
 )
 from fetat.utils.text import normalize, _hkey
 
+from fetat.clients.mapon import (
+    ACT_DAYS, ACT_TTL, GROUP_IDS_TTL, MAPON_ACTIVITIES_URL, MAPON_API_URL, MAPON_BASE,
+    MAPON_GROUP_UNITS_URL, MAPON_OBJ_TTL, MAPON_SEM, MAPON_TACHO_URL, MAPON_UNITS_TTL,
+    REEFER_TTL, TACHO_TTL, _act_cache, _act_lock, _check_daily_activities, _fetch_units_raw,
+    _group_ids_cache, _mobj_cache, _reefer_cache, _reefer_lock, _tacho_cache, _tacho_lock,
+    _units_cache, _units_lock, fetch_group_unit_ids, fetch_reefer_units, fetch_units,
+    get_driver_rests, get_tacho, mapon_get, mapon_objects, unit_stops,
+)
+from fetat.clients.google_routes import (
+    ALONG_ROUTE_MAX_OFF_KM, ALONG_ROUTE_TTL, ROUTES_API_URL, ROUTES_FREE_MONTH,
+    ROUTE_CACHE_TTL, _along_cache, _along_lookup, _along_remember, _quota_day,
+    _road_distance_km_google, _route_cache, _route_cache_lock, _route_stat, _route_stats,
+    road_distance_km_google,
+)
+from fetat.clients.geocode import (
+    GEO_CACHE_TTL, GEO_UA, NOMINATIM_URL, PHOTON_URL, _geo_cache, _geo_last_nominatim,
+    _geo_lock, _geo_nominatim, _geo_photon, geocode, geocode_city,
+)
+from fetat.clients.sheets import (
+    _sheets_token, read_sheet_values,
+)
+from fetat.clients.monitoring import (
+    _gusage_cache, _monitoring_sum,
+)
+from fetat.clients.firestore import (
+    FS_BASE, _fs_check, _fs_decode, _fs_headers, _fs_lock, _fs_tok,
+)
+from fetat.clients.nakordoni import (
+    BANS_PAUSE, BANS_URL, BansBadRequest, BansRateLimited, _bans_cache, _bans_cc,
+    _bans_fetch_group, _bans_fetch_lock, _bans_get, _bans_lock, _bans_store, _bans_window,
+)
+
 app = Flask(__name__)
 
-MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
-MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
-NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
-ROUTES_API_URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
 
 STATUS_RU = {"standing": "стоит", "driving": "едет"}
 
@@ -66,44 +94,9 @@ def calc_eta(dist_km):
 # Раньше каждая строка Флота при "Обновить всё" запрашивала весь список машин —
 # теперь список берётся один раз и живёт в памяти MAPON_UNITS_TTL секунд.
 import threading
-MAPON_UNITS_TTL = 45
-MAPON_SEM = threading.BoundedSemaphore(3)   # наши одновременные запросы к Mapon (запас до лимита 5)
-_units_lock = threading.Lock()
-_units_cache = {"units": None, "at": 0.0}
-
-
-def mapon_get(url, params, timeout=20):
-    """GET к Mapon с ограничением параллельности. Возвращает data или бросает RuntimeError
-    с кодом ошибки Mapon в тексте."""
-    with MAPON_SEM:
-        resp = requests.get(url, params=params, timeout=timeout)
-    resp.raise_for_status()
-    data = resp.json()
-    if isinstance(data, dict) and "error" in data:
-        err = data["error"] or {}
-        raise RuntimeError(f"Mapon {err.get('code', '')}: {err.get('msg', 'API error')}")
-    return data
-
-
-def _fetch_units_raw(api_key):
-    return mapon_get(MAPON_API_URL, {"key": api_key})["data"]["units"]
-
-
-def fetch_units(api_key, force=False):
-    """Список машин Mapon из кеша (MAPON_UNITS_TTL сек). Параллельные запросы ждут
-    одну общую загрузку, а не шлют каждый свою."""
-    import time
-    with _units_lock:
-        if force or _units_cache["units"] is None or time.time() - _units_cache["at"] > MAPON_UNITS_TTL:
-            _units_cache["units"] = _fetch_units_raw(api_key)
-            _units_cache["at"] = time.time()
-        return _units_cache["units"]
 
 
 # ---------- v1.70: прицепы (Mapon type == "trailer") — рефка, сцепка с тягачом ----------
-REEFER_TTL = 60
-_reefer_lock = threading.Lock()
-_reefer_cache = {"at": 0.0, "by_id": None}
 HITCH_DRIVING_KM = 0.5     # оба едут и ближе 500 м — сцепка
 HITCH_STANDING_KM = 0.05   # оба стоят и ближе 50 м — вероятно сцепка
 HITCH_BASE_KM = 1.5        # на Базе прицепы стоят кучей — сцепку не угадываем
@@ -115,18 +108,6 @@ TRAILER_FAR_KM = 1.0       # v1.71: привязанный прицеп даль
 
 def is_trailer(u):
     return str((u or {}).get("type") or "").lower() == "trailer"
-
-
-def fetch_reefer_units():
-    """unit/list с include reefer + fuel (кеш REEFER_TTL сек, один запрос на всех)."""
-    import time
-    with _reefer_lock:
-        if _reefer_cache["by_id"] is None or time.time() - _reefer_cache["at"] > REEFER_TTL:
-            units = mapon_get(MAPON_API_URL, {"key": MAPON_API_KEY, "include[]": ["reefer", "fuel"]},
-                              timeout=40)["data"]["units"]
-            _reefer_cache["by_id"] = {u.get("unit_id"): u for u in units}
-            _reefer_cache["at"] = time.time()
-        return _reefer_cache["by_id"]
 
 
 def reefer_summary(u):
@@ -199,101 +180,17 @@ def find_hitch(unit, units, truck_ids):
 
 
 # ---------- v1.33: тахограф (Mapon unit_data/driving_time_extended) и ETA по нему ----------
-MAPON_TACHO_URL = "https://mapon.com/api/v1/unit_data/driving_time_extended.json"
-TACHO_TTL = 300                 # данные тахографа обновляем не чаще раза в 5 минут на машину
 TACHO_SPEED_KMH = 70
 REST_MARGIN_DAILY = 3600        # запас к каждому суточному отдыху (смена, осмотр, заправка) — 1 ч
 REST_MARGIN_WEEKLY = 1800       # запас к недельному отдыху — 30 мин
 BREAK_SEC = 2700                # перерыв 45 мин (одиночка), без запаса
 CONT_DRIVE_SEC = 16200          # 4:30 непрерывного вождения
-_tacho_cache = {}               # unit_id -> {"at": ts, "data": dict|None, "error": str|None}
-_tacho_lock = threading.Lock()
-
-
-def get_tacho(unit_id):
-    """Данные тахографа по машине (кеш TACHO_TTL). Возвращает (data, error)."""
-    import time
-    now = time.time()
-    with _tacho_lock:
-        c = _tacho_cache.get(unit_id)
-        if c and now - c["at"] < TACHO_TTL:
-            return c["data"], c["error"]
-    try:
-        d = mapon_get(MAPON_TACHO_URL, {"key": MAPON_API_KEY, "unit_id": unit_id}).get("data") or {}
-        drivers = [v for k, v in sorted(d.items()) if k.startswith("driver") and isinstance(v, dict)]
-        data, err = ({"drivers": drivers} if drivers else None), (None if drivers else "нет данных водителя")
-    except Exception as e:
-        data, err = None, str(e)
-    with _tacho_lock:
-        _tacho_cache[unit_id] = {"at": now, "data": data, "error": err}
-    return data, err
 
 
 # ---------- v1.42: недельный отдых по истории водителя (Mapon driver/daily_activities) ----------
-MAPON_ACTIVITIES_URL = "https://mapon.com/api/v1/driver/daily_activities.json"
-ACT_TTL = 1800                  # история водителя — не чаще раза в 30 мин
-ACT_DAYS = 21                   # глубина истории (до 31 дня у Mapon)
 WEEKLY_MIN_SEC = 24 * 3600      # отдых от 24 ч — недельный (сокращённый)
 WEEKLY_FULL_SEC = 45 * 3600     # от 45 ч — обычный недельный
 WEEKLY_PERIOD_SEC = 144 * 3600  # следующий недельный — не позже 6×24 ч после конца прошлого
-_act_cache = {}                 # driver_id -> {"at", "data", "error"}
-_act_lock = threading.Lock()
-
-
-def get_driver_rests(driver_id):
-    """Отдыхи водителя за ACT_DAYS дней: склеенные подряд идущие REST (включая время
-    без карты — Mapon заливает его REST с источником can/unkn), конец обрезан по "сейчас".
-    Возвращает ({"rests": [{start, end, src}], "cards": [...]}, error)."""
-    import time
-    now = time.time()
-    with _act_lock:
-        c = _act_cache.get(driver_id)
-        if c and now - c["at"] < ACT_TTL:
-            return c["data"], c["error"]
-    data, err = None, None
-    try:
-        d = mapon_get(MAPON_ACTIVITIES_URL, {
-            "key": MAPON_API_KEY, "driver": driver_id,
-            "from": _iso_utc(now - ACT_DAYS * 86400), "till": _iso_utc(now),
-            "include": "card_events"}, timeout=30)
-        rows = d.get("data") if isinstance(d, dict) else d
-        acts = []
-        for day in rows or []:
-            items = day.get("activities") if isinstance(day, dict) else day
-            for a in items or []:
-                if not isinstance(a, dict):
-                    continue
-                try:
-                    s, e = int(float(a.get("start") or 0)), int(float(a.get("end") or 0))
-                except (TypeError, ValueError):
-                    continue
-                acts.append({"start": s, "end": min(e, int(now)), "status": a.get("status"),
-                             "src": a.get("source")})
-        acts.sort(key=lambda a: a["start"])
-        rests, cards, cur = [], [], None
-        for a in acts:
-            if a["status"] in ("CARD_INSERTED", "CARD_REMOVED"):
-                cards.append({"ts": a["start"], "what": a["status"]})
-                continue
-            if a["status"] not in ("REST", "DRIVING", "WORK", "AVAILABLE") or a["end"] <= a["start"]:
-                continue
-            if a["status"] == "REST":
-                if cur and a["start"] - cur["end"] <= 120:
-                    cur["end"] = max(cur["end"], a["end"])
-                    cur["src"].add(a["src"] or "?")
-                else:
-                    cur = {"start": a["start"], "end": a["end"], "src": {a["src"] or "?"}}
-                    rests.append(cur)
-            else:
-                cur = None
-        for r in rests:
-            r["src"] = sorted(r["src"])
-        data = {"rests": rests, "cards": cards, "from": now - ACT_DAYS * 86400}
-    except Exception as e:
-        err = str(e)
-    with _act_lock:
-        _act_cache[driver_id] = {"at": now, "data": data, "error": err}
-    return data, err
 
 
 def weekly_status(driver_id, now_ts=None):
@@ -569,21 +466,6 @@ def tacho_summary(tacho, sim=None, weekly=None):
     return [p for p in parts if p]
 
 
-_group_ids_cache = {}   # v1.70: group_id -> (ts, set) — состав группы меняется редко
-GROUP_IDS_TTL = 600
-
-
-def fetch_group_unit_ids(api_key, group_id):
-    import time
-    hit = _group_ids_cache.get(group_id)
-    if hit and time.time() - hit[0] < GROUP_IDS_TTL:
-        return hit[1]
-    data = mapon_get(MAPON_GROUP_UNITS_URL, {"key": api_key, "id": group_id})
-    ids = {u["id"] for u in data["data"]["units"]}
-    _group_ids_cache[group_id] = (time.time(), ids)
-    return ids
-
-
 def resolve_target(target_str):
     """Определяет тип таргета (GPS / код региона / город) и возвращает (lat, lng)."""
     target_str = (target_str or "").strip()
@@ -623,89 +505,6 @@ OUR_COUNTRIES = {"ES", "PT", "FR", "BE", "LU", "NL", "DE", "DK", "SE", "NO",
                  "FI", "EE", "LV", "LT", "PL", "IT", "AT"}
 
 
-# v1.62: геокодинг города/адреса. Nominatim с общих IP Cloud Run часто отвечает 429
-# (Too many requests) — поэтому: кеш на 24 ч, не чаще 1 запроса в секунду к Nominatim,
-# а при 429/ошибке — запасной геокодер Photon (тоже OpenStreetMap, без ключа).
-PHOTON_URL = "https://photon.komoot.io/api/"
-GEO_CACHE_TTL = 24 * 3600
-_geo_cache = {}
-_geo_lock = threading.Lock()
-_geo_last_nominatim = [0.0]
-GEO_UA = {"User-Agent": "fleet-eta-tracker/1.62 (dispatch tool; https://github.com/LVAHEAD/fleet-tracker)"}
-
-
-def _geo_nominatim(q):
-    import time
-    with _geo_lock:
-        wait = 1.05 - (time.time() - _geo_last_nominatim[0])
-        if wait > 0:
-            time.sleep(wait)
-        _geo_last_nominatim[0] = time.time()
-    resp = requests.get(
-        NOMINATIM_URL,
-        params={"q": q, "format": "json", "limit": 1, "addressdetails": 1, "accept-language": "ru"},
-        headers=GEO_UA, timeout=15,
-    )
-    resp.raise_for_status()
-    res = resp.json()
-    if not res:
-        return None
-    r = res[0]
-    cc = ((r.get("address") or {}).get("country_code") or "").upper() or None
-    return {"lat": float(r["lat"]), "lng": float(r["lon"]), "name": r.get("display_name") or q, "cc": cc}
-
-
-def _geo_photon(q):
-    resp = requests.get(PHOTON_URL, params={"q": q, "limit": 1}, headers=GEO_UA, timeout=15)
-    resp.raise_for_status()
-    feats = (resp.json() or {}).get("features") or []
-    if not feats:
-        return None
-    f = feats[0]
-    lng, lat = f["geometry"]["coordinates"][:2]
-    pr = f.get("properties") or {}
-    parts = [pr.get("name"), pr.get("city") or pr.get("county"), pr.get("state"), pr.get("country")]
-    name = ", ".join(dict.fromkeys(x for x in parts if x)) or q
-    cc = (pr.get("countrycode") or "").upper() or None
-    return {"lat": float(lat), "lng": float(lng), "name": name, "cc": cc}
-
-
-def geocode(q):
-    """dict(lat, lng, name, cc) или None, если место не найдено.
-    Если оба геокодера недоступны — ValueError с понятным текстом."""
-    import time
-    key = re.sub(r"\s+", " ", str(q or "").strip().lower())
-    if not key:
-        return None
-    now = time.time()
-    hit = _geo_cache.get(key)
-    if hit and now - hit[0] < GEO_CACHE_TTL:
-        return hit[1]
-    res, errors = None, []
-    for fn in (_geo_nominatim, _geo_photon):
-        try:
-            res = fn(q)
-            errors = []
-            break
-        except Exception as e:
-            code = getattr(getattr(e, "response", None), "status_code", None)
-            errors.append(f"{fn.__name__[5:]}: {code or type(e).__name__}")
-    if errors:
-        print(f"geocode failed for {q!r}: {errors}", flush=True)
-        raise ValueError(f"Геокодер сейчас не отвечает ({'; '.join(errors)}). "
-                         f"Попробуйте через минуту или введите код региона / GPS.")
-    _geo_cache[key] = (now, res)
-    return res
-
-
-def geocode_city(q):
-    """Город/адрес с названием и страной найденного места: (lat, lng, display_name, cc)."""
-    g = geocode(q)
-    if not g:
-        return None, None, None, None
-    return g["lat"], g["lng"], g["name"], g["cc"]
-
-
 def resolve_place_label(target_str):
     """Возвращает (lat, lng, label) — то же, что resolve_target, плюс человекочитаемое
     название места (из REGION_CODES для кодов регионов, иначе сам ввод пользователя)."""
@@ -718,130 +517,6 @@ def resolve_place_label(target_str):
     else:
         label = target_str.strip()
     return lat, lng, label
-
-
-# v1.50: кеш маршрутов Флота — если трак почти не сдвинулся (~1 км) и таргет тот же,
-# 15 минут отдаём прошлый маршрут, не спрашивая Google (Ctrl+F5, "Обновить всё").
-ROUTE_CACHE_TTL = 15 * 60
-_route_cache = {}
-_route_cache_lock = threading.Lock()
-_route_stats = {"day": None, "calls": 0, "cache_hits": 0}   # v1.51: за сутки квоты (по времени Google)
-
-
-def _quota_day():
-    try:
-        from zoneinfo import ZoneInfo
-        return datetime.now(ZoneInfo("America/Los_Angeles")).strftime("%Y-%m-%d")
-    except Exception:
-        return (datetime.now(timezone.utc) - timedelta(hours=7)).strftime("%Y-%m-%d")
-
-
-def _route_stat(kind):
-    day = _quota_day()
-    if _route_stats["day"] != day:
-        _route_stats.update(day=day, calls=0, cache_hits=0)
-    _route_stats[kind] += 1
-
-
-# v1.59: "по уже известному маршруту" — если к тому же таргету маршрут запрошен меньше часа
-# назад, а трак едет по нему (ближе ~1.5 км к линии), остаток км считаем сами по линии,
-# без запроса к Google. Новый маршрут — при смене таргета, сходе с маршрута или раз в час.
-ALONG_ROUTE_TTL = 60 * 60
-ALONG_ROUTE_MAX_OFF_KM = 1.5
-_along_cache = {}   # (target, waypoints) -> {"at", "pts", "cum", "scale"}
-
-
-def _along_remember(tkey, dist_km, polyline, now):
-    try:
-        pts = _decode_polyline(polyline or "")
-        if len(pts) < 2:
-            return
-        cum = [0.0]
-        for a, b in zip(pts, pts[1:]):
-            cum.append(cum[-1] + haversine_km(a[0], a[1], b[0], b[1]))
-        scale = (dist_km / cum[-1]) if cum[-1] > 0 else 1.0
-        _along_cache[tkey] = {"at": now, "pts": pts, "cum": cum, "scale": scale}
-    except Exception:
-        pass
-
-
-def _along_lookup(tkey, lat, lng, now):
-    c = _along_cache.get(tkey)
-    if not c or now - c["at"] > ALONG_ROUTE_TTL:
-        return None
-    pts, cum = c["pts"], c["cum"]
-    best_i, best_d = None, float("inf")
-    for i, (la, ln) in enumerate(pts):
-        if abs(la - lat) > 0.1 or abs(ln - lng) > 0.2:
-            continue
-        d = haversine_km(lat, lng, la, ln)
-        if d < best_d:
-            best_i, best_d = i, d
-    if best_i is None or best_d > ALONG_ROUTE_MAX_OFF_KM:
-        return None
-    remain = max(0.0, (cum[-1] - cum[best_i]) * c["scale"] + best_d)
-    return remain, _encode_polyline([(lat, lng)] + pts[best_i:])
-
-
-def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None):
-    import time
-    key = (round(lat1, 2), round(lng1, 2), round(lat2, 4), round(lng2, 4),
-           tuple((round(a, 4), round(b, 4)) for a, b in (waypoints or [])))
-    tkey = key[2:]
-    now = time.time()
-    with _route_cache_lock:
-        hit = _route_cache.get(key)
-        if hit and now - hit[0] < ROUTE_CACHE_TTL:
-            _route_stat("cache_hits")
-            return hit[1]
-        along = _along_lookup(tkey, lat1, lng1, now)
-        if along:
-            _route_stat("cache_hits")
-            return along
-        _route_stat("calls")
-    res = _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints)
-    with _route_cache_lock:
-        if len(_route_cache) > 2000:
-            for k in [k for k, v in _route_cache.items() if now - v[0] >= ROUTE_CACHE_TTL]:
-                _route_cache.pop(k, None)
-        if len(_along_cache) > 500:
-            for k in [k for k, v in _along_cache.items() if now - v["at"] >= ALONG_ROUTE_TTL]:
-                _along_cache.pop(k, None)
-        _route_cache[key] = (now, res)
-        _along_remember(tkey, res[0], res[1], now)
-    return res
-
-
-def _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None):
-    """waypoints — необязательный список [(lat, lng), ...] промежуточных точек,
-    через которые маршрут должен пройти в заданном порядке."""
-    headers = {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": api_key,
-        "X-Goog-FieldMask": "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline",
-    }
-    body = {
-        "origin": {"location": {"latLng": {"latitude": lat1, "longitude": lng1}}},
-        "destination": {"location": {"latLng": {"latitude": lat2, "longitude": lng2}}},
-        "travelMode": "DRIVE",
-        "routingPreference": "TRAFFIC_UNAWARE",   # v1.50: без пробок — дешевле (Essentials), ETA и так км/70
-    }
-    if waypoints:
-        body["intermediates"] = [
-            {"location": {"latLng": {"latitude": wlat, "longitude": wlng}}}
-            for wlat, wlng in waypoints
-        ]
-    resp = requests.post(ROUTES_API_URL, json=body, headers=headers, timeout=20)
-    resp.raise_for_status()
-    data = resp.json()
-    if "routes" not in data or not data["routes"]:
-        raise RuntimeError(f"Routes API вернул пустой ответ: {data}")
-    route = data["routes"][0]
-    # Если точки совпадают или стоят вплотную, Routes API может опустить
-    # distanceMeters (поле с нулевым значением в ответе не передаётся) — считаем 0.
-    distance_km = route.get("distanceMeters", 0) / 1000
-    polyline = route.get("polyline", {}).get("encodedPolyline")
-    return distance_km, polyline
 
 
 # ---------- Правила принудительных маршрутов (обход Швейцарии, паромы на Скандинавию) ----------
@@ -991,28 +666,6 @@ ADDRESS_TTL_SEC = 600  # перечитываем лист не чаще раз�
 ADDRESS_TYPES = {"load", "unload", "port", "customs", "misc"}
 
 _addr_cache = {"items": [], "problems": [], "loaded_at": 0.0, "error": None}
-
-
-def _sheets_token():
-    import google.auth
-    import google.auth.transport.requests
-    creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"])
-    creds.refresh(google.auth.transport.requests.Request())
-    return creds.token
-
-
-def read_sheet_values(sheet_name, render="FORMATTED_VALUE"):
-    """Все значения листа как список строк. render: FORMATTED_VALUE (как видно
-    в таблице) или UNFORMATTED_VALUE (числа — числами)."""
-    from urllib.parse import quote
-    rng = quote(f"'{sheet_name}'", safe="")
-    url = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID}/values/{rng}"
-    resp = requests.get(url, headers={"Authorization": f"Bearer {_sheets_token()}"},
-                        params={"valueRenderOption": render}, timeout=60)
-    if resp.status_code == 403:
-        raise RuntimeError("Нет доступа к таблице: расшарьте её на сервисный аккаунт приложения (Читатель)")
-    resp.raise_for_status()
-    return resp.json().get("values", [])
 
 
 def parse_address_rows(values):
@@ -1669,33 +1322,6 @@ def api_units():
 
 
 # ---------- v1.51: счётчик запросов к Google Routes (Cloud Monitoring) ----------
-ROUTES_FREE_MONTH = 10000
-_gusage_cache = {"at": 0.0, "data": None}
-
-
-def _monitoring_sum(token, start, end):
-    """Сумма запросов к routes.googleapis.com за интервал (как на графике в консоли)."""
-    secs = max(60, int((end - start).total_seconds()))
-    params = {
-        "filter": 'metric.type="serviceruntime.googleapis.com/api/request_count" '
-                  'AND resource.type="consumed_api" AND resource.labels.service="routes.googleapis.com"',
-        "interval.startTime": start.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "interval.endTime": end.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "aggregation.alignmentPeriod": f"{secs}s",
-        "aggregation.perSeriesAligner": "ALIGN_SUM",
-        "aggregation.crossSeriesReducer": "REDUCE_SUM",
-    }
-    r = requests.get(f"https://monitoring.googleapis.com/v3/projects/{GOOGLE_PROJECT_ID}/timeSeries",
-                     params=params, headers={"Authorization": f"Bearer {token}"}, timeout=20)
-    if r.status_code == 403:
-        raise PermissionError("нет доступа к Cloud Monitoring: выдайте сервисному аккаунту роль Monitoring Viewer")
-    r.raise_for_status()
-    total = 0
-    for ts in r.json().get("timeSeries") or []:
-        for pt in ts.get("points") or []:
-            v = pt.get("value") or {}
-            total += int(v.get("int64Value") or v.get("doubleValue") or 0)
-    return total
 
 
 @app.route("/api/google-usage")
@@ -1788,35 +1414,6 @@ def _find_unit(q_raw):
     return (next((u for u in units if str(u["unit_id"]) == q), None)
             or next((u for u in units if norm(u.get("number")) == q or norm(u.get("label")) == q), None)
             or next((u for u in units if q in norm(u.get("number")) or q in norm(u.get("label"))), None))
-
-
-def unit_stops(unit_id, days=3, min_sec=2 * 3600):
-    """Стоянки трака за days суток из route/list (куски, разрезанные полуночью, склеены)."""
-    import time
-    now = time.time()
-    d = mapon_get("https://mapon.com/api/v1/route/list.json",
-                  {"key": MAPON_API_KEY, "unit_id": unit_id,
-                   "from": _iso_utc(now - days * 86400), "till": _iso_utc(now)}, timeout=30)
-    out = []
-    for u in (d.get("data") or {}).get("units") or []:
-        for r in u.get("routes") or []:
-            if r.get("type") != "stop":
-                continue
-            st = r.get("start") or {}
-            try:
-                s_ts = datetime.strptime(st.get("time"), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
-                e_raw = (r.get("end") or {}).get("time")
-                e_ts = (datetime.strptime(e_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
-                        if e_raw else now)
-            except Exception:
-                continue
-            if out and abs(s_ts - out[-1]["end"]) <= 60 and out[-1]["address"] == st.get("address"):
-                out[-1]["end"] = e_ts
-                out[-1]["now"] = not e_raw
-            else:
-                out.append({"start": s_ts, "end": e_ts, "address": st.get("address"),
-                            "lat": st.get("lat"), "lng": st.get("lng"), "now": not e_raw})
-    return [x for x in out if x["end"] - x["start"] >= min_sec or x["now"]]
 
 
 @app.route("/api/truck-info")
@@ -2017,56 +1614,6 @@ def api_mapon_objects():
 
 
 # ---------- v1.41: служебная проверка новых методов Mapon ----------
-MAPON_BASE = "https://mapon.com/api/v1/"
-
-
-def _check_daily_activities(driver_id, now, days=14):
-    d = mapon_get(MAPON_BASE + "driver/daily_activities.json",
-                  {"key": MAPON_API_KEY, "driver": driver_id,
-                   "from": _utc_iso(now - days * 86400), "till": _utc_iso(now),
-                   "include": "card_events,work_place_events"}, timeout=30)
-    rows = d.get("data") if isinstance(d, dict) else d
-    if isinstance(rows, dict):          # на случай {"data": {"days": [...]}} / {id: [...]}
-        rows = next((v for v in rows.values() if isinstance(v, list)), [])
-    rows = rows or []
-    acts = []
-    for day in rows:
-        if isinstance(day, dict):
-            acts += [a for a in (day.get("activities") or []) if isinstance(a, dict)]
-        elif isinstance(day, list):     # день может прийти сразу списком интервалов
-            acts += [a for a in day if isinstance(a, dict)]
-    for a in acts:
-        for k in ("start", "end", "duration"):
-            try:
-                a[k] = int(float(a.get(k) or 0))
-            except (TypeError, ValueError):
-                a[k] = 0
-    sources, statuses = {}, {}
-    for a in acts:
-        sources[a.get("source")] = sources.get(a.get("source"), 0) + 1
-        statuses[a.get("status")] = statuses.get(a.get("status"), 0) + 1
-    # склеиваем соседние REST (через границу суток) и ищем длинные отдыхи
-    rests, cur = [], None
-    for a in sorted((a for a in acts if a.get("duration", 0) > 0), key=lambda a: a["start"]):
-        if a.get("status") == "REST":
-            if cur and a["start"] - cur["end"] <= 60:
-                cur["end"] = a["end"]; cur["src"].add(a.get("source"))
-            else:
-                cur = {"start": a["start"], "end": a["end"], "src": {a.get("source")}}
-                rests.append(cur)
-        else:
-            cur = None
-    long_rests = [{"с": _lv_time(r["start"]), "по": _lv_time(r["end"]),
-                   "часов": round((r["end"] - r["start"]) / 3600, 1),
-                   "источник": ",".join(sorted(s or "?" for s in r["src"]))}
-                  for r in rests if r["end"] - r["start"] >= 20 * 3600]
-    shape = type(d).__name__ + (":" + type(rows[0]).__name__ if rows else "")
-    return {"ok": True, "формат": shape, "дней": len(rows), "интервалов": len(acts),
-            "источники": sources, "статусы": statuses,
-            "отдыхи_от_20ч": long_rests,
-            "карта_события": [{"когда": _lv_time(a["start"]), "что": a.get("status"), "unitId": a.get("unitId")}
-                              for a in sorted(acts, key=lambda a: a["start"])
-                              if a.get("status") in ("CARD_INSERTED", "CARD_REMOVED")][-12:]}
 
 
 @app.route("/api/mapon-check")
@@ -2717,98 +2264,17 @@ def api_freights():
 
 
 # ---------- v1.36/v1.38/v1.84: запреты движения грузовиков (nakordoni.eu, бесплатный JSON-фид) ----------
-# v1.84: кеш по странам. Раньше любой 429 посреди обновления выбрасывал всё, а после
-# каждого деплоя / нового инстанса Cloud Run кеш пустой -> снова 6 запросов подряд,
-# плюс вкладка и проверка запретов по пути могли качать фид одновременно (12 запросов).
-# Теперь: одно обновление за раз (общий замок), удачные страны сохраняются сразу,
-# после 429 — стоп и пауза (Retry-After, не меньше 30 мин), потом докачиваются только
-# недостающие страны; пауза между запросами 3 с.
-BANS_URL = "https://nakordoni.eu/api/truckban_json.php"
 BANS_TTL = 3 * 3600          # данные о запретах меняются редко
 BANS_MANUAL_MIN = 600        # "↻ Обновить" не чаще раза в 10 минут
 BANS_COOLDOWN_429 = 1800     # после 429 не трогаем фид 30 минут
 BANS_GROUP = 3               # стран в одном запросе: фид принимает не больше 3 (иначе 400)
-BANS_PAUSE = 3.0             # пауза между запросами, сек
 BANS_FULL_TYPES = {"Sunday", "Holiday", "General"}   # запрет по всей стране — выделяем
 BANS_ADR_WORDS = ("dangerous", "adr", "hazard", "опасн", "небезпеч")  # ADR не возим — скрываем
-_bans_cache = {"data": None, "at": 0.0, "error": None, "blocked_until": 0.0}
-_bans_cc = {}                # v1.84: cc -> {"at", "upcoming": [...], "current": [...]}
-_bans_window = {"w": None}
-_bans_lock = threading.Lock()          # короткий — на чтение/запись кеша
-_bans_fetch_lock = threading.Lock()    # v1.84: одно обновление фида за раз
-
-
-class BansRateLimited(RuntimeError):
-    def __init__(self, msg, retry_after=0):
-        super().__init__(msg)
-        self.retry_after = retry_after
-
-
-class BansBadRequest(RuntimeError):
-    pass
-
-
-def _bans_get(params):
-    r = requests.get(BANS_URL, params={"lang": "ru", **params}, timeout=20,
-                     headers={"User-Agent": "fleet-eta-tracker"})
-    if r.status_code == 429:
-        try:
-            ra = int(r.headers.get("Retry-After") or 0)
-        except ValueError:
-            ra = 0
-        raise BansRateLimited("nakordoni: слишком много запросов (429)", ra)
-    if r.status_code == 400:
-        raise BansBadRequest(f"nakordoni: 400 для {params.get('country')}")
-    r.raise_for_status()
-    d = r.json()
-    if not d.get("success", True):
-        raise RuntimeError("nakordoni: success=false")
-    return d
 
 
 def _is_adr(b):
     t = f"{b.get('restriction_details') or ''} {b.get('restriction_type') or ''}".lower()
     return any(w in t for w in BANS_ADR_WORDS)
-
-
-def _bans_store(codes, d):
-    """v1.84: ответ по группе стран -> в кеш по странам (страна без запретов тоже отмечается)."""
-    import time
-    now = time.time()
-    part = {c: {"at": now, "upcoming": [], "current": []} for c in codes}
-    for key, dst in (("upcoming_bans", "upcoming"), ("current_bans", "current")):
-        for b in d.get(key) or []:
-            cc = b.get("country_code")
-            if cc in part:
-                part[cc][dst].append(b)
-    with _bans_lock:
-        _bans_cc.update(part)
-        if d.get("window"):
-            _bans_window["w"] = d["window"]
-
-
-def _bans_fetch_group(codes):
-    """Запрос по группе стран; если ответ обрезан или 400 — делим группу пополам;
-    страну, на которую фид отвечает 400, пропускаем. 429 — пробрасываем (стоп)."""
-    import time
-    try:
-        d = _bans_get({"country": ",".join(codes)})
-    except BansBadRequest:
-        time.sleep(BANS_PAUSE)
-        if len(codes) > 1:
-            half = len(codes) // 2
-            _bans_fetch_group(codes[:half])
-            _bans_fetch_group(codes[half:])
-        else:
-            _bans_store(codes, {})   # фид не знает страну — считаем "без запретов", не спрашиваем снова
-        return
-    time.sleep(BANS_PAUSE)
-    if d.get("truncated") and len(codes) > 1:
-        half = len(codes) // 2
-        _bans_fetch_group(codes[:half])
-        _bans_fetch_group(codes[half:])
-        return
-    _bans_store(codes, d)
 
 
 def _bans_build():
@@ -3138,35 +2604,8 @@ def country_chain(polyline, dist_km, min_km=15):
     return out
 
 
-MAPON_OBJ_TTL = 6 * 3600
 ON_TARGET_OBJ_KM = 0.5      # объект Mapon относится к таргету, если таргет внутри или центр ближе 500 м
 ON_TARGET_RADIUS_KM = 0.3   # без объекта — трак в радиусе 300 м от точки таргета
-_mobj_cache = {"at": 0.0, "items": None}
-
-
-def mapon_objects():
-    import time
-    now = time.time()
-    if _mobj_cache["items"] is not None and now - _mobj_cache["at"] < MAPON_OBJ_TTL:
-        return _mobj_cache["items"]
-    items = []
-    try:
-        objs = (mapon_get("https://mapon.com/api/v1/object/list.json", {"key": MAPON_API_KEY}, timeout=60)
-                .get("data") or {}).get("objects") or []
-        for o in objs:
-            pts = _wkt_points(o.get("wkt"))
-            if len(pts) < 3:
-                continue
-            la = [p[0] for p in pts]
-            ln = [p[1] for p in pts]
-            items.append({"name": (o.get("name") or "").strip(), "poly": pts,
-                          "bbox": (min(la), max(la), min(ln), max(ln)),
-                          "c": (sum(la) / len(la), sum(ln) / len(ln))})
-    except Exception:
-        if _mobj_cache["items"] is not None:
-            return _mobj_cache["items"]
-    _mobj_cache.update(at=now, items=items)
-    return items
 
 
 def on_target(tlat, tlng, glat, glng):
@@ -3201,60 +2640,10 @@ FLEET_COLL = "fleet_rows"
 FLEET_FIELD_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,40}$")
 FLEET_VALUE_MAX = 30000          # байт JSON на одно поле
 FLEET_TRASH_MS = 24 * 3600 * 1000
-FS_BASE = f"https://firestore.googleapis.com/v1/projects/{GOOGLE_PROJECT_ID}/databases/(default)/documents"
-_fs_tok = {"tok": None, "exp": 0.0}
-_fs_lock = threading.Lock()
-
-
-def _fs_headers():
-    import time
-    with _fs_lock:
-        if not _fs_tok["tok"] or time.time() > _fs_tok["exp"]:
-            import google.auth
-            import google.auth.transport.requests
-            creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/datastore"])
-            creds.refresh(google.auth.transport.requests.Request())
-            _fs_tok.update(tok=creds.token, exp=time.time() + 45 * 60)
-        return {"Authorization": f"Bearer {_fs_tok['tok']}"}
-
-
-def _fs_check(r):
-    if r.status_code >= 400:
-        try:
-            msg = r.json().get("error", {}).get("message") or r.text
-        except Exception:
-            msg = r.text
-        raise RuntimeError(f"Firestore {r.status_code}: {str(msg)[:300]}")
-    return r
 
 
 def _fp(name):
     return name if FLEET_FIELD_RE.match(name) else "`" + name.replace("`", "\\`") + "`"
-
-
-def _fs_decode(doc):
-    f = doc.get("fields") or {}
-
-    def val(v):
-        if v is None:
-            return None
-        if "integerValue" in v:
-            return int(v["integerValue"])
-        if "booleanValue" in v:
-            return bool(v["booleanValue"])
-        if "stringValue" in v:
-            return v["stringValue"]
-        return None
-    data = {}
-    for k, v in ((f.get("data") or {}).get("mapValue", {}).get("fields") or {}).items():
-        try:
-            data[k] = json.loads(v.get("stringValue", "null"))
-        except Exception:
-            data[k] = None
-    rid = doc["name"].rsplit("/", 1)[-1]
-    meta = {k: val(f.get(k)) for k in ("created_by", "created_at", "updated_by", "updated_at", "edited_at",
-                                         "deleted", "deleted_by", "deleted_at", "lock_by", "lock_until")}
-    return {"id": rid, "data": data, "meta": meta}
 
 
 class FleetStoreFS:

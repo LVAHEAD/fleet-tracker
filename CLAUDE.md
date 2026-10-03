@@ -38,7 +38,8 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 | `fetat/clients/geocode.py` | Nominatim / Photon |
 | `fetat/clients/sheets.py` | чтение листов «Fleet Tracker — данные» |
 | `fetat/clients/firestore.py` | Firestore REST |
-| `fetat/clients/nakordoni.py` | фид запретов движения |
+| `fetat/clients/nakordoni.py` | фид запретов движения: запросы, кеш, блокировки |
+| `fetat/clients/monitoring.py` | счётчик запросов к Routes API (Cloud Monitoring) |
 | `fetat/domain/tacho.py` | тахо-ETA, недельный отдых, лимиты 56/90 ч |
 | `fetat/domain/routing_rules.py` | паромы, Инсбрук, обход Швейцарии, waypoints |
 | `fetat/domain/bans.py` | запреты по пути, ночь Австрии для MAN, бренд по VIN |
@@ -88,4 +89,5 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 - `python -m py_compile` по всем `.py`;
 - `python -m unittest discover -s tests` — все зелёные;
 - список маршрутов совпадает с эталоном;
+- `tests/test_replay.py` совпадает с эталоном. Если поведение меняется намеренно (обычный билд с фичей) — пересобрать эталон: `python3 tests/replay_run.py "$PWD" "$PWD/tests/fixtures/replay_golden.json"` и проверить diff глазами;
 - в отчёте Владимиру — что проверить руками после деплоя (чек-лист в `REFACTOR.md`).

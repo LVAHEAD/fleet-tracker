@@ -1,0 +1,679 @@
+{
+ "_calls": [
+  [
+   "GET",
+   "https://mapon.com/api/v1/object/list.json"
+  ],
+  [
+   "GET",
+   "https://mapon.com/api/v1/object/list_groups.json"
+  ],
+  [
+   "GET",
+   "https://mapon.com/api/v1/route/list.json"
+  ],
+  [
+   "GET",
+   "https://mapon.com/api/v1/unit/list.json"
+  ],
+  [
+   "GET",
+   "https://mapon.com/api/v1/unit_data/driving_time_extended.json"
+  ],
+  [
+   "GET",
+   "https://mapon.com/api/v1/unit_groups/list.json"
+  ],
+  [
+   "GET",
+   "https://mapon.com/api/v1/unit_groups/list_units.json"
+  ],
+  [
+   "GET",
+   "https://nakordoni.eu/api/truckban_json.php"
+  ],
+  [
+   "GET",
+   "https://nominatim.openstreetmap.org/search"
+  ],
+  [
+   "POST",
+   "https://routes.googleapis.com/directions/v2:computeRoutes"
+  ]
+ ],
+ "addresses": [
+  200,
+  {
+   "addresses": [],
+   "error": "No module named 'google.auth'",
+   "loaded_at": "07/10 03:51",
+   "problems": []
+  }
+ ],
+ "bans": [
+  200,
+  {
+   "countries": [
+    "AT",
+    "BE",
+    "DE",
+    "DK",
+    "EE",
+    "ES",
+    "FI",
+    "FR",
+    "IT",
+    "LT",
+    "LU",
+    "LV",
+    "NL",
+    "NO",
+    "PL",
+    "PT",
+    "SE"
+   ],
+   "days": [],
+   "error": null,
+   "loaded_at": "07/10 04:00",
+   "missing": [],
+   "now": [],
+   "window": null
+  }
+ ],
+ "calc_code": [
+  200,
+  {
+   "active_idx": [
+    0
+   ],
+   "bans_route": [],
+   "bans_status": "loading",
+   "direction": null,
+   "dist_km": 1543.2,
+   "duration_str": "0ч 20м",
+   "eta_local": "08/10 02:00",
+   "is_trailer": false,
+   "last_update": "2026-10-07T05:59:00Z",
+   "number": "OI-1778",
+   "points_done": [
+    {
+     "at": null,
+     "auto": false,
+     "badge": "LV10",
+     "badge_hint": "LV · около LV10",
+     "done": false,
+     "manual": null
+    }
+   ],
+   "route_countries": [
+    "IT",
+    "AT",
+    "DE",
+    "AT",
+    "DE",
+    "CZ",
+    "PL",
+    "LT",
+    "LV"
+   ],
+   "route_polyline": "_ebtG_fsgAoflJ~s`Bow`z@kuplA",
+   "speed": 80,
+   "status": "driving",
+   "status_ru": "едет",
+   "tacho_error": "нет данных водителя",
+   "target_badge": "LV10",
+   "target_code_hint": "LV · около LV10",
+   "target_lat": 56.9456,
+   "target_lng": 24.1063,
+   "unit_code_hint": "IT · около IT30",
+   "unit_country": "IT",
+   "unit_lat": 45.4,
+   "unit_lng": 11.9
+  }
+ ],
+ "calc_gps_multi": [
+  200,
+  {
+   "active_idx": [
+    0,
+    1,
+    2
+   ],
+   "bans_route": [],
+   "bans_status": "ok",
+   "direction": null,
+   "dist_km": 1543.2,
+   "duration_str": "0ч 20м",
+   "eta_local": "08/10 02:00",
+   "extra": [
+    {
+     "badge": "LV10",
+     "badge_hint": "LV · около LV10",
+     "bans_route": [
+      "AT ночь 07/10 22–05 (MAN без L), въезд ~08/10 04:23"
+     ],
+     "dist_km": 3086.4,
+     "eta_local": "09/10 00:30",
+     "lat": 57.00781,
+     "leg_km": 1543.2,
+     "lng": 24.10356,
+     "polyline": "uplvGcbjhAyzaHbpwBi|lz@gdplA"
+    },
+    {
+     "badge": "SE25",
+     "badge_hint": "SE · около SE25",
+     "bans_route": [],
+     "dist_km": 4629.6,
+     "eta_local": "09/10 23:15",
+     "lat": 56.0467,
+     "leg_km": 1543.2,
+     "lng": 12.6944,
+     "polyline": "yi}zIgvbrCh|lz@fdplAkeqt@_y{F"
+    }
+   ],
+   "is_trailer": false,
+   "last_update": "2026-10-07T05:59:00Z",
+   "number": "OI-1778",
+   "points_done": [
+    {
+     "at": null,
+     "auto": false,
+     "badge": "IT31",
+     "badge_hint": "IT · около IT31",
+     "done": false,
+     "manual": null
+    },
+    {
+     "at": null,
+     "auto": false,
+     "badge": "LV10",
+     "badge_hint": "LV · около LV10",
+     "done": false,
+     "manual": null
+    },
+    {
+     "at": null,
+     "auto": false,
+     "badge": "SE25",
+     "badge_hint": "SE · около SE25",
+     "done": false,
+     "manual": null
+    }
+   ],
+   "route_countries": [
+    "IT",
+    "AT",
+    "IT"
+   ],
+   "route_polyline": "_ebtG_fsgAoflJ~s`BxzaHcpwB",
+   "speed": 80,
+   "status": "driving",
+   "status_ru": "едет",
+   "tacho_error": "нет данных водителя",
+   "target_badge": "IT31",
+   "target_code_hint": "IT · около IT31",
+   "target_lat": 45.78075,
+   "target_lng": 12.01714,
+   "unit_code_hint": "IT · около IT30",
+   "unit_country": "IT",
+   "unit_lat": 45.4,
+   "unit_lng": 11.9
+  }
+ ],
+ "calc_standing": [
+  200,
+  {
+   "active_idx": [
+    0
+   ],
+   "bans_route": [],
+   "bans_status": "ok",
+   "direction": null,
+   "dist_km": 1543.2,
+   "duration_str": "11ч 6м",
+   "eta_local": "08/10 02:00",
+   "is_trailer": false,
+   "last_update": "2026-10-07T05:59:00Z",
+   "number": "NP-2044",
+   "points_done": [
+    {
+     "at": null,
+     "auto": false,
+     "badge": "DE20",
+     "badge_hint": "DE · около DE20",
+     "done": false,
+     "manual": null
+    }
+   ],
+   "route_countries": [
+    "LV",
+    "LT",
+    "PL",
+    "CZ",
+    "DE",
+    "AT",
+    "DE",
+    "AT",
+    "DE"
+   ],
+   "route_polyline": "o`rzIojtqC~raz@nxalAolje@vnqG",
+   "speed": 0,
+   "status": "standing",
+   "status_ru": "стоит",
+   "tacho_error": "нет данных водителя",
+   "target_badge": "DE20",
+   "target_code_hint": "DE · около DE20",
+   "target_lat": 53.5544,
+   "target_lng": 9.9946,
+   "unit_code_hint": "LV · около LV10",
+   "unit_country": "LV",
+   "unit_lat": 56.95,
+   "unit_lng": 24.03
+  }
+ ],
+ "calc_trailer": [
+  200,
+  {
+   "direction": null,
+   "dist_km": null,
+   "duration_str": "11ч 6м",
+   "eta_local": null,
+   "is_trailer": true,
+   "last_update": "2026-10-07T05:59:00Z",
+   "number": "C-640A",
+   "reefer": null,
+   "speed": null,
+   "status": "standing",
+   "status_ru": "стоит",
+   "tacho_error": null,
+   "unit_code_hint": "LV · около LV10",
+   "unit_country": "LV",
+   "unit_lat": 56.9501,
+   "unit_lng": 24.0301
+  }
+ ],
+ "fleet": [
+  200,
+  {
+   "admin": false,
+   "lock_ms": 60000,
+   "now": 1791338400000,
+   "ok": true,
+   "rows": [],
+   "trash_count": 0,
+   "user": "local"
+  }
+ ],
+ "freights": [
+  200,
+  {
+   "contract_clients": [],
+   "error": "No module named 'google.auth'",
+   "loaded_at": "07/10 03:51",
+   "settings_error": "No module named 'google.auth'",
+   "stats": {}
+  }
+ ],
+ "gusage": [
+  200,
+  {
+   "cache_hits": 0,
+   "calls_local": 8,
+   "error": "No module named 'google.auth'",
+   "free": 10000,
+   "local_day": "2026-10-06"
+  }
+ ],
+ "locate": [
+  200,
+  {
+   "address": null,
+   "code": "IT30",
+   "code_lat": 45.482,
+   "code_lng": 12.23001,
+   "code_place": "Venice",
+   "dist_km": 27.3,
+   "is_code": false,
+   "is_truck": true,
+   "label": "OI-1778 (едет 0ч 20м, около IT30)",
+   "lat": 45.4,
+   "lng": 11.9
+  }
+ ],
+ "locate2": [
+  200,
+  {
+   "address": null,
+   "code": "DE10",
+   "code_lat": 52.5323,
+   "code_lng": 13.3846,
+   "code_place": "Berlin",
+   "dist_km": 1.7,
+   "is_code": false,
+   "is_truck": false,
+   "label": "Berlin → Berlin (около DE10)",
+   "lat": 52.52,
+   "lng": 13.4
+  }
+ ],
+ "mapon_objects": [
+  200,
+  {
+   "count": 0,
+   "groups": [],
+   "objects": []
+  }
+ ],
+ "mapon_units": [
+  200,
+  {
+   "count": 3,
+   "groups": {},
+   "groups_error": null,
+   "units": [
+    {
+     "fields": [
+      "label",
+      "last_update",
+      "lat",
+      "lng",
+      "number",
+      "state",
+      "type",
+      "unit_id"
+     ],
+     "gps": "56.95010, 24.03010",
+     "groups": [],
+     "label": "C-640A",
+     "last_update": "2026-10-07T05:59:00Z",
+     "number": "C-640A",
+     "state": "standing",
+     "title": null,
+     "type": "trailer",
+     "unit_id": 3
+    },
+    {
+     "fields": [
+      "label",
+      "last_update",
+      "lat",
+      "lng",
+      "make",
+      "number",
+      "speed",
+      "state",
+      "type",
+      "unit_id"
+     ],
+     "gps": "56.95000, 24.03000",
+     "groups": [],
+     "label": "NP-2044",
+     "last_update": "2026-10-07T05:59:00Z",
+     "number": "NP-2044",
+     "state": "standing",
+     "title": null,
+     "type": "car",
+     "unit_id": 2
+    },
+    {
+     "fields": [
+      "label",
+      "last_update",
+      "lat",
+      "lng",
+      "number",
+      "speed",
+      "state",
+      "type",
+      "unit_id",
+      "vehicle_title"
+     ],
+     "gps": "45.40000, 11.90000",
+     "groups": [],
+     "label": "OI-1778",
+     "last_update": "2026-10-07T05:59:00Z",
+     "number": "OI-1778",
+     "state": "driving",
+     "title": "MAN TGX",
+     "type": "car",
+     "unit_id": 1
+    }
+   ]
+  }
+ ],
+ "nearest": [
+  200,
+  {
+   "items": []
+  }
+ ],
+ "route_es_se": [
+  200,
+  {
+   "bans_route": [],
+   "bans_status": "ok",
+   "dist_km": 514.4,
+   "duration_h": 7.349,
+   "freights": {
+    "estimate": null,
+    "levels": [],
+    "query": "ES46 → SE25",
+    "total": 0,
+    "trips": []
+   },
+   "legs": [
+    {
+     "dist_km": 257.2,
+     "duration_h": 3.674,
+     "from": "L1",
+     "from_code": "ES46",
+     "to": "L2",
+     "to_code": "ES08",
+     "waypoints_applied": false
+    },
+    {
+     "dist_km": 257.2,
+     "duration_h": 3.674,
+     "from": "L2",
+     "from_code": "ES08",
+     "to": "O1",
+     "to_code": "SE25",
+     "waypoints_applied": true
+    }
+   ],
+   "points": [
+    {
+     "address": null,
+     "code": "ES46",
+     "dovoz": null,
+     "geo": null,
+     "is_truck": false,
+     "kind": "L",
+     "label": "ES46 — Valencia",
+     "lat": 39.47221,
+     "lng": -0.37769,
+     "num": 1,
+     "raw": "ES46"
+    },
+    {
+     "address": null,
+     "code": "ES08",
+     "dovoz": null,
+     "geo": null,
+     "is_truck": false,
+     "kind": "L",
+     "label": "ES08 — Barcelona",
+     "lat": 41.38693,
+     "lng": 2.16775,
+     "num": 2,
+     "raw": "ES08"
+    },
+    {
+     "address": null,
+     "code": "SE25",
+     "dovoz": null,
+     "geo": null,
+     "is_truck": false,
+     "kind": "O",
+     "label": "SE25 — Helsingborg",
+     "lat": 56.0467,
+     "lng": 12.6944,
+     "num": 1,
+     "raw": "SE25"
+    }
+   ],
+   "route_polyline": "il|oFpwhAe_rn@qi{fAkeqt@_y{F",
+   "waypoints_applied": true
+  }
+ ],
+ "route_it_lv": [
+  200,
+  {
+   "bans_route": [],
+   "bans_status": "ok",
+   "dist_km": 1543.2,
+   "duration_h": 22.046,
+   "freights": {
+    "estimate": null,
+    "levels": [],
+    "query": "IT63 → LV10",
+    "total": 0,
+    "trips": []
+   },
+   "legs": [
+    {
+     "dist_km": 1543.2,
+     "duration_h": 22.046,
+     "from": "L1",
+     "from_code": "IT63",
+     "to": "O1",
+     "to_code": "LV10",
+     "waypoints_applied": false
+    }
+   ],
+   "points": [
+    {
+     "address": null,
+     "code": "IT63",
+     "dovoz": null,
+     "geo": null,
+     "is_truck": false,
+     "kind": "L",
+     "label": "IT63 — Fermo",
+     "lat": 42.888,
+     "lng": 13.5551,
+     "num": 1,
+     "raw": "IT63"
+    },
+    {
+     "address": null,
+     "code": "LV10",
+     "dovoz": null,
+     "geo": null,
+     "is_truck": false,
+     "kind": "O",
+     "label": "LV10 — Riga",
+     "lat": 56.9456,
+     "lng": 24.1063,
+     "num": 1,
+     "raw": "LV10"
+    }
+   ],
+   "route_polyline": "_qwdGknvqAozvYj|cLow`z@kuplA",
+   "waypoints_applied": false
+  }
+ ],
+ "route_truck": [
+  200,
+  {
+   "bans_route": [],
+   "bans_status": "ok",
+   "dist_km": 771.6,
+   "duration_h": 11.023,
+   "freights": {
+    "estimate": null,
+    "levels": [],
+    "query": "IT30 → DE10",
+    "total": 0,
+    "trips": []
+   },
+   "legs": [
+    {
+     "dist_km": 771.6,
+     "duration_h": 11.023,
+     "from": "L1",
+     "from_code": "IT30",
+     "to": "O1",
+     "to_code": "DE10",
+     "waypoints_applied": true
+    }
+   ],
+   "points": [
+    {
+     "address": null,
+     "code": "IT30",
+     "dovoz": null,
+     "geo": null,
+     "is_truck": true,
+     "kind": "L",
+     "label": "OI-1778 (едет 0ч 20м, около IT30)",
+     "lat": 45.4,
+     "lng": 11.9,
+     "num": 1,
+     "raw": "OI-1778"
+    },
+    {
+     "address": null,
+     "code": "DE10",
+     "dovoz": null,
+     "geo": {
+      "cc": "DE",
+      "found": "Berlin",
+      "suspicious": false
+     },
+     "is_truck": false,
+     "kind": "O",
+     "label": "Berlin → Berlin (около DE10)",
+     "lat": 52.52,
+     "lng": 13.4,
+     "num": 1,
+     "raw": "Berlin"
+    }
+   ],
+   "route_polyline": "_ebtG_fsgAoflJ~s`Bok`_@_seK",
+   "waypoints_applied": true
+  }
+ ],
+ "truckinfo": [
+  200,
+  {
+   "drivers": [],
+   "number": "OI-1778",
+   "stops": [],
+   "tacho_error": "нет данных водителя",
+   "unit_id": 1
+  }
+ ],
+ "units": [
+  200,
+  {
+   "units": [
+    {
+     "kind": "truck",
+     "number": "C-640A",
+     "unit_id": 3
+    },
+    {
+     "kind": "truck",
+     "number": "NP-2044",
+     "unit_id": 2
+    },
+    {
+     "kind": "truck",
+     "number": "OI-1778",
+     "unit_id": 1
+    }
+   ]
+  }
+ ]
+}

@@ -53,8 +53,8 @@ fleet-tracker/
 | **v3.00** | 0 + 1 | `tests/` на unittest: тахо-ETA, паромы и Инсбрук, ночь Австрии для MAN, ✓ пройдено, разбор фрахта, справочники; эталон списка `/api/*` маршрутов. Changelog → `CHANGELOG.md` (`parse_changelog` читает файл), `REGION_CODES` → `data/region_codes.json`, geonames → `data/` | низкий |
 | v3.01 | 2 | Каркас `fetat/`: `config.py` (переменные окружения, папка данных, сдвиг времени), `utils/` (geo, timefmt, text). Пороги и URL переезжают позже вместе со своей логикой. `app.py` импортирует из них | низкий |
 | v3.02 | 3 | `clients/`: Mapon (с семафором), Google Routes (кеш, along-route, квота), геокодер, Sheets, Firestore, nakordoni, Monitoring — вместе со своими кешами и URL, кеши как есть | средний |
-| v3.03 | 4 | `domain/`: tacho, routing_rules, bans (+ ночь Австрии для MAN), regions, points, trailers, addresses (+ FIN/EE → База), freights | средний |
-| v3.04 | 5 | `store/fleet_store.py`; `services/`: `api_calc` (202 строки) и `api_route` (101 строка) разбираются на функции | выше среднего |
+| v3.03 | 4 | `domain/`: tacho, routing_rules, bans (+ ночь Австрии для MAN, + сборка фида: `_bans_build`, `_bans_refresh`, `fetch_bans`, `bans_cached`), regions, points (+ `recent_stops`), trailers, addresses (+ FIN/EE → База), freights | средний |
+| v3.04 | 5 | `store/fleet_store.py`; `services/`: `api_calc` (202 строки) и `api_route` (101 строка) разбираются на функции; сюда же `compute_multi_route` (зовёт правила паромов) | выше среднего |
 | v3.05 | 6 | Blueprints в `api/`, `app.py` → shim. Procfile (`gunicorn app:app`) не меняется | средний |
 | позже | 7 | `static/app.js` (2200 строк) → ES-модули, отдельной темой | — |
 
@@ -74,6 +74,7 @@ fleet-tracker/
 - `python -m py_compile` по всем файлам;
 - `python -m unittest discover -s tests` зелёный;
 - список маршрутов `app.url_map` совпадает с эталоном;
+- эталонный прогон API (`tests/test_replay.py`) совпадает с `tests/fixtures/replay_golden.json` — 19 вызовов `/api/*` с подменённой сетью и замороженным временем;
 - `FLEET_STORE=memory` и локальный запуск: `/` и `/api/region-codes` отвечают 200.
 
 После деплоя (проверяет Владимир):
@@ -95,7 +96,7 @@ fleet-tracker/
 
 - [x] v3.00 — тесты + данные наружу (27 тестов; app.py 5341 → 3710 строк, 307 → 173 КБ)
 - [x] v3.01 — каркас, config, utils (+ тесты utils)
-- [ ] v3.02 — clients
+- [x] v3.02 — clients (+ эталонный прогон API)
 - [ ] v3.03 — domain
 - [ ] v3.04 — store + services
 - [ ] v3.05 — blueprints, app.py → shim
