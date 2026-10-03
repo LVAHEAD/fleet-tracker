@@ -33,7 +33,7 @@ fleet-tracker/
 │  ├─ utils/               # geo.py, timefmt.py, text.py
 │  ├─ clients/             # только HTTP + кеш
 │  │  ├─ mapon.py  google_routes.py  geocode.py  sheets.py  firestore.py  nakordoni.py  monitoring.py
-│  ├─ domain/              # чистая логика, без Flask и без HTTP
+│  ├─ domain/              # предметная логика, без Flask; в сеть — через clients
 │  │  ├─ tacho.py  routing_rules.py  bans.py  regions.py  points.py  trailers.py  addresses.py  freights.py
 │  ├─ services/            # fleet_calc.py (тело api_calc), route_calc.py (тело api_route)
 │  ├─ store/fleet_store.py # Firestore / Memory, права, 🔒, корзина
@@ -42,7 +42,7 @@ fleet-tracker/
 ```
 
 Зависимости идут только вниз: `api → services → domain + clients → utils/config`.
-`domain` не импортирует `clients`: всё, что нужно извне, приходит аргументами.
+`domain` не импортирует Flask и `requests`: в сеть он ходит только через `fetat.clients` (адреса, фрахты, история стоянок, фид запретов подтягиваются функциями domain через клиентов). Проверяет `tests/test_structure.py`.
 
 ## Шаги
 
@@ -66,7 +66,7 @@ fleet-tracker/
 4. Пути к данным — от `Path(__file__)`, не от текущей папки.
 5. Новых зависимостей не добавляем. Тесты — на стандартном `unittest` (pytest их тоже запускает).
 6. `FRESH_SOLO_TACHO` — не тестовая заготовка: им пользуется `/api/route` (тахо-ETA «свежего одиночки» в From → To). При переезде — в `domain/tacho.py`.
-7. Тесты обращаются к коду через `tests/__init__.py` (`A`). Переносим функцию — дописываем её в `A`, сами тесты не трогаем.
+7. Тесты обращаются к коду через `A` из `tests/__init__.py`: он ищет имя по `app.py` и всем модулям `fetat/`, а подмена ставится во все модули, где имя есть. При переезде тесты не меняются.
 
 ## Проверка каждого шага
 
@@ -97,7 +97,7 @@ fleet-tracker/
 - [x] v3.00 — тесты + данные наружу (27 тестов; app.py 5341 → 3710 строк, 307 → 173 КБ)
 - [x] v3.01 — каркас, config, utils (+ тесты utils)
 - [x] v3.02 — clients (+ эталонный прогон API)
-- [ ] v3.03 — domain
+- [x] v3.03 — domain (+ тест направления зависимостей)
 - [ ] v3.04 — store + services
 - [ ] v3.05 — blueprints, app.py → shim
 - [ ] позже — фронтенд app.js

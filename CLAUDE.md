@@ -40,9 +40,9 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 | `fetat/clients/firestore.py` | Firestore REST |
 | `fetat/clients/nakordoni.py` | фид запретов движения: запросы, кеш, блокировки |
 | `fetat/clients/monitoring.py` | счётчик запросов к Routes API (Cloud Monitoring) |
-| `fetat/domain/tacho.py` | тахо-ETA, недельный отдых, лимиты 56/90 ч |
+| `fetat/domain/tacho.py` | простой ETA, тахо-ETA, недельный отдых, лимиты 56/90 ч, `FRESH_SOLO_TACHO` (From → To) |
 | `fetat/domain/routing_rules.py` | паромы, Инсбрук, обход Швейцарии, waypoints |
-| `fetat/domain/bans.py` | запреты по пути, ночь Австрии для MAN, бренд по VIN |
+| `fetat/domain/bans.py` | сборка фида запретов, запреты по пути, ночь Австрии для MAN, бренд по VIN, страны по маршруту |
 | `fetat/domain/regions.py` | коды регионов (ESxx, NO01…), ближайший код, страна |
 | `fetat/domain/points.py` | разбор точки/таргета, ✓ пройдено, «на объекте» |
 | `fetat/domain/trailers.py` | реф, сцепка тягач–прицеп |
@@ -52,10 +52,10 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 | `fetat/store/fleet_store.py` | общий Флот: права, 🔒, корзина 24 ч |
 | `fetat/api/` | Blueprints: fleet, calc, mapon, reference, meta |
 | `data/` | `region_codes.json`, `region_codes_geonames.json` |
-| `tests/` | unittest + фикстуры; код через `A` из `tests/__init__.py` |
+| `tests/` | unittest + фикстуры; код через `A` из `tests/__init__.py` (ищет имя во всех модулях, подмена ставится везде) |
 
 Зависимости идут только вниз: `api → services → domain + clients → utils/config`.
-`domain` не ходит в сеть и не импортирует Flask.
+`domain` не импортирует Flask и `requests`: в сеть — только через `fetat.clients`. Следит `tests/test_structure.py`.
 
 ## Предметные правила (не ломать)
 

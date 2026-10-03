@@ -3,6 +3,9 @@
 Формат: строка "X.YY (ГГГГ-ММ-ДД) — заголовок", продолжение — с отступом 4 пробела.
 Новые версии — сверху. Файл читает /api/changelog (блокнот [.]).
 
+3.03 (2026-10-03) — рефакторинг, шаг 4: предметная логика в fetat/domain/ — regions, routing_rules, tacho,
+    trailers, addresses, freights, points, bans (перенесены как есть); тест направления зависимостей;
+    поведение не менялось
 3.02 (2026-10-03) — рефакторинг, шаг 3: клиенты внешних API в fetat/clients/ — mapon, google_routes,
     geocode, sheets, monitoring, firestore, nakordoni (HTTP, URL и кеши, перенесены как есть);
     эталонный прогон API с подменённой сетью (tests/test_replay.py); поведение не менялось
