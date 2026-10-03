@@ -32,6 +32,8 @@ ADDRESS_SHEET = os.environ.get("ADDRESS_SHEET", "Адреса")
 FREIGHT_SHEET = os.environ.get("FREIGHT_SHEET", "Фрахты")
 
 SETTINGS_SHEET = os.environ.get("SETTINGS_SHEET", "Настройки")
+# v3.11: лист со списком диспетчеров (Email, Инициалы, Цвет, Назначает)
+DISP_SHEET = os.environ.get("DISP_SHEET", "Диспетчеры")
 
 GOOGLE_PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT") or "my-n8n-bot-496614"
 

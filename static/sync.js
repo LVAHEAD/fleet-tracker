@@ -150,7 +150,7 @@
       });
       const denied = (d.errors || []).filter((e) => /может только/.test(e.error || ""));
       if (denied.length) {                       // v2.02: удалить нельзя — вернуть строку с сервера
-        toast("🗑 " + denied[0].error);
+        toast((/диспетчер/.test(denied[0].error) ? "👤 " : "🗑 ") + denied[0].error);
         loadAll().catch(() => {});
       } else if (bad.size) { setStatus("error", d.errors[0].error); setTimeout(S.schedule, 10000); }
       else setStatus("ok");
@@ -445,6 +445,7 @@
     S.since = d.now;
     S.skew = d.now - Date.now();
     S.admin = !!d.admin;
+    S.canAssign = !!d.can_assign;   // v3.11
     S.synced.clear();
     S.meta = {};
     const mine = {};

@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 
 from fetat.api.meta import current_user_email
 from fetat.config import FLEET_ADMINS
+from fetat.domain.dispatchers import _disp_cache, can_assign, get_dispatchers
 from fetat.store.fleet_store import (
     _fleet_can_delete, _fleet_clean, FLEET_FIELD_RE, FLEET_LOCK_MS, _fleet_rid, _fleet_row_out,
     FLEET_STORE, FLEET_TRASH_MS,
@@ -45,7 +46,8 @@ def api_fleet():
                 live.append(_fleet_row_out(d))
         live.sort(key=lambda x: (x["meta"].get("created_at") or 0, str(x["row"]["id"])))
         return jsonify({"ok": True, "now": now, "user": _fleet_user(), "rows": live, "trash_count": len(trash),
-                        "admin": _fleet_user() in FLEET_ADMINS, "lock_ms": FLEET_LOCK_MS})
+                        "admin": _fleet_user() in FLEET_ADMINS, "can_assign": can_assign(_fleet_user()),
+                        "lock_ms": FLEET_LOCK_MS})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 503
 
@@ -75,12 +77,38 @@ def api_fleet_sync():
                 if op.get("new"):
                     meta.update(created_by=user, created_at=now, deleted=False)
                 unset = [k for k in (op.get("unset") or []) if FLEET_FIELD_RE.match(str(k)) and k != "id"]
-                FLEET_STORE.patch(rid, _fleet_clean(op.get("set")), unset, meta)
+                data = _fleet_clean(op.get("set"))
+                if not op.get("new") and ("disp" in data or "disp" in unset):
+                    _check_disp_change(user, rid, data.get("disp", ""))
+                FLEET_STORE.patch(rid, data, unset, meta)
             done += 1
         except Exception as e:
             errors.append({"id": op.get("id"), "error": str(e)})
     code = 200 if not errors else (207 if done else 503)
     return jsonify({"ok": not errors, "now": now, "done": done, "errors": errors}), code
+
+
+def _check_disp_change(user, rid, new_disp):
+    """v3.11: сменить диспетчера строки может только назначающий (админ или «Назначает = да»).
+    Если значение не меняется — пропускаем (браузер может прислать то же самое)."""
+    d = FLEET_STORE.get(rid)
+    if d is None:
+        return
+    cur = str(d["data"].get("disp") or d["meta"].get("created_by") or "").lower()
+    if str(new_disp or "").lower() == cur:
+        return
+    if not can_assign(user):
+        raise PermissionError("назначать диспетчера строки может только назначающий (см. лист «Диспетчеры»)")
+
+
+@bp.route("/api/dispatchers")
+def api_dispatchers():
+    """v3.11: список диспетчеров из листа «Диспетчеры» + может ли текущий пользователь назначать."""
+    force = request.args.get("refresh") == "1"
+    lst = get_dispatchers(force=force)
+    return jsonify({"ok": True, "dispatchers": lst, "source": _disp_cache["source"],
+                    "error": _disp_cache["error"], "user": _fleet_user(),
+                    "can_assign": can_assign(_fleet_user())})
 
 
 @bp.route("/api/fleet/lock", methods=["POST"])

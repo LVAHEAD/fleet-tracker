@@ -140,6 +140,7 @@ function makeBadge(lat, lng, html, className, offsetY, onClick) {
         this.div.innerHTML = this.html;
         this.div.style.position = "absolute";
         if (this.border) this.div.style.borderColor = this.border;   // v1.75: цвет рамки после скрытия/показа
+        this.applyLook();
         if (this.click) {
           this.div.style.cursor = "pointer";
           this.div.addEventListener("click", (e) => { e.stopPropagation(); this.click(); });
@@ -158,7 +159,20 @@ function makeBadge(lat, lng, html, className, offsetY, onClick) {
         this.pos = pos;
         if (this.div) { this.div.innerHTML = html; this.div.className = cls; }
         this.html = html; this.cls = cls;
+        this.applyLook();
         this.draw();
+      }
+      // v3.11: цвет диспетчера и бледность (фильтр диспетчера)
+      setLook(look) { this.look = look; this.applyLook(); }
+      applyLook() {
+        const d = this.div, k = this.look;
+        if (!d || !k) return;
+        d.classList.toggle("mk-disp", !!k.bg);
+        d.classList.toggle("mk-pale", !!k.pale);
+        d.style.background = k.bg || "";
+        d.style.borderColor = k.bg ? k.bd : (this.border || "");
+        d.style.boxShadow = k.bg ? `inset 5px 0 0 ${k.st}, 0 1px 3px rgba(0,0,0,0.3)` : "";
+        d.style.setProperty("--mk-tip", k.bd || "");
       }
       getPosition() { return this.pos; }
     };
@@ -222,6 +236,26 @@ function updateMarker(rowId, lat, lng, label, status, heading, km, trailer) {
   const html = truckBadgeHtml(label, status, heading, km);
   if (truckBadges[rowId]) truckBadges[rowId].update(new google.maps.LatLng(lat, lng), html, cls);
   else truckBadges[rowId] = makeBadge(lat, lng, html, cls, 11, () => { map.panTo(pos); map.setZoom(9); });
+  truckStatus[rowId] = status;
+  applyBadgeLook(rowId);
+}
+
+// v3.11: плашка машины — фон цвета диспетчера, рамка темнее, слева полоска статуса (едет/стоит);
+// при фильтре диспетчера чужие машины бледные
+const truckStatus = {};
+function applyBadgeLook(rowId) {
+  const b = truckBadges[rowId];
+  if (!b || !b.setLook) return;
+  const row = rows.find((r) => String(r.id) === String(rowId));
+  const e = row ? dispEntry(rowDisp(row)) : null;
+  const pale = !!(row && !rowPassesOwn(row));
+  const bg = e && e.color ? e.color : "";
+  const st = truckStatus[rowId] === "driving" ? "#1D9E75" : "#E24B4A";
+  b.setLook({ bg, bd: bg ? (shadeHex(bg, 0.42) || "#999") : "", st, pale });
+  if (markers[rowId]) markers[rowId].setOpacity(pale ? 0.35 : 1);
+}
+function refreshBadgeLooks() {
+  Object.keys(truckBadges).forEach((id) => applyBadgeLook(id));
 }
 
 function markerIcon(status, trailer) {
@@ -697,7 +731,7 @@ function stripeRow(tr, row) {
 }
 function rowPassesFilter(row) {
   if (!row.unit) return true;
-  if (ownFilter === "mine" && fleetMe() && rowDisp(row) !== fleetMe()) return false;   // v2.01
+  if (!rowPassesOwn(row)) return false;   // v2.01 / v3.11
   if (loFilter === "all") return true;
   return rowLoKind(row) === loFilter;
 }
@@ -706,7 +740,15 @@ function rowPassesFilter(row) {
 // disp — e-mail ответственного; у новой строки — кто создал; у старых без disp — создатель (мета сервера).
 let ownFilter = "all";
 try { ownFilter = localStorage.getItem("fleet-own-filter") || "all"; } catch (e) {}
-if (!["all", "mine"].includes(ownFilter)) ownFilter = "all";
+if (!["all", "mine"].includes(ownFilter) && !String(ownFilter).includes("@")) ownFilter = "all";
+// v3.11: фильтр диспетчера — "all" | "mine" | e-mail. Строки без диспетчера — только в "все".
+// Тот же фильтр — для карты: чужие машины бледные.
+function rowPassesOwn(row) {
+  if (ownFilter === "all") return true;
+  const d = rowDisp(row);
+  if (ownFilter === "mine") return !fleetMe() || d === fleetMe();
+  return d === ownFilter;
+}
 function fleetMe() {
   const u = window.fleetSync && window.fleetSync.mode === "server" ? window.fleetSync.user : "";
   return u && u !== "local" ? String(u).toLowerCase() : "";
@@ -718,24 +760,69 @@ function rowDisp(row) {
 }
 const dispShort = (u) => String(u || "").split("@")[0].split(".")[0].slice(0, 12);
 function knownDispatchers() {
-  const set = new Set();
+  const set = new Set(DISP_LIST.map((d) => d.email));   // v3.11: все из листа, даже кто ещё не заходил
   if (fleetMe()) set.add(fleetMe());
   rows.forEach((r) => { const d = rowDisp(r); if (d) set.add(d); });
   const meta = (window.fleetSync && window.fleetSync.meta) || {};
   Object.values(meta).forEach((m) => {
     [m.created_by, m.updated_by].forEach((u) => { if (u && u !== "local") set.add(String(u).toLowerCase()); });
   });
-  return Array.from(set).sort();
+  const order = new Map(DISP_LIST.map((d, i) => [d.email, i]));
+  return Array.from(set).sort((a, b) => (order.has(a) ? order.get(a) : 99) - (order.has(b) ? order.get(b) : 99) || (a < b ? -1 : 1));
 }
 // v3.09: инициалы и цвет диспетчера (первая клетка строки); ключ — имя из e-mail до точки/@
-const DISP_TAGS = { vladimirs: "VL", ladins: "VV", janis: "JZ", vadims: "VJ", jekaterina: "JB", antons: "AA" };
-function dispTag(u) { return DISP_TAGS[dispShort(u).toLowerCase()] || ""; }
+// v3.11: диспетчеры — из листа «Диспетчеры» (/api/dispatchers); до загрузки — список по умолчанию
+let DISP_LIST = [
+  { email: "vladimirs.head@gmail.com", tag: "VL", color: "#ebebeb" }, { email: "ladins@gmail.com", tag: "VV", color: "#e8dcf7" },
+  { email: "janis@gmail.com", tag: "JZ", color: "#eceefc" }, { email: "vadims@gmail.com", tag: "VJ", color: "#fde6cc" },
+  { email: "jekaterina@gmail.com", tag: "JB", color: "#dcf1e0" }, { email: "antons@gmail.com", tag: "AA", color: "#ffffff" },
+];
+function dispEntry(u) {
+  const e = String(u || "").toLowerCase();
+  if (!e) return null;
+  const k = dispShort(e).toLowerCase();
+  return DISP_LIST.find((d) => d.email === e) || DISP_LIST.find((d) => dispShort(d.email).toLowerCase() === k) || null;
+}
+function dispTag(u) { const d = dispEntry(u); return d ? d.tag : ""; }
+function canAssign() { return !fleetMe() || !!(window.fleetSync && window.fleetSync.canAssign); }
+// цвет рамки — тот же оттенок темнее; белый -> серый
+function shadeHex(hex, k) {
+  const m = String(hex || "").match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (!m) return "";
+  return "#" + m.slice(1).map((x) => Math.round(parseInt(x, 16) * (1 - k)).toString(16).padStart(2, "0")).join("");
+}
+function applyDispColors() {
+  let st = document.getElementById("disp-colors");
+  if (!st) { st = document.createElement("style"); st.id = "disp-colors"; document.head.appendChild(st); }
+  st.textContent = DISP_LIST.filter((d) => d.color).map((d) =>
+    `#fleet-tbody tr td.unit-cell[data-dc="${d.tag}"], #fleet-tbody tr:hover td.unit-cell[data-dc="${d.tag}"] { background: ${d.color}; }`).join("\n");
+}
+function fillDispSelects() {
+  document.querySelectorAll(".own-sel").forEach((sel) => {
+    sel.innerHTML = `<option value="">▾ дисп</option>` + DISP_LIST.map((d) =>
+      `<option value="${escapeHtml(d.email)}">${escapeHtml(d.tag)}</option>`).join("");
+    sel.value = String(ownFilter).includes("@") ? ownFilter : "";
+  });
+}
+function loadDispatchers() {
+  fetch("/api/dispatchers").then((r) => r.json()).then((d) => {
+    if (!d || !d.ok) return;
+    if (d.dispatchers && d.dispatchers.length) DISP_LIST = d.dispatchers;
+    if (window.fleetSync) window.fleetSync.canAssign = !!d.can_assign;
+    applyDispColors();
+    fillDispSelects();
+    renderRows();
+    refreshBadgeLooks();
+  }).catch(() => {});
+}
 function dispLabel(u) { return dispTag(u) || dispShort(u); }
 function dispHtml(row) {
   if (!fleetMe()) return "";
   const d = rowDisp(row);
   const opts = knownDispatchers();
   if (d && !opts.includes(d)) opts.push(d);
+  // v3.11: назначать диспетчера строки — только назначающий; остальным — просто метка
+  if (!canAssign()) return d ? `<span class="disp-lbl${d !== fleetMe() ? " other" : ""}" title="Диспетчер строки (назначает админ)">👤 ${escapeHtml(dispLabel(d))}</span>` : "";
   return `<select class="disp-sel${d && d !== fleetMe() ? " other" : ""}${d ? "" : " none"}" title="Диспетчер (ответственный за строку)">`
     + `<option value=""${d ? "" : " selected"}>👤 —</option>`
     + opts.map((u) => `<option value="${escapeHtml(u)}"${u === d ? " selected" : ""}>👤 ${escapeHtml(dispLabel(u))}</option>`).join("")
@@ -767,8 +854,8 @@ function renderRows() {
       <td class="unit-cell"${dispTag(rowDisp(row)) ? ` data-dc="${dispTag(rowDisp(row))}"` : ""}><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" title="${escapeHtml(window.fleetMetaTitle ? window.fleetMetaTitle(row.id) : "")}" placeholder="номер" />${dispHtml(row)}</td>
       <td class="status-cell ${statusClass}">${statusHtml}</td>
       <td>
-        <div class="target-wrap">
-          <span class="lead">${foldable(row) ? `<button class="fold-t" title="${row.open ? "Свернуть точки" : escapeHtml(foldTitle(row, cached))}">${row.open ? "▾" : "▸"}</button>` : ""}</span><span class="stop-n">${multi ? numChip(1, row.lo) : ""}</span>
+        <div class="target-wrap${hideK(row, 0) ? " fold-hide" : ""}">
+          <span class="lead">${!folded(row) || foldVisible(row)[0] === 0 ? foldBtnHtml(row, cached) : ""}</span><span class="stop-n">${multi ? numChip(1, row.lo) : ""}</span>
           <button class="lo-btn ${loClass(row.lo)}" title="${loTitle(row.lo)}">${loText(row.lo)}</button>
           ${cached && cached.targetBadge ? cached.targetBadge : '<span class="cc-badge target-cc" hidden></span>'}
           <input list="points-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" title="${escapeHtml(row.target)}" placeholder="ГПС, город, код или машина" />
@@ -776,12 +863,12 @@ function renderRows() {
         </div>
         ${extraTargetsHtml(row, cached)}
       </td>
-      <td class="delivery-td"><input class="delivery-input" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" title="${escapeHtml(row.delivery)}" placeholder="${deliveryPlaceholder(row.lo)}" />${(row.extra || []).map((x, i) =>
-        `<input class="xd-input${folded(row) && i >= 1 ? " fold-hide" : ""}" data-k="${i + 1}" name="delivery-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.delivery)}" title="${escapeHtml(x.delivery)}" placeholder="${deliveryPlaceholder(x.lo)}" />`).join("")}</td>
+      <td class="delivery-td"><input class="delivery-input${hideK(row, 0) ? " fold-hide" : ""}" name="delivery-${row.id}" autocomplete="off" value="${escapeHtml(row.delivery)}" title="${escapeHtml(row.delivery)}" placeholder="${deliveryPlaceholder(row.lo)}" />${(row.extra || []).map((x, i) =>
+        `<input class="xd-input${hideK(row, i + 1) ? " fold-hide" : ""}" data-k="${i + 1}" name="delivery-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.delivery)}" title="${escapeHtml(x.delivery)}" placeholder="${deliveryPlaceholder(x.lo)}" />`).join("")}</td>
       <td class="dist-cell ${distMuted}">${distHtml}</td>
       <td class="eta-cell ${etaMuted}${cached && cached.late ? " eta-late" : ""}" title="${escapeHtml(composedEta ? composedEta.title : (cached && cached.etaTip ? cached.etaTip : ""))}">${etaHtml}</td>
-      <td class="note-cell"><div class="note-wrap"><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" title="${escapeHtml(row.note)}" placeholder="примечание" />${row.com ? '<span class="com-tri" title="Комментарий"></span>' : ""}<button class="com-ic${row.com ? " has" : ""}" title="${row.com ? "Комментарий — клик, чтобы изменить" : "Добавить комментарий"}">${COM_SVG(!!row.com)}</button></div>${(row.extra || []).map((x, i) =>
-        `<div class="note-wrap xn-wrap${folded(row) && i >= 1 ? " fold-hide" : ""}"><input class="xn-input" data-k="${i + 1}" name="note-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.note || "")}" title="${escapeHtml(x.note || "")}" placeholder="примечание к ${i + 2}" /><span class="com-sp"></span></div>`).join("")}</td>
+      <td class="note-cell"><div class="note-wrap"><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" title="${escapeHtml(row.note)}" placeholder="примечание" />${comBtnHtml(row.com, 0)}</div>${(row.extra || []).map((x, i) =>
+        `<div class="note-wrap xn-wrap${hideNoteK(row, i + 1) ? " fold-hide" : ""}"><input class="xn-input" data-k="${i + 1}" name="note-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.note || "")}" title="${escapeHtml(x.note || "")}" placeholder="примечание к ${i + 2}" />${comBtnHtml(x.com, i + 1)}</div>`).join("")}</td>
       <td class="row-actions">
         <button class="refresh-row-btn" title="Обновить строку">↻</button>
         <span class="wide-acts">
@@ -864,6 +951,7 @@ function attachRowHandlers() {
     if (dsel) dsel.addEventListener("change", (e) => {   // v2.01
       setRowField(id, "disp", e.target.value);
       renderRows();
+      refreshBadgeLooks();
     });
     tr.querySelector(".target-input").addEventListener("change", (e) => {
       updateRowField(id, "target", e.target.value);
@@ -945,11 +1033,11 @@ function attachRowHandlers() {
       renderRows();
     });
 
-    tr.querySelector(".com-ic").addEventListener("click", (e) => {
+    tr.querySelectorAll(".com-ic").forEach((b) => b.addEventListener("click", (e) => {   // v3.11: и у точек
       e.stopPropagation();
       closeRowMenus();
-      openComEditor(id, e.currentTarget);
-    });
+      openComEditor(id, e.currentTarget, Number(b.dataset.k || 0));
+    }));
 
     // v1.64: несколько таргетов в строке
     const addStop = tr.querySelector(".add-stop");
@@ -1077,15 +1165,16 @@ function extraTargetsHtml(row, cached) {
     const badge = ce && ce.badge
       ? `<span class="cc-badge x-cc" title="${escapeHtml(ce.badgeHint || ce.badge)}">${escapeHtml(ce.badge)}</span>` : "";
     const last = k === ex.length;
-    const hide = folded(row) && k >= 2 ? " fold-hide" : "";
+    const hide = hideK(row, k) ? " fold-hide" : "";
+    const fv = folded(row) ? foldVisible(row) : null;
     return `<div class="target-wrap x-stop${hide}" data-k="${k}">
-      <span class="lead"></span><span class="stop-n">${numChip(k + 1, x.lo)}</span>
+      <span class="lead">${fv && fv[0] === k ? foldBtnHtml(row, cached) : ""}</span><span class="stop-n">${numChip(k + 1, x.lo)}</span>
       <button class="lo-btn xlo-btn ${loClass(x.lo)}" data-k="${k}" title="${loTitle(x.lo)}">${loText(x.lo)}</button>
       ${badge}
       <input list="points-list" class="xt-input" data-k="${k}" name="target-${row.id}-${k}" autocomplete="off" value="${escapeHtml(x.target)}" title="${escapeHtml(ce && ce.error ? ce.error : x.target)}" placeholder="следующая точка" />
       <button class="stop-x" data-k="${k}" title="Убрать эту точку">×</button>
-      ${folded(row) && k === 1
-        ? `<button class="fold-more" title="${escapeHtml(foldTitle(row, cached))}">+${row.extra.length - 1}</button>`
+      ${fv && fv[1] === k
+        ? `<button class="fold-more${hiddenHasCom(row) ? " has-com" : ""}" title="${escapeHtml(foldTitle(row, cached))}">${foldMoreLabel(row)}</button>`
         : last && ex.length + 1 < MAX_STOPS ? '<button class="add-stop" title="Добавить ещё таргет">+</button>'
         : last ? `<span class="add-stop-sp" title="Максимум ${MAX_STOPS} точек"></span>` : '<span class="add-stop-sp"></span>'}
     </div>`;
@@ -1095,6 +1184,44 @@ function extraTargetsHtml(row, cached) {
 // v1.66: 3 и больше точек — по умолчанию свёрнуто: видны ① ②, дальше сводка
 function foldable(row) { return !!(row.extra && row.extra.length >= 2); }
 function folded(row) { return foldable(row) && !row.open; }
+// v3.11: свёрнутая строка — видны две точки: первая непройденная и следующая за ней
+// (все пройдены — две последние). k: 0 — ①, k ≥ 1 — extra[k - 1].
+function foldVisible(row) {
+  const n = 1 + (row.extra ? row.extra.length : 0);
+  let a = firstOpenIdx(row);
+  if (a < 0) a = n - 1;
+  let b = a + 1;
+  if (b > n - 1) { b = a; a = Math.max(0, a - 1); }
+  return [a, b];
+}
+function hideK(row, k) {
+  if (!folded(row)) return false;
+  const v = foldVisible(row);
+  return k !== v[0] && k !== v[1];
+}
+// своё примечание первой видимой точки при скрытой ① не показываем: первая строка колонки — общее примечание
+function hideNoteK(row, k) {
+  if (hideK(row, k)) return true;
+  return folded(row) && k > 0 && foldVisible(row)[0] === k;
+}
+let renderT = null;
+function scheduleRender() {
+  clearTimeout(renderT);
+  renderT = setTimeout(() => { renderRows(); refreshBadgeLooks(); }, 80);
+}
+function foldBtnHtml(row, cached) {
+  return foldable(row) ? `<button class="fold-t" title="${row.open ? "Свернуть точки" : escapeHtml(foldTitle(row, cached))}">${row.open ? "▾" : "▸"}</button>` : "";
+}
+// подпись свёрнутых точек: ✓N — пройденные спрятаны, +M — дальние
+function foldMoreLabel(row) {
+  const n = 1 + row.extra.length;
+  const v = foldVisible(row);
+  const before = v[0], after = n - 1 - v[1];
+  return (before ? `✓${before}` : "") + (before && after ? " · " : "") + (after ? `+${after}` : "");
+}
+function hiddenHasCom(row) {
+  return (row.extra || []).some((x, i) => x.com && hideK(row, i + 1));
+}
 function plTochek(n) {
   const m10 = n % 10, m100 = n % 100;
   if (m10 === 1 && m100 !== 11) return "точка";
@@ -1103,26 +1230,30 @@ function plTochek(n) {
 }
 // v1.74: подсказка к ▸ / "+N" — все скрытые точки: номер, название, ETA, примечание
 function foldTitle(row, cached) {
-  const n = row.extra.length - 1;             // скрыто точек
-  const lines = [`Ещё ${n} ${plTochek(n)} — клик, чтобы показать все`];
-  row.extra.forEach((x, i) => {
-    if (i < 1) return;
-    const ce = cached && cached.extra && cached.extra[i];
-    const e = ce && (ce.eta_tacho || ce.eta_local);
-    lines.push(`${STOP_NUM[i + 2]} ${(ce && ce.badge ? ce.badge + " " : "") + (x.target || "—")}${e ? " — " + e : ""}${x.note ? " · «" + x.note + "»" : ""}`);
+  // v3.11: все точки строки; пройденные — ✓, 💬 — у точки есть комментарий
+  const lines = ["Все точки — клик, чтобы раскрыть"];
+  const fl = (cached && cached.doneFlags) || [];
+  const man = row.done || {};
+  const isDone = (k) => (man[k] === true ? true : man[k] === false ? false : !!(fl[k] && fl[k].done));
+  const pts = [{ x: { target: row.target, note: "", com: "" }, ce: null }]
+    .concat((row.extra || []).map((x, i) => ({ x, ce: cached && cached.extra && cached.extra[i] })));
+  pts.forEach((p, k) => {
+    const e = p.ce && (p.ce.eta_tacho || p.ce.eta_local);
+    lines.push(`${isDone(k) ? "✓" : " "} ${STOP_NUM[k + 1]} ${(p.ce && p.ce.badge ? p.ce.badge + " " : "") + (p.x.target || "—")}`
+      + `${!isDone(k) && e ? " — " + e : ""}${p.x.note ? " · «" + p.x.note + "»" : ""}${p.x.com ? " 💬" : ""}`);
   });
   return lines.join("\n");
 }
 
 function distCellHtml(row, c) {
   if (!row.extra || !row.extra.length) return c.dist;
-  const lines = [`<div class="sl">${c.dist}</div>`];
+  const lines = [`<div class="sl${hideK(row, 0) ? " fold-hide" : ""}">${c.dist}</div>`];
   row.extra.forEach((x, i) => {
     const ce = c.extra && c.extra[i];
     // v1.65: у 2-й и следующих точек — плечо от предыдущей точки, сумма только в подсказке
     const txt = ce && ce.done ? '<span class="done-km">✓</span>' : ce && ce.leg_km != null ? ce.leg_km.toFixed(1) : "—";
     const tip = ce && ce.leg_km != null ? `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]} (от машины всего ${ce.dist_km.toFixed(1)})` : (ce && ce.error) || "";
-    lines.push(`<div class="sl${folded(row) && i >= 1 ? " fold-hide" : ""}" title="${escapeHtml(tip)}">${txt}</div>`);
+    lines.push(`<div class="sl${hideK(row, i + 1) ? " fold-hide" : ""}" title="${escapeHtml(tip)}">${txt}</div>`);
   });
   return lines.join("");
 }
@@ -1132,7 +1263,7 @@ function etaCellHtml(row, c, composed) {
   const nbAt = c.nbAt != null ? c.nbAt : null;
   const first = composed && nbAt == null ? composed.html : (c.eta || "—");
   if (!row.extra || !row.extra.length) return first;
-  const lines = [`<div class="sl">${first}</div>`];
+  const lines = [`<div class="sl${hideK(row, 0) ? " fold-hide" : ""}">${first}</div>`];
   row.extra.forEach((x, i) => {
     const ce = c.extra && c.extra[i];
     let inner = '<span class="eta-x-t">—</span>';
@@ -1158,10 +1289,10 @@ function etaCellHtml(row, c, composed) {
     if (chk.lines.length) tip = chk.lines.join("\n") + (tip ? "\n" + tip : "");
     if (nbAt === i && composed) {
       const t = (chk.lines.length ? chk.lines.join("\n") + "\n" : "") + (composed.title || tip);
-      lines.push(`<div class="sl${lateCls}${folded(row) && i >= 1 ? " fold-hide" : ""}" title="${escapeHtml(t)}">${composed.html}</div>`);
+      lines.push(`<div class="sl${lateCls}${hideK(row, i + 1) ? " fold-hide" : ""}" title="${escapeHtml(t)}">${composed.html}</div>`);
       return;
     }
-    lines.push(`<div class="sl${lateCls}${folded(row) && i >= 1 ? " fold-hide" : ""}" title="${escapeHtml(tip)}"><span class="eta-nb-sp"></span>${inner}</div>`);
+    lines.push(`<div class="sl${lateCls}${hideK(row, i + 1) ? " fold-hide" : ""}" title="${escapeHtml(tip)}"><span class="eta-nb-sp"></span>${inner}</div>`);
   });
   return lines.join("");
 }
@@ -1169,12 +1300,20 @@ function etaCellHtml(row, c, composed) {
 function removeStop(id, k) {
   const row = rows.find((r) => r.id === id);
   if (!row || !row.extra || !row.extra.length) return;
+  // v3.11: у точки свой комментарий — спросить
+  const own = k > 0 ? row.extra[k - 1] : null;
+  if (own && own.com && !confirm(`У точки ${STOP_NUM[k + 1]} есть комментарий — удалить вместе с ним?`)) return;
   delete row.done;   // v1.79: номера точек сдвигаются — ручные ✓ сбрасываем
   if (k === 0) {
     const nx = row.extra.shift();
     row.lo = nx.lo || "";
     row.target = nx.target || "";
     row.delivery = nx.delivery || "";
+    // v3.11: своё примечание и комментарий ② не теряются — дописываются в общие
+    const nNote = String(nx.note || "").trim();
+    if (nNote) row.note = row.note && row.note.trim() ? `${row.note.trim()} · ${nNote}` : nNote;
+    const nCom = String(nx.com || "").trim();
+    if (nCom) row.com = row.com && row.com.trim() ? `${row.com.replace(/\s+$/, "")}\n— бывш. ②: ${nCom}` : nCom;
   } else {
     row.extra.splice(k - 1, 1);
   }
@@ -1247,6 +1386,20 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
 // ⋯ → "📝 Комментарий" — правка. Клик мимо / "Готово" — сохранить, Esc — отмена.
 let comPop = null, comEd = null, comHideT = null;
 
+// v3.11: комментарий точки — k = 0 общий (строка), k ≥ 1 — своя точка extra[k - 1]
+function comBtnHtml(com, k) {
+  return `${com ? `<span class="com-tri" data-k="${k}" title="Комментарий"></span>` : ""}`
+    + `<button class="com-ic${com ? " has" : ""}" data-k="${k}" title="${com ? "Комментарий — клик, чтобы изменить" : (k ? "Добавить комментарий к точке " + STOP_NUM[k + 1] : "Добавить комментарий")}">${COM_SVG(!!com)}</button>`;
+}
+function comOf(row, k) {
+  if (!k) return row.com || "";
+  const x = row.extra && row.extra[k - 1];
+  return (x && x.com) || "";
+}
+function comHead(row, k) {
+  return escapeHtml(row.unit || "строка") + (k ? " · " + STOP_NUM[k + 1] : "");
+}
+
 function placeFloat(el, anchor, dx) {
   const a = anchor.getBoundingClientRect();
   const w = el.offsetWidth, h = el.offsetHeight;
@@ -1266,43 +1419,51 @@ function showComPop(tri) {
   hideComPop();
   const tr = tri.closest("tr");
   const row = rows.find((r) => r.id === Number(tr.dataset.id));
-  if (!row || !row.com) return;
+  const k = Number(tri.dataset.k || 0);
+  if (!row || !comOf(row, k)) return;
   comPop = document.createElement("div");
   comPop.className = "com-pop";
-  comPop.innerHTML = `<div class="com-hd">${escapeHtml(row.unit || "")} · комментарий — клик, чтобы изменить</div>${escapeHtml(row.com)}`;
+  comPop.innerHTML = `<div class="com-hd">${comHead(row, k)} · комментарий — клик, чтобы изменить</div>${escapeHtml(comOf(row, k))}`;
   document.body.appendChild(comPop);
   placeFloat(comPop, tri, 6);
   comPop.addEventListener("mouseenter", () => clearTimeout(comHideT));
   comPop.addEventListener("mouseleave", () => { comHideT = setTimeout(hideComPop, 250); });
-  comPop.addEventListener("click", (e) => { e.stopPropagation(); openComEditor(row.id, tri); });
+  comPop.addEventListener("click", (e) => { e.stopPropagation(); openComEditor(row.id, tri, k); });
 }
 
 function closeComEditor(save) {
   if (!comEd) return;
   const id = Number(comEd.dataset.id);
+  const k = Number(comEd.dataset.k || 0);
   const val = comEd.querySelector("textarea").value.replace(/\s+$/, "");
   comEd.remove();
   comEd = null;
   if (save) {
     const row = rows.find((r) => r.id === id);
-    if (row && (row.com || "") !== val) {
-      row.com = val;
+    if (row && comOf(row, k) !== val) {
+      if (!k) row.com = val;
+      else if (row.extra && row.extra[k - 1]) {
+        if (val) row.extra[k - 1].com = val; else delete row.extra[k - 1].com;
+      }
       saveRows();
       renderRows();
     }
   }
 }
 
-function openComEditor(id, anchor) {
+function openComEditor(id, anchor, k) {
   hideComPop();
   closeComEditor(true);
   const row = rows.find((r) => r.id === id);
   if (!row) return;
+  k = Number(k || 0);
+  if (k && !(row.extra && row.extra[k - 1])) return;
   comEd = document.createElement("div");
   comEd.className = "com-ed";
   comEd.dataset.id = id;
-  comEd.innerHTML = `<div class="com-ed-hd">${escapeHtml(row.unit || "строка")} <span>· комментарий</span></div>
-    <textarea placeholder="Инструкция водителю, рефы, адрес, контакты…">${escapeHtml(row.com || "")}</textarea>
+  comEd.dataset.k = k;
+  comEd.innerHTML = `<div class="com-ed-hd">${comHead(row, k)} <span>· ${k ? "комментарий к точке" : "комментарий"}</span></div>
+    <textarea placeholder="${k ? "Адрес, контакты, окно, особенности точки…" : "Инструкция водителю, рефы, адрес, контакты…"}">${escapeHtml(comOf(row, k))}</textarea>
     <div class="com-ed-row">
       <button type="button" data-a="copy">Скопировать</button>
       <button type="button" data-a="del" class="com-del">Удалить</button>
@@ -1345,7 +1506,7 @@ function openComEditor(id, anchor) {
     const t = e.target.closest && e.target.closest(".com-tri");
     if (!t) return;
     e.stopPropagation();
-    openComEditor(Number(t.closest("tr").dataset.id), t);
+    openComEditor(Number(t.closest("tr").dataset.id), t, Number(t.dataset.k || 0));
   });
   document.addEventListener("mousedown", (e) => {
     if (comEd && !comEd.contains(e.target)) closeComEditor(true);
@@ -1872,6 +2033,7 @@ async function calcRow(id) {
     const oldTb = tr.querySelector(".target-cc");
     if (oldTb) oldTb.outerHTML = targetBadge;
 
+    const fv0 = folded(row) ? foldVisible(row).join() : "";   // v3.11: окно свёрнутых точек до расчёта
     lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines,
                          etaStr: data.eta_tacho || data.eta_local, extra: extraCalc(data),
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual })),
@@ -1879,6 +2041,8 @@ async function calcRow(id) {
                          nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };
     applyDoneClasses(tr, row, lastCalcText[id]);
     stripeRow(tr, row);   // v3.10: пройденные точки меняют L/O строки
+    // v3.11: пройденные точки сдвинули окно свёрнутой строки — перерисовать
+    if (fv0 && foldVisible(row).join() !== fv0) scheduleRender();
     // v1.64: плашки кодов у следующих точек
     (lastCalcText[id].extra || []).forEach((ce, i) => {
       const w = tr.querySelector(`.x-stop[data-k="${i + 1}"]`);
@@ -2183,7 +2347,8 @@ function moveManual(id, dir) {
 })();
 
 // переключатель режима сортировки
-// v3.09: панель продублирована под таблицей (#sort-bar-bottom), обе синхронны; кнопка «свернуть / развернуть все»
+// v3.09: панель продублирована под таблицей (#sort-bar-bottom), обе синхронны
+// v3.11: «свернуть / развернуть все» переехала в шапку колонки «Таргет»
 (function () {
   const top = document.getElementById("sort-bar");
   if (!top) return;
@@ -2197,45 +2362,41 @@ function moveManual(id, dir) {
   const table = document.getElementById("fleet-table");
   if (table) table.after(bottom);
   const bars = [top, bottom];
-  bars.forEach((bar) => {
-    const fb = document.createElement("button");
-    fb.type = "button";
-    fb.className = "fold-all-btn";
-    const sortLbl = [...bar.children].find((el) => el.tagName === "SPAN" && el.textContent.trim() === "Сортировка:");
-    bar.insertBefore(fb, sortLbl ? (sortLbl.previousElementSibling || sortLbl) : null);
-  });
+  // v3.11: «свернуть / развернуть все» — значок ▸/▾ в шапке колонки «Таргет», над построчными ▸
+  const fb = document.getElementById("fold-all-btn");
   const anyOpen = () => rows.some((r) => foldable(r) && r.open);
   const mark = () => {
     bars.forEach((bar) => {
       bar.querySelectorAll("button[data-sort]").forEach((b) => b.classList.toggle("on", b.dataset.sort === sortMode));
       bar.querySelectorAll("button[data-flt]").forEach((b) => b.classList.toggle("on", b.dataset.flt === loFilter));
       bar.querySelectorAll("button[data-own]").forEach((b) => b.classList.toggle("on", b.dataset.own === ownFilter));
+      bar.querySelectorAll(".own-sel").forEach((sel) => {   // v3.11
+        sel.value = String(ownFilter).includes("@") ? ownFilter : "";
+        sel.classList.toggle("on", !!sel.value);
+      });
       bar.classList.toggle("has-own", !!fleetMe());
-      const fb = bar.querySelector(".fold-all-btn");
-      // v3.10: кнопка видна всегда; без строк с 3+ точками — бледная и неактивная
-      const has = rows.some((r) => foldable(r));
-      fb.disabled = !has;
-      fb.textContent = has && anyOpen() ? "▾ свернуть все" : "▸ развернуть все";
-      fb.title = !has ? "Сворачиваются строки с 3 и более точками — сейчас таких нет"
-        : anyOpen() ? "Свернуть точки во всех строках" : "Развернуть точки во всех строках";
     });
+    if (fb) {
+      const has = rows.some((r) => foldable(r));
+      fb.disabled = !has;   // без строк с 3+ точками — бледный
+      fb.textContent = has && anyOpen() ? "▾" : "▸";
+      fb.title = !has ? "Свернуть / развернуть все: сворачиваются строки с 3 и более точками — сейчас таких нет"
+        : anyOpen() ? "Свернуть точки во всех строках" : "Развернуть точки во всех строках";
+    }
   };
   window.fleetMarkBar = mark;
+  if (fb) fb.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = !anyOpen();
+    rows.forEach((r) => { if (foldable(r)) r.open = open; });
+    saveRows();
+    renderRows();
+    mark();
+  });
   const onClick = (e) => {
-    if (e.target.closest(".fold-all-btn")) {
-      const open = !anyOpen();
-      rows.forEach((r) => { if (foldable(r)) r.open = open; });
-      saveRows();
-      renderRows();
-      mark();
-      return;
-    }
     const o = e.target.closest("button[data-own]");
     if (o) {
-      ownFilter = o.dataset.own;
-      try { localStorage.setItem("fleet-own-filter", ownFilter); } catch (err) {}
-      mark();
-      renderRows();
+      setOwnFilter(o.dataset.own);
       return;
     }
     const f = e.target.closest("button[data-flt]");
@@ -2258,6 +2419,19 @@ function moveManual(id, dir) {
     resort();
   };
   bars.forEach((bar) => bar.addEventListener("click", onClick));
+  // v3.11: выбор одного диспетчера
+  const setOwnFilter = (v) => {
+    ownFilter = v || "all";
+    try { localStorage.setItem("fleet-own-filter", ownFilter); } catch (err) {}
+    mark();
+    renderRows();
+    refreshBadgeLooks();
+  };
+  bars.forEach((bar) => bar.addEventListener("change", (e) => {
+    const sel = e.target.closest(".own-sel");
+    if (sel) setOwnFilter(sel.value || "all");
+  }));
+  fillDispSelects();
   // после каждой перерисовки строк — обновить подпись «свернуть / развернуть все»
   const origRender = renderRows;
   renderRows = function () { origRender.apply(this, arguments); mark(); };
@@ -2309,3 +2483,7 @@ loadAddressList(false);
 })();
 // v2.00: общий Флот — сначала загрузка с сервера (там же calcAllRows), без сервера — как раньше
 if (window.fleetSync) window.fleetSync.start(); else calcAllRows();
+
+// v3.11: диспетчеры из листа
+applyDispColors();
+loadDispatchers();
