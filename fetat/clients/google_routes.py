@@ -35,7 +35,9 @@ ROUTES_STATS_COLL = "routes_stats"
 _route_cache = {}
 
 
-_route_cache_lock = threading.Lock()
+# v3.24: RLock — повторный захват тем же потоком не вешает процесс (страховка от deadlock,
+# как в From → To до v3.24). Счётчик _route_stat всё равно вызываем вне замка.
+_route_cache_lock = threading.RLock()
 
 
 _route_stats = {"day": None, "calls": 0, "cache_hits": 0}   # v1.51: за сутки квоты (по времени Google)

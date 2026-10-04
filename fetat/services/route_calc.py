@@ -25,12 +25,14 @@ def compute_multi_route(points, api_key):
     import time
     key = tuple((round(p["lat"], 4), round(p["lng"], 4), p.get("country")) for p in points)
     now = time.time()
+    # v3.24: счётчик _route_stat — только вне замка: он сам берёт _route_cache_lock (с Firestore),
+    # вызов под замком вешал From → To навсегда и вместе с ним все расчёты Флота.
     with _route_cache_lock:
         hit = _route_cache.get(("multi",) + key)
-        if hit and now - hit[0] < ROUTE_CACHE_TTL:
-            _route_stat("cache_hits", "multi")
-            return hit[1]
-        _route_stat("calls", "multi")
+    if hit and now - hit[0] < ROUTE_CACHE_TTL:
+        _route_stat("cache_hits", "multi")
+        return hit[1]
+    _route_stat("calls", "multi")
     res = _compute_multi_route(points, api_key)
     with _route_cache_lock:
         _route_cache[("multi",) + key] = (now, res)
