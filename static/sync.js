@@ -20,6 +20,7 @@
     timer: null,
     pendingRender: false,
     pendingRecalc: new Set(),
+    completed: new Set(),  // v3.23: id, завершённые в этой вкладке за последнюю минуту
   };
   window.fleetSync = S;
 
@@ -140,7 +141,7 @@
       const bad = new Set((d.errors || []).map((e) => key(e.id)));
       next.forEach((v, id) => {
         if (bad.has(id)) return;
-        if (v === null) { S.synced.delete(id); delete S.meta[id]; return; }
+        if (v === null || S.completed.has(id)) { S.synced.delete(id); delete S.meta[id]; return; }   // v3.23
         S.synced.set(id, v);
         const m = S.meta[id] || {};
         if (!m.created_by) { m.created_by = S.user; m.created_at = d.now; }
@@ -412,6 +413,8 @@
       const d = await r.json();
       if (!d.ok) throw new Error(d.error || r.status);
       S.synced.delete(key(id));             // не слать «удаление» — строка ушла в архив, а не в корзину
+      S.completed.add(key(id));             // v3.23: ответ отправки, начатой до завершения, не вернёт её в synced
+      setTimeout(() => S.completed.delete(key(id)), 60000);
       delete S.meta[key(id)];
       dropRow(Number(id));
       if (!rows.length) rows.push(emptyRow());
@@ -466,6 +469,7 @@
             const dd = await rr.json();
             if (!dd.ok) throw new Error(dd.error);
             row.remove();
+            S.completed.delete(row.dataset.id);
             await pull();
             toast("↩ Трип возвращён во Флот");
           } catch (e) {

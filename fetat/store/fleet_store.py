@@ -5,7 +5,8 @@ import os
 import re
 
 
-from fetat.clients.firestore import FS_BASE, _fs_check, _fs_decode, fs_delete, fs_get, fs_query, fs_request, fs_set
+from fetat.clients.firestore import (FLEET_META_FIELDS, FS_BASE, _fs_check, _fs_decode, fs_delete, fs_get, fs_query,
+                                    fs_request, fs_set)
 from fetat.config import FLEET_ADMINS
 
 
@@ -68,6 +69,11 @@ class FleetStoreFS:
         return _fs_decode(_fs_check(r).json())
 
 
+def _meta_out(m):
+    """Как при чтении из Firestore: только известные служебные поля (v3.23 — память ведёт себя так же)."""
+    return {k: m.get(k) for k in FLEET_META_FIELDS}
+
+
 class FleetStoreMem:
     """Для локальной проверки без Firestore (FLEET_STORE=memory)."""
     def __init__(self):
@@ -77,7 +83,7 @@ class FleetStoreMem:
         out = []
         for rid, d in self.docs.items():
             if since is None or (d["meta"].get("updated_at") or 0) >= since:
-                out.append({"id": rid, "data": dict(d["data"]), "meta": dict(d["meta"])})
+                out.append({"id": rid, "data": dict(d["data"]), "meta": _meta_out(d["meta"])})
         return out
 
     def patch(self, rid, set_data=None, unset=(), meta=None):
@@ -92,7 +98,7 @@ class FleetStoreMem:
 
     def get(self, rid):
         d = self.docs.get(rid)
-        return {"id": rid, "data": dict(d["data"]), "meta": dict(d["meta"])} if d else None
+        return {"id": rid, "data": dict(d["data"]), "meta": _meta_out(d["meta"])} if d else None
 
 
 FLEET_STORE = FleetStoreMem() if os.environ.get("FLEET_STORE") == "memory" else FleetStoreFS()

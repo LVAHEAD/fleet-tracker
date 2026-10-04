@@ -52,6 +52,13 @@ def _fs_check(r):
     return r
 
 
+# Служебные поля строки Флота (рядом с map "data"). v3.23: + completed* — без них завершённый трип
+# читался из Firestore как живой и возвращался во Флот.
+FLEET_META_FIELDS = ("created_by", "created_at", "updated_by", "updated_at", "edited_at",
+                     "deleted", "deleted_by", "deleted_at", "lock_by", "lock_until",
+                     "completed", "completed_by", "completed_at")
+
+
 def _fs_decode(doc):
     f = doc.get("fields") or {}
 
@@ -72,8 +79,7 @@ def _fs_decode(doc):
         except Exception:
             data[k] = None
     rid = doc["name"].rsplit("/", 1)[-1]
-    meta = {k: val(f.get(k)) for k in ("created_by", "created_at", "updated_by", "updated_at", "edited_at",
-                                         "deleted", "deleted_by", "deleted_at", "lock_by", "lock_until")}
+    meta = {k: val(f.get(k)) for k in FLEET_META_FIELDS}
     return {"id": rid, "data": data, "meta": meta}
 
 

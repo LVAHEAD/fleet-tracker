@@ -79,5 +79,24 @@ class CompleteTripTest(unittest.TestCase):
         self.assertEqual(self.c.post("/api/fleet/complete", headers=OWNER, json={"id": rid}).status_code, 404)
 
 
+
+class FirestoreDecodeTest(unittest.TestCase):
+    """v3.23: в Firestore-режиме служебные поля завершения должны читаться — иначе трип «возвращается»."""
+    def test_completed_meta_decoded(self):
+        from fetat.api.fleet import _gone
+        from fetat.clients.firestore import _fs_decode
+        doc = {"name": "projects/p/databases/(default)/documents/fleet_rows/990000000000201",
+               "fields": {"data": {"mapValue": {"fields": {"unit": {"stringValue": '"AB-1"'}}}},
+                          "completed": {"booleanValue": True},
+                          "completed_by": {"stringValue": "janis@gmail.com"},
+                          "completed_at": {"integerValue": "1759590000000"},
+                          "updated_at": {"integerValue": "1759590000000"}}}
+        d = _fs_decode(doc)
+        self.assertIs(d["meta"]["completed"], True)
+        self.assertEqual(d["meta"]["completed_by"], "janis@gmail.com")
+        self.assertEqual(d["meta"]["completed_at"], 1759590000000)
+        self.assertTrue(_gone(d["meta"]))
+
+
 if __name__ == "__main__":
     unittest.main()
