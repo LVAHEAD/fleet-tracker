@@ -43,7 +43,10 @@ Fleet ETA Tracker — страница /notebook (v3.08): вся таблица 
         default: return String(it[st.sort] || "").toLowerCase();
       }
     };
+    // v3.22: закрытые (готово, отклонено) всегда ниже открытых; сортировка по колонке — внутри группы
+    const grp = (it) => (N.isClosed(it.status) ? 1 : 0);
     out.sort((a, b) => {
+      if (grp(a) !== grp(b)) return grp(a) - grp(b);
       const x = val(a), y = val(b);
       const r = x < y ? -1 : x > y ? 1 : 0;
       return (st.asc ? r : -r) || String(b.created_at).localeCompare(String(a.created_at));
@@ -61,7 +64,7 @@ Fleet ETA Tracker — страница /notebook (v3.08): вся таблица 
     const body = $("nbpBody");
     if (!list.length) { body.innerHTML = '<tr><td colspan="9" class="nbp-empty">Ничего не найдено</td></tr>'; return; }
     body.innerHTML = list.map((it) => `
-      <tr data-id="${N.esc(it.id)}"${N.isClosed(it.status) ? ' class="done"' : ""}>
+      <tr data-id="${N.esc(it.id)}"${N.isClosed(it.status) ? ' class="done"' : it.status === "later" ? ' class="later"' : ""}>
         <td>${N.esc(N.fmtDate(it.created_at, true))}</td>
         <td>${N.catChip(it.category)}</td>
         <td>${N.esc(it.where || "")}</td>

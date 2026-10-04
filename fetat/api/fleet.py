@@ -1,4 +1,6 @@
-"""Общий Флот: чтение, синхронизация полей, 🔒 блокировка, корзина и восстановление, перенос из браузера."""
+"""Общий Флот: чтение, синхронизация полей, 🔒 блокировка, корзина и восстановление, перенос из браузера;
+v3.22 — завершённые трипы (архив навсегда)."""
+import json
 import re
 
 from flask import Blueprint, jsonify, request
@@ -7,8 +9,8 @@ from fetat.api.meta import current_user_email
 from fetat.config import FLEET_ADMINS
 from fetat.domain.dispatchers import _disp_cache, can_assign, get_dispatchers
 from fetat.store.fleet_store import (
-    _fleet_can_delete, _fleet_clean, FLEET_FIELD_RE, FLEET_LOCK_MS, _fleet_rid, _fleet_row_out,
-    FLEET_STORE, FLEET_TRASH_MS, chg_apply, fleet_owner,
+    _fleet_can_delete, _fleet_clean, FLEET_DONE, FLEET_FIELD_RE, FLEET_LOCK_MS, _fleet_rid, _fleet_row_out,
+    FLEET_STORE, FLEET_TRASH_MS, chg_apply, done_out, done_record, fleet_owner,
 )
 from fetat.utils.timefmt import _now_ms
 
@@ -29,11 +31,19 @@ def api_fleet():
         if since:
             docs = FLEET_STORE.query(int(since) - 2000)   # запас на разницу часов инстансов
             return jsonify({"ok": True, "now": now, "user": _fleet_user(),
-                            "changes": [dict(_fleet_row_out(d), deleted=bool(d["meta"].get("deleted"))) for d in docs]})
+                            "changes": [dict(_fleet_row_out(d), deleted=_gone(d["meta"])) for d in docs]})
         docs = FLEET_STORE.query(None)
         live, trash = [], []
         for d in docs:
             m = d["meta"]
+            if m.get("completed"):
+                # v3.22: завершённый трип лежит в архиве fleet_done; из fleet_rows стираем через FLEET_TRASH_MS
+                if now - (m.get("completed_at") or 0) > FLEET_TRASH_MS:
+                    try:
+                        FLEET_STORE.purge(d["id"])
+                    except Exception:
+                        pass
+                continue
             if m.get("deleted"):
                 if now - (m.get("deleted_at") or 0) > FLEET_TRASH_MS:
                     try:
@@ -48,6 +58,90 @@ def api_fleet():
         return jsonify({"ok": True, "now": now, "user": _fleet_user(), "rows": live, "trash_count": len(trash),
                         "admin": _fleet_user() in FLEET_ADMINS, "can_assign": can_assign(_fleet_user()),
                         "lock_ms": FLEET_LOCK_MS})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 503
+
+
+def _gone(meta):
+    """Строки больше нет во Флоте: удалена или завершена (v3.22)."""
+    return bool(meta.get("deleted") or meta.get("completed"))
+
+
+# ---------- v3.22: «✓ Завершён» ----------
+def can_complete(user, d):
+    """Завершить / вернуть трип: хозяин трипа или назначающий (админ или «Назначает = да» в листе «Диспетчеры»)."""
+    u = str(user or "").lower()
+    if u == "local" or can_assign(u):
+        return True
+    owner = fleet_owner(d)
+    return not owner or u == owner
+
+
+@bp.route("/api/fleet/complete", methods=["POST"])
+def api_fleet_complete():
+    """{id} — трип целиком в архив fleet_done (навсегда), во Флоте строка помечается завершённой."""
+    body = request.get_json(force=True, silent=True) or {}
+    user, now = _fleet_user(), _now_ms()
+    try:
+        rid = _fleet_rid(body.get("id"))
+        d = FLEET_STORE.get(rid)
+        if d is None or _gone(d["meta"]):
+            return jsonify({"ok": False, "error": "строки уже нет во Флоте"}), 404
+        if not can_complete(user, d):
+            return jsonify({"ok": False, "error": "завершить трип может его хозяин или назначающий"}), 403
+        FLEET_DONE.put(rid, done_record(d, user, now))
+        FLEET_STORE.patch(rid, meta={"completed": True, "completed_by": user, "completed_at": now,
+                                     "updated_by": user, "updated_at": now, "lock_by": "", "lock_until": 0})
+        return jsonify({"ok": True, "now": now})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 503
+
+
+@bp.route("/api/fleet/reopen", methods=["POST"])
+def api_fleet_reopen():
+    """{id} — вернуть завершённый трип во Флот (из архива; запись архива убирается)."""
+    body = request.get_json(force=True, silent=True) or {}
+    user, now = _fleet_user(), _now_ms()
+    try:
+        rid = _fleet_rid(body.get("id"))
+        rec = FLEET_DONE.get(rid)
+        if rec is None:
+            return jsonify({"ok": False, "error": "в завершённых такого трипа нет"}), 404
+        row = json.loads(rec.get("row") or "{}")
+        meta = json.loads(rec.get("meta") or "{}")
+        if not can_complete(user, {"data": row, "meta": meta}):
+            return jsonify({"ok": False, "error": "вернуть трип может его хозяин или назначающий"}), 403
+        row.pop("id", None)
+        FLEET_STORE.patch(rid, _fleet_clean(row), (), {
+            "created_by": meta.get("created_by") or user, "created_at": meta.get("created_at") or now,
+            "deleted": False, "completed": False, "completed_by": "", "completed_at": 0,
+            "updated_by": user, "updated_at": now, "edited_at": now})
+        FLEET_DONE.remove(rid)
+        return jsonify({"ok": True, "now": now})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 503
+
+
+@bp.route("/api/fleet/done")
+def api_fleet_done():
+    """Завершённые трипы, свежие сверху. ?limit=50, ?q= — поиск по машине и точкам."""
+    try:
+        limit = max(1, min(int(request.args.get("limit", 50)), 1000))
+    except ValueError:
+        limit = 50
+    q = str(request.args.get("q") or "").strip().lower()
+    user = _fleet_user()
+    try:
+        recs = FLEET_DONE.all()
+        if q:
+            recs = [r for r in recs if q in (str(r.get("unit")) + " " + str(r.get("points"))).lower()]
+        recs.sort(key=lambda r: -int(r.get("completed_at") or 0))
+        out = []
+        for r in recs[:limit]:
+            x = done_out(r)
+            x["can_reopen"] = can_assign(user) or user == "local" or not x["owner"] or user.lower() == x["owner"]
+            out.append(x)
+        return jsonify({"ok": True, "rows": out, "total": len(recs)})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 503
 
@@ -143,7 +237,7 @@ def api_fleet_lock():
     try:
         rid = _fleet_rid(body.get("id"))
         d = FLEET_STORE.get(rid)
-        if d is None or d["meta"].get("deleted"):
+        if d is None or _gone(d["meta"]):
             return jsonify({"ok": True, "now": now, "none": True})
         m = d["meta"]
         other = m.get("lock_by") and m.get("lock_by") != user and (m.get("lock_until") or 0) > now

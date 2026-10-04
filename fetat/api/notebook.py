@@ -147,7 +147,9 @@ def notebook_add():
 
 @bp.route("/api/notebook", methods=["GET"])
 def notebook_list():
-    """Список (новые сверху), без полных скриншотов. Параметры: limit, offset, category, status."""
+    """Список (новые сверху), без полных скриншотов. Параметры: limit, offset, category, status.
+    v3.22: open_first=1 (панель) — сначала все открытые (новое, в работе, отложено), потом закрытые
+    (готово, отклонено) — сколько влезет до limit; открытые в лимит не режутся."""
     try:
         limit = max(1, min(int(request.args.get("limit", 50)), 1000))
         offset = max(0, int(request.args.get("offset", 0)))
@@ -165,7 +167,20 @@ def notebook_list():
     if status in NB_STATUSES:
         docs = [d for d in docs if d["status"] == status]
     docs.sort(key=lambda d: d.get("created_at") or "", reverse=True)
+    if request.args.get("open_first") == "1":
+        items, closed_total = open_first(docs, limit)
+        return jsonify({"items": items, "total": len(docs), "closed_total": closed_total, "limit": limit})
     return jsonify({"items": docs[offset:offset + limit], "total": len(docs), "offset": offset, "limit": limit})
+
+
+NB_CLOSED = ("done", "rejected")
+
+
+def open_first(docs, limit):
+    """v3.22: все открытые + закрытые до limit (порядок внутри групп сохраняется). -> (записи, всего закрытых)."""
+    opened = [d for d in docs if d.get("status") not in NB_CLOSED]
+    closed = [d for d in docs if d.get("status") in NB_CLOSED]
+    return opened + closed[:max(0, limit - len(opened))], len(closed)
 
 
 @bp.route("/api/notebook/<rid>", methods=["GET"])

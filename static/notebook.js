@@ -10,7 +10,7 @@ const Notebook = (() => {
   const CATS = [["Bug", "Баг"], ["Feature", "Фича"], ["Design", "Дизайн"], ["Rule", "Правило"], ["Data", "Данные"], ["Discuss", "Обсудить"]];
   const CAT_LABEL = Object.fromEntries(CATS);
   const STATUSES = [["new", "новое"], ["work", "в работе"], ["done", "готово"], ["later", "отложено"], ["rejected", "отклонено"]];
-  const isClosed = (s) => s === "done" || s === "rejected";   // v3.15: в списке — серые
+  const isClosed = (s) => s === "done" || s === "rejected";   // v3.15: серые; v3.22: внизу, свёрнуты
   const STATUS_LABEL = Object.fromEntries(STATUSES);
   const WHERE = ["Флот", "From → To", "GF построитель", "Карты стран", "Локатор", "Запреты", "Паромы", "Truck Info", "[.]", "Общее"];
   const TAB_WHERE = { fleet: "Флот", route: "From → To", gf: "GF построитель", maps: "Карты стран", bans: "Запреты",
@@ -329,19 +329,22 @@ const Notebook = (() => {
     const box = $(".nb-list");
     const cat = $(".nb-filter").value;
     try {
-      const js = await api("/api/notebook?limit=30" + (cat ? "&category=" + encodeURIComponent(cat) : ""));
+      // v3.22: все открытые + закрытые до 30
+      const js = await api("/api/notebook?limit=30&open_first=1" + (cat ? "&category=" + encodeURIComponent(cat) : ""));
       lastItems = js.items || [];
-      renderList(lastItems);
+      renderList(lastItems, js.closed_total);
     } catch (e) {
       box.innerHTML = `<div class="nb-empty err">${esc(e.message)}</div>`;
     }
   }
 
-  function renderList(items) {
-    const box = $(".nb-list");
-    if (!items.length) { box.innerHTML = '<div class="nb-empty">Записей пока нет</div>'; return; }
-    box.innerHTML = items.map((it) => `
-      <div class="nb-item${isClosed(it.status) ? " done" : ""}" data-id="${esc(it.id)}">
+  // v3.22: сверху открытые (новое, в работе, отложено — бледнее), ниже «Закрыто (N) ▸» — свёрнуто, клик раскрывает
+  const FOLD_KEY = "fetatNbClosedOpen";
+  function closedOpen() { try { return localStorage.getItem(FOLD_KEY) === "1"; } catch (e) { return false; } }
+  function itemHtml(it) {
+    const cls = isClosed(it.status) ? " done" : it.status === "later" ? " later" : "";
+    return `
+      <div class="nb-item${cls}" data-id="${esc(it.id)}">
         ${it.thumb ? `<img class="nb-thumb" src="${esc(it.thumb)}" alt="">` : '<div class="nb-thumb nb-thumb-empty"></div>'}
         <div class="nb-item-body">
           <div class="nb-item-title">${esc(it.title)}</div>
@@ -350,8 +353,25 @@ const Notebook = (() => {
             ${esc(it.where || "")}${it.where ? " · " : ""}${esc(fmtDate(it.created_at))} · ${esc(who(it.author))}${it.comments.length ? ` · 💬 ${it.comments.length}` : ""}
           </div>
         </div>
-      </div>`).join("");
+      </div>`;
+  }
+  function renderList(items, closedTotal) {
+    const box = $(".nb-list");
+    if (!items.length) { box.innerHTML = '<div class="nb-empty">Записей пока нет</div>'; return; }
+    const opened = items.filter((it) => !isClosed(it.status));
+    const closed = items.filter((it) => isClosed(it.status));
+    const total = Math.max(closedTotal || 0, closed.length);
+    const show = closedOpen();
+    box.innerHTML = (opened.length ? opened.map(itemHtml).join("") : '<div class="nb-empty">Открытых записей нет</div>') +
+      (closed.length ? `<button type="button" class="nb-closed-head" title="Готово и отклонено">Закрыто (${total}) ${show ? "▾" : "▸"}</button>
+        <div class="nb-closed"${show ? "" : " hidden"}>${closed.map(itemHtml).join("")}${total > closed.length
+          ? `<div class="nb-empty">ещё ${total - closed.length} — на <a href="/notebook" target="_blank" rel="noopener">странице блокнота</a></div>` : ""}</div>` : "");
     box.querySelectorAll(".nb-item").forEach((el) => el.addEventListener("click", () => showItem(el.dataset.id)));
+    const head = box.querySelector(".nb-closed-head");
+    if (head) head.addEventListener("click", () => {
+      try { localStorage.setItem(FOLD_KEY, closedOpen() ? "0" : "1"); } catch (e) { /* ignore */ }
+      renderList(items, closedTotal);
+    });
   }
 
   // ---------- карточка записи ----------

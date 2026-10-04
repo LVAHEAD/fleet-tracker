@@ -99,7 +99,13 @@
 .nb-st-later { border-color: #ccc; color: #999; }
 .nb-prio { display: inline-block; font-size: 11px; margin-right: 4px; color: #555; font-variant-numeric: tabular-nums; }
 .nb-prio.hot { color: #c0392b; font-weight: 600; }
-.nb-item.done .nb-item-title { color: #999; text-decoration: line-through; }
+/* v3.22: закрытые — блёклые целиком (без зачёркивания), отложено — чуть бледнее */
+.nb-item.done { opacity: .5; }
+.nb-item.done .nb-item-title { color: #888; }
+.nb-item.later { opacity: .72; }
+.nb-closed-head { display: block; width: 100%; margin: 8px 0 4px; padding: 4px 8px; text-align: left; border: 0;
+  border-top: 1px solid #e3e3e3; background: none; color: #888; font-size: 12px; cursor: pointer; }
+.nb-closed-head:hover { color: #333; background: #f2f2f2; }
 .nb-upd { color: #aaa; }
 .nb-modal-acts { display: flex; justify-content: flex-end; gap: 8px; }
 .nb-ed { display: flex; flex-direction: column; gap: 8px; }
@@ -130,8 +136,8 @@
 .nbp-table td { vertical-align: top; }
 .nbp-table tbody tr { cursor: pointer; }
 .nbp-table tbody tr:hover td { background: #f6f8fb; }
-.nbp-table tr.done td { color: #999; }
-.nbp-table tr.done .nbp-title { text-decoration: line-through; }
+.nbp-table tr.done td { color: #999; opacity: .6; }   /* v3.22: без зачёркивания, всегда внизу */
+.nbp-table tr.later td { opacity: .75; }
 .nbp-title { font-weight: 500; }
 .nbp-desc { color: #888; font-size: 12px; max-width: 520px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nbp-table .nb-thumb { width: 48px; height: 34px; }

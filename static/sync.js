@@ -395,6 +395,110 @@
     document.addEventListener("click", (e) => { if (!e.target.closest("#trash-pop, .trash-btn")) closeTrash(); });
   }
 
+  // ---------- v3.22: «✓ Завершён» — архив завершённых трипов (хранится всегда) ----------
+  // Завершать и возвращать: хозяин трипа (диспетчер строки, иначе создатель) или назначающий.
+  window.fleetCanComplete = function (row) {
+    if (S.mode !== "server" || !row) return false;
+    if (S.admin || S.canAssign) return true;
+    const m = S.meta[key(row.id)];
+    const owner = String(row.disp || (m && m.created_by) || "").toLowerCase();
+    return !owner || owner === "local" || owner === me();
+  };
+  window.fleetComplete = async function (id) {
+    try {
+      const r = await fetch("/api/fleet/complete", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: String(id) }),
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || r.status);
+      S.synced.delete(key(id));             // не слать «удаление» — строка ушла в архив, а не в корзину
+      delete S.meta[key(id)];
+      dropRow(Number(id));
+      if (!rows.length) rows.push(emptyRow());
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(rows)); } catch (e) { /* ignore */ }
+      toast("✓ Трип завершён — он в «Завершённых»");
+      return true;
+    } catch (e) {
+      toast("Не удалось завершить: " + e.message);
+      return false;
+    }
+  };
+  function closeDone() { const el = document.getElementById("done-pop"); if (el) el.remove(); }
+  async function openDone(btn, q) {
+    closeDone();
+    const pop = document.createElement("div");
+    pop.id = "done-pop";
+    pop.className = "trash-pop done-pop";
+    pop.innerHTML = '<div class="tp-h"><span>Завершённые <span class="tp-sub">— трипы хранятся всегда</span></span><button class="tp-x" title="Закрыть">×</button></div>'
+      + '<input class="dp-q" type="search" placeholder="Поиск: машина или точка">'
+      + '<div class="tp-b">загружаю…</div>';
+    document.body.appendChild(pop);
+    const r = btn.getBoundingClientRect();
+    pop.style.top = (window.scrollY + r.bottom + 4) + "px";
+    pop.style.left = Math.max(8, window.scrollX + r.right - 420) + "px";
+    pop.querySelector(".tp-x").addEventListener("click", closeDone);
+    const qi = pop.querySelector(".dp-q");
+    qi.value = q || "";
+    let qt = null;
+    qi.addEventListener("input", () => { clearTimeout(qt); qt = setTimeout(() => fill(qi.value), 300); });
+    const body = pop.querySelector(".tp-b");
+    async function fill(text) {
+      try {
+        const res = await fetch("/api/fleet/done?limit=50" + (text ? "&q=" + encodeURIComponent(text) : ""));
+        const d = await res.json();
+        if (!d.ok) throw new Error(d.error);
+        if (!d.rows.length) { body.innerHTML = '<div class="tp-empty">пусто</div>'; return; }
+        body.innerHTML = d.rows.map((x) => {
+          const w = x.row;
+          const pts = [w.target].concat((w.extra || []).map((e) => e.target)).filter(Boolean).join(" → ");
+          return `<div class="tp-r" data-id="${escapeHtml(String(w.id))}"><div class="tp-t">`
+            + `<div class="tp-l"><b>${escapeHtml(w.unit || "—")}</b> <span class="tp-pts" title="${escapeHtml(pts)}">${escapeHtml(pts)}</span></div>`
+            + `<div class="tp-m">завершил ${escapeHtml(shortUser(x.completed_by))}, ${fmtTs(x.completed_at)}</div></div>`
+            + (x.can_reopen ? '<button class="tp-back" title="Вернуть трип во Флот">↩ вернуть</button>' : "") + "</div>";
+        }).join("") + (d.total > d.rows.length ? `<div class="tp-empty">показаны ${d.rows.length} из ${d.total} — уточните поиск</div>` : "");
+        body.querySelectorAll(".tp-back").forEach((b) => b.addEventListener("click", async () => {
+          const row = b.closest(".tp-r");
+          b.disabled = true;
+          try {
+            const rr = await fetch("/api/fleet/reopen", {
+              method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: row.dataset.id }),
+            });
+            const dd = await rr.json();
+            if (!dd.ok) throw new Error(dd.error);
+            row.remove();
+            await pull();
+            toast("↩ Трип возвращён во Флот");
+          } catch (e) {
+            b.disabled = false;
+            toast("Не удалось вернуть: " + e.message);
+          }
+        }));
+      } catch (e) {
+        body.textContent = "ошибка: " + e.message;
+      }
+    }
+    fill(qi.value);
+  }
+  function addDoneButton() {
+    const bar = document.getElementById("sort-bar");
+    if (!bar || document.getElementById("done-btn")) return;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.id = "done-btn";
+    b.className = "trash-btn done-btn";
+    b.title = "Завершённые трипы — хранятся всегда, можно вернуть во Флот";
+    b.textContent = "✓ завершённые";
+    bar.appendChild(b);
+    const bottom = document.getElementById("sort-bar-bottom");
+    const bb = bottom ? b.cloneNode(true) : null;
+    if (bb) { bb.removeAttribute("id"); bottom.appendChild(bb); }
+    [b, bb].filter(Boolean).forEach((btn) => btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (document.getElementById("done-pop")) closeDone(); else openDone(btn);
+    }));
+    document.addEventListener("click", (e) => { if (!e.target.closest("#done-pop, .done-btn")) closeDone(); });
+  }
+
   // ---------- перенос Флота из браузера ----------
   function importBanner(localRows) {
     let el = document.getElementById("fleet-import");
@@ -487,6 +591,7 @@
     try { backup = JSON.parse(localStorage.getItem(BACKUP_KEY) || "null") || localRows; } catch (e) { /* ignore */ }
     importBanner(backup);
     addTrashButton();
+    addDoneButton();   // v3.22
     setInterval(pull, PULL_MS);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) pull(); });
   };

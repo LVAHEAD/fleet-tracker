@@ -5,8 +5,11 @@
 /api/changelog GET
 /api/dispatchers GET
 /api/fleet GET
+/api/fleet/complete POST
+/api/fleet/done GET
 /api/fleet/import POST
 /api/fleet/lock POST
+/api/fleet/reopen POST
 /api/fleet/restore POST
 /api/fleet/sync POST
 /api/fleet/trash GET

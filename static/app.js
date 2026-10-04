@@ -934,7 +934,7 @@ function renderRows() {
           <button class="lo-btn ${loClass(row.lo)}" title="${loTitle(row.lo)}">${loText(row.lo)}</button>
           ${cached && cached.targetBadge ? cached.targetBadge : '<span class="cc-badge target-cc" hidden></span>'}
           <input list="points-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" title="${escapeHtml(row.target)}" placeholder="ГПС, город, код или машина" />
-          ${multi ? '<button class="stop-x" data-k="0" title="Убрать эту точку">×</button>' + addStopHtml(row, 0) : '<button class="add-stop" data-k="0" title="Добавить ещё таргет (следующая выгрузка / погрузка)">+</button>'}
+          ${multi ? '<button class="stop-x" data-k="0" title="Убрать эту точку">×</button>' + addStopHtml(row, 0) : '<span class="stop-x-sp"></span><button class="add-stop" data-k="0" title="Добавить ещё таргет (следующая выгрузка / погрузка)">+</button>'}
         </div>
         ${extraTargetsHtml(row, cached)}
       </td>
@@ -946,6 +946,7 @@ function renderRows() {
         `<div class="note-wrap xn-wrap${hideNoteK(row, i + 1) ? " fold-hide" : ""}"><input class="xn-input" data-k="${i + 1}" name="note-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.note || "")}" title="${escapeHtml(x.note || "")}" placeholder="примечание к ${i + 2}" />${comBtnHtml(x.com, i + 1)}</div>`).join("")}</td>
       <td class="row-actions">
         <button class="refresh-row-btn" title="Обновить строку">↻</button>
+        <button class="cmpl-btn" hidden title="Все точки пройдены — завершить трип (уйдёт в «Завершённые», оттуда можно вернуть)">✓ Завершить?</button>
         <span class="wide-acts">
           <button class="add-btn-w" title="Добавить строку ниже">+</button>
           <button class="trl-btn-w" title="Сцепка: у тягача — привязать прицеп, у прицепа — привязать к тягачу">🔗</button>
@@ -961,6 +962,7 @@ function renderRows() {
             <button class="mv-down manual-only">↓ ниже</button>
             <button class="add-btn">+ строка ниже</button>
             <button class="trl-btn">🔗 сцепка…</button>
+            <button class="cmpl-menu-btn"${window.fleetCanComplete && window.fleetCanComplete(row) ? "" : " hidden"}>✓ завершить трип</button>
             <button class="del-btn">✕ удалить строку</button>
           </span>
         </span>
@@ -1075,6 +1077,15 @@ function attachRowHandlers() {
       menu.style.left = Math.max(8, r.right - w * z) / z + "px";
     });
 
+    // v3.22: «✓ Завершён» — кнопка у строки, где все точки пройдены, и пункт меню ⋯ (хозяин и назначающие)
+    tr.querySelector(".cmpl-btn").addEventListener("click", (e) => { e.stopPropagation(); completeTrip(id); });
+    tr.querySelector(".cmpl-menu-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeRowMenus();
+      const c = lastCalcText[id];
+      if (!(c && c.allDone) && !confirm("Не все точки трипа пройдены. Всё равно завершить?")) return;
+      completeTrip(id);
+    });
     tr.querySelector(".add-btn-w").addEventListener("click", (e) => { e.stopPropagation(); tr.querySelector(".add-btn").click(); });
     tr.querySelector(".mv-up-w").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, -1); });
     tr.querySelector(".mv-down-w").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, 1); });
@@ -1249,7 +1260,8 @@ function extraTargetsHtml(row, cached) {
     const k = i + 1;
     const ce = cached && cached.extra && cached.extra[i];
     const badge = ce && ce.badge
-      ? `<span class="cc-badge x-cc" title="${escapeHtml(ce.badgeHint || ce.badge)}">${escapeHtml(ce.badge)}</span>` : "";
+      ? `<span class="cc-badge x-cc" title="${escapeHtml(ce.badgeHint || ce.badge)}">${escapeHtml(ce.badge)}</span>`
+      : '<span class="cc-badge x-cc" hidden></span>';   // v3.22: пустое место той же ширины — поля ровные
     const last = k === ex.length;
     const hide = hideK(row, k) ? " fold-hide" : "";
     const fv = folded(row) ? foldVisible(row) : null;
@@ -1310,7 +1322,9 @@ function foldMoreLabel(row) {
   const n = 1 + row.extra.length;
   const v = foldVisible(row);
   const before = v[0], after = n - 1 - v[1];
-  return (before ? `✓${before}` : "") + (before && after ? " · " : "") + (after ? `+${after}` : "");
+  // v3.22: в квадрат 22 px, как «+»: при обеих частях — в две строки (✓N сверху, +M снизу)
+  if (before && after) return `<span class="fm2">✓${before}<br>+${after}</span>`;
+  return before ? `✓${before}` : after ? `+${after}` : "";
 }
 function hiddenHasCom(row) {
   return (row.extra || []).some((x, i) => x.com && hideK(row, i + 1));
@@ -1733,6 +1747,12 @@ function isTrailerNo(n) {
 function findUnitNo(n, kind) {
   const u = (unitsCache || []).find((x) => x.kind === kind && normNo(x.number) === normNo(n));
   return u ? u.number : null;
+}
+// v3.22: завершить трип — сервер кладёт его в архив «Завершённые», во Флоте строка исчезает
+async function completeTrip(id) {
+  if (!window.fleetComplete) return;
+  const ok = await window.fleetComplete(id);
+  if (ok) renderRows();
 }
 function dropRow(id) {
   rows = rows.filter((r) => r.id !== id);
@@ -2271,8 +2291,9 @@ async function calcRow(id, why) {
       if (!w) return;
       const old = w.querySelector(".x-cc");
       if (old) old.remove();
-      if (ce.badge) w.querySelector(".xlo-btn").insertAdjacentHTML("afterend",
-        `<span class="cc-badge x-cc" title="${escapeHtml(ce.badgeHint || ce.badge)}">${escapeHtml(ce.badge)}</span>`);
+      w.querySelector(".xlo-btn").insertAdjacentHTML("afterend", ce.badge
+        ? `<span class="cc-badge x-cc" title="${escapeHtml(ce.badgeHint || ce.badge)}">${escapeHtml(ce.badge)}</span>`
+        : '<span class="cc-badge x-cc" hidden></span>');   // v3.22: пустое место той же ширины
       const inp = w.querySelector(".xt-input");
       if (inp) inp.title = ce.error || (row.extra[i] && row.extra[i].target) || "";
       if (ce.address && row.extra[i] && !row.extra[i].lo && (ce.address.type === "load" || ce.address.type === "unload")) {
@@ -2445,6 +2466,9 @@ function applyDoneClasses(tr, row, c) {
   if (!tr) return;
   const flags = (c && c.doneFlags) || [];
   tr.classList.toggle("row-done", !!(c && c.allDone));
+  // v3.22: все точки пройдены — строка серая и ждёт подтверждения хозяина / назначающего
+  const cb = tr.querySelector(".cmpl-btn");
+  if (cb) cb.hidden = !(c && c.allDone && window.fleetCanComplete && window.fleetCanComplete(row));
   // v1.81: трак на объекте точки k — её строка бледно-зелёная во всех колонках
   tr.querySelectorAll(".pt-here").forEach((el) => el.classList.remove("pt-here"));
   const h = c && c.hereIdx != null ? c.hereIdx : null;

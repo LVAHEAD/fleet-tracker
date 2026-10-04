@@ -1,11 +1,11 @@
 """Общий Флот (v2.00+): строки в Firestore (или в памяти при FLEET_STORE=memory),
-права на удаление, 🔒 блокировка строки, корзина 7 дней, проверка полей."""
+права на удаление, 🔒 блокировка строки, корзина 7 дней, проверка полей; v3.22 — архив завершённых трипов."""
 import json
 import os
 import re
 
 
-from fetat.clients.firestore import FS_BASE, _fs_check, _fs_decode, fs_request
+from fetat.clients.firestore import FS_BASE, _fs_check, _fs_decode, fs_delete, fs_get, fs_query, fs_request, fs_set
 from fetat.config import FLEET_ADMINS
 
 
@@ -199,3 +199,77 @@ def chg_apply(d, user, set_data, unset, now):
         if len(chg) > CHG_MAX:
             chg = dict(sorted(chg.items(), key=lambda kv: kv[1].get("at", 0))[-CHG_MAX:])
     return None if chg == old_chg else chg
+
+
+# ---------- v3.22: завершённые трипы — архив навсегда (задел на v5+) ----------
+# Завершённая строка: в fleet_rows помечается completed (клиенты убирают её из Флота как удалённую,
+# через FLEET_TRASH_MS она оттуда стирается), а целиком копируется в fleet_done — там хранится всегда.
+# Документ архива: row / meta — JSON-строки (как было во Флоте), плюс поля для будущих поисков и отчётов.
+FLEET_DONE_COLL = "fleet_done"
+
+
+def done_record(d, user, now):
+    """Запись архива из документа строки Флота."""
+    row = dict(d.get("data") or {})
+    pts = [row.get("target")] + [x.get("target") for x in (row.get("extra") or []) if isinstance(x, dict)]
+    return {
+        "row": json.dumps(row, ensure_ascii=False),
+        "meta": json.dumps({k: v for k, v in (d.get("meta") or {}).items() if v is not None}, ensure_ascii=False),
+        "unit": str(row.get("unit") or ""),
+        "points": " → ".join(str(p) for p in pts if p),
+        "disp": str(row.get("disp") or ""),
+        "owner": fleet_owner(d),
+        "created_by": str((d.get("meta") or {}).get("created_by") or ""),
+        "created_at": int((d.get("meta") or {}).get("created_at") or 0),
+        "completed_by": user,
+        "completed_at": int(now),
+    }
+
+
+def done_out(rec):
+    """Запись архива для браузера: строка, мета, кто и когда завершил."""
+    try:
+        row = json.loads(rec.get("row") or "{}")
+    except ValueError:
+        row = {}
+    try:
+        row["id"] = int(rec.get("id"))
+    except (TypeError, ValueError):
+        row["id"] = rec.get("id")
+    return {"row": row, "completed_by": rec.get("completed_by") or "", "completed_at": int(rec.get("completed_at") or 0),
+            "owner": rec.get("owner") or ""}
+
+
+class FleetDoneFS:
+    def put(self, rid, rec):
+        fs_set(FLEET_DONE_COLL, rid, rec)
+
+    def get(self, rid):
+        return fs_get(FLEET_DONE_COLL, rid)
+
+    def all(self):
+        return fs_query(FLEET_DONE_COLL)
+
+    def remove(self, rid):
+        fs_delete(FLEET_DONE_COLL, rid)
+
+
+class FleetDoneMem:
+    def __init__(self):
+        self.docs = {}
+
+    def put(self, rid, rec):
+        self.docs[rid] = dict(rec, id=rid)
+
+    def get(self, rid):
+        d = self.docs.get(rid)
+        return dict(d) if d else None
+
+    def all(self):
+        return [dict(d) for d in self.docs.values()]
+
+    def remove(self, rid):
+        self.docs.pop(rid, None)
+
+
+FLEET_DONE = FleetDoneMem() if os.environ.get("FLEET_STORE") == "memory" else FleetDoneFS()

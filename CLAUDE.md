@@ -74,12 +74,12 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 | `fetat/services/fleet_calc.py` | строка Флота: `calc_row(payload) -> (ответ, код)` и блоки `_unit_status`, `_add_trailer_info`, `_apply_points_done`, `_add_tacho`, `_add_route_context`, `_add_code_badges`; следующие точки `calc_extra_stops` |
 | `fetat/services/gusage.py` | лог `/gusage`: наш счёт (`routes_stats`) и счёт Google по суткам Google и часам Риги, текст для Claude |
 | `fetat/services/route_calc.py` | From → To: `route_calc(payload) -> (ответ, код)`, мультимаршрут с паромами |
-| `fetat/store/fleet_store.py` | общий Флот: Firestore / память, права на удаление, 🔒, корзина 24 ч, проверка полей |
+| `fetat/store/fleet_store.py` | общий Флот: Firestore / память, права на удаление, 🔒, корзина 7 дней, проверка полей; архив завершённых трипов `fleet_done` (навсегда) |
 | `fetat/api/meta.py` | `/`, `/api/me`, `/api/changelog`, `/api/google-usage`, `/gusage`, `/api/google-usage/log`; `current_user_email` (IAP) |
 | `fetat/api/mapon.py` | `/api/units`, `/api/truck-info`, `/api/nearest-units`, `/api/mapon-units`, `/api/mapon-objects`, `/api/mapon-check` |
 | `fetat/api/calc.py` | `/api/calc`, `/api/route` → services |
 | `fetat/api/reference.py` | `/api/region-codes`, `/api/locate`, `/api/addresses`, `/api/freights`, `/api/bans` |
-| `fetat/api/fleet.py` | `/api/fleet*`: чтение, sync (смена `disp` — только назначающий), 🔒, корзина, восстановление, импорт; `/api/dispatchers` |
+| `fetat/api/fleet.py` | `/api/fleet*`: чтение, sync (смена `disp` — только назначающий), 🔒, корзина, восстановление, импорт; завершить / вернуть / список завершённых (`complete`, `reopen`, `done` — хозяин или назначающий); `/api/dispatchers` |
 | `data/` | `region_codes.json`, `region_codes_geonames.json` |
 | `tests/` | unittest + фикстуры; код через `A` из `tests/__init__.py` (ищет имя во всех модулях, подмена ставится везде) |
 
