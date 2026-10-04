@@ -8,7 +8,6 @@ from fetat.clients.nakordoni import (
     _bans_cache, _bans_cc, _bans_fetch_group, _bans_fetch_lock, _bans_lock, _bans_window,
     BansRateLimited,
 )
-from fetat.config import RIGA_UTC_OFFSET
 from fetat.domain.regions import _country_at, OUR_COUNTRIES
 from fetat.domain.tacho import TACHO_SPEED_KMH
 from fetat.domain.trailers import is_trailer
@@ -181,7 +180,7 @@ def _ban_window_utc(b):
         from zoneinfo import ZoneInfo
         tz = ZoneInfo(COUNTRY_TZ.get(b["cc"], "Europe/Berlin"))
     except Exception:
-        tz = timezone(timedelta(hours=RIGA_UTC_OFFSET - 1))
+        tz = timezone(timedelta(hours=1))   # без tzdata — CET
     try:
         day = datetime.strptime(b["date"], "%Y-%m-%d")
     except Exception:

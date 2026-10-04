@@ -31,7 +31,7 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 |---|---|
 | `app.py` | точка входа gunicorn: `app = create_app()` |
 | `fetat/__init__.py` | `APP_VERSION`, `create_app()` — Flask с `root_path` = корень проекта, регистрация Blueprints |
-| `fetat/config.py` | переменные окружения, папка `data/`, сдвиг времени Риги (пороги и TTL живут рядом со своей логикой) |
+| `fetat/config.py` | переменные окружения, папка `data/`, часовые пояса (Europe/Riga, Europe/Berlin; перевод часов — `utils/timefmt`) |
 | `fetat/utils/` | `geo` (haversine, polyline, WKT, GPS), `timefmt`, `text` |
 | `fetat/clients/mapon.py` | unit/list, группы, тахограф, daily_activities, объекты, стоянки; семафор на 3 запроса |
 | `fetat/clients/google_routes.py` | computeRoutes, кеш маршрутов, along-route, счётчик квоты |

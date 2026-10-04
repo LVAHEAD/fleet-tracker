@@ -3,9 +3,10 @@ from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, jsonify, request
 
+from fetat.utils.timefmt import ts_west
 from fetat.clients.mapon import fetch_units
 from fetat.clients.nakordoni import _bans_cache, _bans_fetch_lock, _bans_lock
-from fetat.config import MAPON_API_KEY, WEST_EUROPE_OFFSET
+from fetat.config import MAPON_API_KEY
 from fetat.domain.addresses import _addr_cache, address_public, get_addresses
 from fetat.domain.bans import BANS_MANUAL_MIN, _bans_refresh, BANS_TTL
 from fetat.domain.freights import _frt_cache, get_contract_clients, get_freights, _set_cache
@@ -77,8 +78,7 @@ def api_addresses():
         "addresses": [{**address_public(a), "lat": a["lat"], "lng": a["lng"]} for a in items],
         "problems": _addr_cache["problems"],
         "error": _addr_cache["error"],
-        "loaded_at": (datetime.fromtimestamp(_addr_cache["loaded_at"], timezone.utc)
-                      + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M") if _addr_cache["loaded_at"] else None,
+        "loaded_at": ts_west(_addr_cache["loaded_at"]).strftime("%d/%m %H:%M") if _addr_cache["loaded_at"] else None,
     })
 
 
@@ -92,7 +92,7 @@ def api_freights():
         "contract_clients": get_contract_clients(force=request.args.get("refresh") == "1"),
         "settings_error": _set_cache["error"],
         "error": _frt_cache["error"],
-        "loaded_at": (datetime.fromtimestamp(la, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M") if la else None,
+        "loaded_at": ts_west(la).strftime("%d/%m %H:%M") if la else None,
     })
 
 
@@ -117,7 +117,7 @@ def api_bans():
         data = _bans_cache["data"]
         loaded = _bans_cache["at"]
         err = _bans_cache["error"]
-    loaded_txt = ((datetime.fromtimestamp(loaded, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET))
+    loaded_txt = (ts_west(loaded)
                   .strftime("%d/%m %H:%M")) if data else None
     if data is None:
         return jsonify({"error": err or "нет данных — попробуйте позже"}), 502

@@ -800,8 +800,7 @@ function mixHex(hex, base, k) {
 function applyMyDispLook() {
   const me = fleetMe();
   const mine = me ? DISP_LIST.find((d) => String(d.email).toLowerCase() === me) : null;
-  const bg = mine && mine.color ? mixHex(mine.color, "#fafafa", 0.5) : "";
-  document.body.style.background = bg || "";
+  // v3.18: фон приложения в цвет диспетчера убран — цвет только на плашке диспетчера в строке
   const missing = !meInSheet();
   document.body.classList.toggle("no-disp", missing);
   const hint = document.getElementById("disp-hint");
@@ -821,7 +820,8 @@ function applyDispColors() {
   let st = document.getElementById("disp-colors");
   if (!st) { st = document.createElement("style"); st.id = "disp-colors"; document.head.appendChild(st); }
   st.textContent = DISP_LIST.filter((d) => d.color).map((d) =>
-    `#fleet-tbody tr td.unit-cell[data-dc="${d.tag}"], #fleet-tbody tr:hover td.unit-cell[data-dc="${d.tag}"] { background: ${d.color}; }`).join("\n");
+    // v3.18: цвет из листа «Диспетчеры» — только плашка диспетчера (👤 VL), клетка строки без заливки
+    `#fleet-tbody td.unit-cell[data-dc="${d.tag}"] .disp-lbl, #fleet-tbody td.unit-cell[data-dc="${d.tag}"] .disp-sel { background: ${d.color}; border-color: ${shadeHex(d.color, 0.18) || "#ccc"}; }`).join("\n");
 }
 function fillDispSelects() {
   document.querySelectorAll(".own-sel").forEach((sel) => {
@@ -863,7 +863,7 @@ function dispHtml(row) {
 function crewOf(data) {
   return data.crew ? { crew: data.crew, src: data.crew_src, wl: data.week_left_sec, lim: data.week_limit,
                        driven: data.week_driven_sec, next: data.week_next_sec, hmax: data.crew_hist_max_h,
-                       short: data.week_short_last || null } : null;
+                       short: data.week_short_last || null, names: data.crew_names || null } : null;
 }
 function crewHtml(row, cached) {
   const c = cached && cached.crew;
@@ -897,6 +897,9 @@ function crewHtml(row, cached) {
       tip.push("Остаток недели не показан: по тахографу это экипаж");
     }
   }
+  // v3.18: имена водителей — первой строкой подсказки
+  const nm = c && c.names && c.names.length ? c.names : null;
+  tip.unshift((crew === "team" ? "Экипаж: " : "Соло: ") + (nm ? (crew === "team" ? nm.join(", ") : nm[0]) : "имя не указано в Mapon"));
   tip.push(man ? "Клик — " + (row.crew === "solo" ? "экипаж вручную" : "снова авто") : "Клик — поставить вручную: одиночка");
   return `<button class="crew-b${man ? " crew-man" : ""}${cls}" title="${escapeHtml(tip.join("\n"))}">${txt}</button>`;
 }
@@ -1549,7 +1552,10 @@ function showComPop(tri) {
   placeFloat(comPop, tri, 6);
   comPop.addEventListener("mouseenter", () => clearTimeout(comHideT));
   comPop.addEventListener("mouseleave", () => { comHideT = setTimeout(hideComPop, 250); });
-  comPop.addEventListener("click", (e) => { e.stopPropagation(); openComEditor(row.id, tri, k); });
+  // v3.18: клик по полосе прокрутки — просто прокрутка, редактор не открываем
+  const onBar = (e) => e.offsetX > comPop.clientWidth || e.offsetY > comPop.clientHeight;
+  comPop.addEventListener("mousedown", (e) => { if (onBar(e)) e.stopPropagation(); });
+  comPop.addEventListener("click", (e) => { e.stopPropagation(); if (onBar(e)) return; openComEditor(row.id, tri, k); });
 }
 
 function closeComEditor(save) {
@@ -2076,7 +2082,7 @@ async function calcRow(id, why) {
         .concat(data.route_countries && data.route_countries.length > 1 ? ["Страны: " + data.route_countries.join(" → ")] : []);
       // v1.43: одна строка — ⏱ по тахографу крупно, простой мелко серым
       etaText = data.eta_tacho
-        ? `<span class="eta-tacho">⏱ ${escapeHtml(data.eta_tacho)}</span><span class="eta-simple">${escapeHtml(data.eta_local)}</span>`
+        ? `<span class="eta-tacho">⏱ ${escapeHtml(data.eta_tacho)}</span>`   // v3.18: серое простое ETA — только в подсказке
         : `<span class="eta-tacho eta-only">${escapeHtml(data.eta_local)}</span>`;
       // v1.46: "56" — одиночка упирается в недельный лимит вождения, стоп до пн 00:00 UTC
       if (data.tacho_weeklimit) {

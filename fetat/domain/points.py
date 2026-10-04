@@ -1,9 +1,10 @@
 """Точки и таргеты: разбор ввода (код, GPS, город, адрес, машина), подписи, ✓ пройдено, «на объекте»."""
 from datetime import datetime, timedelta, timezone
 
+from fetat.utils.timefmt import ts_west
 from fetat.clients.geocode import geocode, geocode_city
 from fetat.clients.mapon import mapon_objects, unit_stops
-from fetat.config import MAPON_API_KEY, WEST_EUROPE_OFFSET
+from fetat.config import MAPON_API_KEY
 from fetat.domain.addresses import (
     address_public, base_point, dovoz_country, find_address, is_base_word,
 )
@@ -314,7 +315,7 @@ def points_done(pts, manual, unit, units, seen=None):
             info.update(done=True, auto=True, at=seen_at, kept=True)
         elif m is None and auto_at:
             info.update(done=True, auto=True,
-                        at=(datetime.fromtimestamp(auto_at, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M"))
+                        at=ts_west(auto_at).strftime("%d/%m %H:%M"))
         out.append(info)
     return out
 

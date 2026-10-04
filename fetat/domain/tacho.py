@@ -3,15 +3,14 @@
 from datetime import datetime, timedelta, timezone
 
 from fetat.clients.mapon import ACT_DAYS, get_driver_rests
-from fetat.config import WEST_EUROPE_OFFSET
-from fetat.utils.timefmt import _hm, round_to_15min
+from fetat.utils.timefmt import _hm, round_to_15min, to_west, ts_west
 
 
 def calc_eta(dist_km):
     duration_h = dist_km / 70
     now_utc = datetime.now(timezone.utc)
     eta_utc = now_utc + timedelta(hours=duration_h)
-    eta_local = round_to_15min(eta_utc + timedelta(hours=WEST_EUROPE_OFFSET))
+    eta_local = round_to_15min(to_west(eta_utc))
     return duration_h, eta_local
 
 
@@ -330,7 +329,7 @@ def tacho_summary(tacho, sim=None, weekly=None):
     недельный лимит вождения (одиночка)."""
     d0 = next((d for d in tacho["drivers"] if d.get("current_state") == "DRIVING"), tacho["drivers"][0])
     nowd, today = d0.get("now", {}) or {}, d0.get("today", {}) or {}
-    loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M")
+    loc = lambda ts: ts_west(ts).strftime("%d/%m %H:%M")
     parts = []
     state = {"DRIVING": "едет", "REST": "отдыхает", "AVAILABLE": "готовность", "WORK": "работа"}.get(d0.get("current_state"), d0.get("current_state") or "")
     team = _team(tacho)

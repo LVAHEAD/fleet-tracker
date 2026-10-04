@@ -1,7 +1,7 @@
 """Прицепы: тип юнита, сводка рефа, угадывание сцепки тягач–прицеп."""
 from datetime import datetime, timedelta, timezone
 
-from fetat.config import WEST_EUROPE_OFFSET
+from fetat.utils.timefmt import ts_west
 from fetat.domain.addresses import base_point
 from fetat.utils.geo import haversine_km
 from fetat.utils.timefmt import _iso_ts, time_now_ts
@@ -60,7 +60,7 @@ def reefer_summary(u):
         dev = round(ret - sp, 1) if on and isinstance(ret, (int, float)) and isinstance(sp, (int, float)) else None
         comps.append({"n": int(k) + 1, "on": on, "set": sp, "ret": ret, "sup": sup, "dev": dev,
                       "stale": bool(at and now - at > REEFER_STALE_SEC),
-                      "at": (datetime.fromtimestamp(at, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M") if at else None})
+                      "at": ts_west(at).strftime("%d/%m %H:%M") if at else None})
     warn = any(c["dev"] is not None and abs(c["dev"]) > REEFER_DEV_WARN and not c["stale"] for c in comps)
     return {"type": rf.get("refrigerator_type"), "compartments": comps, "fuel_l": fuel,
             "fuel_low": fuel_low, "warn": warn}

@@ -4,11 +4,12 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
+from fetat.utils.timefmt import ts_west
 from fetat.clients.google_routes import (
     _route_cache, _route_cache_lock, ROUTE_CACHE_TTL, _route_stat, ROUTES_API_URL,
 )
 from fetat.clients.mapon import fetch_units
-from fetat.config import GOOGLE_API_KEY, MAPON_API_KEY, WEST_EUROPE_OFFSET
+from fetat.config import GOOGLE_API_KEY, MAPON_API_KEY
 from fetat.domain.bans import bans_hits_text, bans_on_route, needs_at_night_ban
 from fetat.domain.freights import similar_freights
 from fetat.domain.points import resolve_point
@@ -169,7 +170,7 @@ def route_calc(payload):
                 tu = points[0].get("unit") if points[0].get("is_truck") else None
                 at_n = needs_at_night_ban(tu) if tu else True
                 hits, bst = bans_on_route(polyline, total, sim["stops"], at_night=at_n)
-                loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M")
+                loc = lambda ts: ts_west(ts).strftime("%d/%m %H:%M")
                 result["bans_route"] = bans_hits_text(hits, loc, "MAN без L" if tu else "если MAN")
                 result["bans_status"] = bst
             except Exception as e:

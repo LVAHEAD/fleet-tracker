@@ -903,13 +903,6 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 .status-cell .st-ic { display: inline-grid; place-items: center; width: 22px; height: 26px; margin-right: 5px;
   font-size: 15px; line-height: 1; vertical-align: middle; flex: 0 0 auto; }
 .status-cell .st-stop { font-size: 17px; }
-/* цвет диспетчера — первая клетка строки */
-#fleet-tbody tr td.unit-cell[data-dc="VL"], #fleet-tbody tr:hover td.unit-cell[data-dc="VL"] { background: #ebebeb; }
-#fleet-tbody tr td.unit-cell[data-dc="VV"], #fleet-tbody tr:hover td.unit-cell[data-dc="VV"] { background: #e8dcf7; }
-#fleet-tbody tr td.unit-cell[data-dc="JZ"], #fleet-tbody tr:hover td.unit-cell[data-dc="JZ"] { background: #eceefc; }
-#fleet-tbody tr td.unit-cell[data-dc="VJ"], #fleet-tbody tr:hover td.unit-cell[data-dc="VJ"] { background: #fde6cc; }
-#fleet-tbody tr td.unit-cell[data-dc="JB"], #fleet-tbody tr:hover td.unit-cell[data-dc="JB"] { background: #dcf1e0; }
-#fleet-tbody tr td.unit-cell[data-dc="AA"], #fleet-tbody tr:hover td.unit-cell[data-dc="AA"] { background: #fff; }
 /* нижняя панель фильтров и сортировки, «свернуть / развернуть все» */
 .sort-bar-bottom { margin-top: 8px; }
 /* v3.10: опоздание к TimeSlot у любой непройденной точки */
@@ -948,3 +941,22 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 .disp-hint { margin: -6px 0 8px; font-size: 12px; color: #8a6200; }
 body.no-disp .own-flt button[data-own="mine"] { display: none; }
 #fleet-tbody .status-line2 .crew-b { margin-left: 0; }   /* v3.16 */
+
+/* ---------- v3.18 ---------- */
+/* серое простое ETA убрано — место отдаём колонке «Статус» (вторая строка не переносится на третью) */
+#fleet-table .col-status { width: 283px; }
+#fleet-table .col-eta    { width: 160px; }
+@media (min-width: 1500px) and (max-width: 1799px) {
+  #fleet-table .col-status { width: 232px; }
+  #fleet-table .col-eta    { width: 140px; }
+}
+.status-cell .status-line2 { flex-wrap: nowrap; }
+/* цвет диспетчера — только плашка (👤 VL); цвет задаёт лист «Диспетчеры» */
+#fleet-tbody .disp-lbl, #fleet-tbody .disp-sel { display: inline-block; width: auto; max-width: 100%; margin-top: 3px;
+  padding: 0 6px; border: 1px solid transparent; border-radius: 9px; line-height: 16px; color: #333; }
+#fleet-tbody .disp-sel { padding: 0 2px; height: 18px; }
+#fleet-tbody .disp-lbl.other, #fleet-tbody .disp-sel.other { color: #1a1a1a; }
+/* попап комментария шире и прокручивается бегунком; редактор шире и выше */
+.com-pop { width: 520px; max-width: calc(100vw - 16px); max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; }
+.com-ed { width: 620px; }
+.com-ed textarea { min-height: 280px; max-height: 65vh; overflow-y: auto; }

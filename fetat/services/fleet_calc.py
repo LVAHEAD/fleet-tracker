@@ -2,9 +2,10 @@
 следующие точки цепочкой, страны, «на объекте», запреты, плашки кодов."""
 from datetime import datetime, timedelta, timezone
 
+from fetat.utils.timefmt import ts_west
 from fetat.clients.google_routes import road_distance_km_google
 from fetat.clients.mapon import fetch_group_unit_ids, fetch_reefer_units, fetch_units, get_tacho, unit_driving_days
-from fetat.config import GOOGLE_API_KEY, HEAD_TRUCK_GROUP_ID, MAPON_API_KEY, WEST_EUROPE_OFFSET
+from fetat.config import GOOGLE_API_KEY, HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.bans import (bans_hits_text, bans_near_text, bans_on_route, countries_times_text, country_chain,
                                needs_at_night_ban)
 from fetat.domain.points import (
@@ -27,7 +28,7 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim):
     ETA (простой и по тахографу) с учётом UNLOAD_STOP_SEC на каждой предыдущей точке,
     запреты на плече, плашка кода региона, координаты и линия плеча для карты."""
     import time
-    loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET))
+    loc = lambda ts: ts_west(ts)
     now = time.time()
     prev_lat, prev_lng = first["target_lat"], first["target_lng"]
     cum_km = float(first.get("dist_km") or 0)
@@ -191,6 +192,12 @@ def _add_tacho(result, unit, trailer, crew=None):
             tacho = dict(tacho, team=team, crew_src=src)     # копия: кеш тахографа не трогаем
             result["crew"] = "team" if team else "solo"
             result["crew_src"] = src
+            # v3.18: имена водителей из Mapon (карты в тахографе)
+            names = [" ".join(filter(None, [(d.get("driver_name") or "").strip(), (d.get("driver_surname") or "").strip()]))
+                     for d in tacho["drivers"]]
+            names = [n for n in names if n]
+            if names:
+                result["crew_names"] = names
             if hist_max:
                 result["crew_hist_max_h"] = round(hist_max / 3600, 1)
             if not team:
@@ -205,8 +212,7 @@ def _add_tacho(result, unit, trailer, crew=None):
             sim = None
             if result.get("dist_km") is not None:
                 sim = tacho_eta(tacho, result["dist_km"])
-                eta_t = round_to_15min(datetime.fromtimestamp(sim["eta_ts"], timezone.utc)
-                                       + timedelta(hours=WEST_EUROPE_OFFSET))
+                eta_t = round_to_15min(ts_west(sim["eta_ts"]))
                 result["eta_tacho"] = eta_t.strftime("%d/%m %H:%M")
                 result["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sim["stops"])
                 result["_sim_stops"] = sim["stops"]
@@ -265,7 +271,7 @@ def _add_route_context(result, unit):
             det = {}
             hits, bst = bans_on_route(result["route_polyline"], result["dist_km"], stops,
                                      at_night=needs_at_night_ban(unit), detail=det)
-            loc = lambda ts: (datetime.fromtimestamp(ts, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M")
+            loc = lambda ts: ts_west(ts).strftime("%d/%m %H:%M")
             result["bans_route"] = bans_hits_text(hits, loc)
             result["bans_near"] = bans_near_text(det.get("near") or [], loc)   # v3.12
             result["bans_times"] = countries_times_text(det.get("countries") or [], loc)

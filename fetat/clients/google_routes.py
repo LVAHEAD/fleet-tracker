@@ -80,8 +80,8 @@ def _quota_day():
 
 def _riga_hour():
     """v3.15: час по Риге "00".."23" — для почасового лога запросов."""
-    from fetat.config import RIGA_UTC_OFFSET
-    return (datetime.now(timezone.utc) + timedelta(hours=RIGA_UTC_OFFSET)).strftime("%H")
+    from fetat.utils.timefmt import to_riga
+    return to_riga(datetime.now(timezone.utc)).strftime("%H")
 
 
 def hourly_from_stats(st):

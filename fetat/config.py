@@ -15,10 +15,11 @@ GOOGLE_MAPS_JS_KEY = os.environ.get("GOOGLE_MAPS_JS_KEY", GOOGLE_API_KEY)
 
 HEAD_TRUCK_GROUP_ID = int(os.environ.get("HEAD_TRUCK_GROUP_ID", "62269"))
 
-# Сдвиг Риги от UTC. Пока задан жёстко (летнее время), зимой будет на час больше нужного.
-RIGA_UTC_OFFSET = 3
+# v3.18: часовые пояса с переводом часов (DST) вместо жёстких сдвигов +3 / +2.
+# Рига — Europe/Riga (лето UTC+3, зима UTC+2); «западное» время на экране — Europe/Berlin (CEST/CET).
+RIGA_TZ_NAME = "Europe/Riga"
 
-WEST_EUROPE_OFFSET = RIGA_UTC_OFFSET - 1
+WEST_TZ_NAME = "Europe/Berlin"
 
 # Справочники: коды регионов (из GPS_Codes.xlsx) и коды GeoNames.
 DATA_DIR = os.path.join(ROOT_DIR, "data")
