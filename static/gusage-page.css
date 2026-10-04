@@ -1,0 +1,17 @@
+/* страница /gusage (v3.21): лог запросов к Google Routes */
+.gu-month { font-weight: 500; }
+.gu-note { color: #888; font-size: 12px; margin: 4px 0 12px; max-width: 900px; line-height: 1.4; }
+.gu-err { background: #fdecea; border: 1px solid #f0b8b0; color: #b33; border-radius: 6px; padding: 6px 10px; font-size: 12px; margin-bottom: 8px; }
+.gu-h { font-size: 15px; margin: 18px 0 6px; }
+.gu-table { width: auto; min-width: 560px; }
+.gu-table td, .gu-table th { white-space: nowrap; }
+.gu-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.gu-table .gu-break { white-space: normal; color: #555; font-size: 12px; max-width: 280px; }
+.gu-table .gu-diff { color: #b33; }
+.gu-table .gu-diff.zero { color: #aaa; }
+#guDays tbody tr { cursor: pointer; }
+#guDays tbody tr:hover td { background: #f6f8fb; }
+#guDays tbody tr.sel td { background: #eef3fb; }
+#guDays tbody tr.empty td { color: #bbb; }
+.gu-bar { display: inline-block; height: 9px; background: #7f9cc8; border-radius: 2px; vertical-align: middle; }
+.gu-bar.h { background: #cfd8e6; }

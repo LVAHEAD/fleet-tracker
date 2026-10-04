@@ -71,11 +71,16 @@ def _slug(v):
 
 
 def _quota_day():
+    return quota_day_of(datetime.now(timezone.utc))
+
+
+def quota_day_of(dt_utc):
+    """Сутки квоты Google (полночь по Тихоокеанскому времени), в которые попадает момент dt_utc."""
     try:
         from zoneinfo import ZoneInfo
-        return datetime.now(ZoneInfo("America/Los_Angeles")).strftime("%Y-%m-%d")
+        return dt_utc.astimezone(ZoneInfo("America/Los_Angeles")).strftime("%Y-%m-%d")
     except Exception:
-        return (datetime.now(timezone.utc) - timedelta(hours=7)).strftime("%Y-%m-%d")
+        return (dt_utc - timedelta(hours=7)).strftime("%Y-%m-%d")
 
 
 def _riga_hour():
@@ -179,13 +184,33 @@ def read_route_stats(day=None):
     return {k: int(v or 0) for k, v in out.items()}
 
 
+def read_route_stats_days():
+    """v3.21: счётчики за все сутки Google, что есть в Firestore: {"2026-10-04": {...}, ...}.
+    Сегодня — с ещё не отправленными из этого процесса. Без Firestore — только сегодня."""
+    out = {}
+    if _shared_on():
+        try:
+            from fetat.clients.firestore import fs_query
+            for doc in fs_query(ROUTES_STATS_COLL):
+                day = doc.pop("id", None)
+                if day:
+                    out[day] = {k: int(v or 0) for k, v in doc.items() if isinstance(v, (int, float, str))
+                                and str(v).lstrip("-").isdigit()}
+        except Exception:
+            out = {}
+    today = _quota_day()
+    out[today] = read_route_stats(today)
+    return out
+
+
 # v1.59 / v3.14: «ведение по маршруту». Линию маршрута берём у Google один раз, дальше машину ведём
 # по ней сами: находим ближайший отрезок линии (проекция на отрезок, а не только на вершины —
 # на трассе вершины бывают редко) и считаем остаток км по линии, без запроса к Google.
 # Новый запрос — только если машина ушла с линии дальше ALONG_ROUTE_MAX_OFF_KM, сменилась точка
 # (другой ключ) или линии больше ALONG_ROUTE_TTL. Маршрут считаем без пробок (TRAFFIC_UNAWARE),
-# так что «свежесть» нужна только на случай другой дороги — 3 часов хватает.
-ALONG_ROUTE_TTL = 3 * 3600
+# а другую дорогу ловит сход с линии — поэтому линия живёт сутки (v3.21; было 3 ч: каждая машина,
+# даже стоящая на отдыхе, дёргала Google раз в 3 ч). Стоящая машина — на начале своей же линии.
+ALONG_ROUTE_TTL = 24 * 3600
 
 
 ALONG_ROUTE_MAX_OFF_KM = 2.0

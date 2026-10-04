@@ -3,6 +3,7 @@ Fleet ETA Tracker — плашка-счётчик запросов к Google Rou
 Месяц / 10 000 бесплатных (Cloud Monitoring), сегодня, прогноз, экономия кеша.
 v3.13: разбивка за сутки — что и кто дёрнул Google (общие счётчики всех процессов).
 Обновление раз в 10 минут. Клик — отчёт по оплате в Google Cloud.
+v3.21: клик — страница лога /gusage (по суткам и часам, наш счёт рядом со счётом Google).
 */
 (function () {
   const el = document.getElementById("g-usage");
@@ -33,7 +34,7 @@ v3.13: разбивка за сутки — что и кто дёрнул Google
         `Кеш сегодня сэкономил: ${fmt(d.cache_hits)} запросов`,
         ...breakdown(d.stats),
         ...hourlyLines(d.hourly),
-        "Клик — отчёт по оплате в Google Cloud",
+        "Клик — лог запросов по суткам и часам (/gusage)",
       ].join("\n");
     } catch (e) {
       el.textContent = "G ?";

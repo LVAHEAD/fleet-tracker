@@ -12,6 +12,7 @@
 /api/fleet/trash GET
 /api/freights GET
 /api/google-usage GET
+/api/google-usage/log GET
 /api/locate POST
 /api/mapon-check GET
 /api/mapon-objects GET
@@ -29,5 +30,6 @@
 /api/route POST
 /api/truck-info GET
 /api/units GET
+/gusage GET
 /notebook GET
 /static/<path:filename> GET

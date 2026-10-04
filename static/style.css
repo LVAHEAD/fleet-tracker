@@ -549,6 +549,7 @@ body.sort-manual .manual-only { display: block; }
 .fixed-links { display: flex; flex-direction: column; gap: 5px; }
 .fixed-links a { color: #2f6fd6; text-decoration: none; }
 .fixed-links a:hover { text-decoration: underline; }
+.fixed-links-sub { margin-top: 8px; color: #999; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }   /* v3.21 */
 
 /* ---------- v1.56: комментарий строки ---------- */
 .note-cell { position: relative; }

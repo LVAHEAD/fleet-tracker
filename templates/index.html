@@ -27,7 +27,7 @@
   <button class="main-tab-btn ref-tab" data-tab="maps">Карты стран</button>
   <button class="main-tab-btn ref-tab" data-tab="truckinfo" data-wip>Truck Info</button>
   <button class="main-tab-btn ref-tab" data-tab="notes" title="Блокнот">[.]</button>
-  <a id="g-usage" class="g-usage" href="https://console.cloud.google.com/billing/reports?project=my-n8n-bot-496614" target="_blank" rel="noopener" title="Запросы к Google Routes">G …</a>
+  <a id="g-usage" class="g-usage" href="/gusage" target="_blank" rel="noopener" title="Запросы к Google Routes">G …</a>
 </nav>
 
 <!-- ==================== Вкладка: Флот ==================== -->
@@ -119,7 +119,7 @@
   </div>
 </div>
 
-<!-- ==================== Вкладка: [.] блокнот (справочная) ==================== -->
+<!-- ==================== Вкладка: [.] Справка (блокнот, справочная) ==================== -->
 <div id="tab-notes" class="tab-panel" hidden>
   <div class="notes-layout">
     <div class="notes-main">
@@ -146,9 +146,33 @@
       <div class="fixed-links">
         <a href="https://claude.ai/settings/usage" target="_blank" rel="noopener">Лимиты Claude (подписка)</a>
         <a href="https://console.cloud.google.com/billing/reports?project=my-n8n-bot-496614" target="_blank" rel="noopener">Расходы Google (billing)</a>
-        <a href="https://console.cloud.google.com/google/maps-apis/metrics?project=my-n8n-bot-496614" target="_blank" rel="noopener">Запросы к Google Maps</a>
         <a href="https://console.cloud.google.com/billing/budgets" target="_blank" rel="noopener">Бюджеты и уведомления Google</a>
         <a href="https://docs.google.com/spreadsheets/d/1m0oM8cNixVDM1kgQKCZKPgF-aSQN-0loqdLc-dWkD7g/edit" target="_blank" rel="noopener">Таблица «Fleet Tracker — данные»</a>
+        <a href="https://www.mapon.com/pro/online" target="_blank" rel="noopener">Mapon — веб-кабинет</a>
+        <div class="fixed-links-sub">Наша аппа</div>
+        <a href="/notebook" target="_blank" rel="noopener">Блокнот — вся таблица</a>
+        <a href="/gusage" target="_blank" rel="noopener">Лог запросов к Google по суткам и часам</a>
+        <a href="/api/google-usage" target="_blank" rel="noopener">Счётчик G (JSON)</a>
+        <a href="/api/mapon-check" target="_blank" rel="noopener">Проверка связи с Mapon</a>
+        <a href="/api/me" target="_blank" rel="noopener">Под каким аккаунтом вошёл</a>
+        <a href="/api/changelog" target="_blank" rel="noopener">История версий (JSON)</a>
+        <a href="/api/freights?refresh=1" target="_blank" rel="noopener">Перечитать базу фрахтов сейчас</a>
+        <a href="/api/bans" target="_blank" rel="noopener">Фид запретов (JSON)</a>
+        <a href="/api/dispatchers" target="_blank" rel="noopener">Диспетчеры из листа (JSON)</a>
+        <a href="/api/fleet/trash" target="_blank" rel="noopener">Корзина Флота (JSON)</a>
+        <div class="fixed-links-sub">Google Cloud</div>
+        <a href="https://console.cloud.google.com/run/detail/europe-west1/fleet-eta-tracker/metrics?project=my-n8n-bot-496614" target="_blank" rel="noopener">Cloud Run — сервис, метрики</a>
+        <a href="https://console.cloud.google.com/run/detail/europe-west1/fleet-eta-tracker/logs?project=my-n8n-bot-496614" target="_blank" rel="noopener">Cloud Run — логи</a>
+        <a href="https://console.cloud.google.com/cloud-build/builds?project=my-n8n-bot-496614" target="_blank" rel="noopener">Cloud Build — история деплоев</a>
+        <a href="https://console.cloud.google.com/firestore/databases/-default-/data?project=my-n8n-bot-496614" target="_blank" rel="noopener">Firestore — данные</a>
+        <a href="https://console.cloud.google.com/security/iap?project=my-n8n-bot-496614" target="_blank" rel="noopener">IAP — кто имеет вход</a>
+        <a href="https://console.cloud.google.com/apis/api/routes.googleapis.com/metrics?project=my-n8n-bot-496614" target="_blank" rel="noopener">Routes API — метрики</a>
+        <a href="https://console.cloud.google.com/apis/api/routes.googleapis.com/quotas?project=my-n8n-bot-496614" target="_blank" rel="noopener">Routes API — квоты</a>
+        <a href="https://console.cloud.google.com/google/maps-apis/metrics?project=my-n8n-bot-496614" target="_blank" rel="noopener">Google Maps — все запросы</a>
+        <div class="fixed-links-sub">GitHub</div>
+        <a href="https://github.com/LVAHEAD/fleet-tracker" target="_blank" rel="noopener">Репозиторий</a>
+        <a href="https://github.com/LVAHEAD/fleet-tracker/blob/main/BACKLOG.md" target="_blank" rel="noopener">BACKLOG.md — план и хотелки</a>
+        <a href="https://github.com/LVAHEAD/fleet-tracker/blob/main/CHANGELOG.md" target="_blank" rel="noopener">CHANGELOG.md — история версий</a>
       </div>
     </aside>
   </div>

@@ -48,6 +48,22 @@ class RouteCacheTest(unittest.TestCase):
         self.assertEqual(len(self.calls), 1)
         self.assertAlmostEqual(km, 100.0 * (total - haversine_km(56.0, 24.0, 55.25, 24.0)) / total, delta=1.5)
 
+    def test_line_lives_a_day(self):
+        # v3.21: линия живёт сутки — стоящая (и едущая по линии) машина через 10 ч Google не дёргает
+        import time
+        from fetat.utils.geo import _encode_polyline
+        self.line = _encode_polyline([(56.0, 24.0), (54.0, 24.0)])
+        t0 = time.time()
+        with mock.patch("time.time", return_value=t0):
+            gr.road_distance_km_google(56.0, 24.0, 54.0, 24.0, "k")
+        with mock.patch("time.time", return_value=t0 + 10 * 3600):
+            gr.road_distance_km_google(56.0, 24.0, 54.0, 24.0, "k")    # стоит на месте
+            gr.road_distance_km_google(55.5, 24.0, 54.0, 24.0, "k")    # проехал по линии
+        self.assertEqual(len(self.calls), 1)
+        with mock.patch("time.time", return_value=t0 + 25 * 3600):
+            gr.road_distance_km_google(55.5, 24.0, 54.0, 24.0, "k")    # больше суток — новый запрос
+        self.assertEqual(len(self.calls), 2)
+
     def test_truck_off_route(self):
         from fetat.utils.geo import _encode_polyline
         self.line = _encode_polyline([(56.0, 24.0), (54.0, 24.0)])

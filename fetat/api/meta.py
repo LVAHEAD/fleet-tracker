@@ -6,10 +6,11 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, jsonify, render_template, request
 
 from fetat import APP_VERSION
-from fetat.clients.google_routes import (_quota_day, _route_stats, read_route_stats, ROUTES_FREE_MONTH,
-                                         hourly_from_stats, own_forecast)
-from fetat.clients.monitoring import _gusage_cache, _monitoring_sum
+from fetat.clients.google_routes import (_quota_day, _route_stats, read_route_stats, read_route_stats_days,
+                                         ROUTES_FREE_MONTH, hourly_from_stats, own_forecast)
+from fetat.clients.monitoring import _gusage_cache, _monitoring_sum, monitoring_series, monitoring_token
 from fetat.config import GOOGLE_MAPS_JS_KEY, ROOT_DIR
+from fetat.services.gusage import LOG_DAYS, build_log, log_text
 
 bp = Blueprint("meta", __name__)
 
@@ -52,12 +53,9 @@ def api_google_usage():
            "calls_local": _route_stats.get("calls", 0) if _route_stats.get("day") == _quota_day() else 0,
            "cache_hits": _route_stats.get("cache_hits", 0) if _route_stats.get("day") == _quota_day() else 0}
     try:
-        import google.auth
-        import google.auth.transport.requests
-        creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/monitoring.read"])
-        creds.refresh(google.auth.transport.requests.Request())
-        out["month"] = _monitoring_sum(creds.token, month0.astimezone(timezone.utc), end)
-        out["today"] = _monitoring_sum(creds.token, day0.astimezone(timezone.utc), end)
+        token = monitoring_token()
+        out["month"] = _monitoring_sum(token, month0.astimezone(timezone.utc), end)
+        out["today"] = _monitoring_sum(token, day0.astimezone(timezone.utc), end)
         # прогноз на месяц по среднему за прошедшие дни
         import calendar
         days_in = calendar.monthrange(local.year, local.month)[1]
@@ -84,6 +82,48 @@ def _with_stats(out):
         if own:
             out["forecast_own"] = own
     return out
+
+
+# v3.21: страница лога запросов к Google Routes — по суткам Google и по часам Риги,
+# наш счёт рядом со счётом Google (Cloud Monitoring). Ряд Monitoring кешируется на 10 минут.
+_gseries_cache = {"at": 0.0, "data": None, "error": None}
+
+
+@bp.route("/gusage")
+def gusage_page():
+    return render_template("gusage.html", app_version=APP_VERSION, user_email=current_user_email())
+
+
+def _google_series(refresh=False):
+    import time
+    now = time.time()
+    if _gseries_cache["at"] and now - _gseries_cache["at"] < 600 and not refresh:
+        return _gseries_cache["data"], _gseries_cache["error"]
+    data, err = None, None
+    try:
+        end = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+        end = end - timedelta(minutes=end.minute % 5)
+        start = end - timedelta(days=LOG_DAYS + 1)
+        data = monitoring_series(monitoring_token(), start, end)
+    except Exception as e:
+        err = str(e)
+    _gseries_cache.update(at=now, data=data, error=err)
+    return data, err
+
+
+@bp.route("/api/google-usage/log")
+def api_google_usage_log():
+    """v3.21: ?day=ГГГГ-ММ-ДД — какие сутки разложить по часам в тексте; ?format=text — текст для Claude;
+    ?refresh=1 — счёт Google заново, не из кеша."""
+    series, err = _google_series(request.args.get("refresh") == "1")
+    days = build_log(read_route_stats_days(), series)
+    sel = request.args.get("day") or days[0]["day"]
+    if request.args.get("format") == "text":
+        text = log_text(days, sel)
+        if err:
+            text += f"\n\nСчёт Google недоступен: {err}"
+        return text, 200, {"Content-Type": "text/plain; charset=utf-8"}
+    return jsonify({"days": days, "today": days[0]["day"], "google_error": err})
 
 
 CHANGELOG_PATH = os.path.join(ROOT_DIR, "CHANGELOG.md")

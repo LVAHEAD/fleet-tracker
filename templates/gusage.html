@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Запросы к Google — F.ETA.T</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='notebook.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='gusage-page.css') }}">
+<meta name="theme-color" content="#fafafa">
+</head>
+<body data-page="gusage">
+<div class="nbp-head">
+  <h1>📈 Запросы к Google Routes <span class="notes-hint">v{{ app_version }}</span></h1>
+  <span>
+    {% if user_email %}<span class="notes-hint">👤 {{ user_email }}</span> · {% endif %}
+    <a href="/">← в Fleet ETA Tracker</a>
+  </span>
+</div>
+
+<div class="nbp-filters">
+  <span id="guMonth" class="gu-month">Месяц: …</span>
+  <button type="button" id="guRefresh" title="Счёт Google заново, не из кеша (10 мин)">↻ Обновить</button>
+  <button type="button" id="guClaude" title="Скопировать сутки и часы выбранного дня текстом — вставить в чат с Claude">📋 Для Claude</button>
+  <span class="nbp-count">
+    <a href="https://console.cloud.google.com/billing/reports?project=my-n8n-bot-496614" target="_blank" rel="noopener">Оплата в Google Cloud</a> ·
+    <a href="https://console.cloud.google.com/apis/api/routes.googleapis.com/metrics?project=my-n8n-bot-496614" target="_blank" rel="noopener">Метрики Routes API</a>
+  </span>
+</div>
+<div id="guErr" class="gu-err" hidden></div>
+<p class="gu-note">Сутки Google — с полуночи по Тихоокеанскому времени (10:00 по Риге). «Google» — сколько насчитал Google
+  (Cloud Monitoring, все запросы по ключу проекта), «наш» — сколько наш сервер отправил в Google, «кеш» — сколько взял из кеша.
+  Клик по суткам — разбивка по часам ниже.</p>
+
+<h2 class="gu-h">По суткам</h2>
+<table class="gu-table" id="guDays">
+  <thead><tr>
+    <th>Сутки</th><th class="num">Google</th><th class="num">Наш</th><th class="num">Разница</th><th class="num">Кеш</th>
+    <th>Почему</th><th>Что</th><th>Кто</th>
+  </tr></thead>
+  <tbody><tr><td colspan="8" class="nbp-empty">Загрузка…</td></tr></tbody>
+</table>
+
+<h2 class="gu-h" id="guHoursTitle">По часам</h2>
+<table class="gu-table" id="guHours">
+  <thead><tr>
+    <th>Час (Рига)</th><th class="num">Google</th><th class="num">Наш</th><th class="num">Разница</th><th class="num">Кеш</th><th></th>
+  </tr></thead>
+  <tbody></tbody>
+</table>
+
+<script src="{{ url_for('static', filename='gusage-page.js') }}"></script>
+</body>
+</html>
