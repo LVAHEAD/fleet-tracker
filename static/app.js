@@ -1641,7 +1641,12 @@ function openComEditor(id, anchor, k) {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && comEd) closeComEditor(false);
   });
-  window.addEventListener("scroll", () => { hideComPop(); }, true);
+  // v3.19: прокрутка внутри попапа/редактора комментария его не закрывает
+  window.addEventListener("scroll", (e) => {
+    const t = e.target;
+    if (t && t.nodeType === 1 && t.closest && t.closest(".com-pop, .com-ed")) return;
+    hideComPop();
+  }, true);
 })();
 
 // ---------- v1.71: привязка прицепа к тягачу ----------
