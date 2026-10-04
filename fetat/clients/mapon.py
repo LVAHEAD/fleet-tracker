@@ -19,7 +19,8 @@ MAPON_GROUP_UNITS_URL = "https://mapon.com/api/v1/unit_groups/list_units.json"
 MAPON_UNITS_TTL = 45
 
 
-MAPON_SEM = threading.BoundedSemaphore(3)   # наши одновременные запросы к Mapon (запас до лимита 5)
+# v3.20: один процесс gunicorn (общий кеш) — 4 одновременных запроса к Mapon (лимит Mapon 5)
+MAPON_SEM = threading.BoundedSemaphore(4)
 
 
 _units_lock = threading.Lock()
@@ -31,14 +32,21 @@ _units_cache = {"units": None, "at": 0.0}
 def mapon_get(url, params, timeout=20):
     """GET к Mapon с ограничением параллельности. Возвращает data или бросает RuntimeError
     с кодом ошибки Mapon в тексте."""
-    with MAPON_SEM:
-        resp = requests.get(url, params=params, timeout=timeout)
-    resp.raise_for_status()
-    data = resp.json()
-    if isinstance(data, dict) and "error" in data:
-        err = data["error"] or {}
-        raise RuntimeError(f"Mapon {err.get('code', '')}: {err.get('msg', 'API error')}")
-    return data
+    import time
+    for attempt in range(3):
+        with MAPON_SEM:
+            resp = requests.get(url, params=params, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+        if isinstance(data, dict) and "error" in data:
+            err = data["error"] or {}
+            msg = str(err.get("msg", "API error"))
+            # v3.20: «Request limit reached» — подождать и повторить, а не ронять строку
+            if "limit" in msg.lower() and attempt < 2:
+                time.sleep(0.8 * (attempt + 1))
+                continue
+            raise RuntimeError(f"Mapon {err.get('code', '')}: {msg}")
+        return data
 
 
 def _fetch_units_raw(api_key):

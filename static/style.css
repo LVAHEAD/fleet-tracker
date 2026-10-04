@@ -960,3 +960,9 @@ body.no-disp .own-flt button[data-own="mine"] { display: none; }
 .com-pop { width: 520px; max-width: calc(100vw - 16px); max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; }
 .com-ed { width: 620px; }
 .com-ed textarea { min-height: 280px; max-height: 65vh; overflow-y: auto; }
+
+/* ---------- v3.20: чужая правка — красная рамка до клика хозяина трипа ---------- */
+#fleet-tbody .chg-mark { outline: 2px solid #e04b3c !important; outline-offset: -1px; background-color: #fff1ef !important; }
+#fleet-tbody .chg-badge { display: inline-block; margin: 3px 0 0 4px; padding: 0 5px; font-size: 10.5px; line-height: 16px;
+  border: 1px solid #e04b3c; border-radius: 8px; background: #fff1ef; color: #b42318; font-weight: 600; cursor: pointer; white-space: nowrap; }
+#refresh-btn.busy { color: #2f6fd6; font-variant-numeric: tabular-nums; white-space: nowrap; }

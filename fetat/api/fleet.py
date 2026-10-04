@@ -8,7 +8,7 @@ from fetat.config import FLEET_ADMINS
 from fetat.domain.dispatchers import _disp_cache, can_assign, get_dispatchers
 from fetat.store.fleet_store import (
     _fleet_can_delete, _fleet_clean, FLEET_FIELD_RE, FLEET_LOCK_MS, _fleet_rid, _fleet_row_out,
-    FLEET_STORE, FLEET_TRASH_MS,
+    FLEET_STORE, FLEET_TRASH_MS, chg_apply, fleet_owner,
 )
 from fetat.utils.timefmt import _now_ms
 
@@ -53,7 +53,7 @@ def api_fleet():
 
 
 # v3.17: поля, которые браузер пишет сам (не человек): не меняют «кто изменил»
-AUTO_FIELDS = {"doneSeen"}
+AUTO_FIELDS = {"doneSeen", "chg"}
 
 
 @bp.route("/api/fleet/sync", methods=["POST"])
@@ -87,6 +87,22 @@ def api_fleet_sync():
                 data = _fleet_clean(op.get("set"))
                 if not op.get("new") and ("disp" in data or "disp" in unset):
                     _check_disp_change(user, rid, data.get("disp", ""))
+                # v3.20: метки чужой правки. Снять их (поле chg) может только хозяин трипа.
+                cur = None if op.get("new") else FLEET_STORE.get(rid)
+                if "chg" in data or "chg" in unset:
+                    if cur is None or (fleet_owner(cur) and user.lower() != fleet_owner(cur)):
+                        data.pop("chg", None)
+                        unset = [k for k in unset if k != "chg"]
+                elif cur is not None:
+                    chg = chg_apply(cur, user, data, unset, now)
+                    if chg is not None:
+                        if chg:
+                            data["chg"] = chg
+                        else:
+                            unset = unset + ["chg"]
+                if not data and not unset:
+                    done += 1
+                    continue
                 FLEET_STORE.patch(rid, data, unset, meta)
             done += 1
         except Exception as e:

@@ -136,3 +136,66 @@ def _fleet_clean(fields):
             raise ValueError(f"поле {k} слишком большое")
         out[k] = v
     return out
+
+
+# ---------- v3.20: чужая правка — метки «кто изменил» до клика хозяина трипа ----------
+CHG_TOP = ("unit", "lo", "target", "delivery", "note", "com", "trailer", "crew", "disp", "done", "fban", "noban")
+
+
+CHG_SUB = ("target", "lo", "delivery", "note", "com")
+
+
+CHG_MAX = 60
+
+
+def fleet_owner(d):
+    """Хозяин трипа: диспетчер строки, иначе создатель."""
+    disp = str((d.get("data") or {}).get("disp") or "").lower()
+    if disp:
+        return disp
+    c = str((d.get("meta") or {}).get("created_by") or "").lower()
+    return "" if c == "local" else c
+
+
+def chg_keys(old, new):
+    """Какие поля изменились: имена полей ① и "x{k}.{поле}" для точек ②③… (k — номер точки, ② = 1)."""
+    out = []
+    for f in CHG_TOP:
+        if f in new and json.dumps(old.get(f), sort_keys=True) != json.dumps(new.get(f), sort_keys=True):
+            out.append(f)
+    if "extra" in new:
+        a = old.get("extra") or []
+        b = new.get("extra") or []
+        for i in range(max(len(a), len(b))):
+            x = a[i] if i < len(a) and isinstance(a[i], dict) else {}
+            y = b[i] if i < len(b) and isinstance(b[i], dict) else {}
+            if i >= len(b):
+                continue                       # точку убрали — нечего подсвечивать
+            for f in CHG_SUB:
+                if (x.get(f) or "") != (y.get(f) or ""):
+                    out.append(f"x{i + 1}.{f}")
+    return out
+
+
+def chg_apply(d, user, set_data, unset, now):
+    """Обновить метки chg строки d после правки user. Возвращает новый chg (dict) или None — без изменений.
+    Хозяин своей правкой снимает метки с этих полей; чужая правка ставит {by, at}."""
+    data = d.get("data") or {}
+    old_chg = data.get("chg") if isinstance(data.get("chg"), dict) else {}
+    new = dict(set_data)
+    for k in unset:
+        new[k] = None
+    keys = chg_keys(data, new)
+    if not keys:
+        return None
+    chg = dict(old_chg)
+    owner = fleet_owner(d)
+    if not owner or user.lower() == owner:
+        for k in keys:
+            chg.pop(k, None)
+    else:
+        for k in keys:
+            chg[k] = {"by": user, "at": now}
+        if len(chg) > CHG_MAX:
+            chg = dict(sorted(chg.items(), key=lambda kv: kv[1].get("at", 0))[-CHG_MAX:])
+    return None if chg == old_chg else chg

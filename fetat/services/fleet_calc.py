@@ -296,7 +296,37 @@ def _add_code_badges(result, target_str):
         pass
 
 
+class _StepTimer:
+    """v3.20: время шагов расчёта строки — в лог Cloud Run, если строка считалась дольше SLOW_ROW_SEC."""
+    def __init__(self):
+        import time
+        self._t = time.perf_counter
+        self.t0 = self.last = self._t()
+        self.steps = []
+
+    def mark(self, name):
+        now = self._t()
+        self.steps.append((name, now - self.last))
+        self.last = now
+
+    def total(self):
+        return self._t() - self.t0
+
+
+SLOW_ROW_SEC = 3.0
+
+
 def calc_row(payload):
+    tm = _StepTimer()
+    res = _calc_row(payload, tm)
+    total = tm.total()
+    if total >= SLOW_ROW_SEC:
+        steps = " ".join(f"{n}={d:.1f}" for n, d in tm.steps if d >= 0.05)
+        print(f"[calc] {payload.get('unit', '')} {total:.1f}s why={payload.get('why', '')} {steps}", flush=True)
+    return res
+
+
+def _calc_row(payload, tm):
     """Строка Флота. payload: {"unit", "target", "extra": [...], "done": [...], "trailer"}.
     target — "43.30726, -8.48246" | "Oslo" | "NO01" | "". Возвращает (ответ, HTTP-код)."""
     if not MAPON_API_KEY:
@@ -310,6 +340,7 @@ def calc_row(payload):
 
     try:
         units = fetch_units(MAPON_API_KEY)
+        tm.mark("units")
         exact = find_unit_exact(units, unit_query)
         matches = [exact] if exact else find_unit_by_label(units, unit_query)
         if not matches:
@@ -324,8 +355,10 @@ def calc_row(payload):
         result = _unit_status(unit)
 
         trailer = _add_trailer_info(result, unit, units, payload)
+        tm.mark("trailer")
 
         target_str, active_extras = _apply_points_done(result, payload, target_str, unit, units)
+        tm.mark("done")
 
         try:
             tgt = resolve_fleet_target(target_str, units, unit)
@@ -333,6 +366,7 @@ def calc_row(payload):
             return {"error": str(e)}, 400
         target_lat, target_lng = tgt.pop("lat"), tgt.pop("lng")
         result.update(tgt)
+        tm.mark("target")
         if target_lat is not None and not GOOGLE_API_KEY:
             return {"error": "GOOGLE_API_KEY не настроен на сервере"}, 500
 
@@ -348,8 +382,10 @@ def calc_row(payload):
             result["target_lat"] = target_lat
             result["target_lng"] = target_lng
             result["route_polyline"] = polyline
+            tm.mark("route")
 
         tacho, sim = _add_tacho(result, unit, trailer, payload.get("crew"))
+        tm.mark("tacho")
 
         # v1.64: следующие точки той же машины (2-я, 3-я выгрузка...) — цепочкой от
         # предыдущей точки, плюс UNLOAD_STOP_SEC на каждую предыдущую точку
@@ -360,11 +396,13 @@ def calc_row(payload):
             except Exception as e:
                 result["extra"] = [{"error": str(e)} for _ in extras]
 
+        tm.mark("extra")
         _week_short_last(result)
 
         _add_route_context(result, unit)
 
         _add_code_badges(result, target_str)
+        tm.mark("context")
 
         return result, 200
 

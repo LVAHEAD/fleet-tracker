@@ -4,7 +4,7 @@
 когда реально приедут с учётом тахографа (EU 561/2006), что мешает по пути (запреты, паромы).
 Владелец — Владимир. Пользователи — он и диспетчеры. Интерфейс на русском.
 
-Стек: Python 3 / Flask, gunicorn (`Procfile`: `gunicorn app:app`, 2 workers × 4 threads),
+Стек: Python 3 / Flask, gunicorn (`Procfile`: `gunicorn app:app`, 1 worker × 8 threads — общий кеш в памяти),
 Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 Вход — IAP по списку Google-аккаунтов. Общий Флот хранится в Firestore.
 Фронтенд — ванильный JS без сборки (`static/`, `templates/index.html`).
@@ -33,7 +33,7 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 | `fetat/__init__.py` | `APP_VERSION`, `create_app()` — Flask с `root_path` = корень проекта, регистрация Blueprints |
 | `fetat/config.py` | переменные окружения, папка `data/`, часовые пояса (Europe/Riga, Europe/Berlin; перевод часов — `utils/timefmt`) |
 | `fetat/utils/` | `geo` (haversine, polyline, WKT, GPS), `timefmt`, `text` |
-| `fetat/clients/mapon.py` | unit/list, группы, тахограф, daily_activities, объекты, стоянки; семафор на 3 запроса |
+| `fetat/clients/mapon.py` | unit/list, группы, тахограф, daily_activities, объекты, стоянки; семафор на 4 запроса, повтор при «Request limit» |
 | `fetat/clients/google_routes.py` | computeRoutes, кеш маршрутов, along-route, счётчик квоты |
 | `fetat/clients/geocode.py` | Nominatim / Photon |
 | `fetat/clients/sheets.py` | чтение листов «Fleet Tracker — данные» |
