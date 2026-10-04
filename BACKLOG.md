@@ -16,6 +16,7 @@ v3.21 (последний билд v3.20):
   Открытый вопрос: клик по плашке G → `/gusage`, ссылку на оплату — на страницу?
 - **Справка: все технические ссылки** — дополнить блок «Полезные ссылки»: консоль Cloud Run (метрики, логи),
   Cloud Build (история деплоев), Firestore, IAP, Routes API (метрики, квоты), GitHub (репо, BACKLOG, CHANGELOG),
+  Mapon — веб-кабинет https://www.mapon.com/pro/online,
   страницы и служебные адреса аппы (`/notebook`, `/gusage`, `/api/google-usage`, `/api/mapon-check`, `/api/me` …).
 
 ## Хотелки (приоритет /10)
