@@ -253,7 +253,7 @@ DONE_MIN_STOP_SEC = 15 * 60 # не меньше 15 мин
 DONE_LEFT_KM = 1.0          # и уже уехал дальше 1 км (иначе ещё грузится/ждёт)
 
 
-DONE_HISTORY_DAYS = 2       # смотрим последние 48 ч
+DONE_HISTORY_DAYS = 4       # v3.17: смотрим последние 96 ч (дальше — запомненные ✓ строки)
 
 
 DONE_STOPS_TTL = 600        # историю стоянок кешируем на 10 мин на машину
@@ -272,9 +272,12 @@ def recent_stops(unit_id):
     return stops
 
 
-def points_done(pts, manual, unit, units):
-    """pts — строки точек (① + следующие), manual — [True/False/None] ручные отметки.
+def points_done(pts, manual, unit, units, seen=None):
+    """pts — строки точек (① + следующие), manual — [True/False/None] ручные отметки,
+    seen — [время|None] уже запомненные в строке авто-✓ (v3.17: не теряются, когда стоянка
+    уходит из окна истории Mapon).
     -> список {done, auto, at}: пройдена ли точка (ручная отметка важнее автоматической)."""
+    seen = seen or []
     out = []
     stops = None
     for i, tstr in enumerate(pts):
@@ -290,7 +293,8 @@ def points_done(pts, manual, unit, units):
                     info["badge"], info["badge_hint"] = target_badge_info(tstr, lat, lng, t.get("target_address"))
             except Exception:
                 t = None
-        if t is not None and m is None and unit.get("lat") is not None:
+        seen_at = seen[i] if i < len(seen) and isinstance(seen[i], str) and seen[i] else None
+        if t is not None and m is None and seen_at is None and unit.get("lat") is not None:
             try:
                 # точка-машина (перецеп) двигается — по истории не проверяем
                 if lat is not None and not t.get("target_is_truck") \
@@ -306,6 +310,8 @@ def points_done(pts, manual, unit, units):
                 pass
         if m is True:
             info["done"] = True
+        elif m is None and seen_at:
+            info.update(done=True, auto=True, at=seen_at, kept=True)
         elif m is None and auto_at:
             info.update(done=True, auto=True,
                         at=(datetime.fromtimestamp(auto_at, timezone.utc) + timedelta(hours=WEST_EUROPE_OFFSET)).strftime("%d/%m %H:%M"))

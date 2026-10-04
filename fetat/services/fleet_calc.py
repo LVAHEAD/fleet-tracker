@@ -161,7 +161,8 @@ def _apply_points_done(result, payload, target_str, unit, units):
     active_extras = pts_all[1:]
     if any(pts_all):
         try:
-            dn = points_done(pts_all, manual, unit, units)
+            seen = [(v if isinstance(v, str) else None) for v in (payload.get("done_seen") or [])]
+            dn = points_done(pts_all, manual, unit, units, seen)
         except Exception:
             dn = [{"done": False} for _ in pts_all]
         result["points_done"] = dn

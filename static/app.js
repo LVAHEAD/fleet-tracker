@@ -2001,10 +2001,10 @@ async function calcRow(id, why) {
         row.extra && row.extra.length ? { extra: row.extra.map((x) => x.target || "") } : {},
         row.trailer ? { trailer: row.trailer } : {},
         row.crew ? { crew: row.crew } : {},
-        { done: doneManualArray(row), why: why || "edit" })),
+        { done: doneManualArray(row), done_seen: doneSeenArray(row), why: why || "edit" })),
     });
     const data = await res.json();
-    if (!data.error) remapDone(data);
+    if (!data.error) { keepDoneSeen(row, data); remapDone(data); }
 
     if (data.error) {
       statusCell.textContent = data.error;
@@ -2301,6 +2301,27 @@ function linkedTrailerHtml(number, lt) {
 // v1.64: ответ сервера по следующим точкам -> то, что держим в lastCalcText
 // ---------- v1.79: пройденные точки ✓ ----------
 // row.done = {индекс точки: true|false} — ручные отметки (0 — точка ①); нет ключа — авто по Mapon
+// v3.17: авто-✓ запоминаем в строке (по тексту точки) — иначе через 2–4 суток стоянка уходит
+// из истории Mapon и точка снова «не пройдена»
+function doneSeenArray(row) {
+  const m = row.doneSeen || {};
+  return [row.target || ""].concat((row.extra || []).map((x) => x.target || "")).map((t) => (t && m[t]) || null);
+}
+function keepDoneSeen(row, data) {
+  const pts = [row.target || ""].concat((row.extra || []).map((x) => x.target || ""));
+  const old = row.doneSeen || {};
+  const next = {};
+  (data.points_done || []).forEach((x, i) => {
+    const t = pts[i];
+    if (!t) return;
+    if (x && x.done && x.auto && x.at) next[t] = x.at;
+    else if (old[t] && !(x && x.manual === false)) next[t] = old[t];
+  });
+  if (JSON.stringify(next) !== JSON.stringify(old)) {
+    if (Object.keys(next).length) row.doneSeen = next; else delete row.doneSeen;
+    saveRows();
+  }
+}
 function doneManualArray(row) {
   const n = 1 + (row.extra ? row.extra.length : 0);
   const d = row.done || {};

@@ -52,6 +52,10 @@ def api_fleet():
         return jsonify({"ok": False, "error": str(e)}), 503
 
 
+# v3.17: поля, которые браузер пишет сам (не человек): не меняют «кто изменил»
+AUTO_FIELDS = {"doneSeen"}
+
+
 @bp.route("/api/fleet/sync", methods=["POST"])
 def api_fleet_sync():
     """ops: [{id, set:{поле: значение}, unset:[поля], new:true} | {id, delete:true}]."""
@@ -74,6 +78,9 @@ def api_fleet_sync():
                                              "updated_by": user, "updated_at": now, "lock_by": "", "lock_until": 0})
             else:
                 meta = {"updated_by": user, "updated_at": now, "edited_at": now}
+                keys = set((op.get("set") or {}).keys()) | set(op.get("unset") or [])
+                if not op.get("new") and keys and keys <= AUTO_FIELDS:
+                    meta = {"updated_at": now}   # v3.17: служебное поле — не «правка» человека
                 if op.get("new"):
                     meta.update(created_by=user, created_at=now, deleted=False)
                 unset = [k for k in (op.get("unset") or []) if FLEET_FIELD_RE.match(str(k)) and k != "id"]
