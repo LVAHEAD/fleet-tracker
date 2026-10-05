@@ -1015,9 +1015,7 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
   body.map-open .map-tab { right: var(--mapw, 560px); opacity: 1; background: #eef3fd; }
   body.map-open:has(#tab-fleet:not([hidden])) .nb-tab { right: var(--mapw, 560px); }   /* панель карты — только во Флоте */
   body.nb-open .map-tab { right: 460px; }
-  /* открытая карта не закрывает таблицу: страница сужается под панель (только во Флоте) */
-  body.map-open:has(#tab-fleet:not([hidden])) { padding-right: var(--mapw, 560px); }
-  body.map-resizing { transition: none; }
+  /* v3.26: панель выезжает поверх таблицы, как Блокнот — ширину таблицы не трогаем (решение Владимира 05.10) */
   body.map-resizing .map-tab, body.map-resizing .nb-tab { transition: none; }
 }
 @media (min-width: 1500px) {
