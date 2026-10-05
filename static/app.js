@@ -742,6 +742,7 @@ let ownFilter = "all";
 try { ownFilter = localStorage.getItem("fleet-own-filter") || "all"; } catch (e) {}
 if (!["all", "mine"].includes(ownFilter) && !String(ownFilter).includes("@")) ownFilter = "all";
 // v3.11: фильтр диспетчера — "all" | "mine" | e-mail. Строки без диспетчера — только в "все".
+// v3.25: кнопки «Все · VL · VJ …» вместо «все · мои · ▾ дисп»; старое "mine" — своя кнопка (resolveMine).
 // Тот же фильтр — для карты: чужие машины бледные.
 function rowPassesOwn(row) {
   if (ownFilter === "all") return true;
@@ -773,9 +774,9 @@ function knownDispatchers() {
 // v3.09: инициалы и цвет диспетчера (первая клетка строки); ключ — имя из e-mail до точки/@
 // v3.11: диспетчеры — из листа «Диспетчеры» (/api/dispatchers); до загрузки — список по умолчанию
 let DISP_LIST = [
-  { email: "vladimirs.head@gmail.com", tag: "VL", color: "#ebebeb" }, { email: "ladins@gmail.com", tag: "VV", color: "#e8dcf7" },
-  { email: "janis@gmail.com", tag: "JZ", color: "#eceefc" }, { email: "vadims@gmail.com", tag: "VJ", color: "#fde6cc" },
-  { email: "jekaterina@gmail.com", tag: "JB", color: "#dcf1e0" }, { email: "antons@gmail.com", tag: "AA", color: "#ffffff" },
+  { email: "vladimirs.head@gmail.com", tag: "VL", color: "#ebebeb" }, { email: "vadims@gmail.com", tag: "VJ", color: "#fde6cc" },
+  { email: "janis@gmail.com", tag: "JZ", color: "#eceefc" }, { email: "jekaterina@gmail.com", tag: "JB", color: "#dcf1e0" },
+  { email: "antons@gmail.com", tag: "AA", color: "#ffffff" }, { email: "ladins@gmail.com", tag: "VV", color: "#e8dcf7" },
 ];
 function dispEntry(u) {
   const e = String(u || "").toLowerCase();
@@ -806,7 +807,7 @@ function applyMyDispLook() {
   const hint = document.getElementById("disp-hint");
   if (hint) {
     hint.hidden = !missing;
-    hint.textContent = missing ? `Тебя нет в листе «Диспетчеры» (${me}) — нет инициалов и цвета, фильтр «мои» скрыт. Попроси админа добавить.` : "";
+    hint.textContent = missing ? `Тебя нет в листе «Диспетчеры» (${me}) — нет инициалов и цвета, своей кнопки в фильтре нет. Попроси админа добавить.` : "";
   }
 }
 function canAssign() { return !fleetMe() || !!(window.fleetSync && window.fleetSync.canAssign); }
@@ -823,12 +824,24 @@ function applyDispColors() {
     // v3.18: цвет из листа «Диспетчеры» — только плашка диспетчера (👤 VL), клетка строки без заливки
     `#fleet-tbody td.unit-cell[data-dc="${d.tag}"] .disp-lbl, #fleet-tbody td.unit-cell[data-dc="${d.tag}"] .disp-sel { background: ${d.color}; border-color: ${shadeHex(d.color, 0.18) || "#ccc"}; }`).join("\n");
 }
+// v3.25: кнопки диспетчеров в фильтре — из листа «Диспетчеры» (порядок листа), каждая в цвет диспетчера
 function fillDispSelects() {
-  document.querySelectorAll(".own-sel").forEach((sel) => {
-    sel.innerHTML = `<option value="">▾ дисп</option>` + DISP_LIST.map((d) =>
-      `<option value="${escapeHtml(d.email)}">${escapeHtml(d.tag)}</option>`).join("");
-    sel.value = String(ownFilter).includes("@") ? ownFilter : "";
+  document.querySelectorAll(".own-btns").forEach((box) => {
+    box.innerHTML = DISP_LIST.map((d) => {
+      const c = d.color || "#ffffff";
+      const me = String(d.email).toLowerCase() === fleetMe();
+      return `<button type="button" class="own-d" data-own="${escapeHtml(String(d.email).toLowerCase())}"`
+        + ` style="--dc:${escapeHtml(c)};--dcb:${escapeHtml(shadeHex(c, 0.25) || "#bbb")}"`
+        + ` title="Строки ${escapeHtml(d.tag)}${me ? " (мои)" : ""} — и его машины на карте">${escapeHtml(d.tag)}</button>`;
+    }).join("");
   });
+  if (window.fleetMarkBar) window.fleetMarkBar();
+}
+// v3.25: старое значение фильтра «мои» → своя кнопка (нет в листе — «Все»), как только известно, кто вошёл
+function resolveMine() {
+  if (ownFilter !== "mine" || !fleetMe() || !DISP_LOADED) return;
+  ownFilter = meInSheet() ? fleetMe() : "all";
+  try { localStorage.setItem("fleet-own-filter", ownFilter); } catch (e) {}
 }
 function loadDispatchers() {
   fetch("/api/dispatchers").then((r) => r.json()).then((d) => {
@@ -946,7 +959,6 @@ function renderRows() {
         `<div class="note-wrap xn-wrap${hideNoteK(row, i + 1) ? " fold-hide" : ""}"><input class="xn-input" data-k="${i + 1}" name="note-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.note || "")}" title="${escapeHtml(x.note || "")}" placeholder="примечание к ${i + 2}" />${comBtnHtml(x.com, i + 1)}</div>`).join("")}</td>
       <td class="row-actions">
         <button class="refresh-row-btn" title="Обновить строку">↻</button>
-        <button class="cmpl-btn" hidden title="Все точки пройдены — завершить трип (уйдёт в «Завершённые», оттуда можно вернуть)">✓ Завершить?</button>
         <span class="wide-acts">
           <button class="add-btn-w" title="Добавить строку ниже">+</button>
           <button class="trl-btn-w" title="Сцепка: у тягача — привязать прицеп, у прицепа — привязать к тягачу">🔗</button>
@@ -966,6 +978,7 @@ function renderRows() {
             <button class="del-btn">✕ удалить строку</button>
           </span>
         </span>
+        <button class="cmpl-btn" hidden title="Все точки пройдены — завершить трип (уйдёт в «Завершённые», оттуда можно вернуть)">✓ Завершить?</button>
       </td>
     `;
     if (blinkRows.has(row.id)) tr.classList.add("row-blink");
@@ -2647,11 +2660,9 @@ function moveManual(id, dir) {
     bars.forEach((bar) => {
       bar.querySelectorAll("button[data-sort]").forEach((b) => b.classList.toggle("on", b.dataset.sort === sortMode));
       bar.querySelectorAll("button[data-flt]").forEach((b) => b.classList.toggle("on", b.dataset.flt === loFilter));
-      bar.querySelectorAll("button[data-own]").forEach((b) => b.classList.toggle("on", b.dataset.own === ownFilter));
-      bar.querySelectorAll(".own-sel").forEach((sel) => {   // v3.11
-        sel.value = String(ownFilter).includes("@") ? ownFilter : "";
-        sel.classList.toggle("on", !!sel.value);
-      });
+      resolveMine();
+      bar.querySelectorAll("button[data-own]").forEach((b) => b.classList.toggle("on",
+        b.dataset.own === ownFilter || (ownFilter === "mine" && b.dataset.own === fleetMe())));
       bar.classList.toggle("has-own", !!fleetMe());
     });
     if (fb) {
@@ -2705,10 +2716,6 @@ function moveManual(id, dir) {
     renderRows();
     refreshBadgeLooks();
   };
-  bars.forEach((bar) => bar.addEventListener("change", (e) => {
-    const sel = e.target.closest(".own-sel");
-    if (sel) setOwnFilter(sel.value || "all");
-  }));
   fillDispSelects();
   // после каждой перерисовки строк — обновить подпись «свернуть / развернуть все»
   const origRender = renderRows;

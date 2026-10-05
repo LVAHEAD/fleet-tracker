@@ -30,15 +30,16 @@
 <div id="guErr" class="gu-err" hidden></div>
 <p class="gu-note">Сутки Google — с полуночи по Тихоокеанскому времени (10:00 по Риге). «Google» — сколько насчитал Google
   (Cloud Monitoring, все запросы по ключу проекта), «наш» — сколько наш сервер отправил в Google, «кеш» — сколько взял из кеша.
-  Клик по суткам — разбивка по часам ниже.</p>
+  Клик по суткам — разбивка по часам ниже. «Google — ключи, ошибки» — чей ключ насчитал запросы и сколько из них
+  с ошибкой (4xx/5xx). Текущий час у Google отстаёт на несколько минут.</p>
 
 <h2 class="gu-h">По суткам</h2>
 <table class="gu-table" id="guDays">
   <thead><tr>
     <th>Сутки</th><th class="num">Google</th><th class="num">Наш</th><th class="num">Разница</th><th class="num">Кеш</th>
-    <th>Почему</th><th>Что</th><th>Кто</th>
+    <th>Почему</th><th>Что</th><th>Кто</th><th>Google — ключи, ошибки</th>
   </tr></thead>
-  <tbody><tr><td colspan="8" class="nbp-empty">Загрузка…</td></tr></tbody>
+  <tbody><tr><td colspan="9" class="nbp-empty">Загрузка…</td></tr></tbody>
 </table>
 
 <h2 class="gu-h" id="guHoursTitle">По часам</h2>

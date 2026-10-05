@@ -9,8 +9,8 @@ from fetat import APP_VERSION
 from fetat.clients.google_routes import (_quota_day, _route_stats, read_route_stats, read_route_stats_days,
                                          ROUTES_FREE_MONTH, hourly_from_stats, own_forecast)
 from fetat.clients.monitoring import _gusage_cache, _monitoring_sum, monitoring_series, monitoring_token
-from fetat.config import GOOGLE_MAPS_JS_KEY, ROOT_DIR
-from fetat.services.gusage import LOG_DAYS, build_log, log_text
+from fetat.config import GOOGLE_API_KEY, GOOGLE_MAPS_JS_KEY, ROOT_DIR
+from fetat.services.gusage import LOG_DAYS, build_log, log_text, month_forecast
 
 bp = Blueprint("meta", __name__)
 
@@ -56,11 +56,18 @@ def api_google_usage():
         token = monitoring_token()
         out["month"] = _monitoring_sum(token, month0.astimezone(timezone.utc), end)
         out["today"] = _monitoring_sum(token, day0.astimezone(timezone.utc), end)
-        # прогноз на месяц по среднему за прошедшие дни
+        # v3.25: прогноз на месяц — уже насчитано + медиана последних 3 полных суток Google × оставшиеся дни
+        # (раньше — среднее с 1-го числа: в начале месяца тянуло дни до экономии)
         import calendar
         days_in = calendar.monthrange(local.year, local.month)[1]
-        elapsed = max(1.0, (local - month0).total_seconds() / 86400)
-        out["forecast"] = int(out["month"] / elapsed * days_in)
+        elapsed = max(1.0 / 24, (local - month0).total_seconds() / 86400)
+        full = None
+        series, _err = _google_series()
+        if series is not None:
+            full = [d["g"] for d in build_log({}, series, days=4)[1:4]]
+        fc = month_forecast(out["month"], full, days_in, elapsed, ROUTES_FREE_MONTH)
+        out["forecast"] = fc["forecast"]
+        out["forecast_info"] = fc
     except Exception as e:
         out["error"] = str(e)
     _gusage_cache.update(at=now, data=out)
@@ -116,7 +123,7 @@ def api_google_usage_log():
     """v3.21: ?day=ГГГГ-ММ-ДД — какие сутки разложить по часам в тексте; ?format=text — текст для Claude;
     ?refresh=1 — счёт Google заново, не из кеша."""
     series, err = _google_series(request.args.get("refresh") == "1")
-    days = build_log(read_route_stats_days(), series)
+    days = build_log(read_route_stats_days(), series, our_key=GOOGLE_API_KEY)
     sel = request.args.get("day") or days[0]["day"]
     if request.args.get("format") == "text":
         text = log_text(days, sel)

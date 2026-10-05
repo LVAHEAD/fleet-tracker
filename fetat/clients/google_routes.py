@@ -1,4 +1,5 @@
 """Google Routes API: км и время по дорогам, кеш маршрутов, точки вдоль маршрута, счётчик запросов."""
+import atexit
 import threading
 from datetime import datetime, timedelta, timezone
 
@@ -167,6 +168,16 @@ def flush_route_stats():
         with _route_cache_lock:          # не получилось — вернуть в буфер до следующего раза
             for k, v in buf.items():
                 _stats_buf[k] = _stats_buf.get(k, 0) + v
+
+
+def _flush_at_exit():
+    """v3.25: при остановке процесса (Cloud Run гасит инстанс ночью, деплой) — отправить ещё не отправленные
+    счётчики; раньше копились до 60 с и терялись. Только с настоящим Firestore."""
+    if _shared_on() and _stats_buf:
+        flush_route_stats()
+
+
+atexit.register(_flush_at_exit)
 
 
 def read_route_stats(day=None):

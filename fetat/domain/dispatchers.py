@@ -10,14 +10,14 @@ from fetat.config import DISP_SHEET, FLEET_ADMINS
 
 DISP_TTL_SEC = 600   # перечитываем лист не чаще раза в 10 минут
 
-# список по умолчанию (как было в коде до v3.11)
+# список по умолчанию (как было в коде до v3.11); v3.25: порядок — как кнопки фильтра (VL VJ JZ JB AA VV)
 DEFAULT_DISPATCHERS = [
     {"email": "vladimirs.head@gmail.com", "tag": "VL", "color": "#ebebeb", "assign": True},
-    {"email": "ladins@gmail.com", "tag": "VV", "color": "#e8dcf7", "assign": False},
-    {"email": "janis@gmail.com", "tag": "JZ", "color": "#eceefc", "assign": False},
     {"email": "vadims@gmail.com", "tag": "VJ", "color": "#fde6cc", "assign": False},
+    {"email": "janis@gmail.com", "tag": "JZ", "color": "#eceefc", "assign": False},
     {"email": "jekaterina@gmail.com", "tag": "JB", "color": "#dcf1e0", "assign": False},
     {"email": "antons@gmail.com", "tag": "AA", "color": "#ffffff", "assign": False},
+    {"email": "ladins@gmail.com", "tag": "VV", "color": "#e8dcf7", "assign": False},
 ]
 
 _disp_cache = {"list": None, "loaded_at": 0.0, "error": None, "source": "default"}

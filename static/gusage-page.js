@@ -24,6 +24,18 @@ Fleet ETA Tracker — страница /gusage (v3.21): лог запросов 
     return `<td class="num gu-diff${d === 0 ? " zero" : ""}">${d > 0 ? "+" : ""}${fmt(d)}</td>`;
   }
 
+  // v3.25: счёт Google по ключам, методам (если не только ComputeRoutes) и ошибкам
+  function gBreak(d) {
+    if (!d.g_keys) return d.g ? '<span class="gu-dim">нет разбивки</span>' : "";
+    const out = [];
+    if (Object.keys(d.g_keys).length) out.push(parts(d.g_keys));
+    const m = d.g_methods || {};
+    if (Object.keys(m).length > 1 || (Object.keys(m).length && !m.ComputeRoutes)) out.push("методы: " + parts(m));
+    if (d.g_err && Object.keys(d.g_err).length) out.push(`<span class="gu-errs">ошибки: ${parts(d.g_err)}</span>`);
+    else if (d.g) out.push('<span class="gu-dim">ошибок нет</span>');
+    return out.join("<br>");
+  }
+
   function renderDays() {
     const tb = $("guDays").querySelector("tbody");
     tb.innerHTML = days.map((d) => {
@@ -32,7 +44,7 @@ Fleet ETA Tracker — страница /gusage (v3.21): лог запросов 
         <td>${d.label}${d.day === days[0].day ? " (сегодня)" : ""}</td>
         <td class="num">${fmt(d.g)}</td><td class="num">${fmt(d.c)}</td>${diffCell(d.g, d.c)}<td class="num">${fmt(d.h)}</td>
         <td class="gu-break">${parts(d.why, WHY)}</td><td class="gu-break">${parts(d.kind, KIND)}</td>
-        <td class="gu-break">${parts(d.user)}</td></tr>`;
+        <td class="gu-break">${parts(d.user)}</td><td class="gu-break">${gBreak(d)}</td></tr>`;
     }).join("");
   }
 
@@ -46,8 +58,10 @@ Fleet ETA Tracker — страница /gusage (v3.21): лог запросов 
     }
     const max = Math.max(1, ...d.hours.map((x) => Math.max(x.g || 0, x.c || 0)));
     const maxH = Math.max(1, ...d.hours.map((x) => x.h || 0));
-    tb.innerHTML = d.hours.map((x) => `<tr>
-      <td>${x.hh}:00</td><td class="num">${fmt(x.g)}</td><td class="num">${fmt(x.c)}</td>${diffCell(x.g, x.c)}
+    tb.innerHTML = d.hours.map((x) => `<tr${x.now ? ' class="gu-now"' : ""}>
+      <td>${x.hh}:00${x.now ? ' <span class="gu-dim" title="Google дописывает счёт с задержкой в несколько минут">идёт</span>' : ""}</td>
+      <td class="num">${fmt(x.g)}${x.ge ? ` <span class="gu-errs" title="из них ошибок">(${fmt(x.ge)} ош.)</span>` : ""}</td>
+      <td class="num">${fmt(x.c)}</td>${diffCell(x.g, x.c)}
       <td class="num">${fmt(x.h)}</td>
       <td><span class="gu-bar" style="width:${Math.round(((x.g != null ? x.g : x.c) || 0) / max * 160)}px" title="Google"></span>
         <span class="gu-bar h" style="width:${Math.round((x.h || 0) / maxH * 60)}px" title="из кеша"></span></td></tr>`).join("");
@@ -65,13 +79,16 @@ Fleet ETA Tracker — страница /gusage (v3.21): лог запросов 
       renderDays();
       renderHours();
     } catch (e) {
-      $("guDays").querySelector("tbody").innerHTML = `<tr><td colspan="8" class="nbp-empty">Ошибка загрузки</td></tr>`;
+      $("guDays").querySelector("tbody").innerHTML = `<tr><td colspan="9" class="nbp-empty">Ошибка загрузки</td></tr>`;
     }
     try {
       const r = await fetch("/api/google-usage" + (refresh ? "?refresh=1" : ""));
       const u = await r.json();
+      const fi = u.forecast_info;
       $("guMonth").textContent = u.month == null ? "Месяц: —"
-        : `Месяц: ${fmt(u.month)} из ${fmt(u.free)} бесплатных · прогноз по суткам Google ~${fmt(u.forecast)}` +
+        : `Месяц: ${fmt(u.month)} из ${fmt(u.free)} бесплатных · прогноз ~${fmt(u.forecast)}` +
+          (fi ? ` (по ~${fmt(fi.per_day)}/сутки)` : "") +
+          (fi && fi.left > 0 ? ` · осталось ${fmt(fi.left)} на ${fmt(Math.round(fi.days_left))} дн. → можно ~${fmt(fi.per_day_allowed)}/сутки` : "") +
           (u.forecast_own ? ` · по нашему темпу ~${fmt(u.forecast_own.forecast)}` : "");
     } catch (e) { /* ignore */ }
   }
@@ -84,16 +101,65 @@ Fleet ETA Tracker — страница /gusage (v3.21): лог запросов 
     renderHours();
   });
   $("guRefresh").addEventListener("click", () => load(true));
-  $("guClaude").addEventListener("click", async (e) => {
-    const btn = e.target;
-    const was = btn.textContent;
-    try {
-      const r = await fetch("/api/google-usage/log?format=text&day=" + encodeURIComponent(sel || ""));
-      await navigator.clipboard.writeText(await r.text());
-      btn.textContent = "✓ Скопировано";
-    } catch (err) {
-      btn.textContent = "Не удалось скопировать";
+  // v3.25: «📋 Для Claude». Раньше: сначала ждали текст с сервера (Cloud Monitoring — секунды), потом писали
+  // в буфер — браузер к этому времени «забывал» клик и запрещал запись. Теперь буфер занимаем сразу по клику
+  // (ClipboardItem с обещанием текста), запасной путь — скрытое поле + copy, крайний — окно с выделенным текстом.
+  function showText(text) {
+    let box = $("guCopyBox");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "guCopyBox";
+      box.className = "gu-copybox";
+      box.innerHTML = `<div class="gu-copyhead">Скопировать не удалось — текст выделен, нажмите Ctrl+C (⌘+C)
+        <button type="button" class="gu-copyclose" title="Закрыть">×</button></div><textarea readonly></textarea>`;
+      document.body.appendChild(box);
+      box.querySelector(".gu-copyclose").addEventListener("click", () => { box.hidden = true; });
     }
+    box.hidden = false;
+    const ta = box.querySelector("textarea");
+    ta.value = text;
+    ta.focus();
+    ta.select();
+  }
+  function copyFallback(text) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    ta.remove();
+    return ok;
+  }
+  $("guClaude").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const was = btn.textContent;
+    btn.textContent = "Копирую…";
+    const textP = fetch("/api/google-usage/log?format=text&day=" + encodeURIComponent(sel || ""))
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.text(); });
+    let ok = false;
+    try {
+      if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+        const blobP = textP.then((t) => new Blob([t], { type: "text/plain" }));
+        await navigator.clipboard.write([new ClipboardItem({ "text/plain": blobP })]);
+        ok = true;
+      }
+    } catch (err) { ok = false; }
+    let text = null;
+    if (!ok) {
+      try {
+        text = await textP;
+        try { await navigator.clipboard.writeText(text); ok = true; } catch (err) { ok = copyFallback(text); }
+      } catch (err) {
+        btn.textContent = "Ошибка: текст не получен";
+        setTimeout(() => { btn.textContent = was; }, 2500);
+        return;
+      }
+    }
+    if (ok) btn.textContent = "✓ Скопировано";
+    else { btn.textContent = was; showText(text); return; }
     setTimeout(() => { btn.textContent = was; }, 1800);
   });
 

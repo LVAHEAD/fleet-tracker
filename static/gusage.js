@@ -30,6 +30,7 @@ v3.21: клик — страница лога /gusage (по суткам и ча
         `Месяц: ${fmt(d.month)} из ${fmt(d.free)} бесплатных`,
         `Сегодня (сутки Google): ${fmt(d.today)}`,
         `Прогноз на месяц (по суткам Google): ~${fmt(d.forecast)}` + (over ? ` — сверх бесплатного ~${fmt(over)}` : " — в пределах бесплатного"),
+        ...forecastInfo(d.forecast_info),
         ...ownForecast(d.forecast_own, d.free),
         `Кеш сегодня сэкономил: ${fmt(d.cache_hits)} запросов`,
         ...breakdown(d.stats),
@@ -58,6 +59,16 @@ v3.21: клик — страница лога /gusage (по суткам и ча
     part("c_why_", WHY, "В Google — почему:");
     part("c_kind_", KIND, "В Google — что:");
     part("c_user_", null, "В Google — кто:");
+    return out;
+  }
+  // v3.25: прогноз — по медиане последних полных суток Google; сколько можно в сутки до конца месяца
+  function forecastInfo(f) {
+    if (!f) return [];
+    const out = [f.sample_days && f.sample_days.length
+      ? `  темп ~${fmt(f.per_day)}/сутки — медиана последних полных суток Google: ${f.sample_days.map(fmt).join(", ")}`
+      : `  темп ~${fmt(f.per_day)}/сутки — среднее с начала месяца (нет полных суток)`];
+    if (f.left > 0) out.push(`  осталось ${fmt(f.left)} на ${fmt(Math.round(f.days_left))} дн. → можно ~${fmt(f.per_day_allowed)}/сутки, сейчас ~${fmt(f.per_day)}/сутки`);
+    else out.push("  бесплатное на этот месяц уже исчерпано");
     return out;
   }
   // v3.15: прогноз по нашему темпу — запросы нашего сервера в Google за сегодняшние часы

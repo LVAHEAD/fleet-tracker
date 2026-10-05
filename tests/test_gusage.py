@@ -22,7 +22,7 @@ class BuildLogTest(unittest.TestCase):
         series = [(utc("2026-10-04 07:05"), 2),     # 10:05 Рига, сутки 04.10
                   (utc("2026-10-04 08:10"), 4),     # 11:10 Рига
                   (utc("2026-10-04 06:55"), 7)]     # 09:55 Рига — ещё сутки 03.10
-        days = gusage.build_log(stats, series, today="2026-10-04", days=2)
+        days = gusage.build_log(stats, series, today="2026-10-04", days=2, now=utc("2026-10-10 12:00"))
         self.assertEqual([d["day"] for d in days], ["2026-10-04", "2026-10-03"])
         d = days[0]
         self.assertEqual((d["g"], d["c"], d["h"]), (6, 3, 20))
@@ -33,13 +33,13 @@ class BuildLogTest(unittest.TestCase):
         self.assertEqual(days[1]["hours"], [{"hh": "09", "c": 0, "h": 0, "g": 7}])
 
     def test_without_google(self):
-        days = gusage.build_log({"2026-10-04": {"c": 1, "c_hr_12": 1}}, None, today="2026-10-04", days=1)
+        days = gusage.build_log({"2026-10-04": {"c": 1, "c_hr_12": 1}}, None, today="2026-10-04", days=1, now=utc("2026-10-10 12:00"))
         self.assertIsNone(days[0]["g"])
         self.assertIsNone(days[0]["hours"][0]["g"])
 
     def test_text(self):
         stats = {"2026-10-04": {"c": 2, "h": 9, "c_why_auto": 2, "c_hr_10": 2, "h_hr_10": 9}}
-        days = gusage.build_log(stats, [(utc("2026-10-04 07:00"), 5)], today="2026-10-04", days=3)
+        days = gusage.build_log(stats, [(utc("2026-10-04 07:00"), 5)], today="2026-10-04", days=3, now=utc("2026-10-10 12:00"))
         text = gusage.log_text(days, "2026-10-04")
         self.assertIn("04.10: 5 / 2 / 9 — автообновление 2", text)
         self.assertIn("10:00  5 / 2 / 9", text)

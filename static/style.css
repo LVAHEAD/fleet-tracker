@@ -914,8 +914,12 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 .mk-badge.mk-disp::after { border-top-color: var(--mk-tip, #999); }
 .mk-badge.mk-pale, .mk-tbadge.mk-pale { opacity: .35; }
 /* v3.11: фильтр одного диспетчера */
-.sort-bar .own-sel { font-size: 12px; padding: 1px 4px; border-radius: 12px; border: 1px solid #ddd; color: #777; background: #fff; }
-.sort-bar .own-sel.on { background: #1a1a1a; border-color: #1a1a1a; color: #fff; }
+/* v3.25: фильтр — «Все» + кнопки диспетчеров в их цвет; выбранная — тёмная рамка и жирный шрифт */
+.sort-bar .own-btns { display: inline-flex; gap: 3px; }
+.sort-bar button.own-d { background: var(--dc, #fff); border-color: var(--dcb, #ccc); color: #333; min-width: 30px; }
+.sort-bar button.own-d:hover { border-color: #555; }
+.sort-bar button.own-d.on { background: var(--dc, #fff); color: #000; font-weight: 700; border-color: #1a1a1a;
+  box-shadow: inset 0 0 0 1px #1a1a1a; }
 #fleet-tbody .disp-lbl { display: block; margin-top: 3px; font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #fleet-tbody .disp-lbl.other { color: #2b6cb0; font-weight: 600; }
 /* v3.11: «свернуть / развернуть все» — значок в шапке «Таргет», над построчными ▸ */
@@ -945,7 +949,6 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 #fleet-tbody tr.own-empty td { padding: 14px 10px; color: #666; text-align: center; background: #fff; }
 #fleet-tbody tr.own-empty button { font-size: 12px; padding: 2px 8px; }
 .disp-hint { margin: -6px 0 8px; font-size: 12px; color: #8a6200; }
-body.no-disp .own-flt button[data-own="mine"] { display: none; }
 #fleet-tbody .status-line2 .crew-b { margin-left: 0; }   /* v3.16 */
 
 /* ---------- v3.18 ---------- */
@@ -979,6 +982,10 @@ body.no-disp .own-flt button[data-own="mine"] { display: none; }
 .cmpl-btn:hover { background: #cfeadb; border-color: #1f7a4d; }
 .cmpl-btn[hidden], .row-menu button[hidden] { display: none !important; }
 #fleet-tbody tr.row-done .cmpl-btn { opacity: 1; }
+/* v3.25: «✓ Завершить?» — отдельной второй строкой под кнопками строки, по центру */
+#fleet-tbody .row-actions > .cmpl-btn { display: block; margin: 4px auto 0; max-width: calc(100% + 16px); box-sizing: border-box;
+  padding: 1px 4px; font-size: 10px; letter-spacing: -.1px; overflow: hidden; text-overflow: clip; }
+@media (min-width: 1500px) { #fleet-tbody .row-actions > .cmpl-btn { padding: 1px 6px; font-size: 11px; letter-spacing: 0; } }
 .done-pop { width: 420px; }
 .done-pop .dp-q { display: block; width: calc(100% - 20px); margin: 6px 10px; padding: 4px 8px; font-size: 12px;
   border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }

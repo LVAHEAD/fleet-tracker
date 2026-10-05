@@ -61,7 +61,7 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 | `fetat/clients/sheets.py` | чтение листов «Fleet Tracker — данные» |
 | `fetat/clients/firestore.py` | Firestore REST |
 | `fetat/clients/nakordoni.py` | фид запретов движения: запросы, кеш, блокировки |
-| `fetat/clients/monitoring.py` | счётчик запросов к Routes API (Cloud Monitoring), ряд по 5 мин для `/gusage` |
+| `fetat/clients/monitoring.py` | счётчик запросов к Routes API (Cloud Monitoring), ряд по 5 мин для `/gusage` с разбивкой по ключу, методу и коду ответа |
 | `fetat/domain/tacho.py` | простой ETA, тахо-ETA, недельный отдых, лимиты 56/90 ч, `FRESH_SOLO_TACHO` (From → To) |
 | `fetat/domain/routing_rules.py` | паромы, Инсбрук, обход Швейцарии, waypoints |
 | `fetat/domain/bans.py` | сборка фида запретов, запреты по пути, ночь Австрии для MAN, бренд по VIN, страны по маршруту |
@@ -72,7 +72,7 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 | `fetat/domain/freights.py` | база фрахтов, контрактники, похожие рейсы |
 | `fetat/domain/dispatchers.py` | лист «Диспетчеры»: инициалы, цвета, кто назначает; список по умолчанию; `can_assign` |
 | `fetat/services/fleet_calc.py` | строка Флота: `calc_row(payload) -> (ответ, код)` и блоки `_unit_status`, `_add_trailer_info`, `_apply_points_done`, `_add_tacho`, `_add_route_context`, `_add_code_badges`; следующие точки `calc_extra_stops` |
-| `fetat/services/gusage.py` | лог `/gusage`: наш счёт (`routes_stats`) и счёт Google по суткам Google и часам Риги, текст для Claude |
+| `fetat/services/gusage.py` | лог `/gusage`: наш счёт (`routes_stats`) и счёт Google по суткам Google и часам Риги (ключи, ошибки), текст для Claude; прогноз месяца `month_forecast` |
 | `fetat/services/route_calc.py` | From → To: `route_calc(payload) -> (ответ, код)`, мультимаршрут с паромами |
 | `fetat/store/fleet_store.py` | общий Флот: Firestore / память, права на удаление, 🔒, корзина 7 дней, проверка полей; архив завершённых трипов `fleet_done` (навсегда) |
 | `fetat/api/meta.py` | `/`, `/api/me`, `/api/changelog`, `/api/google-usage`, `/gusage`, `/api/google-usage/log`; `current_user_email` (IAP) |
