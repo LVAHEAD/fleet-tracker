@@ -76,7 +76,12 @@
 </table>
 
 
-<div id="map"></div>
+<!-- v3.26: «Карта 2.0» — карта Флота в выезжающей панели справа (язычок 🗺 над 📓); на телефоне — как раньше, во весь экран -->
+<aside id="map-panel" class="map-panel" aria-hidden="true">
+  <div class="map-resize" title="Потянуть — шире / уже (ширина запоминается)"></div>
+  <div id="map"></div>
+</aside>
+<button type="button" class="map-tab" id="map-tab" title="Карта Флота (Esc — закрыть)">🗺</button>
 <button type="button" class="m-map-close" id="m-map-close">← К списку</button>
 <button type="button" class="m-fab" id="m-fab-add" title="Добавить строку" hidden>+</button>
 <button type="button" class="m-fab" id="m-fab-map" title="Карта">🗺</button>
@@ -262,6 +267,7 @@
 <script src="{{ url_for('static', filename='notebook.js') }}"></script>
 <script src="{{ url_for('static', filename='sync.js') }}"></script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
+<script src="{{ url_for('static', filename='map-panel.js') }}"></script>
 <script src="{{ url_for('static', filename='postcode-maps.js') }}"></script>
 <script src="{{ url_for('static', filename='route-tab.js') }}"></script>
 <script src="{{ url_for('static', filename='locator.js') }}"></script>

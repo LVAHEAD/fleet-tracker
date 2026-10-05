@@ -45,7 +45,7 @@ v3.21: клик — страница лога /gusage (по суткам и ча
   }
   const WHY = { edit: "правка строки", all: "«Обновить всё» / загрузка", auto: "автообновление",
     sync: "чужие правки", route: "From → To", other: "прочее" };
-  const KIND = { truck: "машина → точка", leg: "точка → точка", multi: "From → To" };
+  const KIND = { truck: "машина → точка", leg: "точка → точка", multi: "From → To", corridor: "выбор коридора" };
   // v3.13: сколько ушло в Google и сколько взято из кеша — по причинам, видам и людям
   function breakdown(st) {
     if (!st) return [];

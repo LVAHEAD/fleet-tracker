@@ -13,8 +13,9 @@ from fetat.config import GOOGLE_API_KEY, MAPON_API_KEY
 from fetat.domain.bans import bans_hits_text, bans_on_route, needs_at_night_ban
 from fetat.domain.freights import similar_freights
 from fetat.domain.points import resolve_point
-from fetat.domain.routing_rules import pick_waypoints_by_country
+from fetat.domain.routing_rules import waypoints_label
 from fetat.domain.tacho import FRESH_SOLO_TACHO, tacho_eta
+from fetat.services.corridors import resolve_waypoints
 
 
 MAX_INTERMEDIATES = 25      # лимит Routes API на промежуточные точки (вместе с паромами/Инсбруком)
@@ -49,9 +50,9 @@ def _compute_multi_route(points, api_key):
     leg_rules = []
     for i in range(len(points) - 1):
         a, b = points[i], points[i + 1]
-        wps = pick_waypoints_by_country(a["country"], a["lat"], a["lng"],
-                                        b["country"], b["lat"], b["lng"]) or []
-        leg_rules.append(bool(wps))
+        wps = resolve_waypoints(a["country"], a["lat"], a["lng"],
+                                b["country"], b["lat"], b["lng"]) or []
+        leg_rules.append(waypoints_label(wps))     # v3.26: подпись правила («через Монблан», «паромы»), "" — без правила
         for wlat, wlng in wps:
             intermediates.append({"via": True, "location": {"latLng": {"latitude": wlat, "longitude": wlng}}})
         if i + 1 < len(points) - 1:  # следующая точка пользователя — не финальная
@@ -88,7 +89,7 @@ def _compute_multi_route(points, api_key):
     for i in range(len(points) - 1):
         # поле с нулём Routes API не передаёт (как в фиксе v1.21) — считаем 0
         meters = api_legs[i].get("distanceMeters", 0) if i < len(api_legs) else 0
-        legs.append({"dist_km": meters / 1000, "waypoints_applied": leg_rules[i]})
+        legs.append({"dist_km": meters / 1000, "waypoints_applied": bool(leg_rules[i]), "rule": leg_rules[i]})
     polyline = route.get("polyline", {}).get("encodedPolyline")
     return legs, polyline
 
@@ -160,6 +161,7 @@ def route_calc(payload):
                     "dist_km": round(leg["dist_km"], 1),
                     "duration_h": round(leg["dist_km"] / 70, 3),
                     "waypoints_applied": leg["waypoints_applied"],
+                    "rule": leg.get("rule") or "",
                 })
             result["dist_km"] = round(total, 1)
             result["duration_h"] = round(total / 70, 3)  # 70 км/ч; в ч:мм форматирует фронт

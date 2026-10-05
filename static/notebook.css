@@ -9,7 +9,7 @@
   transition: right .25s ease, opacity .15s;
 }
 .nb-tab:hover { opacity: 1; background: #f4f4f4; }
-.nb-tab.open { right: 380px; opacity: 1; }
+.nb-tab.open { right: 460px; opacity: 1; }   /* v3.26: по ширине панели (было 380 — наезжал) */
 
 .nb-panel {
   position: fixed; top: 0; right: -480px; width: 460px;   /* v3.15: шире — шесть тегов категорий в одну строку */ height: 100vh; z-index: 1500;

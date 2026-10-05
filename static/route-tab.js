@@ -355,7 +355,7 @@ function renderRouteLegs(legs) {
       <td>${routeEscape(l.from)}${legCode(l.from_code)} → ${routeEscape(l.to)}${legCode(l.to_code)}</td>
       <td class="num">${l.dist_km.toFixed(1)} км</td>
       <td class="num">~${formatHM(l.duration_h, l.dist_km > 0)}</td>
-      <td class="leg-rule">${l.waypoints_applied ? "обход/паромы" : ""}</td>
+      <td class="leg-rule">${l.waypoints_applied ? routeEscape(l.rule || "обход/паромы") : ""}</td>
     </tr>`).join("")}</table>`;
 }
 

@@ -593,6 +593,8 @@ const Notebook = (() => {
     isOpen = true;
     panel.classList.add("open");
     tab.classList.add("open");
+    document.body.classList.add("nb-open");                         // v3.26: открыта одна панель — карта закрывается
+    if (window.fleetMapPanel) window.fleetMapPanel.close();
     panel.setAttribute("aria-hidden", "false");
     $(".nb-where").innerHTML = whereOptions(currentWhere());
     loadList();
@@ -604,6 +606,7 @@ const Notebook = (() => {
     isOpen = false;
     panel.classList.remove("open");
     tab.classList.remove("open");
+    document.body.classList.remove("nb-open");
     panel.setAttribute("aria-hidden", "true");
   }
 

@@ -403,6 +403,38 @@ def _trim(now):
             _along_cache.pop(k, None)
 
 
+def choose_shortest(lat1, lng1, lat2, lng2, api_key, options):
+    """v3.26: какой из вариантов промежуточных точек короче по дорогам — спросить Google каждый (options —
+    [[(lat, lng), ...], ...]). Решение хранится LEG_TTL (30 дней) на сетке ~10 км (0,1°): для машины,
+    которая едет, не спрашиваем заново на каждом шаге. Возвращает индекс короткого варианта."""
+    import time
+    key = ("corr", round(lat1, 1), round(lng1, 1), round(lat2, 1), round(lng2, 1),
+           tuple(_wps_key(o) for o in options))
+    now = time.time()
+    with _route_cache_lock:
+        hit = _route_cache.get(key)
+    if hit and now - hit[0] < LEG_TTL:
+        _route_stat("cache_hits", "corridor")
+        return hit[1]
+    doc = _shared_get(key)
+    if doc and now - float(doc.get("at") or 0) < LEG_TTL and doc.get("idx") is not None:
+        idx = int(doc["idx"])
+        with _route_cache_lock:
+            _route_cache[key] = (float(doc["at"]), idx)
+        _route_stat("cache_hits", "corridor")
+        return idx
+    kms = []
+    for wps in options:
+        _route_stat("calls", "corridor")
+        kms.append(_road_distance_km_google(lat1, lng1, lat2, lng2, api_key, wps)[0])
+    idx = min(range(len(kms)), key=lambda i: kms[i])
+    with _route_cache_lock:
+        _trim(now)
+        _route_cache[key] = (now, idx)
+    _shared_put(key, {"at": now, "idx": idx, "kms": [round(k, 1) for k in kms]})
+    return idx
+
+
 def _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None):
     """waypoints — необязательный список [(lat, lng), ...] промежуточных точек,
     через которые маршрут должен пройти в заданном порядке."""

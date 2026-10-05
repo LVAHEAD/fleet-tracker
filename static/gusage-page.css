@@ -26,3 +26,5 @@
 .gu-table .gu-errs { color: #b33; }
 .gu-table .gu-dim, .gu-dim { color: #aaa; }
 #guHours tbody tr.gu-now td { background: #fffbea; }
+.gu-textlink { font-size: 12px; margin-left: 4px; }
+.gu-textlink[hidden] { display: none; }

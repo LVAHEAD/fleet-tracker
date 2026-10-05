@@ -989,3 +989,52 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 .done-pop { width: 420px; }
 .done-pop .dp-q { display: block; width: calc(100% - 20px); margin: 6px 10px; padding: 4px 8px; font-size: 12px;
   border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+
+/* ---------- v3.26: «Карта 2.0» — панель карты справа, кружки машин, кластеры ---------- */
+@media (min-width: 768px) {
+  .map-panel {
+    position: fixed; top: 0; right: calc(-1 * var(--mapw, 560px) - 24px); width: var(--mapw, 560px); height: 100vh;
+    z-index: 1450; background: #eee; border-left: 1px solid #d0d0d0; box-shadow: -4px 0 16px rgba(0,0,0,.10);
+    transition: right .25s ease; overflow: hidden;
+  }
+  .map-panel.open { right: 0; }
+  .map-panel #map { margin: 0; width: 100%; height: 100%; border: 0; border-radius: 0; }
+  .map-resize { position: absolute; left: 0; top: 0; bottom: 0; width: 7px; cursor: ew-resize; z-index: 3; }
+  .map-resize:hover, body.map-resizing .map-resize { background: rgba(47, 111, 214, .25); }
+  body.map-resizing { user-select: none; cursor: ew-resize; }
+  body.map-resizing .map-panel { transition: none; }
+  .map-tab {
+    position: fixed; right: 0; top: calc(50% - 52px); transform: translateY(-50%);
+    z-index: 1490; width: 30px; height: 44px; padding: 0;
+    border: 1px solid #d0d0d0; border-right: 0; border-radius: 8px 0 0 8px;
+    background: #fff; box-shadow: -2px 1px 6px rgba(0,0,0,.10);
+    font-size: 16px; line-height: 1; cursor: pointer; opacity: .85;
+    transition: right .25s ease, opacity .15s;
+  }
+  .map-tab:hover { opacity: 1; background: #f4f4f4; }
+  body.map-open .map-tab { right: var(--mapw, 560px); opacity: 1; background: #eef3fd; }
+  body.map-open:has(#tab-fleet:not([hidden])) .nb-tab { right: var(--mapw, 560px); }   /* панель карты — только во Флоте */
+  body.nb-open .map-tab { right: 460px; }
+  /* открытая карта не закрывает таблицу: страница сужается под панель (только во Флоте) */
+  body.map-open:has(#tab-fleet:not([hidden])) { padding-right: var(--mapw, 560px); }
+  body.map-resizing { transition: none; }
+  body.map-resizing .map-tab, body.map-resizing .nb-tab { transition: none; }
+}
+@media (min-width: 1500px) {
+  .map-panel { height: calc(100vh / 0.9); }
+  /* карта без масштаба body (зум .9), иначе клики мимо — и размер под это */
+  .map-panel #map { width: calc(100% / 1.11112); height: calc(100% / 1.11112); }
+}
+@media (max-width: 767px) {
+  .map-panel { display: contents; }
+  .map-tab, .map-resize { display: none; }
+}
+/* выбранная строка Флота и вспышка после клика по машинке на карте */
+#fleet-tbody tr.row-sel > td:first-child { box-shadow: inset 3px 0 0 #2f6fd6; }
+#fleet-tbody tr.row-flash > td { animation: rowFlash 1.6s ease-out 1; }
+@keyframes rowFlash { 0% { background-color: #fff3b0; } 100% { background-color: inherit; } }
+/* кластер машин при отдалении: «7» — клик приближает */
+.mk-cluster { transform: translate(-50%, -50%); min-width: 26px; height: 26px; padding: 0 6px; box-sizing: border-box;
+  border-radius: 13px; background: #2b3440; color: #fff; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35);
+  font: 700 12px/22px -apple-system, "Segoe UI", Roboto, Arial, sans-serif; text-align: center; user-select: none; }
+.mk-cluster:hover { background: #1a1f26; }

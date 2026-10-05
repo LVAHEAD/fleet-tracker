@@ -9,9 +9,10 @@ Fleet ETA Tracker — страница /gusage (v3.21): лог запросов 
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const WHY = { edit: "правка строки", all: "«Обновить всё» / загрузка", auto: "автообновление",
     sync: "чужие правки", route: "From → To", other: "прочее" };
-  const KIND = { truck: "машина → точка", leg: "точка → точка", multi: "From → To" };
+  const KIND = { truck: "машина → точка", leg: "точка → точка", multi: "From → To", corridor: "выбор коридора" };
   let days = [];
   let sel = null;
+  let texts = {};      // v3.26: тексты «Для Claude» по суткам — приходят вместе с данными страницы
 
   function parts(obj, names) {
     return Object.keys(obj || {}).sort((a, b) => obj[b] - obj[a])
@@ -72,6 +73,7 @@ Fleet ETA Tracker — страница /gusage (v3.21): лог запросов 
       const r = await fetch("/api/google-usage/log" + (refresh ? "?refresh=1" : ""));
       const d = await r.json();
       days = d.days || [];
+      texts = d.texts || {};
       if (!sel || !days.some((x) => x.day === sel)) sel = d.today;
       const err = $("guErr");
       err.hidden = !d.google_error;
@@ -101,9 +103,7 @@ Fleet ETA Tracker — страница /gusage (v3.21): лог запросов 
     renderHours();
   });
   $("guRefresh").addEventListener("click", () => load(true));
-  // v3.25: «📋 Для Claude». Раньше: сначала ждали текст с сервера (Cloud Monitoring — секунды), потом писали
-  // в буфер — браузер к этому времени «забывал» клик и запрещал запись. Теперь буфер занимаем сразу по клику
-  // (ClipboardItem с обещанием текста), запасной путь — скрытое поле + copy, крайний — окно с выделенным текстом.
+  // «📋 Для Claude»: окно с выделенным текстом (если скопировать не дали) и запасное копирование через скрытое поле.
   function showText(text) {
     let box = $("guCopyBox");
     if (!box) {
@@ -133,34 +133,50 @@ Fleet ETA Tracker — страница /gusage (v3.21): лог запросов 
     ta.remove();
     return ok;
   }
+  // v3.26: кнопка копирует уже загруженный текст (пришёл вместе с таблицей) — без запроса в момент клика.
+  // Текста нет (страница не догрузилась) — запрос, при ошибке — код ответа на кнопке и ссылка «открыть текст».
+  function textUrl() { return "/api/google-usage/log?format=text&day=" + encodeURIComponent(sel || ""); }
+  function showLink(msg) {
+    let a = $("guTextLink");
+    if (!a) {
+      a = document.createElement("a");
+      a.id = "guTextLink";
+      a.className = "gu-textlink";
+      a.target = "_blank";
+      a.rel = "noopener";
+      $("guClaude").after(a);
+    }
+    a.href = textUrl();
+    a.textContent = "открыть текст";
+    a.title = msg || "";
+    a.hidden = false;
+  }
+  function copyNow(text) {
+    // writeText — обычный путь; не дали — скрытое поле + copy; и это нет — окно с выделенным текстом
+    return navigator.clipboard && navigator.clipboard.writeText
+      ? navigator.clipboard.writeText(text).then(() => true, () => copyFallback(text))
+      : Promise.resolve(copyFallback(text));
+  }
   $("guClaude").addEventListener("click", async (e) => {
     const btn = e.currentTarget;
-    const was = btn.textContent;
-    btn.textContent = "Копирую…";
-    const textP = fetch("/api/google-usage/log?format=text&day=" + encodeURIComponent(sel || ""))
-      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.text(); });
-    let ok = false;
-    try {
-      if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
-        const blobP = textP.then((t) => new Blob([t], { type: "text/plain" }));
-        await navigator.clipboard.write([new ClipboardItem({ "text/plain": blobP })]);
-        ok = true;
-      }
-    } catch (err) { ok = false; }
-    let text = null;
-    if (!ok) {
+    const was = "📋 Для Claude";
+    const done = (msg, ms) => { btn.textContent = msg; setTimeout(() => { btn.textContent = was; }, ms || 1800); };
+    let text = texts[sel];
+    if (!text) {
+      btn.textContent = "Загружаю…";
       try {
-        text = await textP;
-        try { await navigator.clipboard.writeText(text); ok = true; } catch (err) { ok = copyFallback(text); }
+        const r = await fetch(textUrl(), { credentials: "same-origin", cache: "no-store" });
+        if (!r.ok) throw new Error(`Ошибка ${r.status}${r.statusText ? " " + r.statusText : ""}`);
+        text = await r.text();
       } catch (err) {
-        btn.textContent = "Ошибка: текст не получен";
-        setTimeout(() => { btn.textContent = was; }, 2500);
+        console.error("«Для Claude»: текст не получен", err);
+        done(`${err && err.message ? err.message : "Ошибка сети"}: текст не получен`, 4000);
+        showLink(String(err && err.message || err));
         return;
       }
     }
-    if (ok) btn.textContent = "✓ Скопировано";
-    else { btn.textContent = was; showText(text); return; }
-    setTimeout(() => { btn.textContent = was; }, 1800);
+    if (await copyNow(text)) done("✓ Скопировано");
+    else { btn.textContent = was; showText(text); }
   });
 
   load(false);

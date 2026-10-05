@@ -69,6 +69,9 @@ function initMap() {
   pendingPositions = {};
 
   addTargetModeControl();
+  // v3.26: подписи машин при зуме и кластеры — после каждого сдвига / зума
+  map.addListener("idle", () => syncMapVisibility());
+  map.addListener("zoom_changed", () => syncTruckLabels());
   window.googleMapsReady = true;
   if (window.onGoogleMapsReady) window.onGoogleMapsReady();
   (window._gmQueue || []).forEach((fn) => fn());
@@ -83,14 +86,23 @@ const TARGET_MODE_TIP = {
   sel: "Таргеты только выбранной строки (клик по строке в таблице). Клик — выключить таргеты",
   off: "Таргеты скрыты, видны только машины. Клик — показать все",
 };
-let targetMode = "all";
-try { targetMode = localStorage.getItem("fleet-target-mode") || "all"; } catch (e) {}
-if (!TARGET_MODES[targetMode]) targetMode = "all";
+// v3.26 «Карта 2.0»: по умолчанию — «Выбранная»; у кого сохранено «Все» — один раз переключаем
+let targetMode = "sel";
+try {
+  if (localStorage.getItem("fleet-target-v326") !== "1") {
+    localStorage.setItem("fleet-target-mode", "sel");
+    localStorage.setItem("fleet-target-v326", "1");
+  }
+  targetMode = localStorage.getItem("fleet-target-mode") || "sel";
+} catch (e) {}
+if (!TARGET_MODES[targetMode]) targetMode = "sel";
 let selectedRowId = null;
 function targetVisible(key) {
+  const rid = String(key).split("_")[0];
+  if (rowFilteredOut(rid)) return false;      // v3.26: строка спрятана фильтром — и её цели не рисуем
   if (targetMode === "all") return true;
   if (targetMode === "off") return false;
-  return selectedRowId != null && String(key).split("_")[0] === String(selectedRowId);
+  return selectedRowId != null && rid === String(selectedRowId);
 }
 // only — ключ строки: пересчитать только её флажки (после расчёта строки)
 function applyTargetVisibility(only) {
@@ -223,39 +235,179 @@ function updateMarker(rowId, lat, lng, label, status, heading, km, trailer) {
   lastTruckPos[rowId] = { lat, lng, heading };
 
   const pos = { lat, lng };
-  const icon = markerIcon(status, trailer);
+  truckStatus[rowId] = status;
+  truckHeading[rowId] = heading;
+  truckTrailer[rowId] = !!trailer;
+  const icon = truckIcon(rowId);
   if (markers[rowId]) {
     markers[rowId].setPosition(pos);
     markers[rowId].setIcon(icon);
     markers[rowId].setTitle(label || "");
   } else {
+    // v3.26: машинка — кружок без подписи; номер + км — при наведении, у выбранной строки и при зуме
     markers[rowId] = new google.maps.Marker({ position: pos, map: map, icon: icon, title: label, zIndex: 20 });
-    markers[rowId].addListener("click", () => { map.panTo(markers[rowId].getPosition()); map.setZoom(9); });
+    markers[rowId].addListener("click", () => selectFromMap(rowId));
+    markers[rowId].addListener("mouseover", () => { hoverRowId = String(rowId); syncTruckLabels(); });
+    markers[rowId].addListener("mouseout", () => { if (hoverRowId === String(rowId)) hoverRowId = null; syncTruckLabels(); });
   }
   const cls = `mk-badge ${status === "driving" ? "mk-driving" : "mk-standing"}${trailer ? " mk-trailer" : ""}`;
   const html = truckBadgeHtml(label, status, heading, km);
   if (truckBadges[rowId]) truckBadges[rowId].update(new google.maps.LatLng(lat, lng), html, cls);
-  else truckBadges[rowId] = makeBadge(lat, lng, html, cls, 11, () => { map.panTo(pos); map.setZoom(9); });
-  truckStatus[rowId] = status;
+  else truckBadges[rowId] = makeBadge(lat, lng, html, cls, 14, () => selectFromMap(rowId));
   applyBadgeLook(rowId);
+  scheduleMapSync();
 }
 
-// v3.11: плашка машины — фон цвета диспетчера, рамка темнее, слева полоска статуса (едет/стоит);
-// при фильтре диспетчера чужие машины бледные
+// v3.11: плашка машины — фон цвета диспетчера, рамка темнее, слева полоска статуса (едет/стоит)
+// v3.26: чужие при фильтре не бледные, а спрятаны (syncMapVisibility); кружок машины — в цвет диспетчера
 const truckStatus = {};
-function applyBadgeLook(rowId) {
-  const b = truckBadges[rowId];
-  if (!b || !b.setLook) return;
+const truckHeading = {};
+const truckTrailer = {};
+function dispColorOf(rowId) {
   const row = rows.find((r) => String(r.id) === String(rowId));
   const e = row ? dispEntry(rowDisp(row)) : null;
-  const pale = !!(row && !rowPassesOwn(row));
-  const bg = e && e.color ? e.color : "";
-  const st = truckStatus[rowId] === "driving" ? "#1D9E75" : "#E24B4A";
-  b.setLook({ bg, bd: bg ? (shadeHex(bg, 0.42) || "#999") : "", st, pale });
-  if (markers[rowId]) markers[rowId].setOpacity(pale ? 0.35 : 1);
+  return e && e.color ? e.color : "";
+}
+function applyBadgeLook(rowId) {
+  const b = truckBadges[rowId];
+  if (b && b.setLook) {
+    const bg = dispColorOf(rowId);
+    const st = truckStatus[rowId] === "driving" ? "#1D9E75" : "#E24B4A";
+    b.setLook({ bg, bd: bg ? (shadeHex(bg, 0.42) || "#999") : "", st, pale: false });
+  }
+  if (markers[rowId]) markers[rowId].setIcon(truckIcon(rowId));
 }
 function refreshBadgeLooks() {
   Object.keys(truckBadges).forEach((id) => applyBadgeLook(id));
+  scheduleMapSync();
+}
+// v3.26: кружок машины — заливка цветом диспетчера (без диспетчера — серый), обводка — статус
+// (едет — зелёная, стоит — красная), тонкий тёмный контур (белый цвет AA тоже виден), у едущей — стрелка курса;
+// прицеп — квадратик. Дизайн — потом, сейчас механика.
+function truckIcon(rowId) {
+  const fill = dispColorOf(rowId) || "#c9ced6";
+  const st = truckStatus[rowId] === "driving" ? "#1D9E75" : "#E24B4A";
+  const hd = truckHeading[rowId];
+  const arrow = truckStatus[rowId] === "driving" && hd != null
+    ? `<path d="M12 0.5 L15.6 6 L8.4 6 Z" fill="${st}" stroke="#fff" stroke-width="0.8" transform="rotate(${Math.round(hd)} 12 12)"/>` : "";
+  const shape = truckTrailer[rowId]
+    ? `<rect x="6" y="6" width="12" height="12" rx="2" fill="${fill}" stroke="${st}" stroke-width="2.6"/>
+       <rect x="4.6" y="4.6" width="14.8" height="14.8" rx="3" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="1"/>`
+    : `<circle cx="12" cy="12" r="6.2" fill="${fill}" stroke="${st}" stroke-width="2.6"/>
+       <circle cx="12" cy="12" r="7.9" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="1"/>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">${arrow}${shape}</svg>`;
+  return {
+    url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+    scaledSize: new google.maps.Size(24, 24),
+    anchor: new google.maps.Point(12, 12),
+  };
+}
+
+// ---------- v3.26 «Карта 2.0»: что видно на карте ----------
+// Спрятано фильтром (диспетчер, L/O) — машинки и цели не рисуем. Прицеп (строка-прицеп и привязанный
+// к тягачу) — только у выбранной строки. Подпись (номер + км) — при наведении, у выбранной строки и при зуме
+// от LABEL_ZOOM. При отдалении (зум меньше CLUSTER_MAX_ZOOM) близкие машинки — кластер с цифрой.
+const LABEL_ZOOM = 9;
+const CLUSTER_MAX_ZOOM = 9;
+const CLUSTER_PX = 34;
+let hoverRowId = null;
+let clusteredIds = new Set();
+let clusterOverlays = [];
+function rowFilteredOut(rowId) {
+  const row = rows.find((r) => String(r.id) === String(rowId));
+  return !!(row && typeof rowPassesFilter === "function" && !rowPassesFilter(row));
+}
+function isSelected(rowId) { return selectedRowId != null && String(rowId) === String(selectedRowId); }
+function truckHidden(rowId) {
+  if (rowFilteredOut(rowId)) return true;
+  return !!truckTrailer[rowId] && !isSelected(rowId);
+}
+function truckLabelVisible(rowId) {
+  if (!map || truckHidden(rowId) || clusteredIds.has(String(rowId))) return false;
+  return isSelected(rowId) || hoverRowId === String(rowId) || (map.getZoom() || 0) >= LABEL_ZOOM;
+}
+function syncTruckLabels() {
+  if (!map) return;
+  Object.keys(truckBadges).forEach((id) => {
+    const b = truckBadges[id];
+    const want = truckLabelVisible(id) ? map : null;
+    if (b && b.getMap() !== want) b.setMap(want);
+  });
+}
+function worldPx(lat, lng, zoom) {
+  const scale = 256 * Math.pow(2, zoom);
+  const s = Math.min(Math.max(Math.sin((lat * Math.PI) / 180), -0.9999), 0.9999);
+  return { x: ((lng + 180) / 360) * scale, y: (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * scale };
+}
+function recluster() {
+  clusterOverlays.forEach((o) => o.setMap(null));
+  clusterOverlays = [];
+  clusteredIds = new Set();
+  if (!map) return;
+  const zoom = map.getZoom() || 0;
+  if (zoom >= CLUSTER_MAX_ZOOM) return;
+  const pts = Object.keys(markers)
+    .filter((id) => !truckHidden(id) && !isSelected(id))
+    .map((id) => { const p = markers[id].getPosition(); return { id, lat: p.lat(), lng: p.lng(), ...worldPx(p.lat(), p.lng(), zoom) }; });
+  const used = new Set();
+  pts.forEach((a) => {
+    if (used.has(a.id)) return;
+    const group = pts.filter((b) => !used.has(b.id) && Math.hypot(a.x - b.x, a.y - b.y) <= CLUSTER_PX);
+    if (group.length < 2) return;
+    group.forEach((g) => { used.add(g.id); clusteredIds.add(String(g.id)); });
+    const lat = group.reduce((t, g) => t + g.lat, 0) / group.length;
+    const lng = group.reduce((t, g) => t + g.lng, 0) / group.length;
+    const o = makeBadge(lat, lng, `<span title="Машин рядом: ${group.length}. Клик — приблизить">${group.length}</span>`, "mk-cluster", 0, () => {
+      const bounds = new google.maps.LatLngBounds();
+      group.forEach((g) => bounds.extend({ lat: g.lat, lng: g.lng }));
+      const ne = bounds.getNorthEast(), sw = bounds.getSouthWest();
+      if (Math.abs(ne.lat() - sw.lat()) < 0.01 && Math.abs(ne.lng() - sw.lng()) < 0.01) {
+        map.panTo(bounds.getCenter());
+        map.setZoom(Math.min(zoom + 3, 14));
+      } else map.fitBounds(bounds, 60);
+    });
+    clusterOverlays.push(o);
+  });
+}
+function syncMapVisibility() {
+  if (!map) return;
+  recluster();
+  Object.keys(markers).forEach((id) => {
+    const want = !truckHidden(id) && !clusteredIds.has(String(id));
+    if (markers[id].getVisible() !== want) markers[id].setVisible(want);
+  });
+  Object.keys(trailerLinks).forEach((id) => {
+    const t = trailerLinks[id];
+    const want = isSelected(id) && !rowFilteredOut(id) ? map : null;
+    [t.marker, t.badge, t.line].forEach((o) => { if (o && o.getMap() !== want) o.setMap(want); });
+  });
+  syncTruckLabels();
+  applyTargetVisibility();
+}
+window.fleetMapSync = syncMapVisibility;
+let mapSyncTimer = null;
+function scheduleMapSync() {
+  if (mapSyncTimer) return;
+  mapSyncTimer = setTimeout(() => { mapSyncTimer = null; syncMapVisibility(); }, 50);
+}
+// v3.26: выбранная строка — отметка в таблице
+function markSelectedRow() {
+  document.querySelectorAll("#fleet-tbody tr.row-sel").forEach((tr) => tr.classList.remove("row-sel"));
+  if (selectedRowId == null) return;
+  const tr = document.querySelector(`#fleet-tbody tr[data-id="${selectedRowId}"]`);
+  if (tr) tr.classList.add("row-sel");
+}
+// v3.26: клик по машинке на карте — выбрать строку, подсветить и прокрутить к ней (на телефоне — только маршрут)
+function selectFromMap(rowId) {
+  drawRoute(Number(rowId));
+  if (document.body.classList.contains("m-map-open")) return;
+  const tr = document.querySelector(`#fleet-tbody tr[data-id="${rowId}"]`);
+  if (!tr) return;
+  tr.classList.remove("row-flash");
+  void tr.offsetWidth;
+  tr.classList.add("row-flash");
+  setTimeout(() => tr.classList.remove("row-flash"), 1700);
+  tr.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
 function markerIcon(status, trailer) {
@@ -288,7 +440,11 @@ function removeMarker(rowId) {
     delete truckBadges[rowId];
   }
   delete lastTruckPos[rowId];
+  delete truckStatus[rowId];
+  delete truckHeading[rowId];
+  delete truckTrailer[rowId];
   removeTrailerLink(rowId);
+  scheduleMapSync();
 }
 
 // v1.71: привязанный прицеп на карте — только если он дальше 1 км: квадратик + пунктир до тягача
@@ -307,12 +463,13 @@ function updateTrailerLink(rowId, tLat, tLng, lt) {
   const pos = { lat: lt.lat, lng: lt.lng };
   const marker = new google.maps.Marker({ position: pos, map, icon: markerIcon(lt.status, true), title: lt.number, zIndex: 19 });
   const cls = `mk-badge ${lt.status === "driving" ? "mk-driving" : "mk-standing"} mk-trailer`;
-  const badge = makeBadge(lt.lat, lt.lng, escapeHtml(lt.number), cls, 11, () => { map.panTo(pos); map.setZoom(9); });
+  const badge = makeBadge(lt.lat, lt.lng, escapeHtml(lt.number), cls, 11, () => selectFromMap(rowId));
   const line = new google.maps.Polyline({
     path: [{ lat: tLat, lng: tLng }, pos], map, strokeOpacity: 0, zIndex: 5,
     icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.8, strokeColor: "#7b4fc0", scale: 3 }, offset: "0", repeat: "12px" }],
   });
   trailerLinks[rowId] = { marker, badge, line };
+  scheduleMapSync();     // v3.26: привязанный прицеп — только у выбранной строки
 }
 
 function centerMapOn(rowId) {
@@ -454,7 +611,8 @@ let routeExtraLines = [];
 function drawRoute(rowId) {
   const pos = rowPositions[rowId];
   selectedRowId = rowId;           // v1.75: для режима таргетов "Выбранная"
-  applyTargetVisibility();
+  markSelectedRow();               // v3.26: строка отмечена, её машинка — с подписью и вне кластера
+  syncMapVisibility();
 
   if (routePolyline) {
     routePolyline.setMap(null);
@@ -694,7 +852,7 @@ function orderedRows() {
 
 // ---------- v1.78: фильтр L/O во Флоте ----------
 // v3.10: строка — по L/O первой НЕПРОЙДЕННОЙ точки; если у неё нет отметки — по следующей;
-// иначе только в "Все". Пустые строки (без машины) видны всегда. Карту фильтр не трогает.
+// иначе только в "Все". Пустые строки (без машины) видны всегда. v3.26: и на карте — спрятанные строки без машинок и целей.
 // Тот же признак — полоска строки и сортировка L → O / O → L.
 let loFilter = "all";
 try { loFilter = localStorage.getItem("fleet-lo-filter") || "all"; } catch (e) {}
@@ -743,7 +901,7 @@ try { ownFilter = localStorage.getItem("fleet-own-filter") || "all"; } catch (e)
 if (!["all", "mine"].includes(ownFilter) && !String(ownFilter).includes("@")) ownFilter = "all";
 // v3.11: фильтр диспетчера — "all" | "mine" | e-mail. Строки без диспетчера — только в "все".
 // v3.25: кнопки «Все · VL · VJ …» вместо «все · мои · ▾ дисп»; старое "mine" — своя кнопка (resolveMine).
-// Тот же фильтр — для карты: чужие машины бледные.
+// Тот же фильтр — для карты: v3.26 — чужие машинки спрятаны (раньше бледные).
 function rowPassesOwn(row) {
   if (ownFilter === "all") return true;
   const d = rowDisp(row);
@@ -2719,7 +2877,7 @@ function moveManual(id, dir) {
   fillDispSelects();
   // после каждой перерисовки строк — обновить подпись «свернуть / развернуть все»
   const origRender = renderRows;
-  renderRows = function () { origRender.apply(this, arguments); mark(); emptyOwnRow(); applyMyDispLook(); };
+  renderRows = function () { origRender.apply(this, arguments); mark(); emptyOwnRow(); applyMyDispLook(); markSelectedRow(); scheduleMapSync(); };
   mark();
 })();
 

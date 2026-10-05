@@ -130,7 +130,12 @@ def api_google_usage_log():
         if err:
             text += f"\n\nСчёт Google недоступен: {err}"
         return text, 200, {"Content-Type": "text/plain; charset=utf-8"}
-    return jsonify({"days": days, "today": days[0]["day"], "google_error": err})
+    # v3.26: тексты «Для Claude» — сразу в ответе (по суткам с данными): кнопка копирует без своего запроса
+    tail = f"\n\nСчёт Google недоступен: {err}" if err else ""
+    texts = {d["day"]: log_text(days, d["day"]) + tail for d in days if d["c"] or d["h"] or d["g"]}
+    if days[0]["day"] not in texts:
+        texts[days[0]["day"]] = log_text(days, days[0]["day"]) + tail
+    return jsonify({"days": days, "today": days[0]["day"], "google_error": err, "texts": texts})
 
 
 CHANGELOG_PATH = os.path.join(ROOT_DIR, "CHANGELOG.md")

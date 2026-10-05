@@ -13,7 +13,7 @@ from fetat.domain.points import (
     resolve_fleet_target, STATUS_RU, target_badge_info,
 )
 from fetat.domain.regions import nearest_region_code
-from fetat.domain.routing_rules import fleet_waypoints
+from fetat.services.corridors import fleet_waypoints_resolved as fleet_waypoints   # v3.26: + выбор коридора
 from fetat.domain.tacho import TACHO_SPEED_KMH, calc_eta, crew_mode, tacho_eta, tacho_summary, week_left_info
 from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM
 from fetat.utils.geo import haversine_km

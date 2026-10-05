@@ -12,7 +12,7 @@ LOG_DAYS = 14
 
 WHY = {"edit": "правка строки", "all": "«Обновить всё» / загрузка", "auto": "автообновление",
        "sync": "чужие правки", "route": "From → To", "other": "прочее"}
-KIND = {"truck": "машина → точка", "leg": "точка → точка", "multi": "From → To"}
+KIND = {"truck": "машина → точка", "leg": "точка → точка", "multi": "From → To", "corridor": "выбор коридора"}
 
 
 def day_start_utc(day):
