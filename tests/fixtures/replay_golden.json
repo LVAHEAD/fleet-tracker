@@ -871,7 +871,7 @@
   200,
   "application/json",
   {
-   "include=['reefer', 'temperature', 'fuel', 'in_object', 'driver', 'device', 'can']": {
+   "include=['reefer', 'temperature', 'fuel', 'in_object', 'driver', 'device', 'can', 'weights']": {
     "label": "OI-1778",
     "last_update": "2026-10-07T05:59:00Z",
     "lat": 45.4,
