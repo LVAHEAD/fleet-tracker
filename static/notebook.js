@@ -595,6 +595,7 @@ const Notebook = (() => {
     tab.classList.add("open");
     document.body.classList.add("nb-open");                         // v3.26: открыта одна панель — карта закрывается
     if (window.fleetMapPanel) window.fleetMapPanel.close();
+    if (window.etaCalc) window.etaCalc.close();                     // v3.28
     panel.setAttribute("aria-hidden", "false");
     $(".nb-where").innerHTML = whereOptions(currentWhere());
     loadList();

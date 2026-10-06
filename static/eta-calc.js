@@ -1,0 +1,390 @@
+/*
+Fleet ETA Tracker — ⏱ ETA-калькулятор (v3.28): утилита «что если» без машины, панель справа (язычок под 📓).
+Открыта одна панель за раз (карта 🗺, Блокнот 📓 или калькулятор); ширина тянется за левый край и запоминается
+(localStorage "eta-calc-w"); Esc — закрыть. На телефоне (до 768 px) язычка нет.
+Считает всё в браузере, к серверу и Google не ходит. Макет согласован в песочнице 05–06.10 (BACKLOG.md).
+
+Правила расчёта:
+  - скорость 70 км/ч; ETD и ETA — вверх до 15 мин;
+  - экипаж: до 18 ч вождения в сутки без перерывов, суточный отдых всегда 9 ч;
+  - соло: 9 ч вождения в сутки, через 4:30 — перерыв 45 мин, отдых 9 ч (пока остались сокращения) или 11 ч;
+  - отдых — чистые 9 / 11 ч, без запаса: запас диспетчер добавляет сам, растягивая отдых на шкале;
+  - 9-ка, растянутая до 11 ч и больше, — обычный отдых, сокращение не тратится;
+  - отдых от 24 ч — недельный сокращённый, от 45 ч — недельный; после него неделя и сокращения — заново;
+  - недельный остаток соло (56 ч) — только отметка на шкале, ETA не сдвигаем;
+  - продления до 10 ч у соло не учитываем.
+*/
+const EtaCalc = (() => {
+  const SPEED = 70, WEEK = 56, BREAK_AFTER = 4.5, BREAK = 0.75;
+  const W_KEY = "eta-calc-w", MIN_W = 380, DEF_W = 460;
+
+  // ---------- форматы ----------
+  const p2 = (n) => String(n).padStart(2, "0");
+  const fd = (d) => p2(d.getDate()) + "/" + p2(d.getMonth() + 1);
+  const ft = (d) => p2(d.getHours()) + ":" + p2(d.getMinutes());
+  const fdt = (d) => fd(d) + " " + ft(d);
+  const hm = (h) => { const m = Math.round(h * 60); return Math.floor(m / 60) + " ч" + (m % 60 ? " " + p2(m % 60) + " мин" : ""); };
+  const hmm = (h) => { const m = Math.round(h * 60); return Math.floor(m / 60) + ":" + p2(m % 60); };
+  const km = (v) => Math.round(v).toLocaleString("ru-RU") + " км";
+  const up15 = (ms) => { const q = 15 * 60e3; return Math.ceil(ms / q) * q; };
+  const WD = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+  function nextMonday(ms) {
+    const x = new Date(ms); x.setHours(0, 0, 0, 0);
+    x.setDate(x.getDate() + ((8 - x.getDay()) % 7 || 7));
+    return x.getTime();
+  }
+  function restKind(e) {
+    if (e.k !== "r") return "";
+    const h = e.t1 - e.t0;
+    return h >= 45 ? "недельный" : h >= 24 ? "недельный сокр." : e.short ? "сокр." : "";
+  }
+
+  /*
+  Расчёт рейса. p: { dist, shiftH, leftH, team, rest (9 | 11), shorts (1–3), wkLeft (ч, соло),
+                     extras {№ отдыха: +ч}, shifts {№ отдыха: на сколько ч вождения встать раньше}, nowMs }.
+  Время внутри — часы от ETD. Возвращает события ev [{k: d | b | r, t0, t1, km0, km1, ...}], etd, eta (мс),
+  wk — где кончается недельный остаток (соло) или null.
+  */
+  function simulate(p) {
+    const team = !!p.team, m = team ? 18 : 9;
+    const etd = up15(p.nowMs) + Math.max(0, p.shiftH || 0) * 3600e3;
+    const at = (h) => etd + h * 3600e3;
+    const extras = p.extras || {}, shifts = p.shifts || {};
+    const wkLeft = team ? Infinity : Math.max(0, p.wkLeft == null ? WEEK : p.wkLeft);
+    const cut = {};
+    const allow = (base, i) => { cut[i] = Math.min(shifts[i] || 0, base); return base - cut[i]; };
+    let t = 0, kmLeft = Math.max(0, p.dist || 0), kmDone = 0, since = 0, sl = p.shorts || 0;
+    let day = allow(Math.min(Math.max(0, p.leftH || 0), m), 0);
+    let monday = nextMonday(etd), weekCap = wkLeft, weekDriven = 0, wk = null, guard = 0;
+    const ev = [];
+    if (!team && wkLeft <= 0) wk = { t: 0, km: 0 };
+    while (kmLeft > 0.01 && guard++ < 500) {
+      const can = team ? day : Math.min(day, BREAK_AFTER - since);
+      if (can <= 1e-6) {
+        if (!team && since >= BREAK_AFTER - 1e-6 && day > 1e-6) {           // перерыв 45 мин
+          ev.push({ k: "b", t0: t, t1: t + BREAK, km0: kmDone, km1: kmDone });
+          t += BREAK; since = 0; continue;
+        }
+        const i = ev.filter((x) => x.k === "r").length;                  // суточный отдых
+        const want9 = !team && p.rest === 9 && sl > 0;
+        const len = (team || want9 ? 9 : 11) + (extras[i] || 0);
+        const short = want9 && len < 11;
+        if (short) sl--;
+        ev.push({ k: "r", t0: t, t1: t + len, km0: kmDone, km1: kmDone, i, short, extra: extras[i] || 0, shift: cut[i] || 0 });
+        t += len; since = 0; day = allow(m, i + 1);
+        if (len >= 24) {                                                  // недельный — неделя заново
+          sl = 3;
+          if (!wk) { weekDriven = 0; weekCap = WEEK; monday = nextMonday(at(t)); }
+        }
+        continue;
+      }
+      const d = Math.min(can, kmLeft / SPEED);
+      if (!wk && !team) {
+        const room = weekCap - weekDriven;
+        if (d >= room - 1e-9 && at(t + room) < monday) wk = { t: t + room, km: kmDone + room * SPEED };
+      }
+      const last = ev[ev.length - 1];
+      if (last && last.k === "d") { last.t1 += d; last.km1 += d * SPEED; }
+      else ev.push({ k: "d", t0: t, t1: t + d, km0: kmDone, km1: kmDone + d * SPEED });
+      if (at(t) < monday) weekDriven += Math.min(d, Math.max(0, (monday - at(t)) / 3600e3));
+      t += d; kmLeft -= d * SPEED; kmDone += d * SPEED; day -= d; since += d;
+    }
+    return { dist: Math.max(0, p.dist || 0), ev, etd, eta: up15(at(t)), at, drive: Math.max(0, p.dist || 0) / SPEED,
+             wk: wk ? { ms: at(wk.t), km: wk.km } : null, wkLeft };
+  }
+
+  // ---------- панель ----------
+  const st = { team: true, rest: 9, shorts: 3, extras: {}, shifts: {}, drag: null };
+  let panel = null, tab = null, S = null;
+  const $ = (sel) => panel.querySelector(sel);
+  const ICO = {
+    drive: '<svg class="ec-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/><path d="M3.4 10.5 9.6 11.4M20.6 10.5 14.4 11.4M12 14.6V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>',
+    rest: '<svg class="ec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6v13M21 13v6M3 16h18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="3" y="11.5" width="18" height="4.5" fill="currentColor"/><circle cx="6.6" cy="9.6" r="1.9" fill="currentColor"/></svg>',
+  };
+
+  function build() {
+    panel = document.createElement("aside");
+    panel.className = "ec-panel";
+    panel.id = "eta-calc";
+    panel.setAttribute("aria-hidden", "true");
+    panel.innerHTML = `
+      <div class="ec-resize" title="Потянуть — шире / уже (ширина запоминается)"></div>
+      <div class="ec-head"><span>⏱ ETA-калькулятор</span><button type="button" class="ec-x" title="Закрыть (Esc)">×</button></div>
+      <div class="ec-body">
+        <div class="ec-sec"><div class="ec-lb"><span>Расстояние, км</span><span>70 … 5000</span></div>
+          <div class="ec-ln"><input type="number" id="ec-km-n" min="70" step="10" value="1500"><input type="range" id="ec-km-r" min="70" max="5000" step="10" value="1500"></div></div>
+        <div class="ec-sec"><div class="ec-lb"><span>Сдвиг выезда, ч</span><span class="ec-now"></span></div>
+          <div class="ec-ln"><input type="number" id="ec-sh-n" min="0" step="0.5" value="0"><input type="range" id="ec-sh-r" min="0" max="72" step="0.5" value="0"></div></div>
+        <div class="ec-sec"><div class="ec-lb"><span>Остаток вождения на момент выезда, ч</span><span class="ec-lmax"></span></div>
+          <div class="ec-ln"><input type="number" id="ec-lf-n" min="0" max="18" step="0.25" value="18"><input type="range" id="ec-lf-r" min="0" max="18" step="0.25" value="18"></div></div>
+        <div class="ec-sec ec-g2">
+          <span class="ec-lb">Состав</span>
+          <div class="ec-rl"><span class="ec-seg ec-team"><button type="button" data-v="1" class="on">Экипаж</button><button type="button" data-v="0">Соло</button></span>
+            <span class="ec-wk" hidden>неделя осталось, ч <input type="number" id="ec-wk-n" min="0" max="56" step="0.5" value="56"> <span class="ec-mut">из 56</span></span></div>
+          <span class="ec-lb">Отдых</span><div class="ec-rest"></div>
+        </div>
+        <div class="ec-sec">
+          <div class="ec-res">
+            <div><span class="ec-k">ETD</span><b class="ec-etd"></b></div><i></i>
+            <div><span class="ec-k">В пути</span><b class="ec-dur"></b> <span class="ec-drv"></span></div><i></i>
+            <div><span class="ec-k">ETA</span><b class="ec-eta"></b></div>
+          </div>
+          <div class="ec-acts"><button type="button" class="ec-copy">📋 Копировать</button><span class="ec-mut">70 км/ч · отдых чистый 9 / 11 ч · ETD и ETA вверх до 15 мин</span></div>
+        </div>
+        <div class="ec-sec">
+          <div class="ec-h">Шкала <a href="#" class="ec-rst">сбросить отдыхи</a></div>
+          <p class="ec-note">Правый край отдыха — длиннее (шаг 15 мин), левый — весь отдых раньше. Двойной клик по ручке — вернуть.</p>
+          <div class="ec-strip"></div>
+          <div class="ec-days"></div>
+          <div class="ec-wnote"></div>
+          <div class="ec-legend"><span><i class="d"></i>езда</span><span><i class="b"></i>перерыв 45 мин</span><span><i class="r"></i>суточный отдых</span><span><i class="w"></i>недельный остаток кончился</span></div>
+        </div>
+      </div>`;
+    document.body.appendChild(panel);
+
+    let w = DEF_W;
+    try { w = Number(localStorage.getItem(W_KEY)) || DEF_W; } catch (e) { /* ignore */ }
+    setWidth(w);
+
+    $(".ec-x").addEventListener("click", close);
+    pair("km"); pair("sh"); pair("lf", clampLeft);
+    $("#ec-wk-n").addEventListener("input", () => { const v = Number($("#ec-wk-n").value); if (v > 56) $("#ec-wk-n").value = 56; if (v < 0) $("#ec-wk-n").value = 0; calc(); });
+    panel.querySelectorAll(".ec-team button").forEach((b) => b.addEventListener("click", () => {
+      st.team = b.dataset.v === "1"; st.extras = {}; st.shifts = {};
+      panel.querySelectorAll(".ec-team button").forEach((x) => x.classList.toggle("on", x === b));
+      clampLeft(); restUI(); calc();
+    }));
+    $(".ec-rst").addEventListener("click", (e) => { e.preventDefault(); st.extras = {}; st.shifts = {}; calc(); });
+    $(".ec-copy").addEventListener("click", copy);
+    bindStrip();
+    bindResize();
+    restUI();
+  }
+
+  function setWidth(w) {
+    const z = typeof uiZoom === "function" ? uiZoom() : 1;
+    const max = Math.round((window.innerWidth / z) * 0.85);
+    document.documentElement.style.setProperty("--calcw", Math.max(MIN_W, Math.min(max, Math.round(w))) + "px");
+  }
+  function bindResize() {
+    $(".ec-resize").addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      document.body.classList.add("ec-resizing");
+      const z = typeof uiZoom === "function" ? uiZoom() : 1;
+      const move = (ev) => setWidth((window.innerWidth - ev.clientX) / z);
+      const up = () => {
+        document.removeEventListener("mousemove", move);
+        document.removeEventListener("mouseup", up);
+        document.body.classList.remove("ec-resizing");
+        const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--calcw"), 10);
+        try { localStorage.setItem(W_KEY, String(cur)); } catch (err) { /* ignore */ }
+        calc();
+      };
+      document.addEventListener("mousemove", move);
+      document.addEventListener("mouseup", up);
+    });
+  }
+
+  // поле ввода + ползунок одного значения
+  function pair(key, clamp) {
+    const n = $("#ec-" + key + "-n"), r = $("#ec-" + key + "-r");
+    r.addEventListener("input", () => { n.value = r.value; calc(); });
+    n.addEventListener("input", () => {
+      if (clamp) clamp();
+      else { const v = Number(n.value); if (!isNaN(v)) r.value = Math.min(v, Number(r.max)); }
+      calc();
+    });
+  }
+  function clampLeft() {
+    const n = $("#ec-lf-n"), m = st.team ? 18 : 9;
+    let v = Number(n.value);
+    if (isNaN(v)) return;
+    if (v > m) { v = m; n.value = m; }
+    if (v < 0) { v = 0; n.value = 0; }
+    $("#ec-lf-r").value = v;
+  }
+  function restUI() {
+    const box = $(".ec-rest");
+    if (st.team) { box.innerHTML = '<span class="ec-mut2">всегда 9 ч</span>'; return; }
+    box.innerHTML = '<div class="ec-rl"><span class="ec-seg ec-sm ec-r911">' +
+      [9, 11].map((v) => `<button type="button" data-v="${v}" class="${st.rest === v ? "on" : ""}">${v} ч</button>`).join("") + "</span>" +
+      (st.rest === 9 ? '<span class="ec-mut2">9-к осталось</span><span class="ec-seg ec-sm ec-sh">' +
+        [1, 2, 3].map((v) => `<button type="button" data-v="${v}" class="${st.shorts === v ? "on" : ""}">${v}</button>`).join("") +
+        '</span><span class="ec-mut">→ 11 ч</span>' : "") + "</div>";
+    box.querySelectorAll(".ec-r911 button").forEach((b) => b.addEventListener("click", () => { st.rest = Number(b.dataset.v); restUI(); calc(); }));
+    box.querySelectorAll(".ec-sh button").forEach((b) => b.addEventListener("click", () => { st.shorts = Number(b.dataset.v); restUI(); calc(); }));
+  }
+
+  function params() {
+    return {
+      dist: Number($("#ec-km-n").value) || 0, shiftH: Number($("#ec-sh-n").value) || 0, leftH: Number($("#ec-lf-n").value) || 0,
+      team: st.team, rest: st.rest, shorts: st.shorts, wkLeft: Number($("#ec-wk-n").value),
+      extras: st.extras, shifts: st.shifts, nowMs: Date.now(),
+    };
+  }
+
+  function calc() {
+    if (!panel) return;
+    const m = st.team ? 18 : 9;
+    $("#ec-lf-r").max = m; $("#ec-lf-n").max = m;
+    $(".ec-lmax").textContent = "макс. " + m + " ч";
+    $(".ec-now").textContent = "сейчас " + fdt(new Date());
+    $(".ec-wk").hidden = st.team;
+    S = simulate(params());
+    $(".ec-etd").textContent = fdt(new Date(S.etd));
+    $(".ec-eta").textContent = fdt(new Date(S.eta));
+    $(".ec-dur").textContent = hm((S.eta - S.etd) / 3600e3);
+    $(".ec-drv").innerHTML = "(" + ICO.drive + " " + hmm(S.drive) + ")";
+    drawStrip();
+    drawDays();
+  }
+
+  // ---------- шкала рейса: полоса, кровати и км, полночь и даты, ручки отдыха ----------
+  const pos = (ms) => Math.max(0, Math.min(100, (ms - S.etd) / ((S.eta - S.etd) || 1) * 100));
+  function midnights() {
+    const a = [], d = new Date(S.etd); d.setHours(24, 0, 0, 0);
+    while (d.getTime() < S.eta) { a.push(d.getTime()); d.setDate(d.getDate() + 1); }
+    return a;
+  }
+  function span(e) {
+    const a = new Date(S.at(e.t0)), b = new Date(S.at(e.t1));
+    return fd(a) === fd(b) ? fd(a) + " " + ft(a) + "–" + ft(b) : fdt(a) + " – " + fdt(b);
+  }
+  function tip(e) {
+    const h = e.t1 - e.t0;
+    if (e.k === "d") return "Вождение " + span(e) + " · " + hmm(h) + " · " + Math.round(e.km0).toLocaleString("ru-RU") + " → " + km(e.km1);
+    if (e.k === "b") return "Перерыв " + span(e) + " · 0:45";
+    const kind = restKind(e);
+    return "Отдых " + span(e) + " · " + hmm(h) + (kind ? " · " + kind : "");
+  }
+  function drawStrip() {
+    const tot = (S.eta - S.etd) / 3600e3 || 1, rs = S.ev.filter((e) => e.k === "r"), mids = midnights(), dr = st.drag;
+    const bar = S.ev.map((e) => `<div class="${e.k}" title="${tip(e)}" style="width:${((e.t1 - e.t0) / tot * 100).toFixed(3)}%"></div>`).join("");
+    const pins = rs.map((e) => `<span class="ec-pin" style="left:${pos(S.at((e.t0 + e.t1) / 2))}%" title="${tip(e)}">${Math.round(e.km0)}${ICO.rest}</span>`).join("");
+    const lab = (e) => '<span class="ec-dlab">' + (dr.side === "l" ? "встаёт " + fdt(new Date(S.at(e.t0))) : hm(e.t1 - e.t0) + (restKind(e) ? " · " + restKind(e) : "")) + "</span>";
+    const hdls = rs.map((e) => {
+      const aL = dr && dr.i === e.i && dr.side === "l", aR = dr && dr.i === e.i && dr.side === "r";
+      return `<div class="ec-hdl l${aL ? " act" : ""}" tabindex="0" role="slider" aria-label="Начало отдыха ${e.i + 1}" aria-valuetext="${fdt(new Date(S.at(e.t0)))}" data-i="${e.i}" data-side="l" style="left:${pos(S.at(e.t0))}%">${aL ? lab(e) : ""}</div>` +
+             `<div class="ec-hdl${aR ? " act" : ""}" tabindex="0" role="slider" aria-label="Длина отдыха ${e.i + 1}" aria-valuetext="${hm(e.t1 - e.t0)}" data-i="${e.i}" data-side="r" style="left:${pos(S.at(e.t1))}%">${aR ? lab(e) : ""}</div>`;
+    }).join("");
+    $(".ec-strip").innerHTML =
+      `<div class="ec-above">${pins}</div><div class="ec-bar">${bar}</div>` +
+      `<div class="ec-ov">${mids.map((d) => `<div class="ec-mid" style="left:${pos(d)}%"></div>`).join("")}${S.wk ? `<div class="ec-wkl" style="left:${pos(S.wk.ms)}%"></div>` : ""}</div>` +
+      `<div class="ec-hs">${hdls}</div>` +
+      `<div class="ec-ticks">${mids.map((d) => `<div class="ec-tick" style="left:${pos(d)}%"><span>${fd(new Date(d))}</span></div>`).join("")}</div>`;
+    $(".ec-wnote").innerHTML = S.wk
+      ? `<div class="ec-warn">⚠ Недельный остаток ${hmm(S.wkLeft)} кончается ${fdt(new Date(S.wk.ms))} на ${km(S.wk.km)} — только отметка, ETA не сдвигаем.</div>` : "";
+  }
+
+  // ---------- расклад по дням: строка на сутки 00–24, вождение (км), остаток ----------
+  function drawDays() {
+    const rows = [], d = new Date(S.etd); d.setHours(0, 0, 0, 0);
+    let cum = 0;
+    for (; d.getTime() < S.eta; d.setDate(d.getDate() + 1)) {
+      const d0 = d.getTime(), n = new Date(d); n.setDate(n.getDate() + 1); const d1 = n.getTime(), len = d1 - d0;
+      let drv = 0, kmd = 0;
+      const segs = S.ev.map((e) => {
+        const a = S.at(e.t0), b = S.at(e.t1), s = Math.max(a, d0), f = Math.min(b, d1);
+        if (f <= s) return "";
+        if (e.k === "d") { drv += (f - s) / 3600e3; kmd += (f - s) / 3600e3 * SPEED; }
+        return `<i class="${e.k}" title="${tip(e)}" style="left:${((s - d0) / len * 100).toFixed(3)}%;width:${((f - s) / len * 100).toFixed(3)}%"></i>`;
+      }).join("");
+      const wk = S.wk && S.wk.ms >= d0 && S.wk.ms < d1 ? `<i class="w" title="Недельный остаток кончился ${ft(new Date(S.wk.ms))}" style="left:${((S.wk.ms - d0) / len * 100).toFixed(3)}%"></i>` : "";
+      cum += kmd;
+      rows.push(`<span class="ec-dl">${WD[d.getDay()]} ${fd(d)}</span><div class="ec-day">${[6, 12, 18].map((h) => `<span class="gl" style="left:${h / 24 * 100}%"></span>`).join("")}${segs}${wk}</div>` +
+        `<span class="ec-dv">${hmm(drv)} <span>(${km(kmd)})</span></span><span class="ec-dr">${S.eta <= d1 ? "🏁 " + ft(new Date(S.eta)) : km(Math.max(0, S.dist - cum))}</span>`);
+    }
+    const axis = Array.from({ length: 13 }, (_, k) => `<span style="left:${k * 2 / 24 * 100}%">${k * 2}</span>`).join("") +
+                 Array.from({ length: 25 }, (_, h) => `<i class="${h % 2 ? "" : "e"}" style="left:${h / 24 * 100}%"></i>`).join("");
+    $(".ec-days").innerHTML = `<div class="ec-dgrid"><span></span><div class="ec-hr">${axis}</div><span class="ec-dv">${ICO.drive} <span>(км)</span></span><span class="ec-dr">остаток</span>${rows.join("")}</div>`;
+  }
+
+  // ---------- ручки отдыха: правая — длина, левая — весь отдых раньше ----------
+  function bindStrip() {
+    const strip = $(".ec-strip");
+    strip.addEventListener("pointerdown", (e) => {
+      const h = e.target.closest(".ec-hdl");
+      if (!h) return;
+      e.preventDefault();
+      const i = Number(h.dataset.i), side = h.dataset.side, w = strip.getBoundingClientRect().width || 1;
+      st.drag = { i, side, x0: e.clientX, v0: (side === "l" ? st.shifts : st.extras)[i] || 0, hpp: (S.eta - S.etd) / 3600e3 / w };
+      strip.setPointerCapture(e.pointerId);
+      calc();
+    });
+    strip.addEventListener("pointermove", (e) => {
+      const dr = st.drag;
+      if (!dr) return;
+      const dh = (e.clientX - dr.x0) * dr.hpp, store = dr.side === "l" ? st.shifts : st.extras;
+      const v = Math.max(0, Math.round((dr.v0 + (dr.side === "l" ? -dh : dh)) * 4) / 4);
+      if (v !== (store[dr.i] || 0)) { store[dr.i] = v; calc(); }
+    });
+    const end = () => {
+      const dr = st.drag;
+      if (!dr) return;
+      if (dr.side === "l") {          // раньше начала дня не сдвинуть — запоминаем, сколько вышло на деле
+        const r = S.ev.find((x) => x.k === "r" && x.i === dr.i);
+        if (r) st.shifts[dr.i] = r.shift;
+      }
+      st.drag = null;
+      calc();
+    };
+    strip.addEventListener("pointerup", end);
+    strip.addEventListener("pointercancel", end);
+    strip.addEventListener("dblclick", (e) => {
+      const h = e.target.closest(".ec-hdl");
+      if (!h) return;
+      delete (h.dataset.side === "l" ? st.shifts : st.extras)[Number(h.dataset.i)];
+      calc();
+    });
+    strip.addEventListener("keydown", (e) => {
+      const h = e.target.closest(".ec-hdl");
+      if (!h || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
+      e.preventDefault();
+      const i = Number(h.dataset.i), side = h.dataset.side, store = side === "l" ? st.shifts : st.extras;
+      store[i] = Math.max(0, (store[i] || 0) + (e.key === "ArrowRight" ? 0.25 : -0.25) * (side === "l" ? -1 : 1));
+      calc();
+      const again = strip.querySelector(`.ec-hdl[data-i="${i}"][data-side="${side}"]`);
+      if (again) again.focus();
+    });
+  }
+
+  function copy() {
+    const text = `ETD ${fdt(new Date(S.etd))} | В пути ${hm((S.eta - S.etd) / 3600e3)} | ETA ${fdt(new Date(S.eta))} · ${km(S.dist)}`;
+    const btn = $(".ec-copy"), done = (ok) => { btn.textContent = ok ? "✓ Скопировано" : "Не вышло — выдели строку"; setTimeout(() => { btn.textContent = "📋 Копировать"; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => done(true), () => done(false));
+    else done(false);
+  }
+
+  // ---------- открыть / закрыть ----------
+  const isOpen = () => !!panel && panel.classList.contains("open");
+  function open() {
+    if (window.matchMedia("(max-width: 767px)").matches) return;
+    if (!panel) build();
+    if (typeof Notebook !== "undefined" && Notebook.close) Notebook.close();   // открыта одна панель за раз
+    if (window.fleetMapPanel) window.fleetMapPanel.close();
+    panel.classList.add("open");
+    panel.setAttribute("aria-hidden", "false");
+    document.body.classList.add("calc-open");
+    calc();
+  }
+  function close() {
+    if (!isOpen()) return;
+    panel.classList.remove("open");
+    panel.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("calc-open");
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    tab = document.getElementById("calc-tab");
+    if (!tab) return;
+    tab.addEventListener("click", (e) => { e.stopPropagation(); isOpen() ? close() : open(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && isOpen() && !st.drag) close(); });
+    window.addEventListener("resize", () => {
+      const w = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--calcw"), 10);
+      if (w) setWidth(w);
+    });
+  });
+
+  return { open, close, isOpen, simulate };
+})();
+window.etaCalc = EtaCalc;

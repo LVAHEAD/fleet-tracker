@@ -37,6 +37,7 @@ Fleet ETA Tracker — «Карта 2.0» (v3.26): карта Флота в вы�
   function open() {
     if (isMobile()) return;
     if (typeof Notebook !== "undefined" && Notebook.close) Notebook.close();
+    if (window.etaCalc) window.etaCalc.close();                     // v3.28: и ETA-калькулятор
     panel.classList.add("open");
     panel.setAttribute("aria-hidden", "false");
     body.classList.add("map-open");
