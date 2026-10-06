@@ -165,7 +165,7 @@ def api_mapon_units():
     q = re.sub(r"[^0-9a-zа-я]", "", str(request.args.get("unit") or "").lower())
     if q and request.args.get("raw") == "1":
         out = {}
-        for inc in (["reefer", "temperature", "fuel", "in_object", "driver", "device", "can"], []):
+        for inc in (["reefer", "temperature", "fuel", "in_object", "driver", "device", "can", "weights"], []):
             try:
                 params = {"key": MAPON_API_KEY}
                 if inc:
