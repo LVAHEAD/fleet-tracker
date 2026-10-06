@@ -196,6 +196,8 @@ const Notebook = (() => {
     panel.className = "nb-panel";
     panel.setAttribute("aria-hidden", "true");
     panel.innerHTML = `
+      <div class="nb-resize"></div>
+      <div class="w-label"></div>
       <div class="nb-head">
         <b>📓 Блокнот</b>
         <span class="nb-head-acts">
@@ -236,6 +238,13 @@ const Notebook = (() => {
 
   function wire() {
     $(".nb-x").addEventListener("click", close);
+    // v3.34: ширина тянется за левый край — одна на все боковые панели (sidePanelW в app.js; на /notebook его нет)
+    if (window.sidePanelW) {
+      $(".nb-resize").addEventListener("mousedown", (e) => window.sidePanelW.drag(e, "nb-resizing"));
+      window.sidePanelW.set(window.sidePanelW.get());
+    } else {
+      $(".nb-resize").remove();
+    }
     $(".nb-filter").addEventListener("change", loadList);
     $(".nb-save").addEventListener("click", save);
     $(".nb-title").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } });

@@ -1,7 +1,7 @@
 /*
 Fleet ETA Tracker — ⏱ ETA-калькулятор (v3.28): утилита «что если» без машины, панель справа (язычок под 📓).
 Открыта одна панель за раз (карта 🗺, Блокнот 📓 или калькулятор); ширина тянется за левый край и запоминается
-(localStorage "eta-calc-w"); Esc — закрыть. На телефоне (до 768 px) язычка нет.
+(v3.34: одна на все боковые панели — sidePanelW в app.js); Esc — закрыть. На телефоне (до 768 px) язычка нет.
 Считает всё в браузере, к серверу и Google не ходит. Макет согласован в песочнице 05–06.10 (BACKLOG.md).
 v3.31: открыт калькулятор — клик по строке Флота заполняет его данными машины (app.js → fromRow: км до первой
 непройденной точки, экипаж / соло, остаток вождения, сдвиг до конца отдыха, 9-ки и недельный остаток соло);
@@ -20,7 +20,6 @@ v3.31: открыт калькулятор — клик по строке Фло
 */
 const EtaCalc = (() => {
   const SPEED = 70, WEEK = 56, BREAK_AFTER = 4.5, BREAK = 0.75;
-  const W_KEY = "eta-calc-w", MIN_W = 380, DEF_W = 500;   // v3.31: общая ширина панелей
 
   // ---------- форматы ----------
   const p2 = (n) => String(n).padStart(2, "0");
@@ -186,10 +185,7 @@ const EtaCalc = (() => {
       </div>`;
     document.body.appendChild(panel);
 
-    let w = DEF_W;
-    if (typeof sideWidthReset === "function") sideWidthReset();
-    try { w = Number(localStorage.getItem(W_KEY)) || DEF_W; } catch (e) { /* ignore */ }
-    setWidth(w);
+    sidePanelW.set(sidePanelW.get());   // v3.34: ширина общая для всех боковых панелей
 
     $(".ec-x").addEventListener("click", close);
     // v3.31: правка руками — подпись «из строки» пропадает; км поменяли — линия строки больше не та
@@ -265,33 +261,9 @@ const EtaCalc = (() => {
   }
   const escH = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-  function setWidth(w) {
-    const z = typeof uiZoom === "function" ? uiZoom() : 1;
-    const max = Math.round((window.innerWidth / z) * 0.85);
-    const v = Math.max(MIN_W, Math.min(max, Math.round(w)));
-    document.documentElement.style.setProperty("--calcw", v + "px");
-    // v3.30: ширина на виду — подпись при перетаскивании и подсказка ручки
-    const h = $(".ec-resize"), lab = $(".w-label");
-    if (lab) lab.textContent = v + " px";
-    if (h) h.title = `Ширина ${v} px (по умолчанию ${DEF_W}) — потянуть шире / уже; шире ${DEF_W} — наползает на таблицу`;
-  }
+  // v3.34: ширина — одна на все боковые панели (sidePanelW в app.js)
   function bindResize() {
-    $(".ec-resize").addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      document.body.classList.add("ec-resizing");
-      const z = typeof uiZoom === "function" ? uiZoom() : 1;
-      const move = (ev) => setWidth((window.innerWidth - ev.clientX) / z);
-      const up = () => {
-        document.removeEventListener("mousemove", move);
-        document.removeEventListener("mouseup", up);
-        document.body.classList.remove("ec-resizing");
-        const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--calcw"), 10);
-        try { localStorage.setItem(W_KEY, String(cur)); } catch (err) { /* ignore */ }
-        calc();
-      };
-      document.addEventListener("mousemove", move);
-      document.addEventListener("mouseup", up);
-    });
+    $(".ec-resize").addEventListener("mousedown", (e) => sidePanelW.drag(e, "ec-resizing", calc));
   }
 
   // поле ввода + ползунок одного значения
@@ -627,10 +599,6 @@ const EtaCalc = (() => {
     if (!tab) return;
     tab.addEventListener("click", (e) => { e.stopPropagation(); isOpen() ? close() : open(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && isOpen() && !st.drag) close(); });
-    window.addEventListener("resize", () => {
-      const w = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--calcw"), 10);
-      if (w) setWidth(w);
-    });
   });
 
   // v3.32: «⏱ Послать в калькулятор» из From → To — открыть и залить

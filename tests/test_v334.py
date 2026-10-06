@@ -77,5 +77,31 @@ class ReeferLimitTest(unittest.TestCase):
             A.time_now_ts = saved
 
 
+
+def read(p):
+    import os
+    with open(os.path.join(os.path.dirname(__file__), "..", p), encoding="utf-8") as f:
+        return f.read()
+
+
+class SidePanelWidthTest(unittest.TestCase):
+    """v3.34: одна ширина всех боковых панелей; резерв таблицы прежний."""
+
+    def test_one_width(self):
+        js = read("static/app.js")
+        self.assertIn("window.sidePanelW", js)
+        self.assertIn('"side-w"', js)
+        for f in ("static/map-panel.js", "static/eta-calc.js", "static/notebook.js"):
+            self.assertIn("sidePanelW", read(f), f)
+        for f in ("static/style.css", "static/eta-calc.css", "static/notebook.css"):
+            css = read(f)
+            self.assertNotIn("--mapw", css, f)
+            self.assertNotIn("--calcw", css, f)
+        self.assertIn(".nb-resize", read("static/notebook.css"))
+
+    def test_table_reserve_unchanged(self):
+        self.assertIn("--side-res: var(--sidew)", read("static/style.css"))
+
+
 if __name__ == "__main__":
     unittest.main()

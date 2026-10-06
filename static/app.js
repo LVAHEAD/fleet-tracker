@@ -46,15 +46,44 @@ function uiZoom() {
   return z > 0 ? z : 1;
 }
 
-// v3.31: общая ширина боковых панелей 500 — сохранённые раньше ширины карты и калькулятора сбрасываем один раз
-function sideWidthReset() {
-  try {
-    if (localStorage.getItem("side-w-v331")) return;
-    localStorage.removeItem("fleet-map-w");
-    localStorage.removeItem("eta-calc-w");
-    localStorage.setItem("side-w-v331", "1");
-  } catch (e) { /* ignore */ }
-}
+// v3.34: одна ширина всех боковых панелей (🗺, 📓, ⏱): потянул одну — такими же стали остальные.
+// --sidepw — ширина панелей (помнит браузер, "side-w"); --sidew (500) — резерв, на который сужается таблица, не меняется.
+window.sidePanelW = (() => {
+  const KEY = "side-w", DEF = 500, MIN = 380;
+  const root = document.documentElement;
+  let cur = DEF;
+  const clamp = (w) => Math.max(MIN, Math.min(Math.round((window.innerWidth / uiZoom()) * 0.85), Math.round(w)));
+  function set(w) {
+    cur = clamp(w);
+    root.style.setProperty("--sidepw", cur + "px");
+    document.querySelectorAll(".w-label").forEach((l) => { l.textContent = cur + " px"; });
+    document.querySelectorAll(".map-resize, .ec-resize, .nb-resize").forEach((h) => {
+      h.title = `Ширина ${cur} px (по умолчанию ${DEF}, у всех панелей одна) — потянуть шире / уже; шире ${DEF} — наползает на таблицу`;
+    });
+    return cur;
+  }
+  function save() { try { localStorage.setItem(KEY, String(cur)); } catch (e) { /* ignore */ } }
+  // тянуть за левый край: bodyCls — класс на body на время (прячет переходы, показывает px), onEnd — после
+  function drag(e, bodyCls, onEnd) {
+    e.preventDefault();
+    document.body.classList.add(bodyCls);
+    const z = uiZoom();
+    const move = (ev) => set((window.innerWidth - ev.clientX) / z);
+    const up = () => {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+      document.body.classList.remove(bodyCls);
+      save();
+      if (onEnd) onEnd();
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  }
+  try { cur = Number(localStorage.getItem(KEY)) || DEF; } catch (e) { /* ignore */ }
+  set(cur);
+  window.addEventListener("resize", () => set(cur));
+  return { get: () => cur, set, save, drag, DEF };
+})();
 
 /* v3.32: левый край страницы не скачет при открытии боковой панели. Без панели страница по центру (большой экран)
    или от края (до 1500 px); перед открытием замеряем, где левый край, и держим его там (--side-ml, в px страницы

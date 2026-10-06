@@ -178,7 +178,7 @@ class MapPanelTest(unittest.TestCase):
     def test_one_panel_at_a_time(self):
         self.assertIn("window.fleetMapPanel.close()", self.read("static/notebook.js"))
         self.assertIn("Notebook.close()", self.read("static/map-panel.js"))
-        self.assertIn(".nb-tab.open { right: var(--sidew", self.read("static/notebook.css"))   # v3.31: общая ширина
+        self.assertIn(".nb-tab.open { right: var(--sidepw", self.read("static/notebook.css"))   # v3.34: одна ширина панелей
 
 
 if __name__ == "__main__":

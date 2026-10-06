@@ -39,7 +39,7 @@ class EtaCalcWiringTest(unittest.TestCase):
     def test_tab_under_notebook(self):
         css = read("static/eta-calc.css")
         self.assertIn("top: calc(50% + 52px)", css)
-        self.assertIn("body.calc-open .nb-tab, body.calc-open .map-tab { right: var(--calcw", css)
+        self.assertIn("body.calc-open .nb-tab, body.calc-open .map-tab { right: var(--sidepw", css)   # v3.34
 
 
 @unittest.skipUnless(shutil.which("node"), "нет node — расчёт калькулятора не проверить")

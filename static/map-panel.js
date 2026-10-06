@@ -1,7 +1,7 @@
 /*
 Fleet ETA Tracker — «Карта 2.0» (v3.26): карта Флота в выезжающей панели справа.
 Язычок 🗺 над 📓; открыта одна панель за раз (карта или Блокнот); ширина тянется за левый край
-и запоминается (localStorage "fleet-map-w"), открыта / закрыта — тоже ("fleet-map-open"); Esc — закрыть.
+(v3.34: одна на все боковые панели — sidePanelW в app.js), открыта / закрыта — помнит ("fleet-map-open"); Esc — закрыть.
 ⛶ на весь экран — кнопка самой карты Google. На телефоне (до 768 px) панели нет: карта во весь экран по 🗺, как раньше.
 Карта создаётся при загрузке страницы (initMap в app.js) и в закрытой панели: по ней же оживают From → To и Локатор.
 */
@@ -10,30 +10,16 @@ Fleet ETA Tracker — «Карта 2.0» (v3.26): карта Флота в вы�
   const tab = document.getElementById("map-tab");
   if (!panel || !tab) return;
   const body = document.body;
-  const W_KEY = "fleet-map-w", OPEN_KEY = "fleet-map-open";
-  const MIN_W = 320;
+  const OPEN_KEY = "fleet-map-open";
   const isMobile = () => window.matchMedia("(max-width: 767px)").matches;
-  const zoom = () => (typeof uiZoom === "function" ? uiZoom() : 1);
-  const maxW = () => Math.round((window.innerWidth / zoom()) * 0.85);
-  const clampW = (w) => Math.max(MIN_W, Math.min(maxW(), Math.round(w)));
 
-  // v3.30: ширина на виду — подпись при перетаскивании и подсказка ручки (подобрать удобную)
-  // v3.31: общая ширина панелей по умолчанию — 500 (--sidew в style.css), сохранённая — сброс один раз
-  const DEF_W = 500;
-  sideWidthReset();
+  // v3.30: ширина на виду — подпись при перетаскивании и подсказка ручки
   const handleEl = panel.querySelector(".map-resize");
   const wLabel = document.createElement("div");
   wLabel.className = "w-label";
   panel.appendChild(wLabel);
-  function setWidth(w) {
-    const v = clampW(w);
-    document.documentElement.style.setProperty("--mapw", v + "px");
-    wLabel.textContent = v + " px";
-    if (handleEl) handleEl.title = `Ширина ${v} px (по умолчанию ${DEF_W}) — потянуть шире / уже; шире ${DEF_W} — наползает на таблицу`;
-  }
-  let saved = DEF_W;
-  try { saved = Number(localStorage.getItem(W_KEY)) || DEF_W; } catch (e) { /* ignore */ }
-  setWidth(saved);
+  // v3.34: ширина общая для всех боковых панелей — sidePanelW (app.js)
+  sidePanelW.set(sidePanelW.get());
 
   function mapObj() { return (typeof map !== "undefined" && map) ? map : null; }
   function refreshMap() {
@@ -75,26 +61,7 @@ Fleet ETA Tracker — «Карта 2.0» (v3.26): карта Флота в вы�
 
   // ширина — тянуть за левый край панели
   const handle = handleEl;
-  if (handle) handle.addEventListener("mousedown", (e) => {
-    e.preventDefault();
-    body.classList.add("map-resizing");
-    const z = zoom();
-    const move = (ev) => setWidth((window.innerWidth - ev.clientX) / z);
-    const up = () => {
-      document.removeEventListener("mousemove", move);
-      document.removeEventListener("mouseup", up);
-      body.classList.remove("map-resizing");
-      const w = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--mapw"), 10);
-      try { localStorage.setItem(W_KEY, String(w)); } catch (err) { /* ignore */ }
-      refreshMap();
-    };
-    document.addEventListener("mousemove", move);
-    document.addEventListener("mouseup", up);
-  });
-  window.addEventListener("resize", () => {
-    const w = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--mapw"), 10);
-    if (w) setWidth(w);
-  });
+  if (handle) handle.addEventListener("mousedown", (e) => sidePanelW.drag(e, "map-resizing", refreshMap));
 
   let wasOpen = false;
   try { wasOpen = localStorage.getItem(OPEN_KEY) === "1"; } catch (e) { /* ignore */ }
