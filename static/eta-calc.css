@@ -123,9 +123,9 @@ body.ec-resizing .ec-panel, body.ec-resizing .calc-tab, body.ec-resizing .nb-tab
 .ec-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
 
 /* v3.31: откуда данные (клик по строке Флота) */
-.ec-src { padding: 6px 12px; font-size: 12px; color: #1a1a1a; background: #eef3fd; border-bottom: 1px solid #d6e2f7; }
+.ec-src { margin-bottom: 4px; padding: 4px 8px; font-size: 12px; color: #1a1a1a; background: #eef3fd; border: 1px solid #d6e2f7; border-radius: 6px; }
 .ec-src[hidden] { display: none; }
-.ec-src.bad { background: #fbe9e7; border-bottom-color: #f0c9c3; color: #a2342a; }
+.ec-src.bad { background: #fbe9e7; border-color: #f0c9c3; color: #a2342a; }
 
 /* v3.31: мини-карта с раскладом */
 .ec-msec .ec-h a.ec-mtg { font-size: 13px; font-weight: 600; color: #1a1a1a; }

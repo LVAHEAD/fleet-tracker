@@ -147,7 +147,6 @@ const EtaCalc = (() => {
       <div class="w-label"></div>
       <div class="ec-head"><span>⏱ ETA-калькулятор</span><button type="button" class="ec-x" title="Закрыть (Esc)">×</button></div>
       <div class="ec-body">
-        <div class="ec-src" hidden></div>
         <div class="ec-sec"><div class="ec-lb"><span>Расстояние, км</span><span>70 … 5000</span></div>
           <div class="ec-ln"><input type="number" id="ec-km-n" min="70" step="10" value="1500"><input type="range" id="ec-km-r" min="70" max="5000" step="10" value="1500"></div></div>
         <div class="ec-sec"><div class="ec-lb"><span>Сдвиг выезда, ч</span><span class="ec-now"></span></div>
@@ -161,6 +160,7 @@ const EtaCalc = (() => {
           <span class="ec-lb">Отдых</span><div class="ec-rest"></div>
         </div>
         <div class="ec-sec">
+          <div class="ec-src" hidden></div>
           <div class="ec-res">
             <div><span class="ec-k">ETD</span><b class="ec-etd"></b></div><i></i>
             <div><span class="ec-k">В пути</span><b class="ec-dur"></b> <span class="ec-drv"></span></div><i></i>
