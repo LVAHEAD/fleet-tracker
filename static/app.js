@@ -99,7 +99,7 @@ function sideMarginFix() {
 }
 function sideMarginApply() {
   if (sideMlFrac == null) return;
-  const frac = window.innerWidth >= 1500 ? (sideMlFrac || 0.025) : 0;
+  const frac = window.innerWidth >= 1500 ? sideMlFrac : 0;   // v3.35: страница во всю ширину — отступ 0, без подстановки 2,5 %
   document.documentElement.style.setProperty("--side-ml", Math.round(frac * window.innerWidth / uiZoom()) + "px");
 }
 window.addEventListener("resize", sideMarginApply);
@@ -1282,11 +1282,15 @@ function renderRows() {
       <td class="eta-cell ${etaMuted}${cached && cached.late ? " eta-late" : ""}" title="${escapeHtml(composedEta ? composedEta.title : (cached && cached.etaTip ? cached.etaTip : ""))}">${etaHtml}</td>
       <td class="note-cell"><div class="note-wrap"><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" title="${escapeHtml(row.note)}" placeholder="примечание" />${comBtnHtml(row.com, 0)}</div>${(row.extra || []).map((x, i) =>
         `<div class="note-wrap xn-wrap${hideNoteK(row, i + 1) ? " fold-hide" : ""}"><input class="xn-input" data-k="${i + 1}" name="note-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.note || "")}" title="${escapeHtml(x.note || "")}" placeholder="примечание к ${i + 2}" />${comBtnHtml(x.com, i + 1)}</div>`).join("")}</td>
+      <td class="cl-cell"><input class="cl-input" name="client-${row.id}" autocomplete="off" value="${escapeHtml(row.client || "")}" title="${escapeHtml(row.client || "")}" placeholder="client" /></td>
+      <td class="ref-cell"><input class="ref-input" name="ref-${row.id}" autocomplete="off" value="${escapeHtml(row.ref || "")}" title="${escapeHtml(row.ref || "")}" placeholder="ref" /></td>
       <td class="row-actions">
         <button class="refresh-row-btn" title="Обновить строку">↻</button>
         <span class="wide-acts">
+          <button class="refresh-row-btn-w" title="Обновить строку">↻</button>
           <button class="add-btn-w" title="Добавить строку ниже">+</button>
           <button class="trl-btn-w" title="Сцепка: у тягача — привязать прицеп, у прицепа — привязать к тягачу">🔗</button>
+          <span class="acts-br"></span>
           <button class="del-btn-w" title="Удалить строку (два клика)">🗑</button>
           <button class="mv-up-w manual-inline" title="Выше">↑</button>
           <button class="mv-down-w manual-inline" title="Ниже">↓</button>
@@ -1313,7 +1317,7 @@ function renderRows() {
     const lockBy = window.fleetLockedBy ? window.fleetLockedBy(row.id) : "";
     if (lockBy) {
       tr.classList.add("row-locked");
-      tr.querySelectorAll("input, select, button").forEach((el) => { if (!el.classList.contains("refresh-row-btn")) el.disabled = true; });
+      tr.querySelectorAll("input, select, button").forEach((el) => { if (!el.classList.contains("refresh-row-btn") && !el.classList.contains("refresh-row-btn-w")) el.disabled = true; });
       const ch = document.createElement("span");
       ch.className = "lock-chip";
       ch.textContent = "🔒 " + dispShort(lockBy);
@@ -1385,6 +1389,13 @@ function attachRowHandlers() {
       e.target.title = e.target.value;
       setRowField(id, "note", e.target.value);
     });
+    // v3.35: Client / Reference — простые текстовые поля трипа (задел под v5)
+    [["cl-input", "client"], ["ref-input", "ref"]].forEach(([cls, f]) => {
+      tr.querySelector("." + cls).addEventListener("change", (e) => {
+        e.target.title = e.target.value;
+        setRowField(id, f, e.target.value.trim());
+      });
+    });
 
     tr.querySelector(".lo-btn").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1427,6 +1438,7 @@ function attachRowHandlers() {
       completeTrip(id);
     });
     tr.querySelector(".add-btn-w").addEventListener("click", (e) => { e.stopPropagation(); tr.querySelector(".add-btn").click(); });
+    tr.querySelector(".refresh-row-btn-w").addEventListener("click", (e) => { e.stopPropagation(); tr.querySelector(".refresh-row-btn").click(); });   // v3.35
     tr.querySelector(".mv-up-w").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, -1); });
     tr.querySelector(".mv-down-w").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, 1); });
     // v1.66: удаление в два клика — первый "взводит", уход мыши сбрасывает
@@ -1701,7 +1713,7 @@ function distCellHtml(row, c) {
   row.extra.forEach((x, i) => {
     const ce = c.extra && c.extra[i];
     // v1.65: у 2-й и следующих точек — плечо от предыдущей точки, сумма только в подсказке
-    const txt = ce && ce.done ? '<span class="done-km">✓</span>' : ce && ce.leg_km != null ? ce.leg_km.toFixed(1) : "—";
+    const txt = ce && ce.done ? '<span class="done-km">✓</span>' : ce && ce.leg_km != null ? String(Math.round(ce.leg_km)) : "—";   // v3.35: без десятых
     const tip = ce && ce.leg_km != null ? `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]} (от машины всего ${ce.dist_km.toFixed(1)})` : (ce && ce.error) || "";
     lines.push(`<div class="sl${hideK(row, i + 1) ? " fold-hide" : ""}" title="${escapeHtml(tip)}">${txt}</div>`);
   });
@@ -2008,9 +2020,10 @@ function chgSel(key) {
   }
   return { unit: ".unit-input", target: ".target-input", lo: ".target-wrap:not(.x-stop) .lo-btn:not(.xlo-btn)",
            delivery: ".delivery-input", note: ".note-input", com: '.com-ic[data-k="0"]', disp: ".disp-sel, .disp-lbl",
+           client: ".cl-input", ref: ".ref-input",
            crew: ".crew-b" }[key] || null;
 }
-const CHG_NAMES = { unit: "машина", target: "таргет ①", lo: "L/O ①", delivery: "TimeSlot ①", note: "примечание",
+const CHG_NAMES = { unit: "машина", target: "таргет ①", lo: "L/O ①", delivery: "TimeSlot ①", note: "примечание", client: "Client", ref: "Reference",
   com: "комментарий", trailer: "прицеп", crew: "соло/экипаж", disp: "диспетчер", done: "✓ пройдено",
   fban: "запрет вручную", noban: "запреты", extra: "точки" };
 function chgName(key) {
@@ -2648,7 +2661,7 @@ async function calcRow(id, why) {
     let etaCore = null, bansR = [], tipLines = [];
     let nearR = [], banInfo = [];   // v3.12: «впритык» и подробности проверки запретов
     if (data.dist_km != null && !data.first_done) {
-      distText = data.dist_km.toFixed(1);
+      distText = String(Math.round(data.dist_km));   // v3.35: без десятых
       distCell.classList.remove("muted");
       // v1.33: две строки — простой ETA и ⏱ по тахографу; подробности в подсказке
       const tip = ["Простой ETA: км ÷ 70, без остановок"]

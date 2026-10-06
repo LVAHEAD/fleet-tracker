@@ -1094,3 +1094,35 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 .w-label { display: none; position: absolute; top: 8px; left: 14px; z-index: 5; padding: 2px 8px; border-radius: 10px;
   background: rgba(30, 40, 60, .85); color: #fff; font-size: 12px; font-weight: 600; pointer-events: none; }
 body.map-resizing .map-panel .w-label, body.ec-resizing .w-label { display: block; }
+
+/* ---------- v3.35: Флот — вид заново (песочница 06.10). Большой экран: поля страницы и отступы ячеек — минимум,
+   ширины колонок — здесь, поверх старых слоёв; Примечание резиновое. Client / Reference — между Примечанием и кнопками.
+   Боковая панель: от 1800 — таблица сужается на 500 (как было), ноутбук 1500–1799 — панель наползает. ---------- */
+#fleet-table .col-client, #fleet-table .col-ref { width: 90px; }
+.cl-input, .ref-input { width: 100%; min-width: 0; }
+@media (min-width: 1500px) {
+  body { max-width: none; padding-left: 8px; padding-right: 8px; }
+  #fleet-table th, #fleet-tbody td { padding-left: 3px; padding-right: 3px; }
+  #fleet-table .col-unit, body.sort-manual #fleet-table .col-unit { width: 100px; }
+  #fleet-table .col-status   { width: 300px; }
+  #fleet-table .col-target   { width: 390px; }
+  #fleet-table .col-delivery { width: 140px; }
+  #fleet-table .col-dist     { width: 55px; }
+  #fleet-table .col-eta      { width: 140px; }
+  #fleet-table .col-note     { width: auto; }
+  #fleet-table .col-actions  { width: 70px; }
+  body.sort-manual #fleet-table .col-actions { width: 110px; }
+  .target-input, .xt-input { flex: none !important; width: 200px !important; min-width: 0 !important; }
+  /* кнопки строки — два ряда: ↻ + 🔗 / 🗑 ↑ ↓ ⠿ */
+  #fleet-tbody td.row-actions { white-space: normal; }
+  #fleet-tbody .row-actions .wide-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 3px; vertical-align: top; }
+  #fleet-tbody .row-actions > .refresh-row-btn { display: none; }
+  #fleet-tbody .row-actions .acts-br { flex-basis: 100%; height: 0; }
+  #fleet-tbody .row-actions .wide-acts button { padding: 1px 5px; }
+}
+@media (min-width: 1500px) and (max-width: 1799px) {
+  body.map-open:has(#tab-fleet:not([hidden])), body.nb-open, body.calc-open { --side-res: 0px; }
+}
+.refresh-row-btn-w { display: none; }
+@media (min-width: 1500px) { #fleet-tbody .row-actions .refresh-row-btn-w { display: inline-block; } }
+@media (max-width: 1499px) { .acts-br { display: none; } }

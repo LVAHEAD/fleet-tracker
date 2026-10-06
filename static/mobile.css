@@ -70,7 +70,8 @@
   #fleet-tbody tr > td:nth-child(5) { grid-area: dist; text-align: right !important; }
   #fleet-tbody tr > td:nth-child(6) { grid-area: eta; }
   #fleet-tbody tr > td:nth-child(7) { grid-area: note; }
-  #fleet-tbody tr > td:nth-child(8) { grid-area: acts; display: flex; align-items: center; gap: 4px; }
+  #fleet-tbody tr > td.cl-cell, #fleet-tbody tr > td.ref-cell { display: none; }   /* v3.35: на телефоне не показываем */
+  #fleet-tbody tr > td.row-actions { grid-area: acts; display: flex; align-items: center; gap: 4px; }
 
   /* подписи полей */
   #fleet-tbody td.delivery-td::before,

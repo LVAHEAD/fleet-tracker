@@ -145,7 +145,8 @@ def _fleet_clean(fields):
 
 
 # ---------- v3.20: чужая правка — метки «кто изменил» до клика хозяина трипа ----------
-CHG_TOP = ("unit", "lo", "target", "delivery", "note", "com", "trailer", "crew", "disp", "done", "fban", "noban")
+CHG_TOP = ("unit", "lo", "target", "delivery", "note", "com", "trailer", "crew", "disp", "done", "fban", "noban",
+           "client", "ref")   # v3.35
 
 
 CHG_SUB = ("target", "lo", "delivery", "note", "com")
