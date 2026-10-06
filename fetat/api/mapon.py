@@ -9,7 +9,7 @@ from fetat.clients.mapon import (
 )
 from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.points import find_unit_exact
-from fetat.domain.tacho import WEEKLY_FULL_SEC, weekly_status
+from fetat.domain.tacho import tacho_no_subscription, WEEKLY_FULL_SEC, weekly_status
 from fetat.domain.trailers import is_trailer
 from fetat.utils.geo import haversine_km, _wkt_center
 from fetat.utils.timefmt import _hm, _lv, _utc_iso
@@ -245,12 +245,47 @@ def api_mapon_objects():
                               mimetype="application/json; charset=utf-8")
 
 
+def _tacho_subscriptions():
+    """v3.30: тахограф по тягачам группы HEAD: нет подписки (1015) / нет карт / ошибка / есть данные."""
+    import json
+    from concurrent.futures import ThreadPoolExecutor
+    try:
+        units = fetch_units(MAPON_API_KEY)
+        ids = set(fetch_group_unit_ids(MAPON_API_KEY, HEAD_TRUCK_GROUP_ID))
+    except Exception as e:
+        return jsonify({"error": f"unit/list: {e}"}), 502
+    trucks = [u for u in units if u.get("unit_id") in ids and not is_trailer(u)]
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        res = list(ex.map(lambda u: get_tacho(u["unit_id"]), trucks))
+    nosub, nocard, err, ok = [], [], {}, []
+    for u, (data, e) in zip(trucks, res):
+        num = u.get("number") or u.get("label") or str(u.get("unit_id"))
+        if data:
+            ok.append(num)
+        elif tacho_no_subscription(e):
+            nosub.append(num)
+        elif e == "нет данных водителя":
+            nocard.append(num)
+        else:
+            err[num] = e
+    out = {"тягачей": len(trucks),
+           "нет подписки на тахограф (Mapon 1015 — Tachograph remote download)": sorted(nosub),
+           "подписка есть, карт в тахографе нет сейчас": sorted(nocard),
+           "другая ошибка": err,
+           "тахограф отвечает": len(ok)}
+    return current_app.response_class(json.dumps(out, ensure_ascii=False, indent=1),
+                                      mimetype="application/json; charset=utf-8")
+
+
 @bp.route("/api/mapon-check")
 def api_mapon_check():
-    """Проверка прав ключа на новые методы: /api/mapon-check?unit=<номер или id>&raw=1"""
+    """Проверка прав ключа на новые методы: /api/mapon-check?unit=<номер или id>&raw=1
+    v3.30: /api/mapon-check?tacho=1 — тахограф по всем тягачам группы: у кого нет подписки (Mapon 1015)."""
     import time
     if not MAPON_API_KEY:
         return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
+    if request.args.get("tacho") == "1":
+        return _tacho_subscriptions()
     now = int(time.time())
     import json
     norm = lambda x: re.sub(r"[^0-9a-zа-я]", "", str(x or "").lower())

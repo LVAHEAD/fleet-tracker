@@ -1044,7 +1044,7 @@ function crewOf(data) {
   return data.crew ? { crew: data.crew, src: data.crew_src, wl: data.week_left_sec, lim: data.week_limit,
                        driven: data.week_driven_sec, next: data.week_next_sec, hmax: data.crew_hist_max_h,
                        short: data.week_short_last || null, names: data.crew_names || null,
-                       nocard: !!data.crew_nocard } : null;
+                       nocard: !!data.crew_nocard, nosub: !!data.crew_nosub } : null;
 }
 function crewHtml(row, cached) {
   const c = cached && cached.crew;
@@ -1058,7 +1058,8 @@ function crewHtml(row, cached) {
   const nocard = !!(c && c.nocard);
   if (nocard) {
     cls += " crew-nocard";
-    tip.push("⚠ Mapon не видит карт водителя — тахографа нет");
+    tip.push(c.nosub ? "⚠ Нет подписки Mapon на тахограф (Tachograph remote download) — данных тахографа не будет"
+      : "⚠ Mapon не видит карт водителя — тахографа нет");
   }
   if (crew === "team") {
     tip.push(man ? "Экипаж — поставлено вручную" :
@@ -1156,6 +1157,7 @@ function renderRows() {
       </td>
     `;
     if (blinkRows.has(row.id)) tr.classList.add("row-blink");
+    applyFuelBlink(tr, row.id);
     // v2.02: 🔒 строку сейчас правит другой — только смотреть; 🗑 — только создатель / диспетчер
     const lockBy = window.fleetLockedBy ? window.fleetLockedBy(row.id) : "";
     if (lockBy) {
@@ -1420,6 +1422,7 @@ function attachRowHandlers() {
 
     tr.addEventListener("click", (e) => {
       if (blinkRows.delete(id)) tr.classList.remove("row-blink");   // v1.59: клик — "увидел"
+      fuelSeenClick(tr, id);                                          // v3.30: мало топлива — тоже
       if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
       if (e.target.closest && e.target.closest(".com-tri")) return;
       const chip = e.target.closest && e.target.closest(".stop-n");
@@ -1623,6 +1626,38 @@ function removeStop(id, k) {
 
 // v1.59: строки, которые стали опаздывать при обновлении, мигают до клика
 const blinkRows = new Set();
+// v3.30: мало топлива (реф < 40 л, тягач < 100 л) — строка мигает янтарным до клика; «увидел» помним
+// в браузере (у каждого диспетчера свой клик), пока топливо не поднимется выше порога
+let fuelSeen = {};
+try { fuelSeen = JSON.parse(localStorage.getItem("fleet-fuel-seen") || "{}") || {}; } catch (e) { fuelSeen = {}; }
+function saveFuelSeen() {
+  try { localStorage.setItem("fleet-fuel-seen", JSON.stringify(fuelSeen)); } catch (e) { /* ignore */ }
+}
+function fuelLowOf(data) {
+  const lines = [];
+  if (data.truck_fuel && data.truck_fuel.low) lines.push(`⛽ Тягач: ${data.truck_fuel.l} л — мало (< 100 л)`);
+  const rf = data.is_trailer ? data.reefer : data.linked_trailer && data.linked_trailer.reefer;
+  if (rf && rf.fuel_low) lines.push(`⛽ Реф: ${Math.round(rf.fuel_l)} л — мало (< 40 л)`);
+  return lines.length ? lines : null;
+}
+function applyFuelBlink(tr, id) {
+  if (!tr) return;
+  const c = lastCalcText[id];
+  if (!c) return;
+  const low = c.fuelLow;
+  if (!low && fuelSeen[id]) { delete fuelSeen[id]; saveFuelSeen(); }   // заправились — в следующий раз снова мигать
+  const on = !!low && !fuelSeen[id];
+  tr.classList.toggle("row-blink-fuel", on);
+  if (on) tr.title = low.join("\n") + "\nКлик по строке — «увидел»";
+  else if (tr.title && tr.title.indexOf("⛽") === 0) tr.title = "";
+}
+function fuelSeenClick(tr, id) {
+  if (!tr.classList.contains("row-blink-fuel")) return;
+  tr.classList.remove("row-blink-fuel");
+  if (tr.title && tr.title.indexOf("⛽") === 0) tr.title = "";
+  fuelSeen[id] = true;
+  saveFuelSeen();
+}
 
 // v1.59: Delivery с датой сильно в прошлом (опечатка "27.06" вместо "27.09") — жёлтым
 function markDeliveryInput(tr, row) {
@@ -2341,14 +2376,15 @@ async function calcRow(id, why) {
     let hitchHtml = "", line2 = "";
     // v3.16: 👤/👥 — в начале второй строки статуса, слева от прицепа
     const crewB = data.is_trailer ? "" : crewHtml(row, { crew: crewOf(data) });
+    const tfHtml = data.is_trailer ? "" : truckFuelHtml(data);   // v3.30: ⛽ тягача — только когда мало
     if (data.is_trailer) {
       hitchHtml = hitchPillHtml(data, false);
       if (reeferHtml || hitchHtml) line2 = `<div class="status-line2">${reeferHtml}${hitchHtml}</div>`;
     } else if (row.trailer) {
-      line2 = `<div class="status-line2">${crewB}${linkedTrailerHtml(row.trailer, data.linked_trailer)}</div>`;
+      line2 = `<div class="status-line2">${crewB}${tfHtml}${linkedTrailerHtml(row.trailer, data.linked_trailer)}</div>`;
     } else {
       hitchHtml = hitchPillHtml(data, true);
-      if (crewB.indexOf("hidden") < 0) line2 = `<div class="status-line2">${crewB}</div>`;
+      if (crewB.indexOf("hidden") < 0 || tfHtml) line2 = `<div class="status-line2">${crewB}${tfHtml}</div>`;
     }
     const statusHtml = `<div class="status-line" title="${escapeHtml(data.status_ru + " " + data.duration_str + (data.on_target ? "\nна объекте" + (data.on_target.name ? ": " + data.on_target.name : "") : "") + (tachoTip ? "\n" + tachoTip : ""))}">${trTag}${statusLine1}${extra}${pauseIc}${ot}${data.is_trailer ? "" : hitchHtml}</div>${line2}`;
     const statusClass = data.status === "driving" ? "status-driving" : "status-standing";
@@ -2466,9 +2502,10 @@ async function calcRow(id, why) {
                          crew: crewOf(data),
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual,
                            by: x.by != null ? x.by : null, zone: x.zone || null })),
-                         allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null,
+                         allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null, fuelLow: fuelLowOf(data),
                          nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };
     applyDoneClasses(tr, row, lastCalcText[id]);
+    applyFuelBlink(tr, id);
     const cb = tr.querySelector(".crew-b");     // v3.15: 👤/👥
     if (cb) cb.outerHTML = crewHtml(row, lastCalcText[id]);
     markDeliveryInput(tr, row);   // v3.13: у пройденной ① «дата в прошлом» не показываем
@@ -2560,6 +2597,13 @@ async function calcRow(id, why) {
 
 // v1.70: рефка прицепа — "❄ 8.9° / 4.5°" (возврат по отсекам), подробности в подсказке
 function fmtT(v) { return v == null ? "—" : `${Number(v).toFixed(1).replace(/\.0$/, "")}°`; }
+// v3.30: ⛽ тягача — только когда меньше 100 л
+function truckFuelHtml(data) {
+  const f = data.truck_fuel;
+  if (!f || !f.low) return "";
+  const tip = [`Топливо тягача: ${f.l} л — мало (< 100 л)`].concat(f.parts && f.parts.length > 1 ? [`баки: ${f.parts.join(" + ")} л`] : []);
+  return `<span class="tf-pill" title="${escapeHtml(tip.join("\n"))}">⛽${f.l}</span>`;
+}
 function reeferPillHtml(data) {
   const r = data.reefer;
   if (!r) return data.reefer_error ? `<span class="rf-pill rf-na" title="${escapeHtml("Рефка: " + data.reefer_error)}">❄ ?</span>` : "";

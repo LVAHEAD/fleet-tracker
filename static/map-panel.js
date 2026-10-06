@@ -17,11 +17,20 @@ Fleet ETA Tracker — «Карта 2.0» (v3.26): карта Флота в вы�
   const maxW = () => Math.round((window.innerWidth / zoom()) * 0.85);
   const clampW = (w) => Math.max(MIN_W, Math.min(maxW(), Math.round(w)));
 
+  // v3.30: ширина на виду — подпись при перетаскивании и подсказка ручки (подобрать удобную)
+  const DEF_W = 560;
+  const handleEl = panel.querySelector(".map-resize");
+  const wLabel = document.createElement("div");
+  wLabel.className = "w-label";
+  panel.appendChild(wLabel);
   function setWidth(w) {
-    document.documentElement.style.setProperty("--mapw", clampW(w) + "px");
+    const v = clampW(w);
+    document.documentElement.style.setProperty("--mapw", v + "px");
+    wLabel.textContent = v + " px";
+    if (handleEl) handleEl.title = `Ширина ${v} px (по умолчанию ${DEF_W}) — потянуть шире / уже; шире ${DEF_W} — наползает на таблицу`;
   }
-  let saved = 560;
-  try { saved = Number(localStorage.getItem(W_KEY)) || 560; } catch (e) { /* ignore */ }
+  let saved = DEF_W;
+  try { saved = Number(localStorage.getItem(W_KEY)) || DEF_W; } catch (e) { /* ignore */ }
   setWidth(saved);
 
   function mapObj() { return (typeof map !== "undefined" && map) ? map : null; }
@@ -62,7 +71,7 @@ Fleet ETA Tracker — «Карта 2.0» (v3.26): карта Флота в вы�
   });
 
   // ширина — тянуть за левый край панели
-  const handle = panel.querySelector(".map-resize");
+  const handle = handleEl;
   if (handle) handle.addEventListener("mousedown", (e) => {
     e.preventDefault();
     body.classList.add("map-resizing");

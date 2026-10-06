@@ -364,6 +364,13 @@ def tacho_summary(tacho, sim=None, weekly=None):
     return [p for p in parts if p]
 
 
+def tacho_no_subscription(err):
+    """v3.30: Mapon 1015 «Endpoint needs Tachograph remote download subscription» — у юнита не подключено
+    удалённое считывание тахографа: данных не будет, пока не подключат (не временный сбой)."""
+    e = str(err or "")
+    return "1015" in e or "remote download subscription" in e.lower()
+
+
 FRESH_SOLO_TACHO = {"drivers": [{
     "current_state": "REST", "now": {"rest": 11 * 3600, "driving": 0},
     "today": {"driving_remaining": 9 * 3600, "shift_remaining": 13 * 3600, "daily_rest_min": 11 * 3600},

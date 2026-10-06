@@ -15,9 +15,9 @@ from fetat.domain.points import (
 )
 from fetat.domain.regions import nearest_region_code
 from fetat.services.corridors import fleet_waypoints_resolved as fleet_waypoints   # v3.26: + выбор коридора
-from fetat.domain.tacho import (FRESH_SOLO_TACHO, TACHO_SPEED_KMH, calc_eta, crew_mode, tacho_eta, tacho_summary,
-                               week_left_info)
-from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM
+from fetat.domain.tacho import (FRESH_SOLO_TACHO, TACHO_SPEED_KMH, calc_eta, crew_mode, tacho_eta, tacho_no_subscription,
+                               tacho_summary, week_left_info)
+from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM, truck_fuel
 from fetat.utils.geo import haversine_km
 from fetat.utils.timefmt import format_duration, round_to_15min
 
@@ -135,6 +135,14 @@ def _add_trailer_info(result, unit, units, payload):
             result["reefer"] = reefer_summary(fetch_reefer_units().get(unit.get("unit_id")))
         except Exception as e:
             result["reefer_error"] = str(e)
+    else:
+        # v3.30: топливо тягача — показываем и мигаем, только когда меньше TRUCK_FUEL_LOW_L
+        try:
+            tf = truck_fuel(fetch_reefer_units().get(unit.get("unit_id")))
+            if tf:
+                result["truck_fuel"] = tf
+        except Exception:
+            pass
     # v1.71: прицеп, привязанный к тягачу вручную (строка Флота) — где он и что с рефкой
     lt = str(payload.get("trailer") or "").strip()
     if lt and not trailer:
@@ -226,7 +234,7 @@ def _add_tacho(result, unit, trailer, crew=None):
         else:
             result["tacho_error"] = terr
             if not trailer:
-                tacho, sim = _no_card_crew(result, unit, crew)
+                tacho, sim = _no_card_crew(result, unit, crew, terr)
     except Exception as e:
         result["tacho_error"] = str(e)
     return tacho, sim
@@ -235,7 +243,7 @@ def _add_tacho(result, unit, trailer, crew=None):
 NO_CARD_FRESH_SEC = 9 * 3600     # v3.29: без карт — стоит не меньше суточного отдыха → считаем со свежего дня
 
 
-def _no_card_crew(result, unit, crew=None):
+def _no_card_crew(result, unit, crew=None, terr=None):
     """v3.29 (OS-2438): Mapon не видит карт водителя, хотя водители в машине. Соло / экипаж — по истории
     вождения за неделю (или вручную); стоит ≥ 9 ч — тахо-ETA со свежего дня (без недельного лимита),
     иначе ETA простой. Возвращает (tacho, sim) — подменный тахограф или (None, None)."""
@@ -245,6 +253,9 @@ def _no_card_crew(result, unit, crew=None):
     result["crew"] = "team" if team else "solo"
     result["crew_src"] = "manual" if src == "manual" else "hist"
     result["crew_nocard"] = True
+    nosub = tacho_no_subscription(terr)     # v3.30: нет подписки на тахограф (Mapon 1015) — не временно
+    if nosub:
+        result["crew_nosub"] = True
     if hist_max:
         result["crew_hist_max_h"] = round(hist_max / 3600, 1)
     try:
@@ -255,7 +266,8 @@ def _no_card_crew(result, unit, crew=None):
         result["crew_names"] = names
     state = unit.get("state") or {}
     stood = float(state.get("duration") or 0) if state.get("name") == "standing" else 0.0
-    summ = ["⚠ Mapon не видит карт водителя — тахографа нет",
+    summ = ["⚠ Нет подписки Mapon на тахограф (Tachograph remote download) — данных тахографа не будет" if nosub
+            else "⚠ Mapon не видит карт водителя — тахографа нет",
             ("вручную: " if src == "manual" else "по истории недели: ") + ("экипаж" if team else "соло")]
     if names:
         summ.append("водитель в Mapon: " + ", ".join(names))

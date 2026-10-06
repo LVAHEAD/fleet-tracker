@@ -25,7 +25,30 @@ REEFER_STALE_SEC = 2 * 3600
 REEFER_FUEL_LOW_L = 40     # v1.71: мало топлива в баке рефа, л
 
 
+TRUCK_FUEL_LOW_L = 100    # v3.30: мало топлива у тягача (сумма баков), л
+
+
 TRAILER_FAR_KM = 1.0       # v1.71: привязанный прицеп дальше — предупреждение
+
+
+def truck_fuel(u):
+    """v3.30: топливо тягача из unit/list (include fuel), л -> {"l", "parts", "low"} или None.
+    Литры — сумма баков (как «Total fuel» в Mapon); проценты пропускаем; CAN берём, только если баков нет."""
+    items = []
+    for f in (u or {}).get("fuel") or []:
+        if not isinstance(f, dict) or not isinstance(f.get("value"), (int, float)):
+            continue
+        if str(f.get("units") or f.get("unit") or "").strip() == "%":
+            continue
+        tag = " ".join(str(f.get(k) or "") for k in ("type", "name", "source", "title")).lower()
+        items.append(("can" in tag, float(f["value"])))
+    tanks = [v for is_can, v in items if not is_can]
+    can = [v for is_can, v in items if is_can]
+    parts = tanks or can[:1]
+    if not parts:
+        return None
+    total = sum(parts)
+    return {"l": round(total), "parts": [round(v) for v in parts], "low": total < TRUCK_FUEL_LOW_L}
 
 
 def is_trailer(u):

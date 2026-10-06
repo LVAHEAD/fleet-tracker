@@ -599,6 +599,11 @@ body.sort-manual .manual-only { display: block; }
 @keyframes rowBlink { 0%, 100% { box-shadow: none; } 50% { box-shadow: inset 0 0 0 999px rgba(231, 76, 60, 0.18); } }
 #fleet-tbody tr.row-blink td { animation: rowBlink 1.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { #fleet-tbody tr.row-blink td { animation: none; background: #fbe3e0 !important; } }
+/* v3.30: мало топлива — янтарное мигание; опаздывает и мало топлива — красное (row-blink важнее) */
+@keyframes rowBlinkFuel { 0%, 100% { box-shadow: none; } 50% { box-shadow: inset 0 0 0 999px rgba(230, 150, 20, 0.22); } }
+#fleet-tbody tr.row-blink-fuel:not(.row-blink) td { animation: rowBlinkFuel 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { #fleet-tbody tr.row-blink-fuel:not(.row-blink) td { animation: none; background: #fdf0d5 !important; } }
+.tf-pill { margin-left: 4px; padding: 0 5px; border-radius: 8px; background: #fde2e1; color: #b42318; font-size: 11px; font-weight: 600; white-space: nowrap; }
 .ot-pill { margin-left: 6px; padding: 0 5px; border-radius: 8px; background: #e3f1e6; color: #2d6b3c; font-size: 11px; font-weight: 600; white-space: nowrap; }
 .delivery-input.del-suspect { background: #fff4c2; border-color: #e3b62e; }
 #fleet-table .col-status { width: 228px; }
@@ -824,6 +829,7 @@ button.hitch-ic:hover { background: #e6dfcc; }
 /* ---------- v1.80: масштаб 90% на большом экране, выравнивание заголовков, разделители ---------- */
 @media (min-width: 1500px) {
   body { zoom: 0.9; }
+  :root { --uiz: 0.9; }   /* v3.30: для расчёта ширины страницы под боковую панель */
   /* карты Google — без масштаба, иначе клики и перетаскивание мимо */
   #map, #route-map, #locatorMap { zoom: 1.11112; }
 }
@@ -1017,7 +1023,18 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
   body.map-open .map-tab { right: var(--mapw, 560px); opacity: 1; background: #eef3fd; }
   body.map-open:has(#tab-fleet:not([hidden])) .nb-tab { right: var(--mapw, 560px); }   /* панель карты — только во Флоте */
   body.nb-open .map-tab { right: 460px; }
-  /* v3.26: панель выезжает поверх таблицы, как Блокнот — ширину таблицы не трогаем (решение Владимира 05.10) */
+  /* v3.30: боковые панели снова сужают страницу (решение Владимира 06.10), но не больше своей ширины
+     по умолчанию: карта 560, Блокнот 460, калькулятор 460; тянем шире — лишнее наползает на таблицу */
+  body { transition: margin-right .25s ease, max-width .25s ease; }
+  body.map-open:has(#tab-fleet:not([hidden])) { --side-res: min(var(--mapw, 560px), 560px); }
+  body.nb-open { --side-res: 460px; }
+  body.calc-open { --side-res: min(var(--calcw, 460px), 460px); }
+  body.map-open:has(#tab-fleet:not([hidden])), body.nb-open, body.calc-open {
+    margin-left: calc(2.5vw / var(--uiz, 1));
+    margin-right: calc(var(--side-res) + 8px);
+    max-width: calc(97.5vw / var(--uiz, 1) - var(--side-res) - 8px);
+  }
+  body.map-resizing, body.ec-resizing { transition: none; }
   body.map-resizing .map-tab, body.map-resizing .nb-tab { transition: none; }
 }
 @media (min-width: 1500px) {
@@ -1038,3 +1055,8 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
   border-radius: 13px; background: #2b3440; color: #fff; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35);
   font: 700 12px/22px -apple-system, "Segoe UI", Roboto, Arial, sans-serif; text-align: center; user-select: none; }
 .mk-cluster:hover { background: #1a1f26; }
+
+/* v3.30: ширина боковой панели на виду, пока тянем край */
+.w-label { display: none; position: absolute; top: 8px; left: 14px; z-index: 5; padding: 2px 8px; border-radius: 10px;
+  background: rgba(30, 40, 60, .85); color: #fff; font-size: 12px; font-weight: 600; pointer-events: none; }
+body.map-resizing .map-panel .w-label, body.ec-resizing .w-label { display: block; }

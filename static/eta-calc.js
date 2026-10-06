@@ -109,6 +109,7 @@ const EtaCalc = (() => {
     panel.setAttribute("aria-hidden", "true");
     panel.innerHTML = `
       <div class="ec-resize" title="Потянуть — шире / уже (ширина запоминается)"></div>
+      <div class="w-label"></div>
       <div class="ec-head"><span>⏱ ETA-калькулятор</span><button type="button" class="ec-x" title="Закрыть (Esc)">×</button></div>
       <div class="ec-body">
         <div class="ec-sec"><div class="ec-lb"><span>Расстояние, км</span><span>70 … 5000</span></div>
@@ -164,7 +165,12 @@ const EtaCalc = (() => {
   function setWidth(w) {
     const z = typeof uiZoom === "function" ? uiZoom() : 1;
     const max = Math.round((window.innerWidth / z) * 0.85);
-    document.documentElement.style.setProperty("--calcw", Math.max(MIN_W, Math.min(max, Math.round(w))) + "px");
+    const v = Math.max(MIN_W, Math.min(max, Math.round(w)));
+    document.documentElement.style.setProperty("--calcw", v + "px");
+    // v3.30: ширина на виду — подпись при перетаскивании и подсказка ручки
+    const h = $(".ec-resize"), lab = $(".w-label");
+    if (lab) lab.textContent = v + " px";
+    if (h) h.title = `Ширина ${v} px (по умолчанию ${DEF_W}) — потянуть шире / уже; шире ${DEF_W} — наползает на таблицу`;
   }
   function bindResize() {
     $(".ec-resize").addEventListener("mousedown", (e) => {
