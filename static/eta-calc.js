@@ -166,7 +166,6 @@ const EtaCalc = (() => {
             <div><span class="ec-k">В пути</span><b class="ec-dur"></b> <span class="ec-drv"></span></div><i></i>
             <div><span class="ec-k">ETA</span><b class="ec-eta"></b></div>
           </div>
-          <div class="ec-acts"><button type="button" class="ec-copy">📋 Копировать</button><span class="ec-mut">70 км/ч · отдых чистый 9 / 11 ч · ETD и ETA вверх до 15 мин</span></div>
         </div>
         <div class="ec-sec">
           <div class="ec-h">Шкала <a href="#" class="ec-rst">сбросить отдыхи</a></div>
@@ -209,7 +208,6 @@ const EtaCalc = (() => {
       clampLeft(); restUI(); calc();
     }));
     $(".ec-rst").addEventListener("click", (e) => { e.preventDefault(); st.extras = {}; st.shifts = {}; calc(); });
-    $(".ec-copy").addEventListener("click", copy);
     bindStrip();
     bindResize();
     restUI();
@@ -560,13 +558,6 @@ const EtaCalc = (() => {
       google.maps.event.trigger(gmap, "resize");
       gmap.fitBounds(b, 24);
     }
-  }
-
-  function copy() {
-    const text = `ETD ${fdt(new Date(S.etd))} | В пути ${hm((S.eta - S.etd) / 3600e3)} | ETA ${fdt(new Date(S.eta))} · ${km(S.dist)}`;
-    const btn = $(".ec-copy"), done = (ok) => { btn.textContent = ok ? "✓ Скопировано" : "Не вышло — выдели строку"; setTimeout(() => { btn.textContent = "📋 Копировать"; }, 1500); };
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => done(true), () => done(false));
-    else done(false);
   }
 
   // ---------- открыть / закрыть ----------

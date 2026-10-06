@@ -66,8 +66,6 @@ body.ec-resizing .ec-panel, body.ec-resizing .calc-tab, body.ec-resizing .nb-tab
 .ec-drv { font-size: 12px; color: #666; }
 .ec-ico { width: 14px; height: 14px; vertical-align: -2px; }
 .ec-drv .ec-ico, .ec-dv .ec-ico { color: #1D9E75; }
-.ec-acts { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-.ec-copy { font-size: 12px; padding: 4px 10px; }
 
 /* шкала рейса */
 .ec-h { font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; }
