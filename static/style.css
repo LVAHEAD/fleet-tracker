@@ -998,10 +998,13 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 .done-pop .dp-q { display: block; width: calc(100% - 20px); margin: 6px 10px; padding: 4px 8px; font-size: 12px;
   border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
 
+/* v3.31: общая ширина боковых панелей (карта, Блокнот, калькулятор) по умолчанию и резерв под таблицу */
+:root { --sidew: 500px; }
+
 /* ---------- v3.26: «Карта 2.0» — панель карты справа, кружки машин, кластеры ---------- */
 @media (min-width: 768px) {
   .map-panel {
-    position: fixed; top: 0; right: calc(-1 * var(--mapw, 560px) - 24px); width: var(--mapw, 560px); height: 100vh;
+    position: fixed; top: 0; right: calc(-1 * var(--mapw, var(--sidew)) - 24px); width: var(--mapw, var(--sidew)); height: 100vh;
     z-index: 1450; background: #eee; border-left: 1px solid #d0d0d0; box-shadow: -4px 0 16px rgba(0,0,0,.10);
     transition: right .25s ease; overflow: hidden;
   }
@@ -1020,15 +1023,14 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
     transition: right .25s ease, opacity .15s;
   }
   .map-tab:hover { opacity: 1; background: #f4f4f4; }
-  body.map-open .map-tab { right: var(--mapw, 560px); opacity: 1; background: #eef3fd; }
-  body.map-open:has(#tab-fleet:not([hidden])) .nb-tab { right: var(--mapw, 560px); }   /* панель карты — только во Флоте */
-  body.nb-open .map-tab { right: 460px; }
-  /* v3.30: боковые панели снова сужают страницу (решение Владимира 06.10), но не больше своей ширины
-     по умолчанию: карта 560, Блокнот 460, калькулятор 460; тянем шире — лишнее наползает на таблицу */
+  body.map-open .map-tab { right: var(--mapw, var(--sidew)); opacity: 1; background: #eef3fd; }
+  body.map-open:has(#tab-fleet:not([hidden])) .nb-tab { right: var(--mapw, var(--sidew)); }   /* панель карты — только во Флоте */
+  body.nb-open .map-tab { right: var(--sidew); }
+  /* v3.30: боковые панели снова сужают страницу (решение Владимира 06.10).
+     v3.31: одна ширина для всех (--sidew, 500) и один резерв под таблицу — таблица одинаковая, какую панель
+     ни открой; тянем шире — лишнее наползает на таблицу, уже — под таблицей остаётся тот же резерв */
   body { transition: margin-right .25s ease, max-width .25s ease; }
-  body.map-open:has(#tab-fleet:not([hidden])) { --side-res: min(var(--mapw, 560px), 560px); }
-  body.nb-open { --side-res: 460px; }
-  body.calc-open { --side-res: min(var(--calcw, 460px), 460px); }
+  body.map-open:has(#tab-fleet:not([hidden])), body.nb-open, body.calc-open { --side-res: var(--sidew); }
   body.map-open:has(#tab-fleet:not([hidden])), body.nb-open, body.calc-open {
     margin-left: calc(2.5vw / var(--uiz, 1));
     margin-right: calc(var(--side-res) + 8px);

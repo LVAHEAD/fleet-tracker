@@ -264,9 +264,10 @@ const Notebook = (() => {
       close();
     });
 
-    // клик мимо панели — закрыть (карточку записи, язычок и меню ⋯ не считаем)
+    // клик мимо панели — закрыть. v3.31: в аппе — общий для всех боковых панелей (app.js, строки трипов
+    // не закрывают); здесь — только на странице /notebook, где app.js нет
     document.addEventListener("mousedown", (e) => {
-      if (!isOpen) return;
+      if (!isOpen || typeof SIDE_KEEP !== "undefined") return;
       if (panel.contains(e.target) || tab.contains(e.target) || e.target.closest(".nb-modal-bg, .tabs-more-wrap")) return;
       close();
     });

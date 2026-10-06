@@ -3,6 +3,10 @@ Fleet ETA Tracker — ⏱ ETA-калькулятор (v3.28): утилита «�
 Открыта одна панель за раз (карта 🗺, Блокнот 📓 или калькулятор); ширина тянется за левый край и запоминается
 (localStorage "eta-calc-w"); Esc — закрыть. На телефоне (до 768 px) язычка нет.
 Считает всё в браузере, к серверу и Google не ходит. Макет согласован в песочнице 05–06.10 (BACKLOG.md).
+v3.31: открыт калькулятор — клик по строке Флота заполняет его данными машины (app.js → fromRow: км до первой
+непройденной точки, экипаж / соло, остаток вождения, сдвиг до конца отдыха, 9-ки и недельный остаток соло);
+над полями — подпись источника, правка руками её убирает. Мини-карта: линия маршрута строки, нарезанная
+по раскладу (езда, перерывы, отдыхи с кодом зоны, 🏁) — карта Google создаётся один раз, Routes не нужен.
 
 Правила расчёта:
   - скорость 70 км/ч; ETD и ETA — вверх до 15 мин;
@@ -16,7 +20,7 @@ Fleet ETA Tracker — ⏱ ETA-калькулятор (v3.28): утилита «�
 */
 const EtaCalc = (() => {
   const SPEED = 70, WEEK = 56, BREAK_AFTER = 4.5, BREAK = 0.75;
-  const W_KEY = "eta-calc-w", MIN_W = 380, DEF_W = 460;
+  const W_KEY = "eta-calc-w", MIN_W = 380, DEF_W = 500;   // v3.31: общая ширина панелей
 
   // ---------- форматы ----------
   const p2 = (n) => String(n).padStart(2, "0");
@@ -94,7 +98,9 @@ const EtaCalc = (() => {
   }
 
   // ---------- панель ----------
-  const st = { team: true, rest: 9, shorts: 3, extras: {}, shifts: {}, drag: null };
+  const st = { team: true, rest: 9, shorts: 3, extras: {}, shifts: {}, drag: null,
+               src: null,      // v3.31: {unit, point, km, polyline, note} — откуда данные (клик по строке)
+               srcShown: false };   // подпись источника видна, пока ничего не правили руками
   let panel = null, tab = null, S = null;
   const $ = (sel) => panel.querySelector(sel);
   const ICO = {
@@ -112,6 +118,7 @@ const EtaCalc = (() => {
       <div class="w-label"></div>
       <div class="ec-head"><span>⏱ ETA-калькулятор</span><button type="button" class="ec-x" title="Закрыть (Esc)">×</button></div>
       <div class="ec-body">
+        <div class="ec-src" hidden></div>
         <div class="ec-sec"><div class="ec-lb"><span>Расстояние, км</span><span>70 … 5000</span></div>
           <div class="ec-ln"><input type="number" id="ec-km-n" min="70" step="10" value="1500"><input type="range" id="ec-km-r" min="70" max="5000" step="10" value="1500"></div></div>
         <div class="ec-sec"><div class="ec-lb"><span>Сдвиг выезда, ч</span><span class="ec-now"></span></div>
@@ -140,14 +147,31 @@ const EtaCalc = (() => {
           <div class="ec-wnote"></div>
           <div class="ec-legend"><span><i class="d"></i>езда</span><span><i class="b"></i>перерыв 45 мин</span><span><i class="r"></i>суточный отдых</span><span><i class="w"></i>недельный остаток кончился</span></div>
         </div>
+        <div class="ec-sec ec-msec">
+          <div class="ec-h"><a href="#" class="ec-mtg" title="Свернуть / развернуть карту">▾ Карта</a><span class="ec-mut ec-mnote"></span></div>
+          <div class="ec-mbox">
+            <div class="ec-map"></div>
+            <div class="ec-mempty">Кликни строку трипа — здесь будет её маршрут с отдыхами</div>
+          </div>
+        </div>
       </div>`;
     document.body.appendChild(panel);
 
     let w = DEF_W;
+    if (typeof sideWidthReset === "function") sideWidthReset();
     try { w = Number(localStorage.getItem(W_KEY)) || DEF_W; } catch (e) { /* ignore */ }
     setWidth(w);
 
     $(".ec-x").addEventListener("click", close);
+    // v3.31: правка руками — подпись «из строки» пропадает; км поменяли — линия строки больше не та
+    $(".ec-body").addEventListener("input", (e) => {
+      if (!e.isTrusted || !e.target.closest(".ec-sec") || e.target.closest(".ec-msec")) return;
+      manual(e.target.id === "ec-km-n" || e.target.id === "ec-km-r");
+    }, true);
+    $(".ec-body").addEventListener("click", (e) => { if (e.target.closest(".ec-team button, .ec-rest button")) manual(false); }, true);
+    $(".ec-mtg").addEventListener("click", (e) => { e.preventDefault(); mapFold(!st.mapFolded); });
+    try { st.mapFolded = localStorage.getItem(MAP_KEY) === "0"; } catch (e) { /* ignore */ }
+    mapFold(!!st.mapFolded, true);
     pair("km"); pair("sh"); pair("lf", clampLeft);
     $("#ec-wk-n").addEventListener("input", () => { const v = Number($("#ec-wk-n").value); if (v > 56) $("#ec-wk-n").value = 56; if (v < 0) $("#ec-wk-n").value = 0; calc(); });
     panel.querySelectorAll(".ec-team button").forEach((b) => b.addEventListener("click", () => {
@@ -161,6 +185,56 @@ const EtaCalc = (() => {
     bindResize();
     restUI();
   }
+
+  // ---------- v3.31: данные машины из строки Флота ----------
+  function fromRow(r) {
+    if (!panel) return;
+    if (r.km == null || !(r.km > 0)) {          // строка не посчитана или ошибка — ничего не меняем
+      st.srcShown = true;
+      st.src = { unit: r.unit, point: r.point, km: null, polyline: null, note: "нет км у строки — не посчитана или ошибка" };
+      srcUI(); drawMapSoon();
+      return;
+    }
+    const kmv = Math.round(r.km);
+    $("#ec-km-n").value = kmv; $("#ec-km-r").value = Math.min(kmv, 5000);
+    const s = r.seed;
+    const notes = [];
+    if (s) {
+      st.team = !!s.team;
+      panel.querySelectorAll(".ec-team button").forEach((x) => x.classList.toggle("on", (x.dataset.v === "1") === st.team));
+      $("#ec-lf-n").value = s.left_h; clampLeft();
+      $("#ec-sh-n").value = s.shift_h || 0; $("#ec-sh-r").value = Math.min(s.shift_h || 0, 72);
+      if (!st.team) {
+        st.rest = s.shorts > 0 ? 9 : 11;
+        st.shorts = Math.max(1, Math.min(3, s.shorts || 1));
+        if (s.week_left_h != null) $("#ec-wk-n").value = s.week_left_h;
+      }
+      if (s.resting) notes.push("на отдыхе — выезд после него");
+      if (s.unknown) notes.push("тахографа нет — остаток по максимуму");
+      else if (s.nocard) notes.push("тахографа нет — стоит ≥ 9 ч, свежий день");
+    } else {
+      $("#ec-sh-n").value = 0; $("#ec-sh-r").value = 0;
+      notes.push("тахографа нет — состав и остаток прежние");
+    }
+    st.extras = {}; st.shifts = {};
+    st.src = { unit: r.unit, point: r.point, km: kmv, polyline: r.polyline || null, note: notes.join(" · ") };
+    st.srcShown = true;
+    st.mapFit = true;
+    restUI(); srcUI(); calc();
+  }
+  function manual(kmChanged) {
+    if (st.srcShown) { st.srcShown = false; srcUI(); }
+    if (kmChanged && st.src && st.src.polyline) { st.src.polyline = null; drawMapSoon(); }
+  }
+  function srcUI() {
+    const el = $(".ec-src"), s = st.src;
+    el.hidden = !(st.srcShown && s);
+    if (el.hidden) return;
+    el.classList.toggle("bad", s.km == null);
+    el.innerHTML = `из <b>${escH(s.unit || "строки")}</b>${s.point ? " → " + escH(s.point) : ""}` +
+      (s.note ? `<span class="ec-mut"> · ${escH(s.note)}</span>` : "");
+  }
+  const escH = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   function setWidth(w) {
     const z = typeof uiZoom === "function" ? uiZoom() : 1;
@@ -243,6 +317,7 @@ const EtaCalc = (() => {
     $(".ec-drv").innerHTML = "(" + ICO.drive + " " + hmm(S.drive) + ")";
     drawStrip();
     drawDays();
+    drawMapSoon();
   }
 
   // ---------- шкала рейса: полоса, кровати и км, полночь и даты, ручки отдыха ----------
@@ -354,6 +429,110 @@ const EtaCalc = (() => {
     });
   }
 
+  // ---------- v3.31: мини-карта — линия маршрута строки, нарезанная по раскладу ----------
+  const MAP_KEY = "eta-calc-map";
+  const ZONE_KM = 40;                 // точка отдыха примерная (70 км/ч) — кружок ±40 км
+  const CODE_MAX_KM = 80;             // дальше — кода нет (AT, CH без своих кодов — не подставлять соседский)
+  let gmap = null, lays = [], codes = null, codesLoading = false, mapRaf = 0, lineKey = "", lineCache = null;
+  function mapFold(folded, init) {
+    st.mapFolded = folded;
+    $(".ec-msec").classList.toggle("folded", folded);
+    $(".ec-mtg").textContent = (folded ? "▸" : "▾") + " Карта";
+    if (!init) { try { localStorage.setItem(MAP_KEY, folded ? "0" : "1"); } catch (e) { /* ignore */ } }
+    if (!folded) { st.mapFit = true; drawMapSoon(); }
+  }
+  function drawMapSoon() {
+    if (mapRaf) return;
+    mapRaf = requestAnimationFrame(() => { mapRaf = 0; drawMap(); });
+  }
+  function loadCodes() {
+    if (codes || codesLoading) return;
+    codesLoading = true;
+    fetch("/api/region-codes").then((r) => r.json()).then((d) => { codes = d.codes || []; drawMapSoon(); })
+      .catch(() => { codes = []; });
+  }
+  function codeAt(lat, lng) {
+    if (!codes || !codes.length) return "";
+    const k = Math.cos(lat * Math.PI / 180);
+    let best = Infinity, code = "";
+    for (const c of codes) {
+      const d = (c.lat - lat) ** 2 + ((c.lng - lng) * k) ** 2;
+      if (d < best) { best = d; code = c.code; }
+    }
+    return Math.sqrt(best) * 111.2 <= CODE_MAX_KM ? code : "";
+  }
+  // линия строки: точки и накопленные метры (считаем один раз на линию)
+  function line(enc) {
+    if (lineKey === enc && lineCache) return lineCache;
+    const path = google.maps.geometry.encoding.decodePath(enc), cum = [0];
+    for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + google.maps.geometry.spherical.computeDistanceBetween(path[i - 1], path[i]));
+    lineKey = enc; lineCache = { path, cum, len: cum[cum.length - 1] || 1 };
+    return lineCache;
+  }
+  function pointAt(L, m) {
+    m = Math.max(0, Math.min(L.len, m));
+    let lo = 0, hi = L.cum.length - 1;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (L.cum[mid] <= m) lo = mid; else hi = mid; }
+    const a = L.path[lo], b = L.path[hi], seg = (L.cum[hi] - L.cum[lo]) || 1;
+    return google.maps.geometry.spherical.interpolate(a, b, (m - L.cum[lo]) / seg);
+  }
+  function slice(L, m0, m1) {
+    const out = [pointAt(L, m0)];
+    for (let i = 0; i < L.path.length; i++) if (L.cum[i] > m0 && L.cum[i] < m1) out.push(L.path[i]);
+    out.push(pointAt(L, m1));
+    return out;
+  }
+  function drawMap() {
+    if (!panel || !S || !isOpen() || st.mapFolded) return;
+    const enc = st.src && st.src.polyline, box = $(".ec-mbox");
+    box.classList.toggle("empty", !enc);
+    $(".ec-mnote").textContent = enc ? "точки отдыха примерные: 70 км/ч, ±" + ZONE_KM + " км" : "";
+    if (!enc || !window.googleMapsReady || !window.google || !google.maps.geometry) return;
+    loadCodes();
+    if (!gmap) {
+      gmap = new google.maps.Map($(".ec-map"), {
+        center: { lat: 50.5, lng: 10 }, zoom: 4, disableDefaultUI: true, zoomControl: true, clickableIcons: false,
+        zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP },
+      });
+    }
+    lays.forEach((o) => o.setMap(null));
+    lays = [];
+    const L = line(enc), k = L.len / ((S.dist || 1) * 1000);   // км расклада → метры линии
+    const add = (o) => { lays.push(o); return o; };
+    const dot = (pos, color, scale, title, label) => add(new google.maps.Marker({
+      map: gmap, position: pos, title, zIndex: label ? 3 : 2,
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale, fillColor: color, fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2,
+              labelOrigin: new google.maps.Point(0, -2.6) },
+      label: label ? { text: label, fontSize: "11px", fontWeight: "600", color: "#1a1a1a" } : null,
+    }));
+    let day = 0;
+    S.ev.forEach((e) => {
+      if (e.k === "d") {
+        add(new google.maps.Polyline({ map: gmap, path: slice(L, e.km0 * 1000 * k, e.km1 * 1000 * k),
+          strokeColor: day % 2 ? "#0F6E56" : "#1D9E75", strokeOpacity: 0.95, strokeWeight: 5 }));
+      } else if (e.k === "b") {
+        dot(pointAt(L, e.km0 * 1000 * k), "#EF9F27", 4, "Перерыв " + span(e) + " · 0:45");
+      } else {
+        day++;
+        const p = pointAt(L, e.km0 * 1000 * k), code = codeAt(p.lat(), p.lng()), kind = restKind(e);
+        add(new google.maps.Circle({ map: gmap, center: p, radius: ZONE_KM * 1000, strokeColor: "#5F5E5A", strokeOpacity: 0.6,
+          strokeWeight: 1, fillColor: "#B4B2A9", fillOpacity: 0.25, clickable: false }));
+        dot(p, "#5F5E5A", 7, "Отдых " + hm(e.t1 - e.t0) + (kind ? " (" + kind + ")" : "") + " · с " + fdt(new Date(S.at(e.t0))) +
+          (code ? " · " + code : "") + " · " + km(e.km0), "🛏" + (code ? " " + code : ""));
+      }
+    });
+    if (S.wk) dot(pointAt(L, S.wk.km * 1000 * k), "#c0392b", 5, "Недельный остаток кончился " + fdt(new Date(S.wk.ms)));
+    dot(L.path[0], "#1a1a1a", 5, "Машина сейчас · ETD " + fdt(new Date(S.etd)));
+    dot(L.path[L.path.length - 1], "#2f6fd6", 6, "ETA " + fdt(new Date(S.eta)) + " · " + km(S.dist), "🏁 " + fdt(new Date(S.eta)));
+    if (st.mapFit) {
+      st.mapFit = false;
+      const b = new google.maps.LatLngBounds();
+      L.path.forEach((p) => b.extend(p));
+      google.maps.event.trigger(gmap, "resize");
+      gmap.fitBounds(b, 24);
+    }
+  }
+
   function copy() {
     const text = `ETD ${fdt(new Date(S.etd))} | В пути ${hm((S.eta - S.etd) / 3600e3)} | ETA ${fdt(new Date(S.eta))} · ${km(S.dist)}`;
     const btn = $(".ec-copy"), done = (ok) => { btn.textContent = ok ? "✓ Скопировано" : "Не вышло — выдели строку"; setTimeout(() => { btn.textContent = "📋 Копировать"; }, 1500); };
@@ -371,6 +550,7 @@ const EtaCalc = (() => {
     panel.classList.add("open");
     panel.setAttribute("aria-hidden", "false");
     document.body.classList.add("calc-open");
+    st.mapFit = true;
     calc();
   }
   function close() {
@@ -391,6 +571,6 @@ const EtaCalc = (() => {
     });
   });
 
-  return { open, close, isOpen, simulate };
+  return { open, close, isOpen, simulate, fromRow };
 })();
 window.etaCalc = EtaCalc;

@@ -46,6 +46,37 @@ function uiZoom() {
   return z > 0 ? z : 1;
 }
 
+// v3.31: общая ширина боковых панелей 500 — сохранённые раньше ширины карты и калькулятора сбрасываем один раз
+function sideWidthReset() {
+  try {
+    if (localStorage.getItem("side-w-v331")) return;
+    localStorage.removeItem("fleet-map-w");
+    localStorage.removeItem("eta-calc-w");
+    localStorage.setItem("side-w-v331", "1");
+  } catch (e) { /* ignore */ }
+}
+
+/* v3.31: боковые панели (🗺, 📓, ⏱) закрываются кликом в любом месте аппы, кроме строк трипов (клик по строке —
+   маршрут на карте, данные машины в калькулятор), всплывашек из строки (комментарий, прицеп, корзина,
+   ✓ завершённые), фильтров и сортировки над таблицей. Нажатие ловим до обработчиков (capture): всплывашка
+   может закрыться раньше, чем мы посмотрим, где был клик. */
+const SIDE_KEEP = [
+  ".map-panel", ".nb-panel", ".ec-panel", ".map-tab", ".nb-tab", ".calc-tab",
+  "#fleet-tbody tr", ".sort-bar",
+  ".com-pop", ".com-ed", ".trl-ed", ".trl-ed-near", ".trash-pop", ".trash-btn", ".done-pop", ".done-btn",
+  ".nb-modal-bg", ".tabs-more-wrap", ".fleet-toast", ".pac-container",
+].join(", ");
+document.addEventListener("mousedown", (e) => {
+  if (e.button !== 0) return;
+  const t = e.target;
+  if (!t || t.nodeType !== 1 || t === document.documentElement) return;   // полоса прокрутки страницы
+  if (t.closest(SIDE_KEEP)) return;
+  const fleet = document.getElementById("tab-fleet");
+  if (window.fleetMapPanel && fleet && !fleet.hidden) window.fleetMapPanel.close();   // карта видна только во Флоте
+  if (window.etaCalc) window.etaCalc.close();
+  if (typeof Notebook !== "undefined" && Notebook.close) Notebook.close();
+}, true);
+
 window.whenGoogleMaps = function (fn) {
   if (window.googleMapsReady) fn();
   else (window._gmQueue = window._gmQueue || []).push(fn);
@@ -651,6 +682,22 @@ function drawRoute(rowId) {
     p2.forEach((p) => bounds.extend(p));
   });
   map.fitBounds(bounds, 40);
+}
+
+// v3.31: открыт ⏱ калькулятор — клик по строке передаёт ему км до первой непройденной точки, линию маршрута
+// и данные тахографа (всё из последнего расчёта строки, без новых запросов)
+function ecFromRow(id) {
+  if (!window.etaCalc || !window.etaCalc.isOpen()) return;
+  const row = rows.find((r) => r.id === id);
+  if (!row) return;
+  const c = lastCalcText[id] || {};
+  const at = c.ecAt || 0;
+  const pt = at === 0 ? row.target : ((row.extra || [])[at - 1] || {}).target;
+  const pos = rowPositions[id];
+  window.etaCalc.fromRow({
+    unit: row.unit || "", point: ((STOP_NUM[at + 1] || "") + " " + String(pt || "").trim()).trim(),
+    km: c.ecKm != null ? c.ecKm : null, seed: c.ecSeed || null, polyline: (pos && pos.polyline) || null,
+  });
 }
 
 let rowIdCounter = 1;
@@ -1432,6 +1479,7 @@ function attachRowHandlers() {
         return;
       }
       drawRoute(id);
+      ecFromRow(id);                                                  // v3.31: открыт ⏱ — данные машины в калькулятор
     });
   });
 }
@@ -2503,6 +2551,10 @@ async function calcRow(id, why) {
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual,
                            by: x.by != null ? x.by : null, zone: x.zone || null })),
                          allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null, fuelLow: fuelLowOf(data),
+                         // v3.31: для ⏱ калькулятора — км до первой непройденной точки, её номер, данные тахографа
+                         ecKm: data.all_done ? null : (data.dist_km != null ? Number(data.dist_km) : null),
+                         ecAt: data.active_idx && data.active_idx.length ? data.active_idx[0] : 0,
+                         ecSeed: data.calc_seed || null,
                          nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };
     applyDoneClasses(tr, row, lastCalcText[id]);
     applyFuelBlink(tr, id);

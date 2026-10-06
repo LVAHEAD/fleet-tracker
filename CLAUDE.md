@@ -7,7 +7,7 @@
 Стек: Python 3 / Flask, gunicorn (`Procfile`: `gunicorn app:app`, 1 worker × 8 threads — общий кеш в памяти),
 Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 Вход — IAP по списку Google-аккаунтов. Общий Флот хранится в Firestore.
-Фронтенд — ванильный JS без сборки (`static/`, `templates/index.html`). Карта Флота — панель справа (`static/map-panel.js`, механика в `app.js`).
+Фронтенд — ванильный JS без сборки (`static/`, `templates/index.html`). Карта Флота — панель справа (`static/map-panel.js`, механика в `app.js`). Боковые панели — общая ширина `--sidew` (500), закрытие кликом мимо — `SIDE_KEEP` в `app.js`.
 
 ## Правила работы (обязательно)
 
@@ -103,7 +103,7 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 | `fetat/api/calc.py` | `/api/calc`, `/api/route` → services |
 | `fetat/api/reference.py` | `/api/region-codes`, `/api/locate`, `/api/addresses`, `/api/freights`, `/api/bans` |
 | `fetat/api/fleet.py` | `/api/fleet*`: чтение, sync (смена `disp` — только назначающий), 🔒, корзина, восстановление, импорт; завершить / вернуть / список завершённых (`complete`, `reopen`, `done` — хозяин или назначающий); `/api/dispatchers` |
-| `static/eta-calc.js` | ⏱ ETA-калькулятор (v3.28): панель справа, расчёт `simulate()` в браузере — без сервера и Google; свои правила (чистые 9 / 11 ч, тянучка отдыха) |
+| `static/eta-calc.js` | ⏱ ETA-калькулятор (v3.28): панель справа, расчёт `simulate()` в браузере — без сервера и Google; свои правила (чистые 9 / 11 ч, тянучка отдыха); v3.31 — `fromRow` (данные строки: `calc_seed` из `domain/tacho`), мини-карта по линии строки |
 | `data/` | `region_codes.json`, `region_codes_geonames.json` |
 | `tests/` | unittest + фикстуры; код через `A` из `tests/__init__.py` (ищет имя во всех модулях, подмена ставится везде) |
 

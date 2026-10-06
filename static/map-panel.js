@@ -18,7 +18,9 @@ Fleet ETA Tracker — «Карта 2.0» (v3.26): карта Флота в вы�
   const clampW = (w) => Math.max(MIN_W, Math.min(maxW(), Math.round(w)));
 
   // v3.30: ширина на виду — подпись при перетаскивании и подсказка ручки (подобрать удобную)
-  const DEF_W = 560;
+  // v3.31: общая ширина панелей по умолчанию — 500 (--sidew в style.css), сохранённая — сброс один раз
+  const DEF_W = 500;
+  sideWidthReset();
   const handleEl = panel.querySelector(".map-resize");
   const wLabel = document.createElement("div");
   wLabel.className = "w-label";

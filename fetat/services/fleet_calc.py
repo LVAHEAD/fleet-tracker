@@ -15,7 +15,7 @@ from fetat.domain.points import (
 )
 from fetat.domain.regions import nearest_region_code
 from fetat.services.corridors import fleet_waypoints_resolved as fleet_waypoints   # v3.26: + выбор коридора
-from fetat.domain.tacho import (FRESH_SOLO_TACHO, TACHO_SPEED_KMH, calc_eta, crew_mode, tacho_eta, tacho_no_subscription,
+from fetat.domain.tacho import (FRESH_SOLO_TACHO, TACHO_SPEED_KMH, calc_eta, calc_seed, crew_mode, tacho_eta, tacho_no_subscription,
                                tacho_summary, week_left_info)
 from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM, truck_fuel
 from fetat.utils.geo import haversine_km
@@ -231,6 +231,7 @@ def _add_tacho(result, unit, trailer, crew=None):
             result["tacho_team"] = team
             result["tacho_summary"] = tacho_summary(tacho, sim)
             result["tacho_weeklimit"] = bool(sim and sim.get("week", {}).get("hit"))
+            result["calc_seed"] = calc_seed(tacho)          # v3.31: для ⏱ калькулятора по клику на строку
         else:
             result["tacho_error"] = terr
             if not trailer:
@@ -285,9 +286,13 @@ def _no_card_crew(result, unit, crew=None, terr=None):
         result["tacho_weeklimit"] = False
         summ.append(f"стоит {format_duration(stood)} — считаем, что отдохнул: ETA со свежего дня")
         result["tacho_summary"] = summ
+        result["calc_seed"] = calc_seed(fresh)              # v3.31: свежий день, недельного остатка нет
         return fresh, sim
     summ.append("едет или стоит меньше 9 ч — ETA простой, без отдыхов")
     result["tacho_summary"] = summ
+    # v3.31: остатка вождения не знаем — калькулятору только состав, остаток по максимуму
+    result["calc_seed"] = {"team": team, "left_h": 18.0 if team else 9.0, "shift_h": 0.0, "resting": False,
+                           "shorts": 3, "nocard": True, "unknown": True}
     return None, None
 
 

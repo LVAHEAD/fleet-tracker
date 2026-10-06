@@ -371,6 +371,47 @@ def tacho_no_subscription(err):
     return "1015" in e or "remote download subscription" in e.lower()
 
 
+def calc_seed(tacho, now_ts=None):
+    """v3.31: стартовые данные машины для ⏱ ETA-калькулятора (клик по строке Флота): экипаж / соло, остаток
+    вождения на момент выезда, через сколько выезд (стоит на суточном отдыхе — до конца отдыха, чистого,
+    без запаса: запас в калькуляторе диспетчер добавляет сам), оставшиеся 9-ки и недельный остаток (соло).
+    Начало — то же, что у tacho_eta: стоит дольше нормы отдыха — свежий день; на отдыхе и дня не осталось —
+    выезд после отдыха со свежим днём; иначе — сколько осталось сегодня. Часы, с точностью до 15 мин."""
+    drivers = tacho["drivers"]
+    team = _team(tacho)
+    d0 = next((d for d in drivers if d.get("current_state") == "DRIVING"), drivers[0])
+    today = d0.get("today", {}) or {}
+    week = d0.get("week", {}) or {}
+    nowd = d0.get("now", {}) or {}
+    short_left = int(week.get("9h_rest_shortening_remaining") or 0)
+    day_max = TEAM_DAY_SEC if team else 9 * 3600
+    if team:
+        day_left = min(TEAM_DAY_SEC, sum(float((d.get("today") or {}).get("driving_remaining") or 0) for d in drivers)
+                       + (9 * 3600 if len(drivers) < 2 else 0))
+    else:
+        day_left = float(today.get("driving_remaining") or 0)
+    rest_now = float(nowd.get("rest") or 0) if d0.get("current_state") == "REST" else 0.0
+    need_rest = 9 * 3600 if (team or short_left > 0) else 11 * 3600
+    shift = 0.0
+    if rest_now >= need_rest:
+        day_left = day_max
+    elif rest_now >= 3 * 3600 and day_left < 3600:
+        shift = need_rest - rest_now
+        day_left = day_max
+        if need_rest == 9 * 3600 and not team:
+            short_left -= 1
+    q = lambda sec: round(max(0.0, sec) / 900) / 4   # noqa: E731 — часы с шагом 15 мин
+    out = {"team": team, "left_h": min(q(day_left), day_max / 3600), "shift_h": q(shift),
+           "resting": shift > 0, "shorts": max(0, min(3, short_left))}
+    if not team:
+        wl = week.get("driving_remaining")
+        out["week_left_h"] = min(56.0, q(float(wl))) if wl is not None else None
+    if tacho.get("nocard"):              # v3.29: подменный тахограф «отдохнул» — недельного остатка не знаем
+        out["nocard"] = True
+        out.pop("week_left_h", None)
+    return out
+
+
 FRESH_SOLO_TACHO = {"drivers": [{
     "current_state": "REST", "now": {"rest": 11 * 3600, "driving": 0},
     "today": {"driving_remaining": 9 * 3600, "shift_remaining": 13 * 3600, "daily_rest_min": 11 * 3600},

@@ -29,9 +29,12 @@ class EtaCalcWiringTest(unittest.TestCase):
         self.assertIn("window.etaCalc.close()", read("static/map-panel.js"))
 
     def test_no_server_calls(self):
+        # v3.31: расчёт — в браузере; к серверу только за списком кодов регионов (мини-карта), к Routes — никогда
         js = read("static/eta-calc.js")
-        self.assertNotIn("fetch(", js)
-        self.assertNotIn("/api/", js)
+        self.assertEqual(js.count("fetch("), 1)
+        self.assertIn('fetch("/api/region-codes")', js)
+        self.assertNotIn("/api/calc", js)
+        self.assertNotIn("/api/route", js)
 
     def test_tab_under_notebook(self):
         css = read("static/eta-calc.css")
