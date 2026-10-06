@@ -113,6 +113,7 @@ const SIDE_KEEP = [
   "#fleet-tbody tr", ".sort-bar",
   ".com-pop", ".com-ed", ".trl-ed", ".trl-ed-near", ".trash-pop", ".trash-btn", ".done-pop", ".done-btn",
   ".nb-modal-bg", ".tabs-more-wrap", ".fleet-toast", ".pac-container", ".cor-pop",
+  "[data-tab]",   // v3.36: смена вкладки аппы панель не закрывает (карта вернётся при возврате во Флот)
 ].join(", ");
 document.addEventListener("mousedown", (e) => {
   if (e.button !== 0) return;

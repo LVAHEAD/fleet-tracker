@@ -1101,7 +1101,7 @@ body.map-resizing .map-panel .w-label, body.ec-resizing .w-label { display: bloc
 #fleet-table .col-client, #fleet-table .col-ref { width: 90px; }
 .cl-input, .ref-input { width: 100%; min-width: 0; }
 @media (min-width: 1500px) {
-  body { max-width: none; padding-left: 8px; padding-right: 8px; }
+  body { max-width: none; padding-left: 50px; padding-right: 50px; }   /* v3.36: поля 50 */
   #fleet-table th, #fleet-tbody td { padding-left: 3px; padding-right: 3px; }
   #fleet-table .col-unit, body.sort-manual #fleet-table .col-unit { width: 100px; }
   #fleet-table .col-status   { width: 300px; }
@@ -1126,3 +1126,12 @@ body.map-resizing .map-panel .w-label, body.ec-resizing .w-label { display: bloc
 .refresh-row-btn-w { display: none; }
 @media (min-width: 1500px) { #fleet-tbody .row-actions .refresh-row-btn-w { display: inline-block; } }
 @media (max-width: 1499px) { .acts-br { display: none; } }
+/* v3.36: L → O / O → L — кнопки два на два (разрыв ряда только при «руками»); шапка — «+» и ↻ без надписи;
+   Машина — отступ от полосы L / O */
+body:not(.sort-manual) .acts-br { display: none; }
+@media (min-width: 1500px) {
+  #fleet-table .th-actions .hdr-txt { display: none; }
+  #fleet-table .th-actions { white-space: nowrap; }
+  #fleet-table .th-actions .refresh-top { padding: 1px 6px; margin: 0 0 0 2px; }
+  #fleet-table th:first-child, #fleet-tbody td:first-child { padding-left: 8px; }
+}
