@@ -130,9 +130,13 @@ body.ec-resizing .ec-panel, body.ec-resizing .calc-tab, body.ec-resizing .nb-tab
 /* v3.31: мини-карта с раскладом */
 .ec-msec .ec-h a.ec-mtg { font-size: 13px; font-weight: 600; color: #1a1a1a; }
 .ec-mnote { font-weight: 400; }
-.ec-mbox { position: relative; height: 220px; margin-top: 6px; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; background: #eee; }
+.ec-body { display: flex; flex-direction: column; }   /* v3.32: мини-карта — на всё место до низа панели */
+.ec-body > * { flex: none; }
+.ec-body > .ec-msec { flex: 1 0 auto; display: flex; flex-direction: column; }
+.ec-body > .ec-msec.folded { flex: none; }
+.ec-mbox { position: relative; flex: 1 1 auto; min-height: 220px; margin-top: 6px; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; background: #eee; }
 .ec-msec.folded .ec-mbox, .ec-msec.folded .ec-mnote { display: none; }
-.ec-map { width: 100%; height: 100%; }
+.ec-map { position: absolute; inset: 0; }
 .ec-mempty { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; padding: 12px;
   text-align: center; font-size: 12px; color: #888; background: #fafafa; }
 .ec-mbox.empty .ec-mempty { display: flex; }
@@ -141,7 +145,7 @@ body.ec-resizing .ec-panel, body.ec-resizing .calc-tab, body.ec-resizing .nb-tab
 /* большой экран: body { zoom: .9 } — панель на всю высоту; карта без масштаба, иначе клики мимо */
 @media (min-width: 1500px) {
   .ec-panel { height: calc(100vh / 0.9); }
-  .ec-map { zoom: 1.11112; width: calc(100% / 1.11112); height: calc(100% / 1.11112); }
+  .ec-map { zoom: 1.11112; }   /* v3.32: размер — по краям блока (inset 0), без «100 % / 1.11» */
 }
 /* телефон: калькулятора нет (мобильная версия на паузе) */
 @media (max-width: 767px) { .calc-tab, .ec-panel { display: none; } }

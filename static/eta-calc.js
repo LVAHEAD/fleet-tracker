@@ -24,8 +24,36 @@ const EtaCalc = (() => {
 
   // ---------- форматы ----------
   const p2 = (n) => String(n).padStart(2, "0");
-  const fd = (d) => p2(d.getDate()) + "/" + p2(d.getMonth() + 1);
-  const ft = (d) => p2(d.getHours()) + ":" + p2(d.getMinutes());
+  /* v3.32: все времена — EU time (Europe/Berlin, как ETA во Флоте), а не пояс браузера. Внутри — обычные мс;
+     для вида и границ суток переводим в «настенное» время Берлина: wall(ms) — Date, у которого UTC-поля =
+     берлинские часы; fromWall — обратно (на переходе часов — ближайшее настоящее время). */
+  const EU_TZ = "Europe/Berlin";
+  const euFmt = new Intl.DateTimeFormat("en-GB", { timeZone: EU_TZ, hourCycle: "h23", year: "numeric", month: "2-digit",
+    day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const offCache = {};
+  function euOff(ms) {                    // смещение Берлина от UTC в мс (кеш по часу)
+    const h = Math.floor(ms / 3600e3);
+    if (offCache[h] != null) return offCache[h];
+    const p = {};
+    euFmt.formatToParts(new Date(h * 3600e3)).forEach((x) => { p[x.type] = x.value; });
+    const w = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute);
+    return (offCache[h] = w - h * 3600e3);
+  }
+  const wall = (ms) => new Date(ms + euOff(ms));
+  const fromWall = (w) => w - euOff(w - euOff(w));
+  const wallMidnight = (ms) => { const w = wall(ms); return Date.UTC(w.getUTCFullYear(), w.getUTCMonth(), w.getUTCDate()); };
+  // начала суток (Берлин) от суток с ms до конца рейса: [{ms, w (Date стены)}]
+  function euDays(fromMs, toMs) {
+    const out = [];
+    for (let w = wallMidnight(fromMs), g = 0; g < 400; g++, w += 86400e3) {
+      const ms = fromWall(w);
+      if (ms >= toMs && out.length) break;
+      out.push({ ms, w: new Date(w) });
+    }
+    return out;
+  }
+  const fd = (d) => { const w = wall(+d); return p2(w.getUTCDate()) + "/" + p2(w.getUTCMonth() + 1); };
+  const ft = (d) => { const w = wall(+d); return p2(w.getUTCHours()) + ":" + p2(w.getUTCMinutes()); };
   const fdt = (d) => fd(d) + " " + ft(d);
   const hm = (h) => { const m = Math.round(h * 60); return Math.floor(m / 60) + " ч" + (m % 60 ? " " + p2(m % 60) + " мин" : ""); };
   const hmm = (h) => { const m = Math.round(h * 60); return Math.floor(m / 60) + ":" + p2(m % 60); };
@@ -33,8 +61,9 @@ const EtaCalc = (() => {
   const up15 = (ms) => { const q = 15 * 60e3; return Math.ceil(ms / q) * q; };
   const WD = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
   function nextMonday(ms) {
-    const x = new Date(ms); x.setHours(0, 0, 0, 0);
-    x.setDate(x.getDate() + ((8 - x.getDay()) % 7 || 7));
+    // v3.32: неделя тахографа — с понедельника 00:00 UTC (как на сервере)
+    const x = new Date(ms); x.setUTCHours(0, 0, 0, 0);
+    x.setUTCDate(x.getUTCDate() + ((8 - x.getUTCDay()) % 7 || 7));
     return x.getTime();
   }
   function restKind(e) {
@@ -214,10 +243,11 @@ const EtaCalc = (() => {
       else if (s.nocard) notes.push("тахографа нет — стоит ≥ 9 ч, свежий день");
     } else {
       $("#ec-sh-n").value = 0; $("#ec-sh-r").value = 0;
-      notes.push("тахографа нет — состав и остаток прежние");
+      const nn = r.noSeedNote != null ? r.noSeedNote : "тахографа нет — состав и остаток прежние";
+      if (nn) notes.push(nn);
     }
     st.extras = {}; st.shifts = {};
-    st.src = { unit: r.unit, point: r.point, km: kmv, polyline: r.polyline || null, note: notes.join(" · ") };
+    st.src = { unit: r.unit, point: r.point, label: r.label || "", km: kmv, polyline: r.polyline || null, note: notes.join(" · ") };
     st.srcShown = true;
     st.mapFit = true;
     restUI(); srcUI(); calc();
@@ -231,7 +261,7 @@ const EtaCalc = (() => {
     el.hidden = !(st.srcShown && s);
     if (el.hidden) return;
     el.classList.toggle("bad", s.km == null);
-    el.innerHTML = `из <b>${escH(s.unit || "строки")}</b>${s.point ? " → " + escH(s.point) : ""}` +
+    el.innerHTML = (s.label ? "из " + escH(s.label) : `из <b>${escH(s.unit || "строки")}</b>${s.point ? " → " + escH(s.point) : ""}`) +
       (s.note ? `<span class="ec-mut"> · ${escH(s.note)}</span>` : "");
   }
   const escH = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -323,9 +353,7 @@ const EtaCalc = (() => {
   // ---------- шкала рейса: полоса, кровати и км, полночь и даты, ручки отдыха ----------
   const pos = (ms) => Math.max(0, Math.min(100, (ms - S.etd) / ((S.eta - S.etd) || 1) * 100));
   function midnights() {
-    const a = [], d = new Date(S.etd); d.setHours(24, 0, 0, 0);
-    while (d.getTime() < S.eta) { a.push(d.getTime()); d.setDate(d.getDate() + 1); }
-    return a;
+    return euDays(S.etd, S.eta).map((x) => x.ms).filter((ms) => ms > S.etd && ms < S.eta);
   }
   function span(e) {
     const a = new Date(S.at(e.t0)), b = new Date(S.at(e.t1));
@@ -359,10 +387,11 @@ const EtaCalc = (() => {
 
   // ---------- расклад по дням: строка на сутки 00–24, вождение (км), остаток ----------
   function drawDays() {
-    const rows = [], d = new Date(S.etd); d.setHours(0, 0, 0, 0);
+    const rows = [], days = euDays(S.etd, S.eta + 1);
     let cum = 0;
-    for (; d.getTime() < S.eta; d.setDate(d.getDate() + 1)) {
-      const d0 = d.getTime(), n = new Date(d); n.setDate(n.getDate() + 1); const d1 = n.getTime(), len = d1 - d0;
+    for (let di = 0; di < days.length; di++) {
+      const day = days[di], d0 = day.ms, d1 = di + 1 < days.length ? days[di + 1].ms : fromWall(day.w.getTime() + 86400e3), len = d1 - d0;
+      if (d0 >= S.eta) break;
       let drv = 0, kmd = 0;
       const segs = S.ev.map((e) => {
         const a = S.at(e.t0), b = S.at(e.t1), s = Math.max(a, d0), f = Math.min(b, d1);
@@ -372,7 +401,7 @@ const EtaCalc = (() => {
       }).join("");
       const wk = S.wk && S.wk.ms >= d0 && S.wk.ms < d1 ? `<i class="w" title="Недельный остаток кончился ${ft(new Date(S.wk.ms))}" style="left:${((S.wk.ms - d0) / len * 100).toFixed(3)}%"></i>` : "";
       cum += kmd;
-      rows.push(`<span class="ec-dl">${WD[d.getDay()]} ${fd(d)}</span><div class="ec-day">${[6, 12, 18].map((h) => `<span class="gl" style="left:${h / 24 * 100}%"></span>`).join("")}${segs}${wk}</div>` +
+      rows.push(`<span class="ec-dl">${WD[day.w.getUTCDay()]} ${fd(d0)}</span><div class="ec-day">${[6, 12, 18].map((h) => `<span class="gl" style="left:${h / 24 * 100}%"></span>`).join("")}${segs}${wk}</div>` +
         `<span class="ec-dv">${hmm(drv)} <span>(${km(kmd)})</span></span><span class="ec-dr">${S.eta <= d1 ? "🏁 " + ft(new Date(S.eta)) : km(Math.max(0, S.dist - cum))}</span>`);
     }
     const axis = Array.from({ length: 13 }, (_, k) => `<span style="left:${k * 2 / 24 * 100}%">${k * 2}</span>`).join("") +
@@ -547,6 +576,7 @@ const EtaCalc = (() => {
     if (!panel) build();
     if (typeof Notebook !== "undefined" && Notebook.close) Notebook.close();   // открыта одна панель за раз
     if (window.fleetMapPanel) window.fleetMapPanel.close();
+    if (typeof sideMarginFix === "function") sideMarginFix();       // v3.32: левый край не скачет
     panel.classList.add("open");
     panel.setAttribute("aria-hidden", "false");
     document.body.classList.add("calc-open");
@@ -571,6 +601,12 @@ const EtaCalc = (() => {
     });
   });
 
-  return { open, close, isOpen, simulate, fromRow };
+  // v3.32: «⏱ Послать в калькулятор» из From → To — открыть и залить
+  function openWith(r) {
+    open();
+    if (isOpen()) fromRow(r);
+  }
+
+  return { open, close, isOpen, simulate, fromRow, openWith };
 })();
 window.etaCalc = EtaCalc;

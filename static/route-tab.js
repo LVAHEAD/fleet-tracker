@@ -36,6 +36,7 @@ function initRouteTab() {
   syncRouteFields("route-to-list", "O");
   document.getElementById("route-calc-btn").addEventListener("click", calcRouteTab);
   document.getElementById("route-clear-btn").addEventListener("click", clearRouteTab);
+  document.getElementById("route-to-calc").addEventListener("click", routeToCalc);   // v3.32
 }
 
 // --- Сохранение полей в браузере ---
@@ -67,6 +68,8 @@ function restoreRouteFields() {
 
 // --- Очистить ---
 function clearRouteTab() {
+  routeCorridor = null;      // v3.32
+  lastRouteData = null;
   document.getElementById("route-from-list").innerHTML = "";
   document.getElementById("route-to-list").innerHTML = "";
   syncRouteFields("route-from-list", "L");
@@ -191,7 +194,7 @@ async function calcRouteTab() {
     const res = await fetch("/api/route", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ from: froms, to: tos }),
+      body: JSON.stringify(Object.assign({ from: froms, to: tos }, routeCorridor ? { corridor: routeCorridor } : {})),
     });
     const data = await res.json();
 
@@ -201,6 +204,7 @@ async function calcRouteTab() {
       return;
     }
 
+    lastRouteData = data;                   // v3.32: для «⏱ Послать в калькулятор»
     renderRoutePoints(data.points || []);
     renderGeoWarn(data.points || []);
     renderFreights(data.freights);
@@ -209,6 +213,7 @@ async function calcRouteTab() {
       document.getElementById("route-dist").textContent = data.dist_km.toFixed(1);
       document.getElementById("route-duration").textContent = formatHM(data.duration_h, false);
       renderRouteLegs(data.legs || []);
+      renderRouteCorridor(data);
       renderRouteBans(data);
       document.getElementById("route-waypoint-note").hidden = !data.waypoints_applied;
       resultEl.hidden = false;
@@ -222,6 +227,59 @@ async function calcRouteTab() {
     btn.disabled = false;
     btn.textContent = "Рассчитать";
   }
+}
+
+// ---------- v3.32: коридор ИТ ↔ Бенелюкс — кнопки под результатом; «сравнить км» — то же меню, что во Флоте ----------
+let routeCorridor = null;      // выбор диспетчера (до «Очистить»), null — авто
+function renderRouteCorridor(data) {
+  const el = document.getElementById("route-corridor");
+  const k = data.corridor;
+  if (!k || !k.used) { el.hidden = true; el.innerHTML = ""; return; }
+  const tun = { "Монблан": 250, "Фрежюс": 250 };
+  const btn = (name, label) => `<button type="button" data-n="${routeEscape(name || "")}" class="${(routeCorridor || null) === name ? "on" : ""}"` +
+    (name && tun[name] ? ` title="туннель ~${tun[name]} €"` : "") + `>${label}</button>`;
+  el.innerHTML = `<span>Коридор в обход Швейцарии: <b>${routeEscape(k.used)}</b>${routeCorridor ? " (вручную)" : " (авто)"}</span> ` +
+    `<span class="rt-cor-seg">${btn(null, "авто")}${(k.names || []).map((n) => btn(n, routeEscape(n) + (tun[n] ? " 🚇" : ""))).join("")}</span> ` +
+    `<a href="#" class="rt-cor-b">сравнить км</a>`;
+  el.hidden = false;
+  el.querySelectorAll(".rt-cor-seg button").forEach((b) => b.addEventListener("click", () => {
+    const n = b.dataset.n || null;
+    if (n === (routeCorridor || null)) return;
+    routeCorridor = n;
+    calcRouteTab();
+  }));
+  el.querySelector(".rt-cor-b").addEventListener("click", (e) => {
+    e.preventDefault();
+    corridorMenu(e.currentTarget, k, routeCorridor, (n) => { routeCorridor = n; calcRouteTab(); });
+  });
+}
+
+// ---------- v3.32: «⏱ Послать в калькулятор» — первый отрезок (From1 → следующая точка) ----------
+let lastRouteData = null;
+function routeToCalc() {
+  const d = lastRouteData;
+  if (!d || !window.etaCalc || d.dist_km == null) return;
+  const pts = d.points || [], legs = d.legs || [];
+  const km = legs.length ? legs[0].dist_km : d.dist_km;
+  let poly = d.route_polyline || null;
+  // линия всего маршрута — отрезаем первый отрезок по доле км (линия Google ≈ км по дорогам)
+  if (poly && legs.length > 1 && d.dist_km > 0 && window.google && google.maps.geometry) {
+    const path = google.maps.geometry.encoding.decodePath(poly), sph = google.maps.geometry.spherical;
+    const total = sph.computeLength(path), cut = total * km / d.dist_km, out = [path[0]];
+    let acc = 0;
+    for (let i = 1; i < path.length; i++) {
+      const seg = sph.computeDistanceBetween(path[i - 1], path[i]);
+      if (acc + seg >= cut) { out.push(sph.interpolate(path[i - 1], path[i], seg ? (cut - acc) / seg : 0)); break; }
+      acc += seg; out.push(path[i]);
+    }
+    poly = google.maps.geometry.encoding.encodePath(out);
+  }
+  const name = (p) => (p ? String(p.label || p.raw || "").split(",")[0].trim() : "");
+  window.etaCalc.openWith({
+    label: "From → To: " + name(pts[0]) + " → " + name(pts[1]),
+    km, polyline: poly, seed: d.calc_seed || null,
+    noSeedNote: pts[0] && pts[0].is_truck ? "тахографа машины нет — состав и остаток прежние" : "",
+  });
 }
 
 // v1.45: полные запреты по пути (при выезде сейчас, соло) — только предупреждение

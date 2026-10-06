@@ -3,6 +3,7 @@
 /api/bans GET
 /api/calc POST
 /api/changelog GET
+/api/corridors POST
 /api/dispatchers GET
 /api/fleet GET
 /api/fleet/complete POST

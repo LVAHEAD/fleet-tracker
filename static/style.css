@@ -174,6 +174,31 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
   background: #f5f7fa; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px;
 }
 .route-result-row { margin: 3px 0; }
+/* v3.32: «⏱ Послать в калькулятор» — у итога From → To; на телефоне калькулятора нет */
+.route-to-calc { margin-left: 12px; font-size: 12px; padding: 3px 10px; vertical-align: 1px; }
+@media (max-width: 767px) { .route-to-calc { display: none; } }
+/* v3.32: коридор ИТ ↔ Бенелюкс — плашка в строке Флота, меню выбора, кнопки во From → To */
+.cor-b { display: inline-block; margin-left: 4px; padding: 0 5px; height: 18px; line-height: 16px; font-size: 10px;
+  border: 1px solid #c9c9c9; border-radius: 9px; background: #f6f6f6; color: #555; cursor: pointer; white-space: nowrap; vertical-align: 1px; }
+.cor-b:hover { background: #eef3fd; border-color: #2f6fd6; color: #2f6fd6; }
+.cor-b.cor-man { border-color: #2f6fd6; color: #2f6fd6; background: #eef3fd; font-weight: 600; }
+.cor-pop { position: absolute; z-index: 1600; width: 290px; background: #fff; border: 1px solid #ccc; border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.15); padding: 6px; font-size: 12px; }
+.cor-h { font-weight: 600; padding: 4px 6px 6px; color: #333; }
+.cor-o { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; width: 100%; text-align: left; border: 0; background: none;
+  padding: 5px 6px; border-radius: 6px; cursor: pointer; font: inherit; color: #1a1a1a; }
+.cor-o:hover { background: #f2f5fb; }
+.cor-o.on { background: #eef3fd; font-weight: 600; }
+.cor-k { color: #555; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cor-k i { font-style: normal; color: #c0392b; }
+.cor-t { grid-column: 1 / -1; color: #a2342a; font-size: 11px; font-weight: 400; }
+.cor-f { color: #999; font-size: 11px; padding: 6px 6px 2px; border-top: 1px solid #eee; margin-top: 4px; }
+.route-cor { margin: 6px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; }
+.rt-cor-seg { display: inline-flex; border: 1px solid #2f6fd6; border-radius: 6px; overflow: hidden; }
+.rt-cor-seg button { border: 0; border-left: 1px solid #2f6fd6; border-radius: 0; background: #fff; color: #2f6fd6; padding: 2px 9px; font-size: 12px; cursor: pointer; }
+.rt-cor-seg button:first-child { border-left: 0; }
+.rt-cor-seg button.on { background: #2f6fd6; color: #fff; font-weight: 600; }
+.rt-cor-b { font-size: 12px; color: #2f6fd6; }
 .route-error { color: #c0392b; margin-bottom: 14px; font-size: 14px; }
 #route-map { height: 420px; width: 100%; border-radius: 8px; border: 1px solid #e0e0e0; background: #eee; }
 .route-waypoint-note { color: #7a5c00; font-size: 12px; margin-top: 4px; }
@@ -1029,20 +1054,23 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
   /* v3.30: боковые панели снова сужают страницу (решение Владимира 06.10).
      v3.31: одна ширина для всех (--sidew, 500) и один резерв под таблицу — таблица одинаковая, какую панель
      ни открой; тянем шире — лишнее наползает на таблицу, уже — под таблицей остаётся тот же резерв */
-  body { transition: margin-right .25s ease, max-width .25s ease; }
+  /* v3.32: левый край не двигается — левый отступ тот же, что без панели (--side-ml замеряет sideMarginFix
+     в app.js перед открытием), ширину забирает только правый край */
+  body { transition: margin-right .25s ease; }
   body.map-open:has(#tab-fleet:not([hidden])), body.nb-open, body.calc-open { --side-res: var(--sidew); }
   body.map-open:has(#tab-fleet:not([hidden])), body.nb-open, body.calc-open {
-    margin-left: calc(2.5vw / var(--uiz, 1));
+    margin-left: var(--side-ml, 0px);
     margin-right: calc(var(--side-res) + 8px);
-    max-width: calc(97.5vw / var(--uiz, 1) - var(--side-res) - 8px);
+    max-width: none;
   }
   body.map-resizing, body.ec-resizing { transition: none; }
   body.map-resizing .map-tab, body.map-resizing .nb-tab { transition: none; }
 }
 @media (min-width: 1500px) {
   .map-panel { height: calc(100vh / 0.9); }
-  /* карта без масштаба body (зум .9), иначе клики мимо — и размер под это */
-  .map-panel #map { width: calc(100% / 1.11112); height: calc(100% / 1.11112); }
+  /* карта без масштаба body (зум .9), иначе клики мимо. v3.32: размер — 100 %: новый Chrome проценты на zoom
+     не умножает, «100 % / 1.11» давало карту на 90 % панели (серая полоса справа и снизу) */
+  .map-panel #map { width: 100%; height: 100%; }
 }
 @media (max-width: 767px) {
   .map-panel { display: contents; }

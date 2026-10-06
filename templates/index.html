@@ -254,8 +254,10 @@
   <p class="route-note">В поле можно вписать машину (номер), код региона, GPS или город. Маршрут строится строго по порядку: From1 → From2 → … → To1 → To2 → …. Оценка по центрам почтовых зон — для больших зон (север Швеции/Норвегии) погрешность может быть заметной.</p>
   <div id="route-geo-warn" class="route-geo-warn" hidden></div>
   <div id="route-result" class="route-result" hidden>
-    <div class="route-result-row route-total"><b id="route-dist"></b> км &nbsp;·&nbsp; в пути ~<b id="route-duration"></b> (при 70 км/ч)</div>
+    <div class="route-result-row route-total"><b id="route-dist"></b> км &nbsp;·&nbsp; в пути ~<b id="route-duration"></b> (при 70 км/ч)
+      <button type="button" id="route-to-calc" class="route-to-calc" title="Открыть ⏱ ETA-калькулятор с первым отрезком: км, линия на мини-карту, тахограф машины (если From — машина)">⏱ Послать в калькулятор</button></div>
     <div id="route-legs"></div>
+    <div id="route-corridor" class="route-cor" hidden></div>
     <div id="route-bans" class="route-bans" hidden></div>
     <div class="route-result-row route-waypoint-note" id="route-waypoint-note" hidden>Маршрут скорректирован по вашему правилу (обход/паромы)</div>
   </div>

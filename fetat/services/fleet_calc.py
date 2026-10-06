@@ -15,6 +15,7 @@ from fetat.domain.points import (
 )
 from fetat.domain.regions import nearest_region_code
 from fetat.services.corridors import fleet_waypoints_resolved as fleet_waypoints   # v3.26: + выбор коридора
+from fetat.services.corridors import clean_corridor, corridor_info, fleet_corridor_cands   # v3.32: выбор диспетчера
 from fetat.domain.tacho import (FRESH_SOLO_TACHO, TACHO_SPEED_KMH, calc_eta, calc_seed, crew_mode, tacho_eta, tacho_no_subscription,
                                tacho_summary, week_left_info)
 from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM, truck_fuel
@@ -25,7 +26,7 @@ from fetat.utils.timefmt import format_duration, round_to_15min
 UNLOAD_STOP_SEC = 30 * 60   # v1.64: время на выгрузку/погрузку между точками одной машины
 
 
-def calc_extra_stops(extras, units, unit, first, tacho, sim):
+def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
     """v1.64: точки 2..N строки Флота. Для каждой: км от машины по цепочке, км плеча,
     ETA (простой и по тахографу) с учётом UNLOAD_STOP_SEC на каждой предыдущей точке,
     запреты на плече, плашка кода региона, координаты и линия плеча для карты."""
@@ -51,9 +52,13 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim):
         if lat is None:
             out.append({"error": f"Не удалось распознать: {tstr}"})
             break
-        leg_km, leg_poly = road_distance_km_google(prev_lat, prev_lng, lat, lng, GOOGLE_API_KEY,
-                                                   fleet_waypoints(prev_lat, prev_lng, lat, lng),   # v2.03
+        leg_wps = fleet_waypoints(prev_lat, prev_lng, lat, lng, corridor)   # v2.03; v3.32: + выбор коридора
+        leg_km, leg_poly = road_distance_km_google(prev_lat, prev_lng, lat, lng, GOOGLE_API_KEY, leg_wps,
                                                    kind="leg")   # v3.13: плечо — долгий общий кеш
+        if "corridor" not in first:                       # v3.32: плашка коридора — по первому такому плечу
+            cc = fleet_corridor_cands(prev_lat, prev_lng, lat, lng)
+            if cc:
+                first["corridor"] = corridor_info(cc, leg_wps, corridor, (prev_lat, prev_lng, lat, lng))
         cum_km += leg_km
         n_stops += 1
         dwell = n_stops * UNLOAD_STOP_SEC
@@ -440,7 +445,11 @@ def _calc_row(payload, tm):
 
         if target_lat is not None:
             cur_lat, cur_lng = unit["lat"], unit["lng"]
-            wps = fleet_waypoints(cur_lat, cur_lng, target_lat, target_lng)   # v2.03: паромы/Инсбрук и во Флоте
+            corridor = clean_corridor(payload.get("corridor"))                # v3.32: коридор выбрал диспетчер
+            wps = fleet_waypoints(cur_lat, cur_lng, target_lat, target_lng, corridor)   # v2.03: паромы/Инсбрук и во Флоте
+            cc = fleet_corridor_cands(cur_lat, cur_lng, target_lat, target_lng)
+            if cc:
+                result["corridor"] = corridor_info(cc, wps, corridor, (cur_lat, cur_lng, target_lat, target_lng))
             dist_km, polyline = road_distance_km_google(cur_lat, cur_lng, target_lat, target_lng, GOOGLE_API_KEY, wps)
             if wps:
                 result["waypoints_applied"] = True
@@ -460,7 +469,8 @@ def _calc_row(payload, tm):
         extras = active_extras   # v1.74: до 12 точек; v1.79: без пройденных
         if extras and result.get("target_lat") is not None:
             try:
-                result["extra"] = calc_extra_stops(extras, units, unit, result, tacho, sim)
+                result["extra"] = calc_extra_stops(extras, units, unit, result, tacho, sim,
+                                                   clean_corridor(payload.get("corridor")))
             except Exception as e:
                 result["extra"] = [{"error": str(e)} for _ in extras]
 

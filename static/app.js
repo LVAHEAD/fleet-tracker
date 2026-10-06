@@ -56,6 +56,25 @@ function sideWidthReset() {
   } catch (e) { /* ignore */ }
 }
 
+/* v3.32: левый край страницы не скачет при открытии боковой панели. Без панели страница по центру (большой экран)
+   или от края (до 1500 px); перед открытием замеряем, где левый край, и держим его там (--side-ml, в px страницы
+   с учётом зума). Пока панель открыта и меняется окно — двигаем пропорционально ширине окна. */
+let sideMlFrac = null;
+function sideMarginFix() {
+  const b = document.body;
+  if (!b.classList.contains("map-open") && !b.classList.contains("nb-open") && !b.classList.contains("calc-open")) {
+    const left = b.getBoundingClientRect().left;
+    sideMlFrac = window.innerWidth ? Math.max(0, left) / window.innerWidth : 0;
+  }
+  sideMarginApply();
+}
+function sideMarginApply() {
+  if (sideMlFrac == null) return;
+  const frac = window.innerWidth >= 1500 ? (sideMlFrac || 0.025) : 0;
+  document.documentElement.style.setProperty("--side-ml", Math.round(frac * window.innerWidth / uiZoom()) + "px");
+}
+window.addEventListener("resize", sideMarginApply);
+
 /* v3.31: боковые панели (🗺, 📓, ⏱) закрываются кликом в любом месте аппы, кроме строк трипов (клик по строке —
    маршрут на карте, данные машины в калькулятор), всплывашек из строки (комментарий, прицеп, корзина,
    ✓ завершённые), фильтров и сортировки над таблицей. Нажатие ловим до обработчиков (capture): всплывашка
@@ -64,7 +83,7 @@ const SIDE_KEEP = [
   ".map-panel", ".nb-panel", ".ec-panel", ".map-tab", ".nb-tab", ".calc-tab",
   "#fleet-tbody tr", ".sort-bar",
   ".com-pop", ".com-ed", ".trl-ed", ".trl-ed-near", ".trash-pop", ".trash-btn", ".done-pop", ".done-btn",
-  ".nb-modal-bg", ".tabs-more-wrap", ".fleet-toast", ".pac-container",
+  ".nb-modal-bg", ".tabs-more-wrap", ".fleet-toast", ".pac-container", ".cor-pop",
 ].join(", ");
 document.addEventListener("mousedown", (e) => {
   if (e.button !== 0) return;
@@ -699,6 +718,61 @@ function ecFromRow(id) {
     km: c.ecKm != null ? c.ecKm : null, seed: c.ecSeed || null, polyline: (pos && pos.polyline) || null,
   });
 }
+
+// ---------- v3.32: коридор ИТ ↔ Бенелюкс / восток FR — плашка и меню выбора (Флот и From → To) ----------
+const COR_TUNNEL = { "Монблан": 250, "Фрежюс": 250 };
+function corridorChip(row, c) {
+  const k = c && c.corridor;
+  if (!k || !k.used) return "";
+  const man = !!row.corridor;
+  const tip = `Коридор в обход Швейцарии: ${k.used}${man ? " (выбран вручную)" : " (авто)"}` +
+    (COR_TUNNEL[k.used] ? ` · туннель ~${COR_TUNNEL[k.used]} €` : "") + ". Клик — выбрать другой";
+  return ` <button type="button" class="cor-b${man ? " cor-man" : ""}" title="${escapeHtml(tip)}">⛰ ${escapeHtml(k.used)}</button>`;
+}
+let corPop = null;
+function closeCorridorMenu() { if (corPop) { corPop.remove(); corPop = null; } }
+// info: {used, manual, names, leg, countries?}; current — ручной выбор или null; onPick(name | null)
+function corridorMenu(anchor, info, current, onPick) {
+  closeCorridorMenu();
+  const pop = document.createElement("div");
+  pop.className = "cor-pop";
+  document.body.appendChild(pop);
+  corPop = pop;
+  let opts = (info.names || []).map((n) => ({ name: n, km: null, diff: null, tunnel_eur: COR_TUNNEL[n] || null }));
+  let state = "load";
+  const draw = () => {
+    const row = (name, label, extra) => `<button type="button" class="cor-o${(current || null) === name ? " on" : ""}" data-n="${escapeHtml(name || "")}">` +
+      `<span class="cor-n">${(current || null) === name ? "✓ " : ""}${label}</span>${extra}</button>`;
+    pop.innerHTML = `<div class="cor-h">Коридор в обход Швейцарии</div>` +
+      row(null, "авто", `<span class="cor-k">${current ? "по правилу" : "сейчас " + escapeHtml(info.used || "—")}</span>`) +
+      opts.map((o) => row(o.name, escapeHtml(o.name),
+        `<span class="cor-k">${o.km != null ? fmtKm(o.km) + (o.diff ? ` <i>+${Math.round(o.diff)}</i>` : "") : state === "load" ? "…" : "—"}</span>` +
+        (o.tunnel_eur ? `<span class="cor-t">туннель +${o.tunnel_eur} €</span>` : ""))).join("") +
+      `<div class="cor-f">${state === "load" ? "Считаю км через каждый коридор…" : state === "err" ? "Км не посчитать — выбор всё равно работает" : "км по дорогам от машины / точки до цели"}</div>`;
+  };
+  draw();
+  const r = anchor.getBoundingClientRect(), z = uiZoom();
+  pop.style.left = Math.round((r.left + window.scrollX) / z) + "px";
+  pop.style.top = Math.round((r.bottom + window.scrollY + 4) / z) + "px";
+  pop.addEventListener("click", (e) => {
+    const b = e.target.closest(".cor-o");
+    if (!b) return;
+    e.stopPropagation();
+    closeCorridorMenu();
+    onPick(b.dataset.n || null);
+  });
+  fetch("/api/corridors", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ leg: info.leg, countries: info.countries || null }) })
+    .then((res) => res.json())
+    .then((d) => {
+      if (corPop !== pop) return;
+      if (d.error || !d.options) { state = "err"; draw(); return; }
+      opts = d.options; state = "ok"; draw();
+    })
+    .catch(() => { if (corPop === pop) { state = "err"; draw(); } });
+}
+document.addEventListener("mousedown", (e) => { if (corPop && !e.target.closest(".cor-pop, .cor-b, .rt-cor-b")) closeCorridorMenu(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeCorridorMenu(); });
 
 let rowIdCounter = 1;
 
@@ -1591,8 +1665,8 @@ function foldTitle(row, cached) {
 }
 
 function distCellHtml(row, c) {
-  if (!row.extra || !row.extra.length) return c.dist;
-  const lines = [`<div class="sl${hideK(row, 0) ? " fold-hide" : ""}">${c.dist}</div>`];
+  if (!row.extra || !row.extra.length) return c.dist + corridorChip(row, c);
+  const lines = [`<div class="sl${hideK(row, 0) ? " fold-hide" : ""}">${c.dist}${corridorChip(row, c)}</div>`];
   row.extra.forEach((x, i) => {
     const ce = c.extra && c.extra[i];
     // v1.65: у 2-й и следующих точек — плечо от предыдущей точки, сумма только в подсказке
@@ -2380,6 +2454,7 @@ async function calcRow(id, why) {
         row.extra && row.extra.length ? { extra: row.extra.map((x) => x.target || "") } : {},
         row.trailer ? { trailer: row.trailer } : {},
         row.crew ? { crew: row.crew } : {},
+        row.corridor ? { corridor: row.corridor } : {},                 // v3.32: коридор выбрал диспетчер
         { done: doneManualArray(row), done_seen: doneSeenArray(row), why: why || "edit" })),
     });
     const data = await res.json();
@@ -2555,6 +2630,7 @@ async function calcRow(id, why) {
                          ecKm: data.all_done ? null : (data.dist_km != null ? Number(data.dist_km) : null),
                          ecAt: data.active_idx && data.active_idx.length ? data.active_idx[0] : 0,
                          ecSeed: data.calc_seed || null,
+                         corridor: data.corridor || null,          // v3.32: плашка коридора ИТ ↔ Бенелюкс
                          nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };
     applyDoneClasses(tr, row, lastCalcText[id]);
     applyFuelBlink(tr, id);
@@ -3076,6 +3152,22 @@ if (window.fleetSync) window.fleetSync.start(); else calcAllRows();
 // v3.11: диспетчеры из листа
 applyDispColors();
 loadDispatchers();
+
+// v3.32: плашка коридора — меню выбора; выбор хранится в трипе (общий Флот), строка пересчитывается
+document.getElementById("fleet-tbody").addEventListener("click", (e) => {
+  const b = e.target.closest(".cor-b");
+  if (!b) return;
+  e.stopPropagation();
+  const id = Number(b.closest("tr").dataset.id);
+  const row = rows.find((r) => r.id === id);
+  const c = lastCalcText[id];
+  if (!row || !c || !c.corridor) return;
+  corridorMenu(b, c.corridor, row.corridor || null, (name) => {
+    if (name) row.corridor = name; else delete row.corridor;
+    saveRows();
+    calcRow(id, "edit");
+  });
+});
 
 // v3.15: 👤/👥 — авто → соло вручную → экипаж вручную → авто; пересчёт строки (тахо-ETA меняется)
 document.getElementById("fleet-tbody").addEventListener("click", (e) => {

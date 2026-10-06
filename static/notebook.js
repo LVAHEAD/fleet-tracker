@@ -591,12 +591,13 @@ const Notebook = (() => {
   // ---------- открыть / закрыть ----------
   function open() {
     if (!panel) build();
+    if (window.fleetMapPanel) window.fleetMapPanel.close();
+    if (window.etaCalc) window.etaCalc.close();
+    if (typeof sideMarginFix === "function") sideMarginFix();       // v3.32: левый край не скачет
     isOpen = true;
     panel.classList.add("open");
     tab.classList.add("open");
-    document.body.classList.add("nb-open");                         // v3.26: открыта одна панель — карта закрывается
-    if (window.fleetMapPanel) window.fleetMapPanel.close();
-    if (window.etaCalc) window.etaCalc.close();                     // v3.28
+    document.body.classList.add("nb-open");                         // v3.26: открыта одна панель (карта и ⏱ закрыты выше)
     panel.setAttribute("aria-hidden", "false");
     $(".nb-where").innerHTML = whereOptions(currentWhere());
     loadList();

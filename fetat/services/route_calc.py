@@ -8,23 +8,25 @@ from fetat.utils.timefmt import ts_west
 from fetat.clients.google_routes import (
     _route_cache, _route_cache_lock, ROUTE_CACHE_TTL, _route_stat, ROUTES_API_URL,
 )
-from fetat.clients.mapon import fetch_units
+from fetat.clients.mapon import fetch_units, get_tacho, unit_driving_days
 from fetat.config import GOOGLE_API_KEY, MAPON_API_KEY
 from fetat.domain.bans import bans_hits_text, bans_on_route, needs_at_night_ban
 from fetat.domain.freights import similar_freights
 from fetat.domain.points import resolve_point
 from fetat.domain.routing_rules import waypoints_label
-from fetat.domain.tacho import FRESH_SOLO_TACHO, tacho_eta
-from fetat.services.corridors import resolve_waypoints
+from fetat.domain.tacho import FRESH_SOLO_TACHO, calc_seed, crew_mode, tacho_eta
+from fetat.services.corridors import clean_corridor, corridor_info, resolve_waypoints
+from fetat.domain.routing_rules import swiss_bypass_candidates
 
 
 MAX_INTERMEDIATES = 25      # лимит Routes API на промежуточные точки (вместе с паромами/Инсбруком)
 
 
-def compute_multi_route(points, api_key):
-    """v1.50: кеш 15 мин по набору точек (повторное "Рассчитать" не тратит запрос)."""
+def compute_multi_route(points, api_key, corridor=None):
+    """v1.50: кеш 15 мин по набору точек (повторное "Рассчитать" не тратит запрос).
+    v3.32: corridor — коридор обхода Швейцарии, выбранный диспетчером (входит в ключ кеша)."""
     import time
-    key = tuple((round(p["lat"], 4), round(p["lng"], 4), p.get("country")) for p in points)
+    key = tuple((round(p["lat"], 4), round(p["lng"], 4), p.get("country")) for p in points) + ((corridor,) if corridor else ())
     now = time.time()
     # v3.24: счётчик _route_stat — только вне замка: он сам берёт _route_cache_lock (с Firestore),
     # вызов под замком вешал From → To навсегда и вместе с ним все расчёты Флота.
@@ -34,13 +36,13 @@ def compute_multi_route(points, api_key):
         _route_stat("cache_hits", "multi")
         return hit[1]
     _route_stat("calls", "multi")
-    res = _compute_multi_route(points, api_key)
+    res = _compute_multi_route(points, api_key, corridor)
     with _route_cache_lock:
         _route_cache[("multi",) + key] = (now, res)
     return res
 
 
-def _compute_multi_route(points, api_key):
+def _compute_multi_route(points, api_key, corridor=None):
     """points — список dict из resolve_point в порядке следования (минимум 2).
     Один запрос к Routes API: точки пользователя — обычные intermediates (каждая
     начинает новый leg), паромы/Инсбрук — via-точки (через них маршрут проходит,
@@ -51,7 +53,7 @@ def _compute_multi_route(points, api_key):
     for i in range(len(points) - 1):
         a, b = points[i], points[i + 1]
         wps = resolve_waypoints(a["country"], a["lat"], a["lng"],
-                                b["country"], b["lat"], b["lng"]) or []
+                                b["country"], b["lat"], b["lng"], corridor) or []
         leg_rules.append(waypoints_label(wps))     # v3.26: подпись правила («через Монблан», «паромы»), "" — без правила
         for wlat, wlng in wps:
             intermediates.append({"via": True, "location": {"latLng": {"latitude": wlat, "longitude": wlng}}})
@@ -148,7 +150,17 @@ def route_calc(payload):
         }
 
         if len(points) >= 2:
-            legs, polyline = compute_multi_route(points, GOOGLE_API_KEY)
+            corridor = clean_corridor(payload.get("corridor"))      # v3.32: коридор выбрал диспетчер
+            legs, polyline = compute_multi_route(points, GOOGLE_API_KEY, corridor)
+            # v3.32: первый отрезок, где действует обход Швейцарии, — для кнопок выбора коридора
+            for a, b in zip(points, points[1:]):
+                cc = swiss_bypass_candidates(a["country"], a["lat"], a["lng"], b["country"], b["lat"], b["lng"])
+                if cc:
+                    wps = resolve_waypoints(a["country"], a["lat"], a["lng"], b["country"], b["lat"], b["lng"], corridor)
+                    info = corridor_info(cc, wps, corridor, (a["lat"], a["lng"], b["lat"], b["lng"]))
+                    info["countries"] = [a["country"], b["country"]]
+                    result["corridor"] = info
+                    break
             total = 0.0
             for i, leg in enumerate(legs):
                 a, b = points[i], points[i + 1]
@@ -180,6 +192,10 @@ def route_calc(payload):
             except Exception as e:
                 result["bans_status"] = f"ошибка: {e}"
 
+        # v3.32: From — машина: данные тахографа для ⏱ калькулятора («⏱ Послать в калькулятор»)
+        if len(points) >= 2 and points[0].get("is_truck"):
+            result["calc_seed"] = _truck_seed(points[0].get("unit") or {})
+
         # v1.29: похожие рейсы из базы фрахтов — первая погрузка -> последняя выгрузка
         if len(points) >= 2:
             try:
@@ -190,3 +206,16 @@ def route_calc(payload):
         return result, 200
     except Exception as e:
         return {"error": str(e)}, 502
+
+
+def _truck_seed(unit):
+    """v3.32: тахограф машины из From1 для калькулятора — как у строки Флота (calc_seed); нет тахографа — None."""
+    try:
+        tacho, _err = get_tacho(unit.get("unit_id"))
+        if not tacho:
+            return None
+        days = unit_driving_days(unit.get("unit_id")) if len(tacho["drivers"]) < 2 else None
+        team, src, _ = crew_mode(tacho, None, days)
+        return calc_seed(dict(tacho, team=team, crew_src=src))
+    except Exception:
+        return None
