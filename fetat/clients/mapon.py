@@ -74,11 +74,12 @@ _reefer_cache = {"at": 0.0, "by_id": None}
 
 
 def fetch_reefer_units():
-    """unit/list с include reefer + fuel + driver (кеш REEFER_TTL сек, один запрос на всех)."""
+    """unit/list с include reefer + fuel + driver + weights (кеш REEFER_TTL сек, один запрос на всех).
+    v3.34: weights — вес с CAN тягача (состав, оси) для тревоги рефа «выключен при грузе»."""
     import time
     with _reefer_lock:
         if _reefer_cache["by_id"] is None or time.time() - _reefer_cache["at"] > REEFER_TTL:
-            units = mapon_get(MAPON_API_URL, {"key": MAPON_API_KEY, "include[]": ["reefer", "fuel", "driver"]},
+            units = mapon_get(MAPON_API_URL, {"key": MAPON_API_KEY, "include[]": ["reefer", "fuel", "driver", "weights"]},
                               timeout=40)["data"]["units"]
             _reefer_cache["by_id"] = {u.get("unit_id"): u for u in units}
             _reefer_cache["at"] = time.time()

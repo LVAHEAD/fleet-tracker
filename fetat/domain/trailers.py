@@ -16,7 +16,25 @@ HITCH_STANDING_KM = 0.05   # оба стоят и ближе 50 м — веро�
 HITCH_BASE_KM = 1.5        # на Базе прицепы стоят кучей — сцепку не угадываем
 
 
-REEFER_DEV_WARN = 3.0      # отклонение возврата от уставки, °C — подсветка
+REEFER_DEV_WARN = 3.0      # отклонение возврата от уставки, °C — подсветка и тревога (охлаждёнка)
+
+
+REEFER_DEV_WARN_FROZEN = 5.0   # v3.34: заморозка (уставка ниже REEFER_FROZEN_SP) — порог шире
+
+
+REEFER_FROZEN_SP = -10.0
+
+
+WEIGHT_NO_TRAILER_KG = 12000   # v3.34: вес состава меньше — тягач без прицепа (NP-7453: 7 940)
+
+
+WEIGHT_LOADED_KG = 24000       # v3.34: вес состава от — гружён (пустой реф-состав NP-7454: 20 200)
+
+
+WEIGHT_TRAILER_LOADED_KG = 12000   # v3.34: нагрузка на оси прицепа (есть у Volvo) от — гружён (OS-2438: 20 298)
+
+
+WEIGHT_MAX_AGE_SEC = 3 * 86400     # вес старше — не верим
 
 
 REEFER_STALE_SEC = 2 * 3600
@@ -51,6 +69,44 @@ def truck_fuel(u):
     return {"l": round(total), "parts": [round(v) for v in parts], "low": total < TRUCK_FUEL_LOW_L}
 
 
+def _num(x):
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return None
+
+
+def truck_weight(u):
+    """v3.34: вес с CAN тягача (unit/list include weights) -> {"comb", "trl", "at", "state"} или None.
+    state: "notrailer" — без прицепа; "loaded" — гружён; "light" — пустой или неполный груз
+    (вес не решает — решают отметки L / O). Вес состава тягач считает на ходу, у стоящей — последнее значение."""
+    w = (u or {}).get("weights")
+    if not isinstance(w, dict):
+        return None
+    comb_r = w.get("combination_weight") or {}
+    trl_r = w.get("trailer_axle_load_total") or {}
+    comb = _num(comb_r.get("value")) if isinstance(comb_r, dict) else None
+    trl = _num(trl_r.get("value")) if isinstance(trl_r, dict) else None
+    at = _iso_ts((comb_r if comb is not None else trl_r).get("gmt")) if (comb is not None or trl is not None) else None
+    if comb is None and trl is None:
+        return None
+    if at and time_now_ts() - at > WEIGHT_MAX_AGE_SEC:
+        return None
+    if comb is not None and comb < WEIGHT_NO_TRAILER_KG:
+        state = "notrailer"
+    elif trl is not None:
+        state = "loaded" if trl >= WEIGHT_TRAILER_LOADED_KG else "light"
+    else:
+        state = "loaded" if comb >= WEIGHT_LOADED_KG else "light"
+    return {"comb": round(comb) if comb is not None else None, "trl": round(trl) if trl is not None else None,
+            "at": ts_west(at).strftime("%d/%m %H:%M") if at else None, "state": state}
+
+
+def reefer_dev_limit(setpoint):
+    """v3.34: допустимое |возврат − уставка|: заморозка — 5°, охлаждёнка — 3°."""
+    return REEFER_DEV_WARN_FROZEN if isinstance(setpoint, (int, float)) and setpoint < REEFER_FROZEN_SP else REEFER_DEV_WARN
+
+
 def is_trailer(u):
     return str((u or {}).get("type") or "").lower() == "trailer"
 
@@ -81,10 +137,10 @@ def reefer_summary(u):
         at = _iso_ts((t.get("return") or {}).get("gmt") or (c.get("state") or {}).get("gmt"))
         on = state == "on"
         dev = round(ret - sp, 1) if on and isinstance(ret, (int, float)) and isinstance(sp, (int, float)) else None
-        comps.append({"n": int(k) + 1, "on": on, "set": sp, "ret": ret, "sup": sup, "dev": dev,
+        comps.append({"n": int(k) + 1, "on": on, "set": sp, "ret": ret, "sup": sup, "dev": dev, "lim": reefer_dev_limit(sp),
                       "stale": bool(at and now - at > REEFER_STALE_SEC),
                       "at": ts_west(at).strftime("%d/%m %H:%M") if at else None})
-    warn = any(c["dev"] is not None and abs(c["dev"]) > REEFER_DEV_WARN and not c["stale"] for c in comps)
+    warn = any(c["dev"] is not None and abs(c["dev"]) > c["lim"] and not c["stale"] for c in comps)
     return {"type": rf.get("refrigerator_type"), "compartments": comps, "fuel_l": fuel,
             "fuel_low": fuel_low, "warn": warn}
 

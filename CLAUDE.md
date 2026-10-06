@@ -89,7 +89,7 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 | `fetat/domain/bans.py` | сборка фида запретов, запреты по пути, ночь Австрии для MAN, бренд по VIN, страны по маршруту |
 | `fetat/domain/regions.py` | коды регионов (ESxx, NO01…), ближайший код, страна |
 | `fetat/domain/points.py` | разбор точки/таргета, ✓ пройдено, «на объекте» |
-| `fetat/domain/trailers.py` | реф, сцепка тягач–прицеп |
+| `fetat/domain/trailers.py` | реф (допуск по уставке), сцепка тягач–прицеп, вес с CAN тягача (`truck_weight`, v3.34) |
 | `fetat/domain/addresses.py` | адресная база, FIN/EE → База |
 | `fetat/domain/freights.py` | база фрахтов, контрактники, похожие рейсы |
 | `fetat/domain/dispatchers.py` | лист «Диспетчеры»: инициалы, цвета, кто назначает; список по умолчанию; `can_assign` |

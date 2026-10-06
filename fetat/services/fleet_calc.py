@@ -18,7 +18,7 @@ from fetat.services.corridors import fleet_waypoints_resolved as fleet_waypoints
 from fetat.services.corridors import clean_corridor, corridor_info, fleet_corridor_cands   # v3.32: выбор диспетчера
 from fetat.domain.tacho import (FRESH_SOLO_TACHO, TACHO_SPEED_KMH, calc_eta, calc_seed, crew_mode, tacho_eta, tacho_no_subscription,
                                tacho_summary, week_left_info)
-from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM, truck_fuel
+from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM, truck_fuel, truck_weight
 from fetat.utils.geo import haversine_km
 from fetat.utils.timefmt import format_duration, round_to_15min
 
@@ -146,6 +146,9 @@ def _add_trailer_info(result, unit, units, payload):
             tf = truck_fuel(fetch_reefer_units().get(unit.get("unit_id")))
             if tf:
                 result["truck_fuel"] = tf
+            tw = truck_weight(fetch_reefer_units().get(unit.get("unit_id")))   # v3.34: гружён ли — для тревоги рефа
+            if tw:
+                result["truck_weight"] = tw
         except Exception:
             pass
     # v1.71: прицеп, привязанный к тягачу вручную (строка Флота) — где он и что с рефкой
