@@ -103,6 +103,7 @@ Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 | `fetat/api/calc.py` | `/api/calc`, `/api/route` → services |
 | `fetat/api/reference.py` | `/api/region-codes`, `/api/locate`, `/api/addresses`, `/api/freights`, `/api/bans` |
 | `fetat/api/fleet.py` | `/api/fleet*`: чтение, sync (смена `disp` — только назначающий), 🔒, корзина, восстановление, импорт; завершить / вернуть / список завершённых (`complete`, `reopen`, `done` — хозяин или назначающий); `/api/dispatchers` |
+| `static/eta-calc.js` | ⏱ ETA-калькулятор (v3.28): панель справа, расчёт `simulate()` в браузере — без сервера и Google; свои правила (чистые 9 / 11 ч, тянучка отдыха) |
 | `data/` | `region_codes.json`, `region_codes_geonames.json` |
 | `tests/` | unittest + фикстуры; код через `A` из `tests/__init__.py` (ищет имя во всех модулях, подмена ставится везде) |
 
