@@ -15,8 +15,9 @@ def wp(fc, fll, tc, tll):
 
 class RoutingRulesTest(unittest.TestCase):
     def test_it_de_via_innsbruck(self):
-        self.assertEqual(wp("IT", BOLOGNA, "DE", MUNICH), [A.INNSBRUCK])
-        self.assertEqual(wp("DE", MUNICH, "IT", BOLOGNA), [A.INNSBRUCK])
+        # v3.29: выезд из Тироля — только через Куфштайн
+        self.assertEqual(wp("IT", BOLOGNA, "DE", MUNICH), [A.INNSBRUCK, A.KUFSTEIN])
+        self.assertEqual(wp("DE", MUNICH, "IT", BOLOGNA), [A.KUFSTEIN, A.INNSBRUCK])
 
     def test_it_to_norway_rostock_gedser(self):
         self.assertEqual(wp("IT", BOLOGNA, "NO", (59.9, 10.7)),
@@ -47,7 +48,7 @@ class RoutingRulesTest(unittest.TestCase):
 
     def test_fleet_waypoints_by_coordinates(self):
         # Флот: страна точки — по ближайшему коду региона
-        self.assertEqual(A.fleet_waypoints(*BOLOGNA, *MUNICH), [A.INNSBRUCK])
+        self.assertEqual(A.fleet_waypoints(*BOLOGNA, *MUNICH), [A.INNSBRUCK, A.KUFSTEIN])
 
 
 if __name__ == "__main__":

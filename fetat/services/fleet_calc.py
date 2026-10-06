@@ -4,7 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 from fetat.utils.timefmt import ts_west
 from fetat.clients.google_routes import road_distance_km_google
-from fetat.clients.mapon import fetch_group_unit_ids, fetch_reefer_units, fetch_units, get_tacho, unit_driving_days
+from fetat.clients.mapon import (fetch_group_unit_ids, fetch_reefer_units, fetch_units, get_tacho, unit_driver_names,
+                                 unit_driving_days)
 from fetat.config import GOOGLE_API_KEY, HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.bans import (bans_hits_text, bans_near_text, bans_on_route, countries_times_text, country_chain,
                                needs_at_night_ban)
@@ -14,7 +15,8 @@ from fetat.domain.points import (
 )
 from fetat.domain.regions import nearest_region_code
 from fetat.services.corridors import fleet_waypoints_resolved as fleet_waypoints   # v3.26: + выбор коридора
-from fetat.domain.tacho import TACHO_SPEED_KMH, calc_eta, crew_mode, tacho_eta, tacho_summary, week_left_info
+from fetat.domain.tacho import (FRESH_SOLO_TACHO, TACHO_SPEED_KMH, calc_eta, crew_mode, tacho_eta, tacho_summary,
+                               week_left_info)
 from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM
 from fetat.utils.geo import haversine_km
 from fetat.utils.timefmt import format_duration, round_to_15min
@@ -223,9 +225,58 @@ def _add_tacho(result, unit, trailer, crew=None):
             result["tacho_weeklimit"] = bool(sim and sim.get("week", {}).get("hit"))
         else:
             result["tacho_error"] = terr
+            if not trailer:
+                tacho, sim = _no_card_crew(result, unit, crew)
     except Exception as e:
         result["tacho_error"] = str(e)
     return tacho, sim
+
+
+NO_CARD_FRESH_SEC = 9 * 3600     # v3.29: без карт — стоит не меньше суточного отдыха → считаем со свежего дня
+
+
+def _no_card_crew(result, unit, crew=None):
+    """v3.29 (OS-2438): Mapon не видит карт водителя, хотя водители в машине. Соло / экипаж — по истории
+    вождения за неделю (или вручную); стоит ≥ 9 ч — тахо-ETA со свежего дня (без недельного лимита),
+    иначе ETA простой. Возвращает (tacho, sim) — подменный тахограф или (None, None)."""
+    import copy
+    days = None if crew in ("solo", "team") else unit_driving_days(unit.get("unit_id"))
+    team, src, hist_max = crew_mode(None, crew, days)
+    result["crew"] = "team" if team else "solo"
+    result["crew_src"] = "manual" if src == "manual" else "hist"
+    result["crew_nocard"] = True
+    if hist_max:
+        result["crew_hist_max_h"] = round(hist_max / 3600, 1)
+    try:
+        names = unit_driver_names(unit.get("unit_id"))
+    except Exception:
+        names = []
+    if names:
+        result["crew_names"] = names
+    state = unit.get("state") or {}
+    stood = float(state.get("duration") or 0) if state.get("name") == "standing" else 0.0
+    summ = ["⚠ Mapon не видит карт водителя — тахографа нет",
+            ("вручную: " if src == "manual" else "по истории недели: ") + ("экипаж" if team else "соло")]
+    if names:
+        summ.append("водитель в Mapon: " + ", ".join(names))
+    if stood >= NO_CARD_FRESH_SEC and result.get("dist_km") is not None:
+        fresh = copy.deepcopy(FRESH_SOLO_TACHO)
+        fresh["drivers"][0]["now"]["rest"] = stood
+        fresh.update(team=team, crew_src=result["crew_src"], nocard=True)
+        sim = tacho_eta(fresh, result["dist_km"], no_week=True)
+        eta_t = round_to_15min(ts_west(sim["eta_ts"]))
+        result["eta_tacho"] = eta_t.strftime("%d/%m %H:%M")
+        result["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sim["stops"])
+        result["_sim_stops"] = sim["stops"]
+        result["tacho_resting_now"] = True
+        result["tacho_team"] = team
+        result["tacho_weeklimit"] = False
+        summ.append(f"стоит {format_duration(stood)} — считаем, что отдохнул: ETA со свежего дня")
+        result["tacho_summary"] = summ
+        return fresh, sim
+    summ.append("едет или стоит меньше 9 ч — ETA простой, без отдыхов")
+    result["tacho_summary"] = summ
+    return None, None
 
 
 def _week_short_last(result):

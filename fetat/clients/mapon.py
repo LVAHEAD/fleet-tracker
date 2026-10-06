@@ -74,15 +74,40 @@ _reefer_cache = {"at": 0.0, "by_id": None}
 
 
 def fetch_reefer_units():
-    """unit/list с include reefer + fuel (кеш REEFER_TTL сек, один запрос на всех)."""
+    """unit/list с include reefer + fuel + driver (кеш REEFER_TTL сек, один запрос на всех)."""
     import time
     with _reefer_lock:
         if _reefer_cache["by_id"] is None or time.time() - _reefer_cache["at"] > REEFER_TTL:
-            units = mapon_get(MAPON_API_URL, {"key": MAPON_API_KEY, "include[]": ["reefer", "fuel"]},
+            units = mapon_get(MAPON_API_URL, {"key": MAPON_API_KEY, "include[]": ["reefer", "fuel", "driver"]},
                               timeout=40)["data"]["units"]
             _reefer_cache["by_id"] = {u.get("unit_id"): u for u in units}
             _reefer_cache["at"] = time.time()
         return _reefer_cache["by_id"]
+
+
+def _person_name(x):
+    """Имя из записи водителя Mapon: строка или dict с name / surname / full_name."""
+    if isinstance(x, str):
+        return x.strip()
+    if not isinstance(x, dict):
+        return ""
+    full = (x.get("full_name") or x.get("fullname") or "").strip()
+    if full:
+        return full
+    return " ".join(filter(None, [str(x.get(k) or "").strip() for k in ("name", "driver_name", "first_name")]
+                           + [str(x.get(k) or "").strip() for k in ("surname", "driver_surname", "last_name")]))
+
+
+def unit_driver_names(unit_id):
+    """v3.29: водитель, привязанный к машине в Mapon (не карта тахографа): unit/list с include driver.
+    Формат поля у Mapon точно не известен — разбираем мягко; нет данных — []."""
+    try:
+        u = (fetch_reefer_units() or {}).get(unit_id) or {}
+    except Exception:
+        return []
+    raw = u.get("drivers") if u.get("drivers") is not None else u.get("driver")
+    items = raw if isinstance(raw, list) else [raw]
+    return [n for n in (_person_name(x) for x in items) if n]
 
 
 MAPON_TACHO_URL = "https://mapon.com/api/v1/unit_data/driving_time_extended.json"

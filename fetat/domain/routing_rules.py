@@ -1,5 +1,6 @@
 """Принудительные маршруты: Италия ↔ Германия через Инсбрук, паромы на Норвегию/Швецию,
-v3.26 — Италия ↔ Бенелюкс и восток Франции в обход Швейцарии (Инсбрук / Монблан / Фрежюс)."""
+v3.26 — Италия ↔ Бенелюкс и восток Франции в обход Швейцарии (Инсбрук / Монблан / Фрежюс),
+v3.29 — коридор Инсбрук выходит из Тироля только через Куфштайн (не Фернпасс / Арльберг)."""
 
 
 from fetat.domain.regions import _country_at, get_region_country
@@ -7,6 +8,14 @@ from fetat.utils.geo import haversine_km
 
 
 INNSBRUCK = (47.2692, 11.4041)
+
+
+# v3.29: выезд из Тироля в Германию — через Куфштайн: заправка на A12 у Куфштайна (наша, есть в Mapon)
+KUFSTEIN = (47.56638, 12.15587)
+
+
+# v3.29: коридор Инсбрук по ходу из Италии на север; в Италию — в обратном порядке
+VIA_INNSBRUCK = (INNSBRUCK, KUFSTEIN)
 
 
 # v3.26: туннели во Францию — точка в середине туннеля (Google притягивает её к дороге в туннеле)
@@ -17,7 +26,7 @@ FREJUS = (45.1365, 6.6855)
 
 
 # v3.26: обход Швейцарии — коридоры и правило «впритык» (два лучших ближе этой доли — решает Google)
-SWISS_BYPASS = (("Инсбрук", INNSBRUCK), ("Монблан", MONT_BLANC), ("Фрежюс", FREJUS))
+SWISS_BYPASS = (("Инсбрук", VIA_INNSBRUCK), ("Монблан", (MONT_BLANC,)), ("Фрежюс", (FREJUS,)))
 
 
 CORRIDOR_TIE = 0.05
@@ -53,6 +62,11 @@ ES_PT = {"ES", "PT"}
 SCANDI = {"NO", "SE"}
 
 
+def innsbruck_corridor(to_italy):
+    """v3.29: точки коридора Инсбрук по ходу: из Италии — Инсбрук → Куфштайн, в Италию — Куфштайн → Инсбрук."""
+    return [KUFSTEIN, INNSBRUCK] if to_italy else [INNSBRUCK, KUFSTEIN]
+
+
 def _ferry_pair_for_country(other_country, other_lat, other_lng):
     """Южная пара паромных портов (материк -> Дания) для страны other_country."""
     if other_country == "IT":
@@ -78,17 +92,19 @@ def swiss_bypass_candidates(from_country, from_lat, from_lng, to_country, to_lat
     """v3.26: Италия ↔ Бенелюкс / восток Франции — коридоры в обход Швейцарии по длине по прямой
     (откуда → точка коридора → куда), короткий первым: [(имя, [точка]), ...], или None, если правило не про эту пару."""
     if from_country == "IT" and _swiss_risk(to_country, to_lat, to_lng):
-        pass
+        to_italy = False
     elif to_country == "IT" and _swiss_risk(from_country, from_lat, from_lng):
-        pass
+        to_italy = True
     else:
         return None
     est = []
-    for name, pt in SWISS_BYPASS:
-        km = haversine_km(from_lat, from_lng, pt[0], pt[1]) + haversine_km(pt[0], pt[1], to_lat, to_lng)
-        est.append((km, name, pt))
-    est.sort()
-    return [(name, [pt], round(km)) for km, name, pt in est]
+    for name, pts in SWISS_BYPASS:
+        pts = list(reversed(pts)) if to_italy else list(pts)
+        chain = [(from_lat, from_lng)] + pts + [(to_lat, to_lng)]
+        km = sum(haversine_km(a[0], a[1], b[0], b[1]) for a, b in zip(chain, chain[1:]))
+        est.append((km, name, pts))
+    est.sort(key=lambda x: x[0])
+    return [(name, pts, round(km)) for km, name, pts in est]
 
 
 def corridor_is_tie(cands):
@@ -101,7 +117,9 @@ def waypoints_label(waypoints):
     wps = [tuple(p) for p in (waypoints or [])]
     if not wps:
         return ""
-    names = {INNSBRUCK: "через Инсбрук", MONT_BLANC: "через Монблан", FREJUS: "через Фрежюс"}
+    if set(wps) == set(VIA_INNSBRUCK) or wps == [INNSBRUCK]:
+        return "через Инсбрук"
+    names = {MONT_BLANC: "через Монблан", FREJUS: "через Фрежюс"}
     if len(wps) == 1 and wps[0] in names:
         return names[wps[0]]
     return "паромы"
@@ -121,9 +139,9 @@ def pick_waypoints_by_country(from_country, from_lat, from_lng, to_country, to_l
     if not from_country or not to_country:
         return None
 
-    # Италия <-> Германия: всегда через Австрию (Инсбрук)
+    # Италия <-> Германия: всегда через Австрию (Инсбрук), v3.29 — выезд на Куфштайн
     if {from_country, to_country} == {"IT", "DE"}:
-        return [INNSBRUCK]
+        return innsbruck_corridor(to_italy=(to_country == "IT"))
 
     # v3.26: Италия <-> Бенелюкс / восток Франции — в обход Швейцарии, самый короткий коридор по прямой
     # (если два лучших впритык — services.corridors спрашивает Google, см. resolve_waypoints)

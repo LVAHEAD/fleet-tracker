@@ -813,6 +813,7 @@ button.hitch-ic:hover { background: #e6dfcc; }
 .stop-n-manual .pn-chip { box-shadow: 0 0 0 2px #e8a317; }
 .done-km { color: #2d6b3c; font-weight: 700; }
 .done-eta { color: #2d6b3c; font-weight: 600; }
+.done-eta.done-by { color: #2d6b3c; opacity: .55; font-weight: 500; }   /* v3.29: ✓ по следующей точке */
 #fleet-tbody tr.row-done td { background: #f1f2f3 !important; }
 #fleet-tbody tr.row-done .target-input, #fleet-tbody tr.row-done .xt-input { color: #888; }
 /* v1.79: экран 1500–1799 px — Примечание уже, чтобы поле таргета не наезжало на Delivery */
@@ -944,6 +945,7 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 #fleet-tbody .crew-b.crew-man { border-color: #9aa5b1; border-style: dashed; }
 #fleet-tbody .crew-b.crew-warn { background: #fff3c4; color: #8a6200; font-weight: 600; }
 #fleet-tbody .crew-b.crew-red { background: #fde2e1; color: #b42318; font-weight: 600; }
+#fleet-tbody .crew-b.crew-nocard { opacity: .45; }   /* v3.29: Mapon не видит карт — по истории недели */
 
 /* v3.15: пустой фильтр «мои», нет в листе «Диспетчеры» */
 #fleet-tbody tr.own-empty td { padding: 14px 10px; color: #666; text-align: center; background: #fff; }

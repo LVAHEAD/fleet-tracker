@@ -11,7 +11,7 @@ from fetat.domain.addresses import (
 from fetat.domain.regions import (
     get_region_country, nearest_region_code, OUR_COUNTRIES, REGION_CODES,
 )
-from fetat.utils.geo import haversine_km, parse_gps, _point_in_poly
+from fetat.utils.geo import haversine_km, parse_gps, poly_dist_km, _point_in_poly
 from fetat.utils.text import normalize
 from fetat.utils.timefmt import format_duration
 
@@ -277,7 +277,9 @@ def points_done(pts, manual, unit, units, seen=None):
     """pts — строки точек (① + следующие), manual — [True/False/None] ручные отметки,
     seen — [время|None] уже запомненные в строке авто-✓ (v3.17: не теряются, когда стоянка
     уходит из окна истории Mapon).
-    -> список {done, auto, at}: пройдена ли точка (ручная отметка важнее автоматической)."""
+    -> список {done, auto, at}: пройдена ли точка (ручная отметка важнее автоматической).
+    v3.29: у точки есть зона Mapon — стоянка внутри зоны, «уехал» = вышел из зоны;
+    пройдена следующая — пройдены и все предыдущие (by — номер точки, по которой поставлен ✓, без времени)."""
     seen = seen or []
     out = []
     stops = None
@@ -298,15 +300,24 @@ def points_done(pts, manual, unit, units, seen=None):
         if t is not None and m is None and seen_at is None and unit.get("lat") is not None:
             try:
                 # точка-машина (перецеп) двигается — по истории не проверяем
-                if lat is not None and not t.get("target_is_truck") \
-                        and haversine_km(unit["lat"], unit["lng"], lat, lng) > DONE_LEFT_KM:
-                    if stops is None:
-                        stops = recent_stops(unit.get("unit_id")) or []
-                    for st in stops:
-                        if st.get("now") or st.get("lat") is None:
-                            continue
-                        if haversine_km(st["lat"], st["lng"], lat, lng) <= DONE_RADIUS_KM:
-                            auto_at = max(auto_at or 0, st["end"])
+                if lat is not None and not t.get("target_is_truck"):
+                    obj = target_object(lat, lng)          # v3.29: зона Mapon у точки
+                    if obj:
+                        left = poly_dist_km(unit["lat"], unit["lng"], obj["poly"]) > DONE_LEFT_ZONE_KM
+                        near = lambda a, b: poly_dist_km(a, b, obj["poly"]) <= DONE_IN_ZONE_KM
+                    else:
+                        left = haversine_km(unit["lat"], unit["lng"], lat, lng) > DONE_LEFT_KM
+                        near = lambda a, b: haversine_km(a, b, lat, lng) <= DONE_RADIUS_KM
+                    if left:
+                        if stops is None:
+                            stops = recent_stops(unit.get("unit_id")) or []
+                        for st in stops:
+                            if st.get("now") or st.get("lat") is None:
+                                continue
+                            if near(st["lat"], st["lng"]):
+                                auto_at = max(auto_at or 0, st["end"])
+                        if obj and auto_at:
+                            info["zone"] = obj["name"]
             except Exception:
                 pass
         if m is True:
@@ -317,29 +328,52 @@ def points_done(pts, manual, unit, units, seen=None):
             info.update(done=True, auto=True,
                         at=ts_west(auto_at).strftime("%d/%m %H:%M"))
         out.append(info)
+    # v3.29: пройдена следующая точка — значит, пройдены и предыдущие (ручное «не пройдена» не трогаем)
+    last = max((i for i, x in enumerate(out) if x["done"]), default=-1)
+    for i in range(last):
+        x = out[i]
+        if not x["done"] and x["manual"] is not False and pts[i]:
+            x.update(done=True, auto=True, at=None, by=last)
     return out
 
 
 ON_TARGET_OBJ_KM = 0.5      # объект Mapon относится к таргету, если таргет внутри или центр ближе 500 м
 
 
+ON_TARGET_EDGE_KM = 0.3     # v3.29: …или край зоны ближе 300 м (длинные зоны: границы, порты, терминалы)
+
+
 ON_TARGET_RADIUS_KM = 0.3   # без объекта — трак в радиусе 300 м от точки таргета
 
 
-def on_target(tlat, tlng, glat, glng):
-    """Трак (tlat,tlng) у таргета (glat,glng)? По полигону объекта Mapon, связанного с таргетом,
-    иначе по радиусу. -> {"how": "object"|"radius", "name": ...} или None."""
+DONE_IN_ZONE_KM = 0.1       # v3.29: стоянка «в зоне» — внутри полигона или не дальше 100 м (шум GPS)
+
+
+DONE_LEFT_ZONE_KM = 0.5     # v3.29: «уехал» — дальше 500 м от зоны
+
+
+def target_object(glat, glng):
+    """v3.29: объект Mapon, связанный с точкой (glat, glng): точка внутри полигона, край ближе ON_TARGET_EDGE_KM
+    или центр ближе ON_TARGET_OBJ_KM; из нескольких — ближайший. -> объект или None."""
     best = None
     for o in mapon_objects():
         b = o["bbox"]
         if not (b[0] - 0.01 <= glat <= b[1] + 0.01 and b[2] - 0.02 <= glng <= b[3] + 0.02):
             continue
-        inside = _point_in_poly(glat, glng, o["poly"])
-        d = 0.0 if inside else haversine_km(glat, glng, o["c"][0], o["c"][1])
-        if d <= ON_TARGET_OBJ_KM and (best is None or d < best[0]):
-            best = (d, o)
-    if best:
-        o = best[1]
+        edge = poly_dist_km(glat, glng, o["poly"])
+        center = haversine_km(glat, glng, o["c"][0], o["c"][1])
+        if edge <= ON_TARGET_EDGE_KM or center <= ON_TARGET_OBJ_KM:
+            d = min(edge, center)
+            if best is None or d < best[0]:
+                best = (d, o)
+    return best[1] if best else None
+
+
+def on_target(tlat, tlng, glat, glng):
+    """Трак (tlat,tlng) у таргета (glat,glng)? По полигону объекта Mapon, связанного с таргетом,
+    иначе по радиусу. -> {"how": "object"|"radius", "name": ...} или None."""
+    o = target_object(glat, glng)
+    if o:
         b = o["bbox"]
         near_box = b[0] - 0.002 <= tlat <= b[1] + 0.002 and b[2] - 0.003 <= tlng <= b[3] + 0.003
         if near_box and (_point_in_poly(tlat, tlng, o["poly"]) or haversine_km(tlat, tlng, glat, glng) <= 0.1):

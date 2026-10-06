@@ -81,6 +81,29 @@ def _point_in_poly(lat, lng, poly):
     return inside
 
 
+def poly_dist_km(lat, lng, poly):
+    """v3.29: расстояние от точки до полигона, км: 0 — внутри, иначе до ближайшего края
+    (плоская проекция вокруг точки — для зон в пару км точности хватает)."""
+    if _point_in_poly(lat, lng, poly):
+        return 0.0
+    kx = 111.32 * math.cos(math.radians(lat))
+    ky = 110.57
+    best = None
+    n = len(poly)
+    for i in range(n):
+        a, b = poly[i], poly[(i + 1) % n]
+        ax, ay = (a[1] - lng) * kx, (a[0] - lat) * ky
+        bx, by = (b[1] - lng) * kx, (b[0] - lat) * ky
+        dx, dy = bx - ax, by - ay
+        L2 = dx * dx + dy * dy
+        t = 0.0 if L2 == 0 else max(0.0, min(1.0, -(ax * dx + ay * dy) / L2))
+        px, py = ax + t * dx, ay + t * dy
+        d = math.hypot(px, py)
+        if best is None or d < best:
+            best = d
+    return best if best is not None else float("inf")
+
+
 _GPS_RE = re.compile(r"(-?\d{1,2}\.\d+)\s*[,;]\s*(-?\d{1,3}\.\d+)")
 
 

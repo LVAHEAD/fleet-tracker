@@ -779,14 +779,23 @@ function applyLoToRow(tr, row) {
 }
 
 // ---------- v1.53: сортировка Флота ----------
-// added — как добавляли; LO / OL — погрузки/выгрузки первыми, внутри по срочности;
-// manual — руками (перетаскивание ⠿, на телефоне ↑/↓ в меню ⋯). Строки без L/O — в конце.
+// LO / OL — погрузки/выгрузки первыми, внутри по срочности;
+// manual — руками (перетаскивание ⠿, на телефоне ↑/↓ в меню ⋯; новые строки — в конец). Строки без L/O — в конце.
+// v3.29: режима «как добавляли» больше нет — сохранённый (и умолчание) стал «руками» с порядком добавления.
 // Пересортировка только при загрузке, "Обновить всё" и смене режима — не при автообновлении.
-let sortMode = "added";
+const SORT_MODES = ["LO", "OL", "manual"];
+let sortMode = "manual";
 let manualOrder = [];
 try {
-  sortMode = localStorage.getItem("fleetSort") || "added";
-  manualOrder = JSON.parse(localStorage.getItem("fleetManualOrder") || "[]");
+  const saved = localStorage.getItem("fleetSort");
+  if (SORT_MODES.includes(saved)) {
+    sortMode = saved;
+    manualOrder = JSON.parse(localStorage.getItem("fleetManualOrder") || "[]");
+  } else {
+    // было «как добавляли» или ничего: старый ручной порядок не берём — таблица не сдвинется
+    localStorage.setItem("fleetSort", "manual");
+    localStorage.setItem("fleetManualOrder", "[]");
+  }
 } catch (e) { /* без localStorage — порядок по умолчанию */ }
 let displayOrder = null;   // зафиксированный порядок id между пересортировками
 
@@ -1034,7 +1043,8 @@ function dispHtml(row) {
 function crewOf(data) {
   return data.crew ? { crew: data.crew, src: data.crew_src, wl: data.week_left_sec, lim: data.week_limit,
                        driven: data.week_driven_sec, next: data.week_next_sec, hmax: data.crew_hist_max_h,
-                       short: data.week_short_last || null, names: data.crew_names || null } : null;
+                       short: data.week_short_last || null, names: data.crew_names || null,
+                       nocard: !!data.crew_nocard } : null;
 }
 function crewHtml(row, cached) {
   const c = cached && cached.crew;
@@ -1044,12 +1054,18 @@ function crewHtml(row, cached) {
   const hm = (sec) => `${Math.floor(sec / 3600)}:${String(Math.floor((sec % 3600) / 60)).padStart(2, "0")}`;
   const tip = [];
   let txt = crew === "team" ? "👥" : "👤", cls = "";
+  // v3.29: Mapon не видит карт водителя — значок бледный, соло / экипаж по истории недели
+  const nocard = !!(c && c.nocard);
+  if (nocard) {
+    cls += " crew-nocard";
+    tip.push("⚠ Mapon не видит карт водителя — тахографа нет");
+  }
   if (crew === "team") {
     tip.push(man ? "Экипаж — поставлено вручную" :
-      c && c.src === "hist" ? `Экипаж — по истории: трак ехал ${c.hmax} ч за сутки (карта второго сейчас не вставлена)` :
+      c && c.src === "hist" ? `Экипаж — по истории: трак ехал ${c.hmax} ч за сутки` + (nocard ? "" : " (карта второго сейчас не вставлена)") :
       "Экипаж — две карты в тахографе");
   } else {
-    tip.push(man ? "Одиночка — поставлено вручную" : "Одиночка — одна карта в тахографе" +
+    tip.push(man ? "Одиночка — поставлено вручную" : (nocard ? "Одиночка — по истории недели" : "Одиночка — одна карта в тахографе") +
       (c && c.hmax ? `, за неделю максимум ${c.hmax} ч езды в сутки` : ""));
     if (c && c.crew === "solo" && c.wl != null) {
       txt += " " + Math.floor(c.wl / 3600);
@@ -1551,7 +1567,9 @@ function etaCellHtml(row, c, composed) {
     const lateCls = chk.late ? " sl-late" : "";
     if (ce && ce.done) {
       inner = doneEtaHtml(ce);
-      tip = ce.done_auto ? `Точка пройдена: трак стоял здесь, уехал ${ce.done_at}` : "Отмечена пройденной вручную";
+      tip = ce.done_by != null ? `Точка пройдена: пройдена следующая ${STOP_NUM[ce.done_by + 1]}`
+        : ce.done_auto ? `Точка пройдена: трак стоял ${ce.done_zone ? "в зоне «" + ce.done_zone + "»" : "здесь"}, уехал ${ce.done_at}`
+        : "Отмечена пройденной вручную";
     } else if (ce && ce.error) {
       inner = `<span class="eta-x-err">${escapeHtml(ce.error)}</span>`;
       tip = ce.error;
@@ -2446,7 +2464,8 @@ async function calcRow(id, why) {
     lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo,
                          etaStr: data.eta_tacho || data.eta_local, extra: extraCalc(data),
                          crew: crewOf(data),
-                         doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual })),
+                         doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual,
+                           by: x.by != null ? x.by : null, zone: x.zone || null })),
                          allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null,
                          nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };
     applyDoneClasses(tr, row, lastCalcText[id]);
@@ -2609,7 +2628,14 @@ function doneManualArray(row) {
 function doneEtaHtml(x) {
   const at = x.done_at || x.at;
   const auto = x.done_auto != null ? x.done_auto : x.auto;
-  return `<span class="done-eta" title="${auto ? "Трак стоял на точке и уехал" : "Отмечено вручную"}">✓ ${escapeHtml(auto && at ? at : "пройдена")}</span>`;
+  const by = x.done_by != null ? x.done_by : x.by;
+  // v3.29: ✓ по следующей точке — бледный, без времени
+  if (by != null) {
+    return `<span class="done-eta done-by" title="Пройдена следующая точка ${STOP_NUM[by + 1]} — значит, и эта">✓ по ${STOP_NUM[by + 1]}</span>`;
+  }
+  const zone = x.done_zone || x.zone;
+  const tip = auto ? (zone ? `Трак стоял в зоне Mapon «${zone}» и уехал` : "Трак стоял на точке и уехал") : "Отмечено вручную";
+  return `<span class="done-eta" title="${escapeHtml(tip)}">✓ ${escapeHtml(auto && at ? at : "пройдена")}</span>`;
 }
 // ответ сервера (① и extra — только непройденные) -> по исходным номерам точек
 function remapDone(data) {
@@ -2617,6 +2643,7 @@ function remapDone(data) {
   if (!dn) return data;
   const act = data.active_idx || [];
   const doneItem = (i) => ({ done: true, done_at: dn[i].at, done_auto: dn[i].auto,
+    done_by: dn[i].by != null ? dn[i].by : null, done_zone: dn[i].zone || null,
     badge: dn[i].badge || null, badge_hint: dn[i].badge_hint || null });
   const main = data.target_lat != null ? {
     dist_km: data.dist_km, leg_km: data.dist_km, eta_local: data.eta_local, eta_tacho: data.eta_tacho,
@@ -2659,7 +2686,9 @@ function applyDoneClasses(tr, row, c) {
     const chip = w.querySelector(".stop-n");
     if (chip) {
       const m = row.done && (row.done[k] === true || row.done[k] === false) ? row.done[k] : null;
-      chip.title = (f && f.done ? (f.auto ? `Пройдена (авто: стоял здесь, уехал ${f.at})` : "Пройдена (вручную)") : (m === false ? "Не пройдена (вручную)" : "Не пройдена"))
+      chip.title = (f && f.done ? (f.by != null ? `Пройдена (по следующей точке ${STOP_NUM[f.by + 1]})`
+        : f.auto ? `Пройдена (авто: стоял ${f.zone ? "в зоне «" + f.zone + "»" : "здесь"}, уехал ${f.at})` : "Пройдена (вручную)")
+        : (m === false ? "Не пройдена (вручную)" : "Не пройдена"))
         + "\nКлик — " + (m == null ? (f && f.done ? "отметить непройденной" : "отметить пройденной") : "вернуть автоопределение");
       chip.classList.add("stop-n-click");
       chip.classList.toggle("stop-n-manual", m != null);
@@ -2682,6 +2711,7 @@ function extraCalc(data) {
   return (data.extra || []).map((x) => ({
     error: x.error || null,
     done: !!x.done, done_at: x.done_at || null, done_auto: !!x.done_auto, from_truck: !!x.from_truck,
+    done_by: x.done_by != null ? x.done_by : null, done_zone: x.done_zone || null,
     dist_km: x.dist_km, leg_km: x.leg_km,
     eta_tacho: x.eta_tacho || null, eta_local: x.eta_local || null,
     tacho_weeklimit: !!x.tacho_weeklimit,
@@ -2706,7 +2736,7 @@ function calcAllRows(opts) {
   // v1.53: после "Обновить всё" (и загрузки) — пересортировать по выбранному режиму;
   // v1.59: автообновление строки не переставляет
   const resortAfter = !(opts && opts.auto);
-  return Promise.allSettled(jobs).then(() => { if (resortAfter && sortMode !== "added") resort(); });
+  return Promise.allSettled(jobs).then(() => { if (resortAfter) resort(); });
 }
 
 // ---------- v1.59: автообновление Флота; v1.64: период на выбор — выкл / 15 / 30 / 60 мин ----------
