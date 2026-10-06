@@ -151,7 +151,7 @@ const EtaCalc = (() => {
         <div class="ec-sec"><div class="ec-lb"><span>Расстояние, км</span><span>70 … 5000</span></div>
           <div class="ec-ln"><input type="number" id="ec-km-n" min="70" step="10" value="1500"><input type="range" id="ec-km-r" min="70" max="5000" step="10" value="1500"></div></div>
         <div class="ec-sec"><div class="ec-lb"><span>Сдвиг выезда, ч</span><span class="ec-now"></span></div>
-          <div class="ec-ln"><input type="text" id="ec-sh-n" class="ec-hm" inputmode="numeric" value="00:00" title="ЧЧ:ММ · ↑ ↓ — шаг 30 мин"><input type="range" id="ec-sh-r" min="0" max="72" step="0.5" value="0"></div></div>
+          <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-sh-n" class="ec-hm" inputmode="numeric" value="00:00" title="ЧЧ:ММ · ↑ ↓ — шаг 30 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+30 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−30 мин">▾</button></span></span><input type="range" id="ec-sh-r" min="0" max="72" step="0.5" value="0"></div></div>
         <div class="ec-sec"><div class="ec-lb"><span>Остаток вождения на момент выезда, ч</span><span class="ec-lmax"></span></div>
           <div class="ec-ln"><input type="number" id="ec-lf-n" min="0" max="18" step="0.25" value="18"><input type="range" id="ec-lf-r" min="0" max="18" step="0.25" value="18"></div></div>
         <div class="ec-sec ec-g2">
@@ -326,14 +326,22 @@ const EtaCalc = (() => {
     n.addEventListener("input", () => { const v = parseHM(n.value); if (v != null) { setSh(v, true); calc(); } });
     n.addEventListener("blur", () => setSh(st.shH));
     n.addEventListener("focus", () => n.select());
+    // шаг 30 мин: клавиши ↑ ↓ и стрелочки ▴ ▾ в поле (у текстового поля браузер своих не рисует)
+    const step = (d) => {
+      const k = st.shH * 2;
+      setSh((d > 0 ? Math.floor(k + 1e-6) + 1 : Math.ceil(k - 1e-6) - 1) / 2);
+      calc();
+      manual(false);   // подпись «из строки» — как при правке руками
+    };
     n.addEventListener("keydown", (e) => {
       if (e.key === "Enter") { setSh(st.shH); return; }
       if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
       e.preventDefault();
-      const k = st.shH * 2;
-      setSh((e.key === "ArrowUp" ? Math.floor(k + 1e-6) + 1 : Math.ceil(k - 1e-6) - 1) / 2);
-      calc();
-      n.dispatchEvent(new Event("input", { bubbles: true }));   // подпись «из строки» — как при правке руками
+      step(e.key === "ArrowUp" ? 1 : -1);
+    });
+    panel.querySelectorAll(".ec-spin button").forEach((b) => {
+      b.addEventListener("mousedown", (e) => e.preventDefault());   // фокус и выделение в поле не сбиваем
+      b.addEventListener("click", () => step(Number(b.dataset.d)));
     });
   }
   function clampLeft() {
