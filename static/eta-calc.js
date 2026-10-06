@@ -127,7 +127,8 @@ const EtaCalc = (() => {
   }
 
   // ---------- панель ----------
-  const st = { team: true, rest: 9, shorts: 3, extras: {}, shifts: {}, drag: null,
+  const st = { shH: 0,      // сдвиг выезда, ч (поле — ЧЧ:ММ)
+               team: true, rest: 9, shorts: 3, extras: {}, shifts: {}, drag: null,
                src: null,      // v3.31: {unit, point, km, polyline, note} — откуда данные (клик по строке)
                srcShown: false };   // подпись источника видна, пока ничего не правили руками
   let panel = null, tab = null, S = null;
@@ -150,7 +151,7 @@ const EtaCalc = (() => {
         <div class="ec-sec"><div class="ec-lb"><span>Расстояние, км</span><span>70 … 5000</span></div>
           <div class="ec-ln"><input type="number" id="ec-km-n" min="70" step="10" value="1500"><input type="range" id="ec-km-r" min="70" max="5000" step="10" value="1500"></div></div>
         <div class="ec-sec"><div class="ec-lb"><span>Сдвиг выезда, ч</span><span class="ec-now"></span></div>
-          <div class="ec-ln"><input type="number" id="ec-sh-n" min="0" step="0.5" value="0"><input type="range" id="ec-sh-r" min="0" max="72" step="0.5" value="0"></div></div>
+          <div class="ec-ln"><input type="text" id="ec-sh-n" class="ec-hm" inputmode="numeric" value="00:00" title="ЧЧ:ММ · ↑ ↓ — шаг 30 мин"><input type="range" id="ec-sh-r" min="0" max="72" step="0.5" value="0"></div></div>
         <div class="ec-sec"><div class="ec-lb"><span>Остаток вождения на момент выезда, ч</span><span class="ec-lmax"></span></div>
           <div class="ec-ln"><input type="number" id="ec-lf-n" min="0" max="18" step="0.25" value="18"><input type="range" id="ec-lf-r" min="0" max="18" step="0.25" value="18"></div></div>
         <div class="ec-sec ec-g2">
@@ -200,7 +201,7 @@ const EtaCalc = (() => {
     $(".ec-mtg").addEventListener("click", (e) => { e.preventDefault(); mapFold(!st.mapFolded); });
     try { st.mapFolded = localStorage.getItem(MAP_KEY) === "0"; } catch (e) { /* ignore */ }
     mapFold(!!st.mapFolded, true);
-    pair("km"); pair("sh"); pair("lf", clampLeft);
+    pair("km"); shPair(); pair("lf", clampLeft);
     $("#ec-wk-n").addEventListener("input", () => { const v = Number($("#ec-wk-n").value); if (v > 56) $("#ec-wk-n").value = 56; if (v < 0) $("#ec-wk-n").value = 0; calc(); });
     panel.querySelectorAll(".ec-team button").forEach((b) => b.addEventListener("click", () => {
       st.team = b.dataset.v === "1"; st.extras = {}; st.shifts = {};
@@ -230,7 +231,7 @@ const EtaCalc = (() => {
       st.team = !!s.team;
       panel.querySelectorAll(".ec-team button").forEach((x) => x.classList.toggle("on", (x.dataset.v === "1") === st.team));
       $("#ec-lf-n").value = s.left_h; clampLeft();
-      $("#ec-sh-n").value = s.shift_h || 0; $("#ec-sh-r").value = Math.min(s.shift_h || 0, 72);
+      setSh(s.shift_h || 0);
       if (!st.team) {
         st.rest = s.shorts > 0 ? 9 : 11;
         st.shorts = Math.max(1, Math.min(3, s.shorts || 1));
@@ -240,7 +241,7 @@ const EtaCalc = (() => {
       if (s.unknown) notes.push("тахографа нет — остаток по максимуму");
       else if (s.nocard) notes.push("тахографа нет — стоит ≥ 9 ч, свежий день");
     } else {
-      $("#ec-sh-n").value = 0; $("#ec-sh-r").value = 0;
+      setSh(0);
       const nn = r.noSeedNote != null ? r.noSeedNote : "тахографа нет — состав и остаток прежние";
       if (nn) notes.push(nn);
     }
@@ -303,6 +304,38 @@ const EtaCalc = (() => {
       calc();
     });
   }
+  // v3.33: сдвиг выезда — ЧЧ:ММ (01:00, 00:30, 25:30), шаг 30 мин; принимает и «1,5», «2», «130»
+  const fmtHM = (h) => { const m = Math.round(Math.max(0, h) * 60); return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+  function parseHM(t) {
+    t = String(t).trim().replace(",", ".");
+    if (!t) return 0;
+    let m = t.match(/^(\d{1,3})[:.\s](\d{0,2})$/);
+    if (m && t.includes(":")) return Number(m[1]) + Math.min(59, Number(m[2] || 0)) / 60;
+    if (/^\d{1,2}(\.\d+)?$/.test(t)) return Number(t);   // «2», «1.5» — часы
+    m = t.match(/^(\d{1,2})(\d{2})$/);                    // «130», «2530» — ЧЧММ
+    return m ? Number(m[1]) + Math.min(59, Number(m[2])) / 60 : null;
+  }
+  function setSh(h, keepText) {
+    st.shH = Math.max(0, h);
+    if (!keepText) $("#ec-sh-n").value = fmtHM(st.shH);
+    $("#ec-sh-r").value = Math.min(st.shH, 72);
+  }
+  function shPair() {
+    const n = $("#ec-sh-n"), r = $("#ec-sh-r");
+    r.addEventListener("input", () => { setSh(Number(r.value)); calc(); });
+    n.addEventListener("input", () => { const v = parseHM(n.value); if (v != null) { setSh(v, true); calc(); } });
+    n.addEventListener("blur", () => setSh(st.shH));
+    n.addEventListener("focus", () => n.select());
+    n.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { setSh(st.shH); return; }
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      e.preventDefault();
+      const k = st.shH * 2;
+      setSh((e.key === "ArrowUp" ? Math.floor(k + 1e-6) + 1 : Math.ceil(k - 1e-6) - 1) / 2);
+      calc();
+      n.dispatchEvent(new Event("input", { bubbles: true }));   // подпись «из строки» — как при правке руками
+    });
+  }
   function clampLeft() {
     const n = $("#ec-lf-n"), m = st.team ? 18 : 9;
     let v = Number(n.value);
@@ -325,7 +358,7 @@ const EtaCalc = (() => {
 
   function params() {
     return {
-      dist: Number($("#ec-km-n").value) || 0, shiftH: Number($("#ec-sh-n").value) || 0, leftH: Number($("#ec-lf-n").value) || 0,
+      dist: Number($("#ec-km-n").value) || 0, shiftH: st.shH, leftH: Number($("#ec-lf-n").value) || 0,
       team: st.team, rest: st.rest, shorts: st.shorts, wkLeft: Number($("#ec-wk-n").value),
       extras: st.extras, shifts: st.shifts, nowMs: Date.now(),
     };

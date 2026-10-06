@@ -34,10 +34,10 @@ body.ec-resizing .ec-panel, body.ec-resizing .calc-tab, body.ec-resizing .nb-tab
 .ec-lb { font-size: 12px; color: #666; margin-bottom: 5px; display: flex; justify-content: space-between; gap: 8px; }
 .ec-lb span:last-child:not(:first-child) { color: #999; }
 .ec-ln { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 10px; align-items: center; }
-.ec-panel input[type="number"] { font: inherit; height: 30px; padding: 0 6px; text-align: right; border: 1px solid #ccc;
+.ec-panel input[type="number"], .ec-panel input.ec-hm { font: inherit; height: 30px; padding: 0 6px; text-align: right; border: 1px solid #ccc;
   border-radius: 6px; background: #fff; color: #1a1a1a; width: 100%; box-sizing: border-box; font-variant-numeric: tabular-nums; }
-.ec-ln input[type="number"] { text-align: center; }
-.ec-panel input[type="number"]:focus { outline: none; border-color: #888; }
+.ec-ln input[type="number"], .ec-ln input.ec-hm { text-align: center; }
+.ec-panel input[type="number"]:focus, .ec-panel input.ec-hm:focus { outline: none; border-color: #888; }
 .ec-panel input[type="range"] { width: 100%; accent-color: #2f6fd6; }
 .ec-g2 { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px 8px; align-items: center; }
 .ec-g2 > .ec-lb { margin: 0; }
