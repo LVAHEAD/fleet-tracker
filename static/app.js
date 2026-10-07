@@ -3058,12 +3058,13 @@ function extraCalc(data) {
 function calcAllRows(opts) {
   // v3.20: ход обновления на кнопке ↻ — «12/30»
   const todo = rows.filter((r) => r.unit);
-  const btn = document.getElementById("refresh-btn");
+  const btns = document.querySelectorAll(".bar-refresh");   // v3.43: верхняя и нижняя панель
   let left = todo.length;
   const show = () => {
-    if (!btn) return;
-    btn.textContent = left > 0 ? `↻ ${todo.length - left}/${todo.length}` : "↻";
-    btn.classList.toggle("busy", left > 0);
+    btns.forEach((btn) => {
+      btn.textContent = left > 0 ? `↻ ${todo.length - left}/${todo.length}` : "↻";
+      btn.classList.toggle("busy", left > 0);
+    });
   };
   show();
   const jobs = todo.map((r) => Promise.resolve(calcRow(r.id, opts && opts.auto ? "auto" : "all"))
@@ -3169,10 +3170,21 @@ function moveManual(id, dir) {
   const bottom = document.createElement("div");
   bottom.id = "sort-bar-bottom";
   bottom.className = "sort-bar sort-bar-bottom";
-  top.querySelectorAll(".own-flt, .flt-lbl, button[data-flt], .flt-sep, button[data-sort], span:not([class])").forEach((el) => {
-    if (el.closest(".own-flt") && el.parentElement !== top) return;
-    bottom.appendChild(el.cloneNode(true));
-  });
+  // v3.43: нижняя панель — точная копия верхней (три зоны); id снимаем, кнопки «+ строка» / ↻ и автообновление — через верхние
+  top.querySelectorAll(".sb-l, .sb-c, .sb-r").forEach((zone) => bottom.appendChild(zone.cloneNode(true)));
+  bottom.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
+  const m = bottom.querySelector(".m-edit-btn");
+  if (m) m.remove();   // «✎ правка» — только на телефоне, у верхней панели
+  const topAdd = top.querySelector(".bar-add"), topRef = top.querySelector(".bar-refresh");
+  const botAdd = bottom.querySelector(".bar-add"), botRef = bottom.querySelector(".bar-refresh");
+  if (botAdd) botAdd.addEventListener("click", () => topAdd.click());
+  if (botRef) botRef.addEventListener("click", () => topRef.click());
+  const topSel = top.querySelector("select"), botSel = bottom.querySelector("select");
+  if (topSel && botSel) {
+    botSel.value = topSel.value;
+    botSel.addEventListener("change", () => { topSel.value = botSel.value; topSel.dispatchEvent(new Event("change")); });
+    topSel.addEventListener("change", () => { botSel.value = topSel.value; });
+  }
   const table = document.getElementById("fleet-table");
   if (table) table.after(bottom);
   const bars = [top, bottom];

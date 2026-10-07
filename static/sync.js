@@ -384,11 +384,11 @@
     b.className = "trash-btn";
     b.title = "Удалённые строки за последние 7 дней — можно вернуть";
     b.textContent = "корзина";
-    bar.appendChild(b);
+    (bar.querySelector(".sb-r") || bar).appendChild(b);
     // v3.09: такая же кнопка в нижней панели (под таблицей)
     const bottom = document.getElementById("sort-bar-bottom");
     const bb = bottom ? b.cloneNode(true) : null;
-    if (bb) { bb.removeAttribute("id"); bottom.appendChild(bb); }
+    if (bb) { bb.removeAttribute("id"); (bottom.querySelector(".sb-r") || bottom).appendChild(bb); }
     [b, bb].filter(Boolean).forEach((btn) => btn.addEventListener("click", (e) => {
       e.stopPropagation();
       if (document.getElementById("trash-pop")) closeTrash(); else openTrash(btn);
@@ -492,10 +492,10 @@
     b.className = "trash-btn done-btn";
     b.title = "Завершённые трипы — хранятся всегда, можно вернуть во Флот";
     b.textContent = "✓ завершённые";
-    bar.appendChild(b);
+    (bar.querySelector(".sb-r") || bar).appendChild(b);
     const bottom = document.getElementById("sort-bar-bottom");
     const bb = bottom ? b.cloneNode(true) : null;
-    if (bb) { bb.removeAttribute("id"); bottom.appendChild(bb); }
+    if (bb) { bb.removeAttribute("id"); (bottom.querySelector(".sb-r") || bottom).appendChild(bb); }
     [b, bb].filter(Boolean).forEach((btn) => btn.addEventListener("click", (e) => {
       e.stopPropagation();
       if (document.getElementById("done-pop")) closeDone(); else openDone(btn);

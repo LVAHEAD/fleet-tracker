@@ -35,6 +35,13 @@
 <div id="tab-fleet" class="tab-panel">
 
 <div id="sort-bar" class="sort-bar">
+  <div class="sb-l">
+    <button type="button" id="add-row-btn" class="bar-add" title="Добавить строку в конец">+ строка</button>
+    <button type="button" id="refresh-btn" class="bar-refresh" title="Обновить всё">↻</button>
+  <label class="auto-lbl" title="Как часто пересчитывать все строки (без перестановки). Строка, которая стала опаздывать, мигает до клика.">автообновление
+  <select id="auto-refresh"><option value="0">выкл</option><option value="15">15 мин</option><option value="30">30 мин</option><option value="60">60 мин</option></select></label>
+  </div>
+  <div class="sb-c">
   <span class="own-flt"><button type="button" data-own="all" title="Строки всех диспетчеров">Все</button><span class="own-btns"></span><span class="flt-sep"></span></span>
   <span class="flt-lbl">Показать:</span>
   <button type="button" data-flt="all" title="Все строки">все</button>
@@ -45,9 +52,10 @@
   <button type="button" data-sort="LO" title="Сначала погрузки, потом выгрузки; внутри — по TimeSlot первой непройденной точки (раньше — выше), без TimeSlot — в конце">L → O</button>
   <button type="button" data-sort="OL" title="Сначала выгрузки, потом погрузки; внутри — по TimeSlot первой непройденной точки, без TimeSlot — в конце">O → L</button>
   <button type="button" data-sort="manual" title="Свой порядок: перетаскивайте строки за ⠿ (на телефоне — ↑/↓ в меню ⋯); новые строки — в конец">руками</button>
-  <label class="auto-lbl" title="Как часто пересчитывать все строки (без перестановки). Строка, которая стала опаздывать, мигает до клика.">автообновление
-    <select id="auto-refresh"><option value="0">выкл</option><option value="15">15 мин</option><option value="30">30 мин</option><option value="60">60 мин</option></select></label>
+  </div>
+  <div class="sb-r">
   <button type="button" class="m-edit-btn" id="m-edit-btn" title="Правка строк на телефоне">✎ правка</button>
+  </div>
 </div>
 <table id="fleet-table">
   <colgroup>
@@ -73,7 +81,7 @@
       <th>Примечание</th>
       <th class="th-client" title="Клиент (задел под v5)">Client</th>
       <th class="th-ref" title="Референс заказа (задел под v5)">Reference</th>
-      <th class="th-actions"><button type="button" id="add-row-btn" class="refresh-top" title="Добавить строку в конец">+<span class="hdr-txt"> строка</span></button><button type="button" id="refresh-btn" class="refresh-top" title="Обновить всё">↻</button></th>
+      <th class="th-actions"></th>
     </tr>
   </thead>
   <tbody id="fleet-tbody"></tbody>
