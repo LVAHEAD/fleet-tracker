@@ -992,10 +992,10 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 /* v3.11: фильтр одного диспетчера */
 /* v3.25: фильтр — «Все» + кнопки диспетчеров в их цвет; выбранная — тёмная рамка и жирный шрифт */
 .sort-bar .own-btns { display: inline-flex; gap: 3px; }
-.sort-bar button.own-d { background: var(--dc, #fff); border-color: var(--dcb, #ccc); color: #333; min-width: 30px; }
-.sort-bar button.own-d:hover { border-color: #555; }
-.sort-bar button.own-d.on { background: var(--dc, #fff); color: #000; font-weight: 700; border-color: #1a1a1a;
-  box-shadow: inset 0 0 0 1px #1a1a1a; }
+/* v3.46: кнопки диспетчеров — серые, как остальные кнопки панели; выбранная — чёрная; при наведении — цвет диспетчера */
+.sort-bar button.own-d { min-width: 30px; }
+.sort-bar button.own-d:hover { background: var(--dc, #f0f0f0); border-color: var(--dcb, #999); color: #1a1a1a; }
+.sort-bar button.own-d.on, .sort-bar button.own-d.on:hover { background: #1a1a1a; border-color: #1a1a1a; color: #fff; }
 #fleet-tbody .disp-lbl { display: block; margin-top: 3px; font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #fleet-tbody .disp-lbl.other { color: #2b6cb0; font-weight: 600; }
 /* v3.11: «свернуть / развернуть все» — значок в шапке «Таргет», над построчными ▸ */
