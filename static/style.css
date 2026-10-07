@@ -986,7 +986,7 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 #fleet-tbody tr.own-empty td { padding: 14px 10px; color: #666; text-align: center; background: #fff; }
 #fleet-tbody tr.own-empty button { font-size: 12px; padding: 2px 8px; }
 .disp-hint { margin: -6px 0 8px; font-size: 12px; color: #8a6200; }
-#fleet-tbody .status-line2 .crew-b { margin-left: 0; }   /* v3.16 */
+#fleet-tbody .status-line .crew-b { margin: 0 3px 0 0; }   /* v3.37: в первой строке, после страны */
 
 /* ---------- v3.18 ---------- */
 /* серое простое ETA убрано — место отдаём колонке «Статус» (вторая строка не переносится на третью) */
@@ -1104,7 +1104,7 @@ body.map-resizing .map-panel .w-label, body.ec-resizing .w-label { display: bloc
   body { max-width: none; padding-left: 50px; padding-right: 50px; }   /* v3.36: поля 50 */
   #fleet-table th, #fleet-tbody td { padding-left: 3px; padding-right: 3px; }
   #fleet-table .col-unit, body.sort-manual #fleet-table .col-unit { width: 100px; }
-  #fleet-table .col-status   { width: 300px; }
+  #fleet-table .col-status   { width: 250px; }   /* v3.37: было 300 */
   #fleet-table .col-target   { width: 390px; }
   #fleet-table .col-delivery { width: 140px; }
   #fleet-table .col-dist     { width: 55px; }

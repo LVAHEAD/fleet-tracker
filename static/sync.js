@@ -151,7 +151,7 @@
       });
       const denied = (d.errors || []).filter((e) => /может только/.test(e.error || ""));
       if (denied.length) {                       // v2.02: удалить нельзя — вернуть строку с сервера
-        toast((/диспетчер/.test(denied[0].error) ? "👤 " : "🗑 ") + denied[0].error);
+        toast((/диспетчер/.test(denied[0].error) ? "🎧 " : "🗑 ") + denied[0].error);
         loadAll().catch(() => {});
       } else if (bad.size) { setStatus("error", d.errors[0].error); setTimeout(S.schedule, 10000); }
       else setStatus("ok");

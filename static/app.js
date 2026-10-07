@@ -1181,10 +1181,10 @@ function dispHtml(row) {
   const opts = knownDispatchers();
   if (d && !opts.includes(d)) opts.push(d);
   // v3.11: назначать диспетчера строки — только назначающий; остальным — просто метка
-  if (!canAssign()) return d ? `<span class="disp-lbl${d !== fleetMe() ? " other" : ""}" title="Диспетчер строки (назначает админ)">👤 ${escapeHtml(dispLabel(d))}</span>` : "";
+  if (!canAssign()) return d ? `<span class="disp-lbl${d !== fleetMe() ? " other" : ""}" title="Диспетчер строки (назначает админ)">🎧 ${escapeHtml(dispLabel(d))}</span>` : "";
   return `<select class="disp-sel${d && d !== fleetMe() ? " other" : ""}${d ? "" : " none"}" title="Диспетчер (ответственный за строку)">`
-    + `<option value=""${d ? "" : " selected"}>👤 —</option>`
-    + opts.map((u) => `<option value="${escapeHtml(u)}"${u === d ? " selected" : ""}>👤 ${escapeHtml(dispLabel(u))}</option>`).join("")
+    + `<option value=""${d ? "" : " selected"}>🎧 —</option>`
+    + opts.map((u) => `<option value="${escapeHtml(u)}"${u === d ? " selected" : ""}>🎧 ${escapeHtml(dispLabel(u))}</option>`).join("")
     + "</select>";
 }
 
@@ -2619,7 +2619,7 @@ async function calcRow(id, why) {
     // v1.43: одна строка — страна, ■/▶, время, скорость, ⏸
     const icon = data.status === "driving"
       ? '<span class="st-ic st-go">▶</span>' : '<span class="st-ic st-stop">■</span>';
-    const statusLine1 = ccBadge + icon + escapeHtml(data.duration_str);
+    let statusLine1 = ccBadge + icon + escapeHtml(data.duration_str);   // v3.37: 👤 / 👥 — после страны (ниже)
     // v1.33: ⏸ — впереди обязательный отдых по тахографу или водитель сейчас отдыхает
     const tachoTip = (data.tacho_summary || []).join("\n");
     const speedTxt = data.status === "driving" && data.speed != null
@@ -2641,16 +2641,19 @@ async function calcRow(id, why) {
     // вторая строка с прицепом; без привязки — кнопка 🔗? в первой строке (v1.71)
     let hitchHtml = "", line2 = "";
     // v3.16: 👤/👥 — в начале второй строки статуса, слева от прицепа
+    // v3.37: 👤 / 👥 — в первой строке, между страной и ▶ (Блокнот «Головы»)
     const crewB = data.is_trailer ? "" : crewHtml(row, { crew: crewOf(data) });
+    statusLine1 = ccBadge + crewB + icon + escapeHtml(data.duration_str);
     const tfHtml = data.is_trailer ? "" : truckFuelHtml(data);   // v3.30: ⛽ тягача — только когда мало
     if (data.is_trailer) {
       hitchHtml = hitchPillHtml(data, false);
       if (reeferHtml || hitchHtml) line2 = `<div class="status-line2">${reeferHtml}${hitchHtml}</div>`;
     } else if (row.trailer) {
-      line2 = `<div class="status-line2">${crewB}${tfHtml}${linkedTrailerHtml(row.trailer, data.linked_trailer)}</div>`;
+      line2 = `<div class="status-line2">${tfHtml}${linkedTrailerHtml(row.trailer, data.linked_trailer)}</div>`;
     } else {
-      hitchHtml = hitchPillHtml(data, true);
-      if (crewB.indexOf("hidden") < 0 || tfHtml) line2 = `<div class="status-line2">${crewB}${tfHtml}</div>`;
+      // v3.37: непривязанный прицеп (🔗 угадан) — во второй строке, где и привязанный
+      const hp = hitchPillHtml(data, true);
+      if (hp || tfHtml) line2 = `<div class="status-line2">${tfHtml}${hp}</div>`;
     }
     const statusHtml = `<div class="status-line" title="${escapeHtml(data.status_ru + " " + data.duration_str + (data.on_target ? "\nна объекте" + (data.on_target.name ? ": " + data.on_target.name : "") : "") + (tachoTip ? "\n" + tachoTip : ""))}">${trTag}${statusLine1}${extra}${pauseIc}${ot}${data.is_trailer ? "" : hitchHtml}</div>${line2}`;
     const statusClass = data.status === "driving" ? "status-driving" : "status-standing";

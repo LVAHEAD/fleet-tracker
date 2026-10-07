@@ -126,7 +126,7 @@ const EtaCalc = (() => {
   }
 
   // ---------- панель ----------
-  const st = { shH: 0,      // сдвиг выезда, ч (поле — ЧЧ:ММ)
+  const st = { shH: 0, lfH: 18,   // сдвиг выезда и остаток вождения, ч (поля — ЧЧ:ММ)
                team: true, rest: 9, shorts: 3, extras: {}, shifts: {}, drag: null,
                src: null,      // v3.31: {unit, point, km, polyline, note} — откуда данные (клик по строке)
                srcShown: false };   // подпись источника видна, пока ничего не правили руками
@@ -152,7 +152,7 @@ const EtaCalc = (() => {
         <div class="ec-sec"><div class="ec-lb"><span>Сдвиг выезда, ч</span><span class="ec-now"></span></div>
           <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-sh-n" class="ec-hm" inputmode="numeric" value="00:00" title="ЧЧ:ММ · ↑ ↓ — шаг 30 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+30 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−30 мин">▾</button></span></span><input type="range" id="ec-sh-r" min="0" max="72" step="0.5" value="0"></div></div>
         <div class="ec-sec"><div class="ec-lb"><span>Остаток вождения на момент выезда, ч</span><span class="ec-lmax"></span></div>
-          <div class="ec-ln"><input type="number" id="ec-lf-n" min="0" max="18" step="0.25" value="18"><input type="range" id="ec-lf-r" min="0" max="18" step="0.25" value="18"></div></div>
+          <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-lf-n" class="ec-hm" inputmode="numeric" value="18:00" title="ЧЧ:ММ · ↑ ↓ — шаг 15 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+15 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−15 мин">▾</button></span></span><input type="range" id="ec-lf-r" min="0" max="18" step="0.25" value="18"></div></div>
         <div class="ec-sec ec-g2">
           <span class="ec-lb">Состав</span>
           <div class="ec-rl"><span class="ec-seg ec-team"><button type="button" data-v="1" class="on">Экипаж</button><button type="button" data-v="0">Соло</button></span>
@@ -197,7 +197,7 @@ const EtaCalc = (() => {
     $(".ec-mtg").addEventListener("click", (e) => { e.preventDefault(); mapFold(!st.mapFolded); });
     try { st.mapFolded = localStorage.getItem(MAP_KEY) === "0"; } catch (e) { /* ignore */ }
     mapFold(!!st.mapFolded, true);
-    pair("km"); shPair(); pair("lf", clampLeft);
+    pair("km"); shPair(); lfPair();
     $("#ec-wk-n").addEventListener("input", () => { const v = Number($("#ec-wk-n").value); if (v > 56) $("#ec-wk-n").value = 56; if (v < 0) $("#ec-wk-n").value = 0; calc(); });
     panel.querySelectorAll(".ec-team button").forEach((b) => b.addEventListener("click", () => {
       st.team = b.dataset.v === "1"; st.extras = {}; st.shifts = {};
@@ -226,7 +226,7 @@ const EtaCalc = (() => {
     if (s) {
       st.team = !!s.team;
       panel.querySelectorAll(".ec-team button").forEach((x) => x.classList.toggle("on", (x.dataset.v === "1") === st.team));
-      $("#ec-lf-n").value = s.left_h; clampLeft();
+      setLf(s.left_h || 0);
       setSh(s.shift_h || 0);
       if (!st.team) {
         st.rest = s.shorts > 0 ? 9 : 11;
@@ -311,19 +311,42 @@ const EtaCalc = (() => {
       e.preventDefault();
       step(e.key === "ArrowUp" ? 1 : -1);
     });
-    panel.querySelectorAll(".ec-spin button").forEach((b) => {
+    n.parentElement.querySelectorAll(".ec-spin button").forEach((b) => {
       b.addEventListener("mousedown", (e) => e.preventDefault());   // фокус и выделение в поле не сбиваем
       b.addEventListener("click", () => step(Number(b.dataset.d)));
     });
   }
-  function clampLeft() {
-    const n = $("#ec-lf-n"), m = st.team ? 18 : 9;
-    let v = Number(n.value);
-    if (isNaN(v)) return;
-    if (v > m) { v = m; n.value = m; }
-    if (v < 0) { v = 0; n.value = 0; }
-    $("#ec-lf-r").value = v;
+  // v3.37: остаток вождения — тоже ЧЧ:ММ, шаг 15 мин; предел — 18:00 экипаж / 9:00 соло
+  const lfMax = () => (st.team ? 18 : 9);
+  function setLf(h, keepText) {
+    st.lfH = Math.min(lfMax(), Math.max(0, Number(h) || 0));
+    if (!keepText) $("#ec-lf-n").value = fmtHM(st.lfH);
+    $("#ec-lf-r").value = st.lfH;
   }
+  function lfPair() {
+    const n = $("#ec-lf-n"), r = $("#ec-lf-r");
+    r.addEventListener("input", () => { setLf(Number(r.value)); calc(); });
+    n.addEventListener("input", () => { const v = parseHM(n.value); if (v != null) { setLf(v, v <= lfMax()); calc(); } });
+    n.addEventListener("blur", () => setLf(st.lfH));
+    n.addEventListener("focus", () => n.select());
+    const step = (d) => {
+      const k = st.lfH * 4;
+      setLf((d > 0 ? Math.floor(k + 1e-6) + 1 : Math.ceil(k - 1e-6) - 1) / 4);
+      calc();
+      manual(false);
+    };
+    n.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { setLf(st.lfH); return; }
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      e.preventDefault();
+      step(e.key === "ArrowUp" ? 1 : -1);
+    });
+    n.parentElement.querySelectorAll(".ec-spin button").forEach((b) => {
+      b.addEventListener("mousedown", (e) => e.preventDefault());
+      b.addEventListener("click", () => step(Number(b.dataset.d)));
+    });
+  }
+  function clampLeft() { setLf(st.lfH); }   // смена экипаж / соло — остаток в новый предел
   function restUI() {
     const box = $(".ec-rest");
     if (st.team) { box.innerHTML = '<span class="ec-mut2">всегда 9 ч</span>'; return; }
@@ -338,7 +361,7 @@ const EtaCalc = (() => {
 
   function params() {
     return {
-      dist: Number($("#ec-km-n").value) || 0, shiftH: st.shH, leftH: Number($("#ec-lf-n").value) || 0,
+      dist: Number($("#ec-km-n").value) || 0, shiftH: st.shH, leftH: st.lfH,
       team: st.team, rest: st.rest, shorts: st.shorts, wkLeft: Number($("#ec-wk-n").value),
       extras: st.extras, shifts: st.shifts, nowMs: Date.now(),
     };
@@ -347,7 +370,7 @@ const EtaCalc = (() => {
   function calc() {
     if (!panel) return;
     const m = st.team ? 18 : 9;
-    $("#ec-lf-r").max = m; $("#ec-lf-n").max = m;
+    $("#ec-lf-r").max = m;
     $(".ec-lmax").textContent = "макс. " + m + " ч";
     $(".ec-now").textContent = "сейчас " + fdt(new Date());
     $(".ec-wk").hidden = st.team;
