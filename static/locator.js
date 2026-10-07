@@ -55,7 +55,10 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     btn.classList.add("active");
     [...pcTabs.children].forEach((t) => t.setAttribute("aria-selected", "false"));
     if (!map) window.whenGoogleMaps(initLocatorMap);
-    else google.maps.event.trigger(map, "resize");
+    else {
+      google.maps.event.trigger(map, "resize");
+      if (window.UnitsLayer) window.UnitsLayer.refreshOnShow();   // v3.38: свежие позиции машин
+    }
   }
 
   function hideLocator() {
@@ -184,6 +187,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
       clickableIcons: false,
     });
     infoWindow = new google.maps.InfoWindow();
+    if (window.UnitsLayer) window.UnitsLayer.attach(map);   // v3.38: все машины HEAD TRUCK
 
     // "копировать" внутри InfoWindow
     document.getElementById("locatorMap").addEventListener("click", (e) => {

@@ -3280,6 +3280,7 @@ document.querySelectorAll(".main-tab-btn").forEach((btn) => {
       }
     } else if (target === "route" && window.google && window.routeMap) {
       google.maps.event.trigger(window.routeMap, "resize");
+      if (window.UnitsLayer) window.UnitsLayer.refreshOnShow();   // v3.38: свежие позиции машин
     }
   });
 });

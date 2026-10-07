@@ -1135,3 +1135,11 @@ body:not(.sort-manual) .acts-br { display: none; }
   #fleet-table .th-actions .refresh-top { padding: 1px 6px; margin: 0 0 0 2px; }
   #fleet-table th:first-child, #fleet-tbody td:first-child { padding-left: 8px; }
 }
+
+/* v3.38: слой «все машины» на картах Локатора и From → To — кнопки 🚚 Машины / ↻ */
+.ul-ctl { margin: 10px 0 0 10px; display: flex; gap: 4px; }
+.ul-ctl button { background: #fff; border: 1px solid #ccc; border-radius: 6px; padding: 4px 9px; font-size: 13px; cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+.ul-ctl button.on { background: #1a73e8; border-color: #1a73e8; color: #fff; }
+.ul-ctl button[hidden] { display: none; }
+.ul-ctl button:disabled { opacity: .5; cursor: default; }

@@ -25,8 +25,13 @@ def api_units():
     try:
         all_units = fetch_units(MAPON_API_KEY)
         group_ids = fetch_group_unit_ids(MAPON_API_KEY, HEAD_TRUCK_GROUP_ID)
+        # v3.38: у тягачей — где стоят / едут и курс: слой «все машины» на картах Локатора и From → To
         result = [
-            {"unit_id": u["unit_id"], "number": u.get("number") or u.get("label"), "kind": "truck"}
+            {"unit_id": u["unit_id"], "number": u.get("number") or u.get("label"), "kind": "truck",
+             "lat": u.get("lat"), "lng": u.get("lng"),
+             "st": "driving" if (u.get("state") or {}).get("name") == "driving" else "standing",
+             "dir": next((u.get(k) for k in ("direction", "course", "heading", "angle")
+                          if isinstance(u.get(k), (int, float))), None)}
             for u in all_units
             if u["unit_id"] in group_ids
         ]

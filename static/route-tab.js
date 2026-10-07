@@ -31,12 +31,33 @@ function initRouteTab() {
     zoom: 4,
   });
 
+  // v3.38: все машины HEAD TRUCK на карте; клик по машине — она в From1, остальные вниз (пересчёт — по кнопке)
+  if (window.UnitsLayer) window.UnitsLayer.attach(window.routeMap, { onPick: routePutTruck });
+
   restoreRouteFields();
   syncRouteFields("route-from-list", "L");
   syncRouteFields("route-to-list", "O");
   document.getElementById("route-calc-btn").addEventListener("click", calcRouteTab);
   document.getElementById("route-clear-btn").addEventListener("click", clearRouteTab);
   document.getElementById("route-to-calc").addEventListener("click", routeToCalc);   // v3.32
+}
+
+// v3.38: машина с карты — в From1. В From1 уже машина — заменяем; иначе всё сдвигается вниз.
+function routePutTruck(number) {
+  const list = document.getElementById("route-from-list");
+  const inputs = Array.from(list.querySelectorAll(".route-field input"));
+  const vals = inputs.map((i) => i.value.trim());
+  const isTruck = (v) => !!v && (typeof unitsCache !== "undefined" ? unitsCache : []).some((u) => u.kind === "truck" && u.number === v);
+  if (!vals[0] || isTruck(vals[0])) vals[0] = number;
+  else vals.unshift(number);
+  list.innerHTML = "";
+  vals.filter((v, i) => v || i === 0).forEach((v) => {
+    const f = makeRouteField("route-from-list", "L");
+    f.querySelector("input").value = v;
+    list.appendChild(f);
+  });
+  syncRouteFields("route-from-list", "L");
+  saveRouteFields();
 }
 
 // --- Сохранение полей в браузере ---
