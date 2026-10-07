@@ -1189,29 +1189,38 @@
   {
    "units": [
     {
+     "code": "LV10",
      "dir": null,
+     "dur": 40000,
      "kind": "truck",
      "lat": 56.9501,
      "lng": 24.0301,
      "number": "C-640A",
+     "spd": null,
      "st": "standing",
      "unit_id": 3
     },
     {
+     "code": "LV10",
      "dir": null,
+     "dur": 40000,
      "kind": "truck",
      "lat": 56.95,
      "lng": 24.03,
      "number": "NP-2044",
+     "spd": 0,
      "st": "standing",
      "unit_id": 2
     },
     {
+     "code": "IT30",
      "dir": null,
+     "dur": 1200,
      "kind": "truck",
      "lat": 45.4,
      "lng": 11.9,
      "number": "OI-1778",
+     "spd": 80,
      "st": "driving",
      "unit_id": 1
     }

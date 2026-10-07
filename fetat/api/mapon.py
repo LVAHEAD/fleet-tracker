@@ -9,12 +9,21 @@ from fetat.clients.mapon import (
 )
 from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.points import find_unit_exact
+from fetat.domain.regions import nearest_region_code
 from fetat.domain.tacho import tacho_no_subscription, WEEKLY_FULL_SEC, weekly_status
 from fetat.domain.trailers import is_trailer
 from fetat.utils.geo import haversine_km, _wkt_center
 from fetat.utils.timefmt import _hm, _lv, _utc_iso
 
 bp = Blueprint("mapon", __name__)
+
+
+def _near_code(lat, lng):
+    """Код региона рядом (до 150 км по прямой), иначе None."""
+    if lat is None or lng is None:
+        return None
+    code, d = nearest_region_code(lat, lng)
+    return code if code and d <= 150 else None
 
 
 @bp.route("/api/units")
@@ -31,7 +40,11 @@ def api_units():
              "lat": u.get("lat"), "lng": u.get("lng"),
              "st": "driving" if (u.get("state") or {}).get("name") == "driving" else "standing",
              "dir": next((u.get(k) for k in ("direction", "course", "heading", "angle")
-                          if isinstance(u.get(k), (int, float))), None)}
+                          if isinstance(u.get(k), (int, float))), None),
+             # v3.41: скорость, сколько в текущем состоянии (сек) и ближайший код региона — для подсказки на карте
+             "spd": u.get("speed") if isinstance(u.get("speed"), (int, float)) else None,
+             "dur": (u.get("state") or {}).get("duration"),
+             "code": _near_code(u.get("lat"), u.get("lng"))}
             for u in all_units
             if u["unit_id"] in group_ids
         ]

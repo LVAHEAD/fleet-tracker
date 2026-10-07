@@ -31,13 +31,37 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
     try { localStorage.setItem(NUM_KEY, v ? "1" : "0"); } catch (e) { /* ignore */ }
   }
 
-  // трип во Флоте с этой машиной — цвет его диспетчера
-  function dispColor(number) {
-    if (typeof rows === "undefined" || typeof rowDisp !== "function" || typeof dispEntry !== "function") return "";
+  // трип во Флоте с этой машиной
+  function fleetRow(number) {
+    if (typeof rows === "undefined") return null;
     const n = norm(number), d = digits(number);
-    const row = rows.find((r) => r.unit && (norm(r.unit) === n || (d && digits(r.unit) === d && norm(r.unit).length <= d.length)));
+    return rows.find((r) => r.unit && (norm(r.unit) === n || (d && digits(r.unit) === d && norm(r.unit).length <= d.length))) || null;
+  }
+  // цвет диспетчера трипа
+  function dispColor(number) {
+    if (typeof rowDisp !== "function" || typeof dispEntry !== "function") return "";
+    const row = fleetRow(number);
     const e = row ? dispEntry(rowDisp(row)) : null;
     return e && e.color ? e.color : "";
+  }
+  // «3 ч 20 мин», «45 мин», «2 д 4 ч»
+  function fmtDur(sec) {
+    if (sec == null || isNaN(sec)) return "";
+    const m = Math.floor(sec / 60);
+    if (m < 60) return Math.max(m, 1) + " мин";
+    const h = Math.floor(m / 60);
+    if (h < 24) return h + " ч" + (m % 60 ? " " + (m % 60) + " мин" : "");
+    return Math.floor(h / 24) + " д" + (h % 24 ? " " + (h % 24) + " ч" : "");
+  }
+  // подсказка при наведении: едет — скорость и куда (таргет трипа во Флоте); стоит — сколько и где (код региона)
+  function unitTitle(u) {
+    if (u.st === "driving") {
+      const row = fleetRow(u.number);
+      const tg = row && row.target ? String(row.target).trim() : "";
+      return u.number + " · едет" + (u.spd != null ? " " + Math.round(u.spd) + " км/ч" : "") + (tg ? "\n→ " + tg : "");
+    }
+    const dur = fmtDur(u.dur);
+    return u.number + " · стоит" + (dur ? " " + dur : "") + (u.code ? "\n" + u.code : "");
   }
 
   function unitIcon(u) {
@@ -110,7 +134,7 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
         if (g.items.length === 1) {
           const u = g.items[0];
           const opt = { position: { lat: u.lat, lng: u.lng }, map, icon: unitIcon(u), zIndex: 15,
-            title: u.number + (u.st === "driving" ? " · едет" : " · стоит") + (opts.onPick ? "\nКлик — поставить в From1" : "") };
+            title: unitTitle(u) + (opts.onPick ? "\nКлик — поставить в From1" : "") };
           if (L.nums && z >= CLUSTER_MAX_ZOOM) {
             opt.label = { text: String(u.number), className: u.st === "driving" ? "ul-lab ul-drv" : "ul-lab ul-std", color: "#1a1a1a", fontSize: "12px", fontWeight: "600" };
             opt.zIndex = 17;
