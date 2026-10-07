@@ -737,17 +737,28 @@ function drawRoute(rowId) {
 
 // v3.31: открыт ⏱ калькулятор — клик по строке передаёт ему км до первой непройденной точки, линию маршрута
 // и данные тахографа (всё из последнего расчёта строки, без новых запросов)
-function ecFromRow(id) {
-  if (!window.etaCalc || !window.etaCalc.isOpen()) return;
+// v3.48: клик по значку страны — калькулятор открывается сам (force), расчёт — от точки k (если кликнули у точки Таргета)
+function ecFromRow(id, force, k) {
+  if (!window.etaCalc) return;
+  if (!window.etaCalc.isOpen()) {
+    if (!force) return;
+    window.etaCalc.open();
+    if (!window.etaCalc.isOpen()) return;       // телефон — калькулятора нет
+  }
   const row = rows.find((r) => r.id === id);
   if (!row) return;
   const c = lastCalcText[id] || {};
-  const at = c.ecAt || 0;
+  const at = k != null ? k : (c.ecAt || 0);
   const pt = at === 0 ? row.target : ((row.extra || [])[at - 1] || {}).target;
   const pos = rowPositions[id];
+  let km = c.ecKm != null ? c.ecKm : null;
+  if (k != null && k !== (c.ecAt || 0)) {        // у другой точки — км от машины до неё по цепочке
+    const ce = k >= 1 ? (c.extra || [])[k - 1] : null;
+    km = ce && !ce.done && ce.dist_km != null ? Number(ce.dist_km) : null;
+  }
   window.etaCalc.fromRow({
     unit: row.unit || "", point: ((STOP_NUM[at + 1] || "") + " " + String(pt || "").trim()).trim(),
-    km: c.ecKm != null ? c.ecKm : null, seed: c.ecSeed || null, polyline: (pos && pos.polyline) || null,
+    km, seed: c.ecSeed || null, polyline: (pos && pos.polyline) || null,
   });
 }
 
@@ -1613,6 +1624,12 @@ function attachRowHandlers() {
       if (chip && chip.querySelector(".pn-chip")) {                 // v1.79: ✓ пройдена / нет
         const w = chip.closest(".target-wrap");
         toggleDone(id, w.classList.contains("x-stop") ? Number(w.dataset.k) : 0);
+        return;
+      }
+      const cc = e.target.closest && e.target.closest(".cc-badge");
+      if (cc && !cc.hidden) {                                         // v3.48: значок страны — открыть ⏱ с данными строки
+        const w = cc.closest(".x-stop");                              // у точки ②③… — расчёт до неё
+        ecFromRow(id, true, w ? Number(w.dataset.k) : null);
         return;
       }
       drawRoute(id);
