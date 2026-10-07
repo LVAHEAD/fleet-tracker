@@ -24,6 +24,27 @@ const ROUTE_POINT_COLORS = {
   O: { fill: "#E0B000", text: "#3D2E00" },
 };
 
+// v3.47: высота карты — от её реального места до низа окна (иначе карта вылезала вниз и появлялась прокрутка страницы)
+function fitRouteMapHeight() {
+  const right = document.querySelector("#tab-route .rt-right");
+  if (!right) return;
+  if (getComputedStyle(right).position !== "sticky") { right.style.removeProperty("--rtH"); return; }   // одна колонка
+  const top = right.getBoundingClientRect().top;
+  if (!top && !right.offsetHeight) return;                                                             // вкладка скрыта
+  const uiz = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--uiz")) || 1;
+  const h = Math.max(300, (window.innerHeight - Math.max(top, 8) - 8) / uiz);
+  right.style.setProperty("--rtH", Math.round(h) + "px");
+}
+
+function initRouteMapFit() {
+  const cols = document.querySelector("#tab-route .rt-cols");
+  if (!cols) return;
+  window.addEventListener("scroll", fitRouteMapHeight, { passive: true });
+  window.addEventListener("resize", fitRouteMapHeight);
+  if (window.ResizeObserver) new ResizeObserver(fitRouteMapHeight).observe(cols);
+  fitRouteMapHeight();
+}
+
 function initRouteTab() {
   if (window.routeMap) return; // уже создана
   window.routeMap = new google.maps.Map(document.getElementById("route-map"), {
@@ -37,6 +58,7 @@ function initRouteTab() {
   if (window.UnitsLayer) window.UnitsLayer.attach(window.routeMap, { onPick: routePutTruck });
 
   initRouteResize();   // v3.42
+  initRouteMapFit();   // v3.47
   restoreRouteFields();
   syncRouteFields("route-from-list", "L");
   syncRouteFields("route-to-list", "O");

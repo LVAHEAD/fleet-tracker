@@ -212,7 +212,7 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
   .rt-resize { display: block; flex: 0 0 12px; align-self: stretch; cursor: ew-resize; position: relative; }
   .rt-resize::after { content: ""; position: absolute; left: 5px; top: 0; bottom: 0; width: 2px; border-radius: 1px; background: transparent; }
   .rt-resize:hover::after, body.rt-resizing .rt-resize::after { background: rgba(47, 111, 214, .45); }
-  .rt-right { flex: 0 0 var(--rtmap); min-width: 0; position: sticky; top: 8px; height: calc((100vh - 16px) / var(--uiz, 1)); }
+  .rt-right { flex: 0 0 var(--rtmap); min-width: 0; position: sticky; top: 8px; height: var(--rtH, calc((100vh - 16px) / var(--uiz, 1))); }
   #route-map { height: 100%; }
   /* «Похожие рейсы» в узкой колонке — две строки: маршрут и цена, ниже мелким клиент · €/км · дата · метки */
   #route-freights .frt-table, #route-freights .frt-table tbody { display: block; width: 100%; }
