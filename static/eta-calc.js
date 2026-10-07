@@ -2,7 +2,8 @@
 Fleet ETA Tracker — ⏱ ETA-калькулятор (v3.28): утилита «что если» без машины, панель справа (язычок под 📓).
 Открыта одна панель за раз (карта 🗺, Блокнот 📓 или калькулятор); ширина тянется за левый край и запоминается
 (v3.34: одна на все боковые панели — sidePanelW в app.js); Esc — закрыть. На телефоне (до 768 px) язычка нет.
-Считает всё в браузере, к серверу и Google не ходит. Макет согласован в песочнице 05–06.10 (BACKLOG.md).
+v3.39: расклад считает сервер (/api/eta-plan) — тот же движок, что ETA во Флоте и From → To; Google не нужен.
+Макет согласован в песочнице 05–06.10 (BACKLOG.md).
 v3.31: открыт калькулятор — клик по строке Флота заполняет его данными машины (app.js → fromRow: км до первой
 непройденной точки, экипаж / соло, остаток вождения, сдвиг до конца отдыха, 9-ки и недельный остаток соло);
 над полями — подпись источника, правка руками её убирает. Мини-карта: линия маршрута строки, нарезанная
@@ -16,7 +17,8 @@ v3.31: открыт калькулятор — клик по строке Фло
   - 9-ка, растянутая до 11 ч и больше, — обычный отдых, сокращение не тратится;
   - отдых от 24 ч — недельный сокращённый, от 45 ч — недельный; после него неделя и сокращения — заново;
   - недельный остаток соло (56 ч) — только отметка на шкале, ETA не сдвигаем;
-  - продления до 10 ч у соло не учитываем.
+  - v3.39: 10-й час у соло — вручную, «+1 ч» на дне; окно смены соло 15 ч, ночная смена (00:00–04:00) — 11 ч;
+    экипаж — 21 ч.
 */
 const EtaCalc = (() => {
   const SPEED = 70, WEEK = 56, BREAK_AFTER = 4.5, BREAK = 0.75;
@@ -71,63 +73,9 @@ const EtaCalc = (() => {
     return h >= 45 ? "недельный" : h >= 24 ? "недельный сокр." : e.short ? "сокр." : "";
   }
 
-  /*
-  Расчёт рейса. p: { dist, shiftH, leftH, team, rest (9 | 11), shorts (1–3), wkLeft (ч, соло),
-                     extras {№ отдыха: +ч}, shifts {№ отдыха: на сколько ч вождения встать раньше}, nowMs }.
-  Время внутри — часы от ETD. Возвращает события ev [{k: d | b | r, t0, t1, km0, km1, ...}], etd, eta (мс),
-  wk — где кончается недельный остаток (соло) или null.
-  */
-  function simulate(p) {
-    const team = !!p.team, m = team ? 18 : 9;
-    const etd = up15(p.nowMs) + Math.max(0, p.shiftH || 0) * 3600e3;
-    const at = (h) => etd + h * 3600e3;
-    const extras = p.extras || {}, shifts = p.shifts || {};
-    const wkLeft = team ? Infinity : Math.max(0, p.wkLeft == null ? WEEK : p.wkLeft);
-    const cut = {};
-    const allow = (base, i) => { cut[i] = Math.min(shifts[i] || 0, base); return base - cut[i]; };
-    let t = 0, kmLeft = Math.max(0, p.dist || 0), kmDone = 0, since = 0, sl = p.shorts || 0;
-    let day = allow(Math.min(Math.max(0, p.leftH || 0), m), 0);
-    let monday = nextMonday(etd), weekCap = wkLeft, weekDriven = 0, wk = null, guard = 0;
-    const ev = [];
-    if (!team && wkLeft <= 0) wk = { t: 0, km: 0 };
-    while (kmLeft > 0.01 && guard++ < 500) {
-      const can = team ? day : Math.min(day, BREAK_AFTER - since);
-      if (can <= 1e-6) {
-        if (!team && since >= BREAK_AFTER - 1e-6 && day > 1e-6) {           // перерыв 45 мин
-          ev.push({ k: "b", t0: t, t1: t + BREAK, km0: kmDone, km1: kmDone });
-          t += BREAK; since = 0; continue;
-        }
-        const i = ev.filter((x) => x.k === "r").length;                  // суточный отдых
-        const want9 = !team && p.rest === 9 && sl > 0;
-        const len = (team || want9 ? 9 : 11) + (extras[i] || 0);
-        const short = want9 && len < 11;
-        if (short) sl--;
-        ev.push({ k: "r", t0: t, t1: t + len, km0: kmDone, km1: kmDone, i, short, extra: extras[i] || 0, shift: cut[i] || 0 });
-        t += len; since = 0; day = allow(m, i + 1);
-        if (len >= 24) {                                                  // недельный — неделя заново
-          sl = 3;
-          if (!wk) { weekDriven = 0; weekCap = WEEK; monday = nextMonday(at(t)); }
-        }
-        continue;
-      }
-      const d = Math.min(can, kmLeft / SPEED);
-      if (!wk && !team) {
-        const room = weekCap - weekDriven;
-        if (d >= room - 1e-9 && at(t + room) < monday) wk = { t: t + room, km: kmDone + room * SPEED };
-      }
-      const last = ev[ev.length - 1];
-      if (last && last.k === "d") { last.t1 += d; last.km1 += d * SPEED; }
-      else ev.push({ k: "d", t0: t, t1: t + d, km0: kmDone, km1: kmDone + d * SPEED });
-      if (at(t) < monday) weekDriven += Math.min(d, Math.max(0, (monday - at(t)) / 3600e3));
-      t += d; kmLeft -= d * SPEED; kmDone += d * SPEED; day -= d; since += d;
-    }
-    return { dist: Math.max(0, p.dist || 0), ev, etd, eta: up15(at(t)), at, drive: Math.max(0, p.dist || 0) / SPEED,
-             wk: wk ? { ms: at(wk.t), km: wk.km } : null, wkLeft };
-  }
-
   // ---------- панель ----------
   const st = { shH: 0, lfH: 18,   // сдвиг выезда и остаток вождения, ч (поля — ЧЧ:ММ)
-               team: true, rest: 9, shorts: 3, extras: {}, shifts: {}, drag: null,
+               team: true, rest: 9, shorts: 3, extras: {}, shifts: {}, ext: new Set(), drag: null,   // ext — дни с 10-м часом
                src: null,      // v3.31: {unit, point, km, polyline, note} — откуда данные (клик по строке)
                srcShown: false };   // подпись источника видна, пока ничего не правили руками
   let panel = null, tab = null, S = null;
@@ -170,6 +118,7 @@ const EtaCalc = (() => {
         <div class="ec-sec">
           <div class="ec-h">Шкала <a href="#" class="ec-rst">сбросить отдыхи</a></div>
           <p class="ec-note">Правый край отдыха — длиннее (шаг 15 мин), левый — весь отдых раньше. Двойной клик по ручке — вернуть.</p>
+          <div class="ec-ext ec-rl"></div>
           <div class="ec-strip"></div>
           <div class="ec-days"></div>
           <div class="ec-wnote"></div>
@@ -195,6 +144,15 @@ const EtaCalc = (() => {
     }, true);
     $(".ec-body").addEventListener("click", (e) => { if (e.target.closest(".ec-team button, .ec-rest button")) manual(false); }, true);
     $(".ec-mtg").addEventListener("click", (e) => { e.preventDefault(); mapFold(!st.mapFolded); });
+    $(".ec-ext").addEventListener("click", (e) => {        // v3.39: 10-й час — вкл / выкл на дне
+      const b = e.target.closest("button[data-i]");
+      if (!b) return;
+      const i = Number(b.dataset.i);
+      if (st.ext.has(i)) st.ext.delete(i); else st.ext.add(i);
+      if (i === 0) setLf(st.lfH + (st.ext.has(0) ? 1 : 0));   // первый день: остаток +1 ч (или обратно в предел)
+      manual(false);
+      calc();
+    });
     try { st.mapFolded = localStorage.getItem(MAP_KEY) === "0"; } catch (e) { /* ignore */ }
     mapFold(!!st.mapFolded, true);
     pair("km"); shPair(); lfPair();
@@ -241,7 +199,7 @@ const EtaCalc = (() => {
       const nn = r.noSeedNote != null ? r.noSeedNote : "тахографа нет — состав и остаток прежние";
       if (nn) notes.push(nn);
     }
-    st.extras = {}; st.shifts = {};
+    st.extras = {}; st.shifts = {}; st.ext = new Set();
     st.src = { unit: r.unit, point: r.point, label: r.label || "", km: kmv, polyline: r.polyline || null, note: notes.join(" · ") };
     st.srcShown = true;
     st.mapFit = true;
@@ -317,7 +275,7 @@ const EtaCalc = (() => {
     });
   }
   // v3.37: остаток вождения — тоже ЧЧ:ММ, шаг 15 мин; предел — 18:00 экипаж / 9:00 соло
-  const lfMax = () => (st.team ? 18 : 9);
+  const lfMax = () => (st.team ? 18 : st.ext.has(0) ? 10 : 9);   // v3.39: 10-й час в первый день — до 10:00
   function setLf(h, keepText) {
     st.lfH = Math.min(lfMax(), Math.max(0, Number(h) || 0));
     if (!keepText) $("#ec-lf-n").value = fmtHM(st.lfH);
@@ -363,25 +321,55 @@ const EtaCalc = (() => {
     return {
       dist: Number($("#ec-km-n").value) || 0, shiftH: st.shH, leftH: st.lfH,
       team: st.team, rest: st.rest, shorts: st.shorts, wkLeft: Number($("#ec-wk-n").value),
-      extras: st.extras, shifts: st.shifts, nowMs: Date.now(),
+      extras: st.extras, shifts: st.shifts, ext: st.team ? [] : Array.from(st.ext), nowMs: Date.now(),
     };
   }
 
+  // v3.39: расклад — с сервера (/api/eta-plan, тот же движок, что Флот); пока идёт запрос — следующий ждёт
+  let inFlight = false, again = false;
   function calc() {
     if (!panel) return;
-    const m = st.team ? 18 : 9;
+    const m = lfMax();
     $("#ec-lf-r").max = m;
     $(".ec-lmax").textContent = "макс. " + m + " ч";
     $(".ec-now").textContent = "сейчас " + fdt(new Date());
     $(".ec-wk").hidden = st.team;
-    S = simulate(params());
+    request();
+  }
+  async function request() {
+    if (inFlight) { again = true; return; }
+    inFlight = true;
+    try {
+      const r = await fetch("/api/eta-plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params()) });
+      const d = await r.json();
+      if (d && d.ev) {
+        S = d;
+        S.at = (h) => S.etd + h * 3600e3;
+        render();
+      }
+    } catch (e) { /* сеть — оставляем прошлый расклад */ }
+    inFlight = false;
+    if (again) { again = false; request(); }
+  }
+  function render() {
+    if (!panel || !S) return;
     $(".ec-etd").textContent = fdt(new Date(S.etd));
     $(".ec-eta").textContent = fdt(new Date(S.eta));
     $(".ec-dur").textContent = hm((S.eta - S.etd) / 3600e3);
     $(".ec-drv").innerHTML = "(" + ICO.drive + " " + hmm(S.drive) + ")";
     drawStrip();
     drawDays();
+    drawExt();
     drawMapSoon();
+  }
+  // v3.39: 10-й час у соло — вручную, «+1 ч» на дне вождения (день N — до N-го отдыха)
+  function drawExt() {
+    const box = $(".ec-ext");
+    if (!box) return;
+    if (st.team) { box.innerHTML = ""; return; }
+    const n = S.ev.filter((e) => e.k === "r").length + 1;
+    box.innerHTML = '<span class="ec-mut2">10-й час</span>' + Array.from({ length: n }, (_, i) =>
+      `<button type="button" data-i="${i}" class="${st.ext.has(i) ? "on" : ""}" title="День ${i + 1}: вождение 10 ч вместо 9">д${i + 1} +1 ч</button>`).join("");
   }
 
   // ---------- шкала рейса: полоса, кровати и км, полночь и даты, ручки отдыха ----------
@@ -630,6 +618,6 @@ const EtaCalc = (() => {
     if (isOpen()) fromRow(r);
   }
 
-  return { open, close, isOpen, simulate, fromRow, openWith };
+  return { open, close, isOpen, fromRow, openWith };
 })();
 window.etaCalc = EtaCalc;

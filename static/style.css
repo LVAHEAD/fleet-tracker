@@ -1143,3 +1143,7 @@ body:not(.sort-manual) .acts-br { display: none; }
 .ul-ctl button.on { background: #1a73e8; border-color: #1a73e8; color: #fff; }
 .ul-ctl button[hidden] { display: none; }
 .ul-ctl button:disabled { opacity: .5; cursor: default; }
+/* v3.39: From → To — ETD → ETA при выезде сейчас */
+.route-eta { color: #333; }
+.route-eta-wk { color: #b42318; font-weight: 600; cursor: help; }
+#fleet-tbody .x10-chip { font-size: 10px; font-weight: 600; color: #2f6fd6; border: 1px solid #c9d6ee; border-radius: 4px; padding: 0 3px; margin-right: 3px; }

@@ -5,6 +5,7 @@
 /api/changelog GET
 /api/corridors POST
 /api/dispatchers GET
+/api/eta-plan POST
 /api/fleet GET
 /api/fleet/complete POST
 /api/fleet/done GET

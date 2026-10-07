@@ -61,7 +61,7 @@ class NoWeekTest(unittest.TestCase):
         no_w = tacho_eta(t, 1500, now_ts=1_790_000_000, no_week=True)
         self.assertTrue(with_w["week"]["hit"])
         self.assertFalse(no_w["week"]["hit"])
-        self.assertLess(no_w["eta_ts"], with_w["eta_ts"])
+        self.assertEqual(no_w["eta_ts"], with_w["eta_ts"])   # v3.39: неделя — только отметка, ETA тот же
 
     def test_short_last_warning(self):
         from fetat.services.fleet_calc import _week_short_last

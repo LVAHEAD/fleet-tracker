@@ -16,14 +16,15 @@ from fetat.domain.points import (
 from fetat.domain.regions import nearest_region_code
 from fetat.services.corridors import fleet_waypoints_resolved as fleet_waypoints   # v3.26: + выбор коридора
 from fetat.services.corridors import clean_corridor, corridor_info, fleet_corridor_cands   # v3.32: выбор диспетчера
-from fetat.domain.tacho import (FRESH_SOLO_TACHO, TACHO_SPEED_KMH, calc_eta, calc_seed, crew_mode, tacho_eta, tacho_no_subscription,
+from fetat.domain.tacho import (FRESH_SOLO_TACHO, TACHO_SPEED_KMH, calc_eta, calc_seed, country_tz, crew_mode, tacho_eta,
+                               tacho_no_subscription,
                                tacho_summary, week_left_info)
 from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM, truck_fuel, truck_weight
 from fetat.utils.geo import haversine_km
-from fetat.utils.timefmt import format_duration, round_to_15min
+from fetat.utils.timefmt import ceil_15min, format_duration
 
 
-UNLOAD_STOP_SEC = 30 * 60   # v1.64: время на выгрузку/погрузку между точками одной машины
+UNLOAD_STOP_SEC = 0         # v3.39: стоянка на точке не учитывается — чистые км / время (было 30 мин)
 
 
 def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
@@ -69,16 +70,16 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
             "dist_km": round(cum_km, 1),
             "leg_km": round(leg_km, 1),
             "polyline": leg_poly,
-            "eta_local": round_to_15min(loc(simple_ts)).strftime("%d/%m %H:%M"),
+            "eta_local": ceil_15min(loc(simple_ts)).strftime("%d/%m %H:%M"),
         })
         arr = simple_ts
         if tacho:
             try:
-                sk = tacho_eta(tacho, cum_km, no_week=True)   # v3.16: недельный стоп — только до первой точки
+                sk = tacho_eta(tacho, cum_km)   # v3.39: неделя — только отметка, и на ②③
                 arr = sk["eta_ts"] + dwell
-                item["eta_tacho"] = round_to_15min(loc(arr)).strftime("%d/%m %H:%M")
+                item["eta_tacho"] = ceil_15min(loc(arr)).strftime("%d/%m %H:%M")
                 item["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sk["stops"])
-                item["tacho_weeklimit"] = bool(sk.get("week", {}).get("hit"))
+                item["tacho_weeklimit"] = bool(sk.get("week", {}).get("hit"))   # отметка, ETA не сдвинут
             except Exception:
                 pass
         item["badge"], item["badge_hint"] = target_badge_info(tstr, lat, lng, t.get("target_address"))
@@ -196,7 +197,7 @@ def _apply_points_done(result, payload, target_str, unit, units):
     return target_str, active_extras
 
 
-def _add_tacho(result, unit, trailer, crew=None):
+def _add_tacho(result, unit, trailer, crew=None, x10=False):
     """v1.33: тахограф — ETA по режиму труда и отдыха + подробности. Возвращает (tacho, sim).
     v3.15: crew — ручная правка "solo"/"team"; иначе тахограф (2 карты) + история трака за неделю."""
     tacho, sim = None, None
@@ -208,6 +209,7 @@ def _add_tacho(result, unit, trailer, crew=None):
                 days = unit_driving_days(unit.get("unit_id"))
             team, src, hist_max = crew_mode(tacho, crew, days)
             tacho = dict(tacho, team=team, crew_src=src)     # копия: кеш тахографа не трогаем
+            tacho.update(_eta_opts(unit, x10))               # v3.39: пояс страны (ночная смена) и 10-й час
             result["crew"] = "team" if team else "solo"
             result["crew_src"] = src
             # v3.18: имена водителей из Mapon (карты в тахографе)
@@ -230,7 +232,7 @@ def _add_tacho(result, unit, trailer, crew=None):
             sim = None
             if result.get("dist_km") is not None:
                 sim = tacho_eta(tacho, result["dist_km"])
-                eta_t = round_to_15min(ts_west(sim["eta_ts"]))
+                eta_t = ceil_15min(ts_west(sim["eta_ts"]))
                 result["eta_tacho"] = eta_t.strftime("%d/%m %H:%M")
                 result["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sim["stops"])
                 result["_sim_stops"] = sim["stops"]
@@ -247,6 +249,19 @@ def _add_tacho(result, unit, trailer, crew=None):
     except Exception as e:
         result["tacho_error"] = str(e)
     return tacho, sim
+
+
+def _eta_opts(unit, x10):
+    """v3.39: для движка ETA — пояс страны, где машина (ночь 00:00–04:00 по местному), и 10-й час в первый день."""
+    out = {"ext": (0,) if x10 else ()}
+    try:
+        if unit.get("lat") is not None:
+            code, _d = nearest_region_code(unit["lat"], unit["lng"])
+            if code:
+                out["tz"] = country_tz(code[:2])
+    except Exception:
+        pass
+    return out
 
 
 NO_CARD_FRESH_SEC = 9 * 3600     # v3.29: без карт — стоит не меньше суточного отдыха → считаем со свежего дня
@@ -283,9 +298,9 @@ def _no_card_crew(result, unit, crew=None, terr=None):
     if stood >= NO_CARD_FRESH_SEC and result.get("dist_km") is not None:
         fresh = copy.deepcopy(FRESH_SOLO_TACHO)
         fresh["drivers"][0]["now"]["rest"] = stood
-        fresh.update(team=team, crew_src=result["crew_src"], nocard=True)
+        fresh.update(team=team, crew_src=result["crew_src"], nocard=True, **_eta_opts(unit, False))
         sim = tacho_eta(fresh, result["dist_km"], no_week=True)
-        eta_t = round_to_15min(ts_west(sim["eta_ts"]))
+        eta_t = ceil_15min(ts_west(sim["eta_ts"]))
         result["eta_tacho"] = eta_t.strftime("%d/%m %H:%M")
         result["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sim["stops"])
         result["_sim_stops"] = sim["stops"]
@@ -464,7 +479,7 @@ def _calc_row(payload, tm):
             result["route_polyline"] = polyline
             tm.mark("route")
 
-        tacho, sim = _add_tacho(result, unit, trailer, payload.get("crew"))
+        tacho, sim = _add_tacho(result, unit, trailer, payload.get("crew"), bool(payload.get("x10")))
         tm.mark("tacho")
 
         # v1.64: следующие точки той же машины (2-я, 3-я выгрузка...) — цепочкой от

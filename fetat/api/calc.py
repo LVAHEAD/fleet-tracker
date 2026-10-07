@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from fetat.api.meta import current_user_email
 from fetat.clients.google_routes import set_route_ctx
+from fetat.domain.tacho import calc_plan
 from fetat.services.corridors import corridor_options
 from fetat.services.fleet_calc import calc_row
 from fetat.services.route_calc import route_calc
@@ -26,6 +27,15 @@ def api_route():
     set_route_ctx("route", current_user_email())
     body, code = route_calc(request.get_json(force=True, silent=True) or {})
     return jsonify(body), code
+
+
+@bp.route("/api/eta-plan", methods=["POST"])
+def api_eta_plan():
+    """v3.39: ⏱ калькулятор — расклад рейса тем же движком, что Флот (domain/tacho: calc_plan). Google не нужен."""
+    try:
+        return jsonify(calc_plan(request.get_json(force=True, silent=True) or {}))
+    except (TypeError, ValueError) as e:
+        return jsonify({"error": f"плохие данные: {e}"}), 400
 
 
 @bp.route("/api/corridors", methods=["POST"])

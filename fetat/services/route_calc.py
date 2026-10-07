@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-from fetat.utils.timefmt import ts_west
+from fetat.utils.timefmt import ceil_15_ts, ceil_15min, ts_west
 from fetat.clients.google_routes import (
     _route_cache, _route_cache_lock, ROUTE_CACHE_TTL, _route_stat, ROUTES_API_URL,
 )
@@ -14,7 +14,8 @@ from fetat.domain.bans import bans_hits_text, bans_on_route, needs_at_night_ban
 from fetat.domain.freights import similar_freights
 from fetat.domain.points import resolve_point
 from fetat.domain.routing_rules import waypoints_label
-from fetat.domain.tacho import FRESH_SOLO_TACHO, calc_seed, crew_mode, tacho_eta
+from fetat.domain.regions import nearest_region_code
+from fetat.domain.tacho import FRESH_SOLO_TACHO, calc_seed, country_tz, crew_mode, tacho_eta
 from fetat.services.corridors import clean_corridor, corridor_info, resolve_waypoints
 from fetat.domain.routing_rules import swiss_bypass_candidates
 
@@ -179,9 +180,31 @@ def route_calc(payload):
             result["duration_h"] = round(total / 70, 3)  # 70 км/ч; в ч:мм форматирует фронт
             result["route_polyline"] = polyline
             result["waypoints_applied"] = any(l["waypoints_applied"] for l in legs)
-            # v1.45: запреты по пути — при выезде сейчас, соло (4:30/45, 9 ч, отдых 11 ч)
+            # v3.39: ETD | В пути | ETA при выезде сейчас — тот же движок, что Флот и калькулятор:
+            # From1 — машина → по её тахографу, иначе соло со свежего дня
+            import time as _time
+            sim = None
             try:
-                sim = tacho_eta(FRESH_SOLO_TACHO, total)
+                start = ceil_15_ts(_time.time())
+                tu0 = points[0].get("unit") if points[0].get("is_truck") else None
+                tk = _truck_tacho(tu0) if tu0 else None
+                sim = tacho_eta(tk or FRESH_SOLO_TACHO, total, now_ts=start)
+                etd = start
+                for stp in sim["stops"]:                  # стоит на отдыхе / перерыве — выезд после него
+                    if abs(stp["start"] - etd) < 1:
+                        etd = stp["end"]
+                    else:
+                        break
+                fmt = lambda ts: ceil_15min(ts_west(ts)).strftime("%d/%m %H:%M")
+                result["etd"], result["eta"] = fmt(etd), fmt(sim["eta_ts"])
+                result["eta_src"] = "по тахографу машины" if tk else "соло со свежего дня"
+                result["eta_week_hit"] = bool(sim["week"]["hit"])
+            except Exception as e:
+                result["eta_error"] = str(e)
+            # v1.45: запреты по пути — при выезде сейчас (стоянки — из того же расклада)
+            try:
+                if sim is None:
+                    sim = tacho_eta(FRESH_SOLO_TACHO, total)
                 # v1.83: ночь в Австрии — для MAN-тягача в первой точке; без тягача — "если MAN"
                 tu = points[0].get("unit") if points[0].get("is_truck") else None
                 at_n = needs_at_night_ban(tu) if tu else True
@@ -206,6 +229,24 @@ def route_calc(payload):
         return result, 200
     except Exception as e:
         return {"error": str(e)}, 502
+
+
+def _truck_tacho(unit):
+    """v3.39: тахограф машины из From1 для ETA (соло / экипаж, пояс страны); нет тахографа — None."""
+    try:
+        tacho, _err = get_tacho(unit.get("unit_id"))
+        if not tacho:
+            return None
+        days = unit_driving_days(unit.get("unit_id")) if len(tacho["drivers"]) < 2 else None
+        team, src, _ = crew_mode(tacho, None, days)
+        out = dict(tacho, team=team, crew_src=src)
+        if unit.get("lat") is not None:
+            code, _d = nearest_region_code(unit["lat"], unit["lng"])
+            if code:
+                out["tz"] = country_tz(code[:2])
+        return out
+    except Exception:
+        return None
 
 
 def _truck_seed(unit):

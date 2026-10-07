@@ -1,4 +1,5 @@
-"""Тахо-ETA (EU 561/2006 в упрощении проекта). Числа — снимок поведения v2.03:
+"""Тахо-ETA (EU 561/2006 в упрощении проекта). Числа — снимок поведения v3.39 (одна логика с калькулятором:
+чистые отдыхи, соло 9 ч, неделя — только отметка); было v2.03:
 если тест падает после переезда, значит логика изменилась, а не только место кода."""
 import copy
 import unittest
@@ -33,17 +34,40 @@ class TachoEtaTest(unittest.TestCase):
         self.assertEqual(kinds(r), [("break", 0.75)])
 
     def test_solo_two_days(self):
+        # v3.39: соло 9 ч в день, отдых чистый 9 ч (сокращения есть), без +1 ч запаса
         r = A.tacho_eta(A.FRESH_SOLO_TACHO, 1500, now_ts=NOW)
-        self.assertAlmostEqual((r["eta_ts"] - NOW) / H, 46.4286, places=3)
-        self.assertEqual(kinds(r), [("break", 0.75), ("break", 0.75), ("daily", 12.0),
-                                    ("break", 0.75), ("break", 0.75), ("daily", 10.0)])
+        self.assertAlmostEqual((r["eta_ts"] - NOW) / H, 40.9286, places=3)
+        self.assertEqual(kinds(r), [("break", 0.75), ("daily", 9.0), ("break", 0.75), ("daily", 9.0)])
 
     def test_team(self):
-        # экипаж: без перерывов, суточный 9 ч + 1 ч запаса
+        # экипаж: без перерывов, суточный 9 ч — чистый (v3.39: без +1 ч запаса)
         r = A.tacho_eta(team_tacho(), 1500, now_ts=NOW)
         self.assertTrue(r["team"])
-        self.assertAlmostEqual((r["eta_ts"] - NOW) / H, 31.4286, places=3)
-        self.assertEqual(kinds(r), [("daily", 10.0)])
+        self.assertAlmostEqual((r["eta_ts"] - NOW) / H, 30.4286, places=3)
+        self.assertEqual(kinds(r), [("daily", 9.0)])
+
+    def test_night_shift_window(self):
+        # v3.39: смена с 20:00 (Берлин) заходит в ночь — окно 11 ч: 9 ч вождения + перерыв укладываются
+        start = datetime(2026, 10, 5, 18, 0, tzinfo=timezone.utc).timestamp()      # 20:00 Берлин
+        self.assertEqual((A.shift_window_end(start) - start) / H, 11)
+        # с 08:00 — до полуночи 16 ч, но не больше 15
+        start = datetime(2026, 10, 5, 6, 0, tzinfo=timezone.utc).timestamp()
+        self.assertEqual((A.shift_window_end(start) - start) / H, 15)
+        # с 14:00 — до полуночи 10 ч, ночь не обойти — 11 ч от начала
+        start = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc).timestamp()
+        self.assertEqual((A.shift_window_end(start) - start) / H, 11)
+        # с 02:00 — ночная, 11 ч; экипаж — всегда 21 ч
+        start = datetime(2026, 10, 5, 0, 0, tzinfo=timezone.utc).timestamp()
+        self.assertEqual((A.shift_window_end(start) - start) / H, 11)
+        self.assertEqual((A.shift_window_end(start, team=True) - start) / H, 21)
+
+    def test_week_only_mark(self):
+        # v3.39: неделя кончилась — отметка, ETA не сдвигаем
+        t = copy.deepcopy(A.FRESH_SOLO_TACHO)
+        t["drivers"][0]["week"]["driving_remaining"] = 5 * H
+        r = A.tacho_eta(t, 1500, now_ts=NOW)
+        self.assertTrue(r["week"]["hit"])
+        self.assertAlmostEqual((r["eta_ts"] - NOW) / H, 40.9286, places=3)
 
 
 class BrandAndNightBanTest(unittest.TestCase):

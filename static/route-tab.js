@@ -111,7 +111,7 @@ function clearRouteTab() {
 
 // --- Время: ч:мм с округлением до 15 минут ---
 function formatHM(hours, minQuarter) {
-  let q = Math.round((hours * 60) / 15); // число четвертей часа
+  let q = Math.ceil((hours * 60) / 15 - 1e-9); // v3.39: вверх до 15 мин (было — до ближайших)
   if (minQuarter && hours > 0 && q < 1) q = 1; // короткий отрезок — минимум 0:15
   const total = q * 15;
   const h = Math.floor(total / 60);
@@ -233,6 +233,14 @@ async function calcRouteTab() {
     if (data.dist_km != null) {
       document.getElementById("route-dist").textContent = data.dist_km.toFixed(1);
       document.getElementById("route-duration").textContent = formatHM(data.duration_h, false);
+      // v3.39: ETD | ETA при выезде сейчас — тот же расчёт, что Флот и калькулятор
+      const etaEl = document.getElementById("route-eta");
+      etaEl.hidden = !data.eta;
+      if (data.eta) {
+        etaEl.innerHTML = `&nbsp;·&nbsp; ETD <b>${routeEscape(data.etd)}</b> → ETA <b>${routeEscape(data.eta)}</b>`
+          + (data.eta_week_hit ? ' <span class="route-eta-wk" title="Недельный остаток кончается в пути — только отметка, ETA не сдвинут">⚠ неделя</span>' : "");
+        etaEl.title = "При выезде сейчас, " + (data.eta_src || "") + ": отдыхи чистые 9 / 11 ч, перерывы 45 мин, EU time";
+      }
       renderRouteLegs(data.legs || []);
       renderRouteCorridor(data);
       renderRouteBans(data);

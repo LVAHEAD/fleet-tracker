@@ -156,3 +156,8 @@ body.ec-resizing .ec-panel, body.ec-resizing .calc-tab, body.ec-resizing .nb-tab
 }
 /* телефон: калькулятора нет (мобильная версия на паузе) */
 @media (max-width: 767px) { .calc-tab, .ec-panel { display: none; } }
+/* v3.39: 10-й час у соло — «+1 ч» на дне вождения */
+.ec-ext { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 6px; }
+.ec-ext:empty { display: none; }
+.ec-ext button { border: 1px solid #c9d6ee; background: #fff; color: #2f6fd6; border-radius: 6px; padding: 1px 6px; font-size: 11px; cursor: pointer; }
+.ec-ext button.on { background: #2f6fd6; border-color: #2f6fd6; color: #fff; }

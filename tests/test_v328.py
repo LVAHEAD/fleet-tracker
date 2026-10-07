@@ -1,4 +1,5 @@
-"""v3.28: ⏱ ETA-калькулятор — панель справа (язычок под 📓), расчёт в браузере, без сервера и Google."""
+"""v3.28: ⏱ ETA-калькулятор — панель справа (язычок под 📓). v3.39: расклад — с сервера (/api/eta-plan,
+тот же движок, что Флот), Google не нужен."""
 import os
 import shutil
 import subprocess
@@ -29,10 +30,11 @@ class EtaCalcWiringTest(unittest.TestCase):
         self.assertIn("window.etaCalc.close()", read("static/map-panel.js"))
 
     def test_no_server_calls(self):
-        # v3.31: расчёт — в браузере; к серверу только за списком кодов регионов (мини-карта), к Routes — никогда
+        # v3.39: расклад — /api/eta-plan (движок Флота), коды регионов — для мини-карты; к Routes — никогда
         js = read("static/eta-calc.js")
-        self.assertEqual(js.count("fetch("), 1)
+        self.assertEqual(js.count("fetch("), 2)
         self.assertIn('fetch("/api/region-codes")', js)
+        self.assertIn('fetch("/api/eta-plan"', js)
         self.assertNotIn("/api/calc", js)
         self.assertNotIn("/api/route", js)
 
@@ -42,30 +44,29 @@ class EtaCalcWiringTest(unittest.TestCase):
         self.assertIn("body.calc-open .nb-tab, body.calc-open .map-tab { right: var(--sidepw", css)   # v3.34
 
 
-@unittest.skipUnless(shutil.which("node"), "нет node — расчёт калькулятора не проверить")
 class EtaCalcSimulateTest(unittest.TestCase):
-    """Правила расчёта: прогон simulate() в node на примерах, согласованных в песочнице."""
+    """Правила расчёта калькулятора (v3.39 — calc_plan на сервере) на примерах, согласованных в песочнице."""
 
-    def run_js(self, cases):
-        script = (
-            "global.window={};global.document={addEventListener(){}};"
-            "eval(require('fs').readFileSync(process.argv[1],'utf8')+';global.EC=EtaCalc;');"
-            "const now=new Date(2026,9,6,8,52).getTime();"
-            "const out=" + cases + ".map(p=>{const S=EC.simulate(Object.assign({nowMs:now,dist:3000,shiftH:0,leftH:9,"
-            "team:false,rest:9,shorts:3,wkLeft:56},p));return {h:(S.eta-S.etd)/36e5,"
-            "rests:S.ev.filter(e=>e.k==='r').map(e=>[e.t1-e.t0,e.short]),breaks:S.ev.filter(e=>e.k==='b').length,"
-            "wk:S.wk?S.wk.km:null,etdMin:new Date(S.etd).getMinutes()}});"
-            "console.log(JSON.stringify(out));"
-        )
-        res = subprocess.run(["node", "-e", script, os.path.join(ROOT, "static/eta-calc.js")],
-                             capture_output=True, text=True, timeout=30)
-        self.assertEqual(res.returncode, 0, res.stderr)
-        import json
-        return json.loads(res.stdout)
+    def run_cases(self, cases):
+        from datetime import datetime, timezone
+        from fetat.domain.tacho import calc_plan
+        now = datetime(2026, 10, 6, 6, 52, tzinfo=timezone.utc).timestamp() * 1000   # 08:52 Берлин
+        out = []
+        for c in cases:
+            p = dict(nowMs=now, dist=3000, shiftH=0, leftH=9, team=False, rest=9, shorts=3, wkLeft=56)
+            p.update(c)
+            S = calc_plan(p)
+            out.append({"h": (S["eta"] - S["etd"]) / 36e5,
+                        "rests": [[e["t1"] - e["t0"], e["short"]] for e in S["ev"] if e["k"] == "r"],
+                        "breaks": sum(1 for e in S["ev"] if e["k"] == "b"),
+                        "wk": S["wk"]["km"] if S["wk"] else None,
+                        "etdMin": datetime.fromtimestamp(S["etd"] / 1000, timezone.utc).minute})
+        return out
 
     def test_rules(self):
-        crew, solo, solo11, stretched, week, week45 = self.run_js(
-            "[{team:true,leftH:18},{},{rest:11},{extras:{0:2}},{wkLeft:20},{wkLeft:20,extras:{0:36}}]")
+        crew, solo, solo11, stretched, week, week45 = self.run_cases(
+            [{"team": True, "leftH": 18}, {}, {"rest": 11}, {"extras": {0: 2}}, {"wkLeft": 20},
+             {"wkLeft": 20, "extras": {0: 36}}])
         # ETD — вверх до 15 мин (08:52 → 09:00)
         self.assertEqual(crew["etdMin"], 0)
         # экипаж: 3000 км = 42:51 вождения, по 18 ч, два отдыха по 9 ч, без перерывов → 60:51 → вверх до 61:00
@@ -84,6 +85,12 @@ class EtaCalcSimulateTest(unittest.TestCase):
         # отдых растянули до 45 ч — неделя заново, отметки нет
         self.assertIsNone(week45["wk"])
         self.assertEqual(week45["rests"][0][0], 45)
+
+    def test_tenth_hour(self):
+        base, ext = self.run_cases([{"dist": 700}, {"dist": 700, "ext": [0], "leftH": 10}])
+        # 700 км = 10 ч: соло 9 ч — нужен отдых; с 10-м часом в первый день — доезжает за день
+        self.assertEqual(len(base["rests"]), 1)
+        self.assertEqual(len(ext["rests"]), 0)
 
 
 if __name__ == "__main__":

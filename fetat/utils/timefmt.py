@@ -77,6 +77,24 @@ def round_to_15min(dt: datetime) -> datetime:
     return dt
 
 
+def ceil_15min(dt: datetime) -> datetime:
+    """v3.39: ETA / ETD — вверх до 15 мин (везде одинаково)."""
+    dt = dt.replace(second=0, microsecond=0) + (timedelta(minutes=1) if (dt.second or dt.microsecond) else timedelta(0))
+    rem = dt.minute % 15
+    return dt + timedelta(minutes=15 - rem) if rem else dt
+
+
+def ceil_15_ts(ts):
+    """Метка времени — вверх до 15 мин."""
+    q = 900
+    return -(-float(ts) // q) * q
+
+
+def ts_zone(ts, name, std_hours):
+    """v3.39: местное время зоны (для ночной смены — по стране, где машина)."""
+    return _to_zone(datetime.fromtimestamp(float(ts), tz=timezone.utc), name, std_hours)
+
+
 def _iso_ts(s):
     try:
         return datetime.fromisoformat(str(s).replace("Z", "+00:00")).timestamp()

@@ -1304,6 +1304,7 @@ function renderRows() {
             <button class="mv-down manual-only">↓ ниже</button>
             <button class="add-btn">+ строка ниже</button>
             <button class="trl-btn">🔗 сцепка…</button>
+            <button class="x10-btn" title="Соло: сегодня 10 ч вождения вместо 9 (продление) — ETA с учётом">${row.x10 ? "✓ " : ""}+1 ч сегодня (10-й час)</button>
             <button class="cmpl-menu-btn"${window.fleetCanComplete && window.fleetCanComplete(row) ? "" : " hidden"}>✓ завершить трип</button>
             <button class="del-btn">✕ удалить строку</button>
           </span>
@@ -1574,6 +1575,18 @@ function attachRowHandlers() {
     });
     tr.querySelector(".mv-up").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, -1); });
     tr.querySelector(".mv-down").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, 1); });
+
+    // v3.39: 10-й час — отметка у строки (соло, первый день), ETA пересчитывается
+    tr.querySelector(".x10-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeRowMenus();
+      const row = rows.find((r) => r.id === id);
+      if (!row) return;
+      if (row.x10) delete row.x10; else row.x10 = true;
+      saveRows();
+      renderRows();
+      calcRow(id);
+    });
 
     tr.querySelector(".del-btn").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -2597,6 +2610,7 @@ async function calcRow(id, why) {
         row.extra && row.extra.length ? { extra: row.extra.map((x) => x.target || "") } : {},
         row.trailer ? { trailer: row.trailer } : {},
         row.crew ? { crew: row.crew } : {},
+        row.x10 ? { x10: true } : {},                                    // v3.39: 10-й час сегодня
         row.corridor ? { corridor: row.corridor } : {},                 // v3.32: коридор выбрал диспетчер
         { done: doneManualArray(row), done_seen: doneSeenArray(row), why: why || "edit" })),
     });
@@ -2643,7 +2657,8 @@ async function calcRow(id, why) {
     // v3.16: 👤/👥 — в начале второй строки статуса, слева от прицепа
     // v3.37: 👤 / 👥 — в первой строке, между страной и ▶ (Блокнот «Головы»)
     const crewB = data.is_trailer ? "" : crewHtml(row, { crew: crewOf(data) });
-    statusLine1 = ccBadge + crewB + icon + escapeHtml(data.duration_str);
+    const x10B = !data.is_trailer && row.x10 ? '<span class="x10-chip" title="10-й час сегодня (отметка в ⋯) — ETA с учётом">+1ч</span>' : "";
+    statusLine1 = ccBadge + crewB + x10B + icon + escapeHtml(data.duration_str);
     const tfHtml = data.is_trailer ? "" : truckFuelHtml(data);   // v3.30: ⛽ тягача — только когда мало
     if (data.is_trailer) {
       hitchHtml = hitchPillHtml(data, false);
