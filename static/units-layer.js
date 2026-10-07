@@ -3,7 +3,7 @@ Fleet ETA Tracker — слой «все машины» (v3.38) для карт �
 Все тягачи группы HEAD TRUCK из /api/units (координаты, едет / стоит, курс — тот же запрос к Mapon, Google не нужен).
 Кружок — как на карте Флота: заливка цветом диспетчера трипа, где эта машина (без трипа — серый), обводка — едет
 (зелёная) / стоит (красная), у едущей — стрелка курса; при отдалении близкие — кружок с числом (клик приближает).
-Номер — в подсказке при наведении и (v3.40) плашкой над кружком с зума 9; кнопка «№» прячет / показывает плашки. Позиции — при открытии вкладки и по кнопке ↻. Слой вкл / выкл — помнит браузер.
+Номер — в подсказке при наведении и (v3.40) плашкой над кружком с зума 6 (v3.44); кнопка «№» прячет / показывает плашки. Позиции — при открытии вкладки и по кнопке ↻. Слой вкл / выкл — помнит браузер.
 UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машине (From → To ставит её в From1).
 */
 (function () {
@@ -11,6 +11,7 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
   const NUM_KEY = "units-layer-num";
   const CLUSTER_MAX_ZOOM = 9;   // как на карте Флота
   const CLUSTER_PX = 34;
+  const NUM_MIN_ZOOM = 6;       // v3.44: плашка с номером — у любой не склеенной машины с зума 6 (уровень страны)
   const layers = [];
   let units = [];
   let loading = null;
@@ -107,7 +108,7 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
     const box = document.createElement("div");
     box.className = "ul-ctl";
     box.innerHTML = '<button type="button" class="ul-tg" title="Все машины HEAD TRUCK на карте — показать / спрятать">🚚 Машины</button>'
-      + '<button type="button" class="ul-nm" title="Номера машин плашками (с зума 9) — показать / спрятать">№</button>'
+      + '<button type="button" class="ul-nm" title="Номера машин плашками (с зума 6) — показать / спрятать">№</button>'
       + '<button type="button" class="ul-rf" title="Обновить позиции машин">↻</button>';
     const tg = box.querySelector(".ul-tg"), rf = box.querySelector(".ul-rf"), nm = box.querySelector(".ul-nm");
     const ui = () => { tg.classList.toggle("on", L.on); rf.hidden = !L.on; nm.hidden = !L.on; nm.classList.toggle("on", L.nums); };
@@ -135,7 +136,7 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
           const u = g.items[0];
           const opt = { position: { lat: u.lat, lng: u.lng }, map, icon: unitIcon(u), zIndex: 15,
             title: unitTitle(u) + (opts.onPick ? "\nКлик — поставить в From1" : "") };
-          if (L.nums && z >= CLUSTER_MAX_ZOOM) {
+          if (L.nums && z >= NUM_MIN_ZOOM) {
             opt.label = { text: String(u.number), className: u.st === "driving" ? "ul-lab ul-drv" : "ul-lab ul-std", color: "#1a1a1a", fontSize: "12px", fontWeight: "600" };
             opt.zIndex = 17;
           }
