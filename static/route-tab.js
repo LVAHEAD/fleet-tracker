@@ -47,12 +47,7 @@ function initRouteMapFit() {
 
 function initRouteTab() {
   if (window.routeMap) return; // уже создана
-  window.routeMap = new google.maps.Map(document.getElementById("route-map"), {
-    center: { lat: 50.5, lng: 10.0 },
-    zoom: 4,
-  });
-
-  if (window.ZoomBadge) window.ZoomBadge.attach(window.routeMap);   // v3.47
+  window.routeMap = MapsCommon.make(document.getElementById("route-map"));   // v3.50: общий конфиг
 
   // v3.38: все машины HEAD TRUCK на карте; клик по машине — она в From1, остальные вниз (пересчёт — по кнопке)
   if (window.UnitsLayer) window.UnitsLayer.attach(window.routeMap, { onPick: routePutTruck });

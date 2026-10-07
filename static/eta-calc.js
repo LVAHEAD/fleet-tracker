@@ -541,11 +541,7 @@ const EtaCalc = (() => {
     if (!enc || !window.googleMapsReady || !window.google || !google.maps.geometry) return;
     loadCodes();
     if (!gmap) {
-      gmap = new google.maps.Map($(".ec-map"), {
-        center: { lat: 50.5, lng: 10 }, zoom: 4, disableDefaultUI: true, zoomControl: true, clickableIcons: false,
-        zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP },
-      });
-      if (window.ZoomBadge) window.ZoomBadge.attach(gmap);   // v3.47
+      gmap = MapsCommon.make($(".ec-map"), { disableDefaultUI: true, zoomControl: true });   // v3.50: общий конфиг
     }
     lays.forEach((o) => o.setMap(null));
     lays = [];

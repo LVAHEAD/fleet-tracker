@@ -9,9 +9,16 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
 (function () {
   const VIS_KEY = "units-layer";
   const NUM_KEY = "units-layer-num";
-  const CLUSTER_MAX_ZOOM = 9;   // как на карте Флота
+  const CLUSTER_MAX_ZOOM = (window.MapsCommon && MapsCommon.ZOOM.cluster) || 9;   // как на карте Флота
   const CLUSTER_PX = 34;
-  const NUM_MIN_ZOOM = 6;       // v3.44: плашка с номером — у любой не склеенной машины с зума 6 (уровень страны)
+  const NUM_MIN_ZOOM = (window.MapsCommon && MapsCommon.ZOOM.num) || 6;       // v3.44: плашка с номером — у любой не склеенной машины с зума 6 (уровень страны)
+  const GRP_KEY = "units-layer-group";
+  function groupSaved() {      // v3.50: «Группировать» — по умолчанию выкл
+    try { return localStorage.getItem(GRP_KEY) === "1"; } catch (e) { return false; }
+  }
+  function saveGroup(v) {
+    try { localStorage.setItem(GRP_KEY, v ? "1" : "0"); } catch (e) { /* ignore */ }
+  }
   const layers = [];
   let units = [];
   let loading = null;
@@ -102,17 +109,19 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
 
   function attach(map, opts) {
     opts = opts || {};
-    const L = { map, on: visibleSaved(), nums: numsSaved(), marks: [] };
+    const L = { map, on: visibleSaved(), nums: numsSaved(), group: groupSaved(), marks: [] };
 
     // кнопки на карте: «🚚 Машины» (вкл / выкл) и ↻ (обновить позиции)
     const box = document.createElement("div");
     box.className = "ul-ctl";
     box.innerHTML = '<button type="button" class="ul-tg" title="Все машины HEAD TRUCK на карте — показать / спрятать">🚚 Машины</button>'
       + '<button type="button" class="ul-nm" title="Номера машин плашками (с зума 6) — показать / спрятать">№</button>'
+      + '<button type="button" class="ul-gr" title="Группировать близкие машины в кружок с числом (ниже зума 9) — вкл / выкл">Группировать</button>'
       + '<button type="button" class="ul-rf" title="Обновить позиции машин">↻</button>';
-    const tg = box.querySelector(".ul-tg"), rf = box.querySelector(".ul-rf"), nm = box.querySelector(".ul-nm");
-    const ui = () => { tg.classList.toggle("on", L.on); rf.hidden = !L.on; nm.hidden = !L.on; nm.classList.toggle("on", L.nums); };
+    const tg = box.querySelector(".ul-tg"), rf = box.querySelector(".ul-rf"), nm = box.querySelector(".ul-nm"), gr = box.querySelector(".ul-gr");
+    const ui = () => { tg.classList.toggle("on", L.on); rf.hidden = !L.on; nm.hidden = !L.on; gr.hidden = !L.on; nm.classList.toggle("on", L.nums); gr.classList.toggle("on", L.group); };
     tg.addEventListener("click", () => { L.on = !L.on; saveVisible(L.on); ui(); if (L.on && !units.length) load(true); else L.draw(); });
+    gr.addEventListener("click", () => { L.group = !L.group; saveGroup(L.group); ui(); L.draw(); });
     nm.addEventListener("click", () => { L.nums = !L.nums; saveNums(L.nums); ui(); L.draw(); });
     rf.addEventListener("click", () => { rf.disabled = true; load(true).then(() => { rf.disabled = false; }); });
     ui();
@@ -124,7 +133,7 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
       if (!L.on || !units.length) return;
       const z = map.getZoom() || 0;
       const groups = [];
-      if (z < CLUSTER_MAX_ZOOM) {
+      if (L.group && z < CLUSTER_MAX_ZOOM) {
         units.forEach((u) => {
           const p = px(u.lat, u.lng, z);
           const g = groups.find((x) => Math.abs(x.p.x - p.x) < CLUSTER_PX && Math.abs(x.p.y - p.y) < CLUSTER_PX);

@@ -180,14 +180,8 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
   }
 
   async function initLocatorMap() {
-    map = new google.maps.Map(document.getElementById("locatorMap"), {
-      center: { lat: 52, lng: 10 },
-      zoom: 4,
-      streetViewControl: false,
-      clickableIcons: false,
-    });
+    map = MapsCommon.make(document.getElementById("locatorMap"), { center: { lat: 52, lng: 10 } });   // v3.50
     infoWindow = new google.maps.InfoWindow();
-    if (window.ZoomBadge) window.ZoomBadge.attach(map);   // v3.47
     if (window.UnitsLayer) window.UnitsLayer.attach(map);   // v3.38: все машины HEAD TRUCK
 
     // "копировать" внутри InfoWindow

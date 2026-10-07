@@ -132,17 +132,8 @@ window.whenGoogleMaps = function (fn) {
 };
 
 function initMap() {
-  map = new google.maps.Map(document.getElementById("map"), {
-    center: { lat: 50.5, lng: 10.0 }, // примерно центр Европы
-    zoom: 4,
-    // v1.66: + / − справа сверху под ⛶ — низ карты часто за экраном
-    // v1.67: новый "джойстик" Google (cameraControl) убираем, обычные + / − — справа сверху
-    cameraControl: false,
-    zoomControl: true,
-    zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP },
-  });
-
-  if (window.ZoomBadge) window.ZoomBadge.attach(map);   // v3.47: цифра зума
+  // v1.66: + / − справа сверху под ⛶; v1.67: «джойстик» Google (cameraControl) убран; v3.50: общий конфиг — maps-common.js
+  map = MapsCommon.make(document.getElementById("map"), { cameraControl: false });
 
   Object.keys(pendingPositions).forEach((rowId) => {
     const p = pendingPositions[rowId];
