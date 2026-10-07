@@ -34,12 +34,44 @@ function initRouteTab() {
   // v3.38: все машины HEAD TRUCK на карте; клик по машине — она в From1, остальные вниз (пересчёт — по кнопке)
   if (window.UnitsLayer) window.UnitsLayer.attach(window.routeMap, { onPick: routePutTruck });
 
+  initRouteResize();   // v3.42
   restoreRouteFields();
   syncRouteFields("route-from-list", "L");
   syncRouteFields("route-to-list", "O");
   document.getElementById("route-calc-btn").addEventListener("click", calcRouteTab);
   document.getElementById("route-clear-btn").addEventListener("click", clearRouteTab);
   document.getElementById("route-to-calc").addEventListener("click", routeToCalc);   // v3.32
+}
+
+// v3.42: ручка ширины карты справа (25–65 %, помнит браузер)
+function initRouteResize() {
+  const tab = document.getElementById("tab-route"), h = document.getElementById("rt-resize");
+  if (!tab || !h) return;
+  const KEY = "rtMapPct", clamp = (v) => Math.min(65, Math.max(25, v));
+  try { const v = parseFloat(localStorage.getItem(KEY)); if (v) tab.style.setProperty("--rtmap", clamp(v) + "%"); } catch (e) { /* ignore */ }
+  const fire = () => { if (window.routeMap) google.maps.event.trigger(window.routeMap, "resize"); };
+  h.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    const cols = tab.querySelector(".rt-cols"), r = cols.getBoundingClientRect();
+    let pct = null;
+    document.body.classList.add("rt-resizing");
+    h.setPointerCapture(e.pointerId);
+    const move = (ev) => {
+      pct = clamp(((r.right - ev.clientX) / r.width) * 100);
+      tab.style.setProperty("--rtmap", pct + "%");
+    };
+    const up = () => {
+      h.removeEventListener("pointermove", move);
+      h.removeEventListener("pointerup", up);
+      h.removeEventListener("pointercancel", up);
+      document.body.classList.remove("rt-resizing");
+      if (pct != null) { try { localStorage.setItem(KEY, String(Math.round(pct * 10) / 10)); } catch (err) { /* ignore */ } }
+      fire();
+    };
+    h.addEventListener("pointermove", move);
+    h.addEventListener("pointerup", up);
+    h.addEventListener("pointercancel", up);
+  });
 }
 
 // v3.38: машина с карты — в From1. В From1 уже машина — заменяем; иначе всё сдвигается вниз.

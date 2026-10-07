@@ -240,6 +240,8 @@
 
 <!-- ==================== Вкладка: From → To ==================== -->
 <div id="tab-route" class="tab-panel" hidden>
+<div class="rt-cols">
+<div class="rt-left">
   <div class="route-form">
     <div class="route-group">
       <div class="route-group-title">From — погрузки</div>
@@ -269,7 +271,10 @@
   <div id="route-points" class="route-points" hidden></div>
   <div id="route-freights" class="route-freights" hidden></div>
   <div id="route-error" class="route-error" hidden></div>
-  <div id="route-map"></div>
+</div>
+<div class="rt-resize" id="rt-resize" title="Потянуть — карта шире / уже (ширина запоминается)"></div>
+<div class="rt-right"><div id="route-map"></div></div>
+</div>
 </div>
 
 <div class="version-tag">v{{ app_version }}</div>
