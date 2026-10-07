@@ -3,11 +3,12 @@ Fleet ETA Tracker — слой «все машины» (v3.38) для карт �
 Все тягачи группы HEAD TRUCK из /api/units (координаты, едет / стоит, курс — тот же запрос к Mapon, Google не нужен).
 Кружок — как на карте Флота: заливка цветом диспетчера трипа, где эта машина (без трипа — серый), обводка — едет
 (зелёная) / стоит (красная), у едущей — стрелка курса; при отдалении близкие — кружок с числом (клик приближает).
-Номер — в подсказке при наведении. Позиции — при открытии вкладки и по кнопке ↻. Слой вкл / выкл — помнит браузер.
+Номер — в подсказке при наведении и (v3.40) плашкой над кружком с зума 9; кнопка «№» прячет / показывает плашки. Позиции — при открытии вкладки и по кнопке ↻. Слой вкл / выкл — помнит браузер.
 UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машине (From → To ставит её в From1).
 */
 (function () {
   const VIS_KEY = "units-layer";
+  const NUM_KEY = "units-layer-num";
   const CLUSTER_MAX_ZOOM = 9;   // как на карте Флота
   const CLUSTER_PX = 34;
   const layers = [];
@@ -22,6 +23,12 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
   }
   function saveVisible(v) {
     try { localStorage.setItem(VIS_KEY, v ? "1" : "0"); } catch (e) { /* ignore */ }
+  }
+  function numsSaved() {
+    try { return localStorage.getItem(NUM_KEY) !== "0"; } catch (e) { return true; }
+  }
+  function saveNums(v) {
+    try { localStorage.setItem(NUM_KEY, v ? "1" : "0"); } catch (e) { /* ignore */ }
   }
 
   // трип во Флоте с этой машиной — цвет его диспетчера
@@ -42,7 +49,7 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
       + `<circle cx="12" cy="12" r="6.2" fill="${fill}" stroke="${st}" stroke-width="2.6"/>`
       + `<circle cx="12" cy="12" r="7.9" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="1"/></svg>`;
     return { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
-             scaledSize: new google.maps.Size(24, 24), anchor: new google.maps.Point(12, 12) };
+             scaledSize: new google.maps.Size(24, 24), anchor: new google.maps.Point(12, 12), labelOrigin: new google.maps.Point(12, -9) };
   }
   function clusterIcon(n) {
     const r = n < 10 ? 13 : 15;
@@ -70,16 +77,18 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
 
   function attach(map, opts) {
     opts = opts || {};
-    const L = { map, on: visibleSaved(), marks: [] };
+    const L = { map, on: visibleSaved(), nums: numsSaved(), marks: [] };
 
     // кнопки на карте: «🚚 Машины» (вкл / выкл) и ↻ (обновить позиции)
     const box = document.createElement("div");
     box.className = "ul-ctl";
     box.innerHTML = '<button type="button" class="ul-tg" title="Все машины HEAD TRUCK на карте — показать / спрятать">🚚 Машины</button>'
+      + '<button type="button" class="ul-nm" title="Номера машин плашками (с зума 9) — показать / спрятать">№</button>'
       + '<button type="button" class="ul-rf" title="Обновить позиции машин">↻</button>';
-    const tg = box.querySelector(".ul-tg"), rf = box.querySelector(".ul-rf");
-    const ui = () => { tg.classList.toggle("on", L.on); rf.hidden = !L.on; };
+    const tg = box.querySelector(".ul-tg"), rf = box.querySelector(".ul-rf"), nm = box.querySelector(".ul-nm");
+    const ui = () => { tg.classList.toggle("on", L.on); rf.hidden = !L.on; nm.hidden = !L.on; nm.classList.toggle("on", L.nums); };
     tg.addEventListener("click", () => { L.on = !L.on; saveVisible(L.on); ui(); if (L.on && !units.length) load(true); else L.draw(); });
+    nm.addEventListener("click", () => { L.nums = !L.nums; saveNums(L.nums); ui(); L.draw(); });
     rf.addEventListener("click", () => { rf.disabled = true; load(true).then(() => { rf.disabled = false; }); });
     ui();
     map.controls[google.maps.ControlPosition.TOP_LEFT].push(box);
@@ -100,8 +109,13 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
       groups.forEach((g) => {
         if (g.items.length === 1) {
           const u = g.items[0];
-          const m = new google.maps.Marker({ position: { lat: u.lat, lng: u.lng }, map, icon: unitIcon(u), zIndex: 15,
-            title: u.number + (u.st === "driving" ? " · едет" : " · стоит") + (opts.onPick ? "\nКлик — поставить в From1" : "") });
+          const opt = { position: { lat: u.lat, lng: u.lng }, map, icon: unitIcon(u), zIndex: 15,
+            title: u.number + (u.st === "driving" ? " · едет" : " · стоит") + (opts.onPick ? "\nКлик — поставить в From1" : "") };
+          if (L.nums && z >= CLUSTER_MAX_ZOOM) {
+            opt.label = { text: String(u.number), className: u.st === "driving" ? "ul-lab ul-drv" : "ul-lab ul-std", color: "#1a1a1a", fontSize: "12px", fontWeight: "600" };
+            opt.zIndex = 17;
+          }
+          const m = new google.maps.Marker(opt);
           if (opts.onPick) m.addListener("click", () => opts.onPick(u.number));
           L.marks.push(m);
         } else {

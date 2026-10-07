@@ -1143,6 +1143,11 @@ body:not(.sort-manual) .acts-br { display: none; }
 .ul-ctl button.on { background: #1a73e8; border-color: #1a73e8; color: #fff; }
 .ul-ctl button[hidden] { display: none; }
 .ul-ctl button:disabled { opacity: .5; cursor: default; }
+/* v3.40: плашка с номером над кружком машины (label маркера) */
+.ul-lab { background: #fff; border: 1.5px solid #5f6b7a; border-radius: 6px; padding: 3px 6px; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+  white-space: nowrap; pointer-events: none; }
+.ul-lab.ul-drv { border-color: #1D9E75; }
+.ul-lab.ul-std { border-color: #E24B4A; }
 /* v3.39: From → To — ETD → ETA при выезде сейчас */
 .route-eta { color: #333; }
 .route-eta-wk { color: #b42318; font-weight: 600; cursor: help; }
