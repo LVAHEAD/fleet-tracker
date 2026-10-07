@@ -142,6 +142,8 @@ function initMap() {
     zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP },
   });
 
+  if (window.ZoomBadge) window.ZoomBadge.attach(map);   // v3.47: цифра зума
+
   Object.keys(pendingPositions).forEach((rowId) => {
     const p = pendingPositions[rowId];
     updateMarker(Number(rowId), p.lat, p.lng, p.label, p.status, p.heading, p.km, p.trailer);

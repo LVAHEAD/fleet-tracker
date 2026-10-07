@@ -545,6 +545,7 @@ const EtaCalc = (() => {
         center: { lat: 50.5, lng: 10 }, zoom: 4, disableDefaultUI: true, zoomControl: true, clickableIcons: false,
         zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP },
       });
+      if (window.ZoomBadge) window.ZoomBadge.attach(gmap);   // v3.47
     }
     lays.forEach((o) => o.setMap(null));
     lays = [];

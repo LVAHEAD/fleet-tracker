@@ -31,6 +31,8 @@ function initRouteTab() {
     zoom: 4,
   });
 
+  if (window.ZoomBadge) window.ZoomBadge.attach(window.routeMap);   // v3.47
+
   // v3.38: все машины HEAD TRUCK на карте; клик по машине — она в From1, остальные вниз (пересчёт — по кнопке)
   if (window.UnitsLayer) window.UnitsLayer.attach(window.routeMap, { onPick: routePutTruck });
 

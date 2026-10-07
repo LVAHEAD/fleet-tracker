@@ -187,6 +187,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
       clickableIcons: false,
     });
     infoWindow = new google.maps.InfoWindow();
+    if (window.ZoomBadge) window.ZoomBadge.attach(map);   // v3.47
     if (window.UnitsLayer) window.UnitsLayer.attach(map);   // v3.38: все машины HEAD TRUCK
 
     // "копировать" внутри InfoWindow
