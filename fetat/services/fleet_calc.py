@@ -40,7 +40,7 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
     prev_arr = sim["eta_ts"] if sim else now + cum_km / 70 * 3600
     out = []
     n_stops = 0          # сколько точек уже пройдено (на каждой UNLOAD_STOP_SEC)
-    for tstr in extras:
+    for xi, tstr in enumerate(extras):
         if not tstr:
             out.append({"empty": True})
             continue
@@ -59,7 +59,7 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
         if "corridor" not in first:                       # v3.32: плашка коридора — по первому такому плечу
             cc = fleet_corridor_cands(prev_lat, prev_lng, lat, lng)
             if cc:
-                first["corridor"] = corridor_info(cc, leg_wps, corridor, (prev_lat, prev_lng, lat, lng))
+                first["corridor"] = corridor_info(cc, leg_wps, corridor, (prev_lat, prev_lng, lat, lng), to=xi + 1)   # v3.45: плечо к точке xi + 2
         cum_km += leg_km
         n_stops += 1
         dwell = n_stops * UNLOAD_STOP_SEC

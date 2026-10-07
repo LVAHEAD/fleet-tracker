@@ -750,14 +750,15 @@ function ecFromRow(id) {
 }
 
 // ---------- v3.32: коридор ИТ ↔ Бенелюкс / восток FR — плашка и меню выбора (Флот и From → To) ----------
-const COR_TUNNEL = { "Монблан": 250, "Фрежюс": 250 };
+const COR_TUNNEL = { "Монблан": 261, "Фрежюс": 255 };
 function corridorChip(row, c) {
   const k = c && c.corridor;
   if (!k || !k.used) return "";
   const man = !!row.corridor;
   const tip = `Коридор в обход Швейцарии: ${k.used}${man ? " (выбран вручную)" : " (авто)"}` +
     (COR_TUNNEL[k.used] ? ` · туннель ~${COR_TUNNEL[k.used]} €` : "") + ". Клик — выбрать другой";
-  return ` <button type="button" class="cor-b${man ? " cor-man" : ""}" title="${escapeHtml(tip)}">⛰ ${escapeHtml(k.used)}</button>`;
+  const eur = COR_TUNNEL[k.used] ? ` · туннель ~${COR_TUNNEL[k.used]} €` : "";   // v3.45: цена — в самой полоске
+  return `<button type="button" class="cor-b${man ? " cor-man" : ""}" title="${escapeHtml(tip)}">⛰ ${escapeHtml(k.used)}${eur}</button>`;
 }
 let corPop = null;
 function closeCorridorMenu() { if (corPop) { corPop.remove(); corPop = null; } }
@@ -1725,13 +1726,16 @@ function foldTitle(row, cached) {
 }
 
 function distCellHtml(row, c) {
-  if (!row.extra || !row.extra.length) return c.dist + corridorChip(row, c);
-  const lines = [`<div class="sl${hideK(row, 0) ? " fold-hide" : ""}">${c.dist}${corridorChip(row, c)}</div>`];
+  if (!row.extra || !row.extra.length) return c.dist;   // v3.45: плашка коридора — полоской между строками (applyCorStrip)
+  const lines = [`<div class="sl${hideK(row, 0) ? " fold-hide" : ""}">${c.dist}</div>`];
+  // v3.45: общее расстояние от ① до последней точки — второй строкой в подсказках ②③…
+  const totalLegs = row.extra.reduce((s, _, i) => { const e = c.extra && c.extra[i]; return s + (e && e.leg_km != null ? e.leg_km : 0); }, 0);
+  const totalTip = totalLegs > 0 ? `\nОбщее расстояние от ① до последней точки: ${Math.round(totalLegs)} км` : "";
   row.extra.forEach((x, i) => {
     const ce = c.extra && c.extra[i];
     // v1.65: у 2-й и следующих точек — плечо от предыдущей точки, сумма только в подсказке
     const txt = ce && ce.done ? '<span class="done-km">✓</span>' : ce && ce.leg_km != null ? String(Math.round(ce.leg_km)) : "—";   // v3.35: без десятых
-    const tip = ce && ce.leg_km != null ? `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]} (от машины всего ${ce.dist_km.toFixed(1)})` : (ce && ce.error) || "";
+    const tip = ce && ce.leg_km != null ? `${Math.round(ce.leg_km)} км от точки ${STOP_NUM[i + 1]} (от машины всего ${Math.round(ce.dist_km)})${totalTip}` : (ce && ce.error) || "";   // v3.45: км до целого
     lines.push(`<div class="sl${hideK(row, i + 1) ? " fold-hide" : ""}" title="${escapeHtml(tip)}">${txt}</div>`);
   });
   return lines.join("");
@@ -3029,6 +3033,44 @@ function applyDoneClasses(tr, row, c) {
       chip.classList.toggle("stop-n-manual", m != null);
     }
   });
+  applyCorStrip(tr, row, c);   // v3.45
+}
+
+// v3.45: плашка коридора — полоска между строками точек того плеча, где действует обход Швейцарии.
+// Номер точки, к которой ведёт плечо, отдаёт сервер (corridor.to); ① — полоска над первой строкой.
+// Свёрнутый трип — у ближайшей видимой точки. Во всех колонках к строке добавляется отступ (cor-g), полоска рисуется в Таргете.
+function corGapIdx(row, c) {
+  const to = c && c.corridor ? c.corridor.to : null;
+  if (to == null) return -1;
+  let i = Math.min(to, row.extra ? row.extra.length : 0);
+  if (folded(row)) {
+    const fv = foldVisible(row);
+    i = i < fv[0] ? fv[0] : (i > fv[1] ? fv[1] : i);
+  }
+  return i;
+}
+function applyCorStrip(tr, row, c) {
+  tr.querySelectorAll(".cor-strip, .cor-sp").forEach((e) => e.remove());
+  tr.querySelectorAll(".cor-g").forEach((e) => e.classList.remove("cor-g"));
+  if (window.matchMedia("(max-width: 767px)").matches) return;   // телефон — карточки, без полоски
+  const i = corGapIdx(row, c);
+  const chip = i < 0 ? "" : corridorChip(row, c);
+  if (!chip) return;
+  const strip = `<div class="cor-strip">${chip}</div>`;
+  if (i === 0) {
+    // над первой строкой — пустая полоса сверху у каждой ячейки, в Таргете в ней полоска
+    tr.querySelectorAll(":scope > td").forEach((td) => td.insertAdjacentHTML("afterbegin", '<div class="cor-sp"></div>'));
+    const tw = tr.querySelector(".target-wrap:not(.x-stop)");
+    const sp = tw && tw.closest("td").querySelector(".cor-sp");
+    if (sp) sp.innerHTML = strip;
+    return;
+  }
+  const xn = tr.querySelector(`.xn-input[data-k="${i}"]`);
+  [tr.querySelector(`.x-stop[data-k="${i}"]`), tr.querySelector(`.xd-input[data-k="${i}"]`),
+   tr.querySelectorAll(".dist-cell .sl")[i], tr.querySelectorAll(".eta-cell .sl")[i], xn && xn.closest(".xn-wrap"),
+  ].forEach((el) => { if (el) el.classList.add("cor-g"); });
+  const tw = tr.querySelector(`.x-stop[data-k="${i}"]`);
+  if (tw) tw.insertAdjacentHTML("afterbegin", strip);
 }
 function toggleDone(id, k) {
   const row = rows.find((r) => r.id === id);

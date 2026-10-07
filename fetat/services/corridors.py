@@ -11,7 +11,7 @@ from fetat.domain.routing_rules import (SWISS_BYPASS, corridor_is_tie, pick_wayp
 
 # v3.32: выбор коридора диспетчером (трип / From → To): имя из SWISS_BYPASS или None — авто
 CORRIDOR_NAMES = tuple(name for name, _ in SWISS_BYPASS)
-TUNNEL_EUR = {"Монблан": 250, "Фрежюс": 250}     # подсказка в меню выбора, в расчёт не идёт
+TUNNEL_EUR = {"Монблан": 261, "Фрежюс": 255}     # подсказка в меню выбора, в расчёт не идёт
 
 
 def clean_corridor(v):
@@ -62,10 +62,11 @@ def fleet_corridor_cands(lat1, lng1, lat2, lng2):
         return None
 
 
-def corridor_info(cands, wps, corridor, leg):
-    """v3.32: что показать на плашке коридора: какой взят, вручную ли, отрезок (для меню с км)."""
+def corridor_info(cands, wps, corridor, leg, to=0):
+    """v3.32: что показать на плашке коридора: какой взят, вручную ли, отрезок (для меню с км).
+    v3.45: to — номер точки, к которой ведёт плечо (0 — ①, 1 — ②…): плашка стоит перед этой строкой."""
     return {"used": corridor_name(cands, wps), "manual": bool(corridor), "names": [c[0] for c in cands],
-            "leg": [round(float(x), 5) for x in leg]}
+            "leg": [round(float(x), 5) for x in leg], "to": to}
 
 
 def corridor_options(lat1, lng1, lat2, lng2, from_country=None, to_country=None):

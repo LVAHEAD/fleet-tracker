@@ -60,8 +60,8 @@ class CorridorPickTest(unittest.TestCase):
         self.assertEqual(d["best"], "Монблан")
         by = {o["name"]: o for o in d["options"]}
         self.assertEqual(by["Инсбрук"]["diff"], 50.0)
-        self.assertEqual(by["Монблан"]["tunnel_eur"], 250)
-        self.assertEqual(by["Фрежюс"]["tunnel_eur"], 250)
+        self.assertEqual(by["Монблан"]["tunnel_eur"], 261)
+        self.assertEqual(by["Фрежюс"]["tunnel_eur"], 255)
         self.assertIsNone(by["Инсбрук"]["tunnel_eur"])
 
     def test_options_not_rule(self):

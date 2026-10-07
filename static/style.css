@@ -969,6 +969,12 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 .status-cell .st-stop { font-size: 17px; }
 /* нижняя панель фильтров и сортировки, «свернуть / развернуть все» */
 .sort-bar-bottom { margin-top: 8px; }
+/* v3.45: полоска коридора между строками точек (Таргет), в остальных колонках у этой строки такой же отступ сверху (cor-g) */
+.cor-strip { position: absolute; left: 0; right: 0; top: -18px; height: 14px; display: flex; justify-content: center; align-items: center; z-index: 2; }
+.cor-sp { position: relative; height: 18px; }
+.cor-sp .cor-strip { top: 0; }
+.cor-g { margin-top: 22px !important; position: relative; }
+.cor-strip .cor-b { margin: 0; height: 14px; line-height: 12px; font-size: 10px; padding: 0 8px; }
 /* v3.43: панель Флота в три зоны — слева «+ строка» ↻ автообновление, по центру фильтры и сортировка, справа корзина / завершённые */
 .sort-bar { flex-wrap: wrap; row-gap: 4px; }
 .sort-bar .sb-l, .sort-bar .sb-r { flex: 1 1 0; display: flex; align-items: center; gap: 4px; min-width: max-content; }
