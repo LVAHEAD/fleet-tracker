@@ -259,6 +259,48 @@ def unit_stops(unit_id, days=3, min_sec=2 * 3600):
     return [x for x in out if x["end"] - x["start"] >= min_sec or x["now"]]
 
 
+def unit_passes(unit_id, days=4):
+    """v3.49: где трак был за days суток — для проездных точек (границы без остановки).
+    -> [{"end": ts, "pts": [(lat, lng), ...]}]: короткие стоянки (любой длины), начало / конец отрезков движения и,
+    если Mapon отдаёт трек (include polyline), точки трека. Ошибка — пустой список."""
+    import time
+    from fetat.utils.geo import _decode_polyline
+    now = time.time()
+    base = {"key": MAPON_API_KEY, "unit_id": unit_id, "from": _iso_utc(now - days * 86400), "till": _iso_utc(now)}
+    try:
+        try:
+            d = mapon_get("https://mapon.com/api/v1/route/list.json", dict(base, **{"include[]": "polyline"}), timeout=30)
+        except Exception:
+            d = mapon_get("https://mapon.com/api/v1/route/list.json", base, timeout=30)
+    except Exception:
+        return []
+
+    def ts_of(x):
+        try:
+            return datetime.strptime((x or {}).get("time"), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+        except Exception:
+            return None
+
+    out = []
+    for u in (d.get("data") or {}).get("units") or []:
+        for r in u.get("routes") or []:
+            pts = []
+            for k in ("start", "end"):
+                p = r.get(k) or {}
+                if p.get("lat") is not None and p.get("lng") is not None:
+                    pts.append((float(p["lat"]), float(p["lng"])))
+            pl = r.get("polyline")
+            if r.get("type") == "route" and isinstance(pl, str) and pl:
+                try:
+                    pts += [(float(a), float(b)) for a, b in _decode_polyline(pl)]
+                except Exception:
+                    pass
+            end = ts_of(r.get("end")) or now
+            if pts and end < now - 60:
+                out.append({"end": end, "pts": pts})
+    return out
+
+
 # v3.15: сколько трак ехал по суткам за неделю (по GPS, отрезки "route" из route/list) —
 # подстраховка определения экипажа, когда во втором слоте тахографа сейчас нет карты.
 DRIVE_DAYS_TTL = 6 * 3600

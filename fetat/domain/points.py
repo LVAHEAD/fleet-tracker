@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from fetat.utils.timefmt import ts_west
 from fetat.clients.geocode import geocode, geocode_city
-from fetat.clients.mapon import mapon_objects, unit_stops
+from fetat.clients.mapon import mapon_objects, unit_stops, unit_passes
 from fetat.config import MAPON_API_KEY
 from fetat.domain.addresses import (
     address_public, base_point, dovoz_country, find_address, is_base_word,
@@ -273,6 +273,27 @@ def recent_stops(unit_id):
     return stops
 
 
+# v3.49: проездные точки (границы) — машина проходит без остановки ≥ 15 мин, ✓ ставим по факту проезда
+TRANSIT_WORDS = ("border", "grense", "grenze", "tull", "zoll", "customs", "граница")
+TRANSIT_NEAR_KM = 5          # трек проверяем только у точек не дальше 5 км (дешёвый префильтр)
+_passes_cache = {}           # unit_id -> (ts, passes)
+
+
+def is_transit(tstr):
+    t = str(tstr or "").lower()
+    return any(w in t for w in TRANSIT_WORDS)
+
+
+def recent_passes(unit_id):
+    import time
+    hit = _passes_cache.get(unit_id)
+    if hit and time.time() - hit[0] < DONE_STOPS_TTL:
+        return hit[1]
+    res = unit_passes(unit_id, days=DONE_HISTORY_DAYS)
+    _passes_cache[unit_id] = (time.time(), res)
+    return res
+
+
 def points_done(pts, manual, unit, units, seen=None):
     """pts — строки точек (① + следующие), manual — [True/False/None] ручные отметки,
     seen — [время|None] уже запомненные в строке авто-✓ (v3.17: не теряются, когда стоянка
@@ -308,7 +329,11 @@ def points_done(pts, manual, unit, units, seen=None):
                     else:
                         left = haversine_km(unit["lat"], unit["lng"], lat, lng) > DONE_LEFT_KM
                         near = lambda a, b: haversine_km(a, b, lat, lng) <= DONE_RADIUS_KM
-                    if left:
+                    if left and is_transit(tstr):          # v3.49: проезд — трек / короткие стоянки в зоне
+                        for p in recent_passes(unit.get("unit_id")) or []:
+                            if any(haversine_km(a, b, lat, lng) <= TRANSIT_NEAR_KM and near(a, b) for a, b in p["pts"]):
+                                auto_at = max(auto_at or 0, p["end"])
+                    if left and not auto_at:
                         if stops is None:
                             stops = recent_stops(unit.get("unit_id")) or []
                         for st in stops:
@@ -316,8 +341,8 @@ def points_done(pts, manual, unit, units, seen=None):
                                 continue
                             if near(st["lat"], st["lng"]):
                                 auto_at = max(auto_at or 0, st["end"])
-                        if obj and auto_at:
-                            info["zone"] = obj["name"]
+                    if left and obj and auto_at:
+                        info["zone"] = obj["name"]
             except Exception:
                 pass
         if m is True:
