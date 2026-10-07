@@ -714,7 +714,7 @@ body { max-width: 95vw; }
   .row-actions button { margin: 0; }
   .row-actions > .refresh-row-btn { margin-right: 3px; }
   .wide-acts button { padding: 2px 7px; }
-  .del-btn-w.armed { background: #fdecea; border-color: #e6a39b; color: #c0392b; font-size: 11px; padding: 2px 5px; }
+  .del-btn-w.armed { background: #e74c3c; border-color: #c0392b; color: #fff; }   /* v3.37: размер прежний */
   body.sort-manual .manual-inline { display: inline-block !important; }
   body.sort-manual .drag-h-w { display: inline-block !important; margin: 0 0 0 3px; font-size: 15px; }
   body.sort-manual #fleet-tbody td:first-child .drag-h { display: none; }

@@ -1443,17 +1443,20 @@ function attachRowHandlers() {
     tr.querySelector(".mv-up-w").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, -1); });
     tr.querySelector(".mv-down-w").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, 1); });
     // v1.66: удаление в два клика — первый "взводит", уход мыши сбрасывает
+    // v3.37: при «взводе» размер кнопки не меняется (было «удалить?» — кнопка шире, в узкой колонке уезжала
+    // на новый ряд из-под мыши, взвод тут же сбрасывался) — та же 🗑 на красном, подсказка в title
     const delW = tr.querySelector(".del-btn-w");
+    const delTitle = delW.title;
     delW.addEventListener("click", (e) => {
       e.stopPropagation();
       if (!delW.classList.contains("armed")) {
         delW.classList.add("armed");
-        delW.textContent = "удалить?";
+        delW.title = "Ещё клик — удалить";
         return;
       }
       tr.querySelector(".del-btn").click();
     });
-    delW.addEventListener("mouseleave", () => { delW.classList.remove("armed"); delW.textContent = "🗑"; });
+    delW.addEventListener("mouseleave", () => { delW.classList.remove("armed"); delW.title = delTitle; });
 
     tr.querySelector(".add-btn").addEventListener("click", (e) => {
       e.stopPropagation();
