@@ -1,7 +1,7 @@
 /*
 Fleet ETA Tracker — общий конфиг и стиль карт Google (v3.50).
 MapsCommon.make(элемент, настройки) создаёт карту с общими настройками: старт (центр Европы, зум 4), кнопки + / − справа
-сверху, без значков Google и Street View, приглушённые подписи магазинов и кафе (наши машины и маршруты виднее),
+сверху, без значков Google и Street View, точки интересов Google видны (v3.52), подписи транспорта скрыты,
 цифра зума и зум колесом без Ctrl (ZoomBadge). Настройки карты переопределяют общие.
 MapsCommon.ZOOM — пороги зума для слоя машин: cluster — ниже склеиваем, num — с него плашки номеров.
 v3.51: MapsCommon.refreshBtn(map, onClick) — ↻ «Обновить позиции машин» справа сверху (над + / −) на всех картах;
@@ -10,7 +10,6 @@ onClick может вернуть Promise — пока он идёт, кнопк
 (function () {
   const ZOOM = { cluster: 9, num: 6 };
   const STYLES = [
-    { featureType: "poi", stylers: [{ visibility: "off" }] },
     { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] },
   ];
   function make(el, opts) {

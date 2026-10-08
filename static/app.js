@@ -763,9 +763,24 @@ function ecFromRow(id, force, k) {
     const ce = k >= 1 ? (c.extra || [])[k - 1] : null;
     km = ce && !ce.done && ce.dist_km != null ? Number(ce.dist_km) : null;
   }
+  // v3.52: линия — до той точки, у значка которой кликнули: машина → первая непройденная + плечи extraPolys до точки k
+  let poly = (pos && pos.polyline) || null;
+  const first = c.ecAt || 0;
+  if (k != null && k !== first) {
+    poly = null;
+    if (pos && pos.polyline && k > first && window.google && google.maps.geometry) {
+      const enc = google.maps.geometry.encoding;
+      const legs = [pos.polyline].concat((pos.extraPolys || []).slice(first, k));
+      if (legs.every(Boolean)) {
+        const path = [];
+        legs.forEach((e) => enc.decodePath(e).forEach((p) => path.push(p)));
+        poly = enc.encodePath(path);
+      }
+    }
+  }
   window.etaCalc.fromRow({
     unit: row.unit || "", point: ((STOP_NUM[at + 1] || "") + " " + String(pt || "").trim()).trim(),
-    km, seed: c.ecSeed || null, polyline: (pos && pos.polyline) || null,
+    km, seed: c.ecSeed || null, polyline: poly,
   });
 }
 
