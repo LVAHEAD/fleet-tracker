@@ -3072,7 +3072,7 @@ function applyCorStrip(tr, row, c) {
     tr.querySelectorAll(":scope > td").forEach((td) => td.insertAdjacentHTML("afterbegin", '<div class="cor-sp"></div>'));
     const tw = tr.querySelector(".target-wrap:not(.x-stop)");
     const sp = tw && tw.closest("td").querySelector(".cor-sp");
-    if (sp) sp.innerHTML = strip;
+    if (sp) { sp.innerHTML = strip; corStripAlign(sp.querySelector(".cor-strip"), tw); }
     return;
   }
   const xn = tr.querySelector(`.xn-input[data-k="${i}"]`);
@@ -3080,7 +3080,17 @@ function applyCorStrip(tr, row, c) {
    tr.querySelectorAll(".dist-cell .sl")[i], tr.querySelectorAll(".eta-cell .sl")[i], xn && xn.closest(".xn-wrap"),
   ].forEach((el) => { if (el) el.classList.add("cor-g"); });
   const tw = tr.querySelector(`.x-stop[data-k="${i}"]`);
-  if (tw) tw.insertAdjacentHTML("afterbegin", strip);
+  if (tw) { tw.insertAdjacentHTML("afterbegin", strip); corStripAlign(tw.querySelector(".cor-strip"), tw); }
+}
+// плашка коридора — по левому краю поля ввода точки
+function corStripAlign(el, tw) {
+  const inp = tw && tw.querySelector("input");
+  if (!el || !inp) return;
+  requestAnimationFrame(() => {
+    const r = el.getBoundingClientRect(), k = el.offsetWidth ? r.width / el.offsetWidth : 1;
+    const pad = (inp.getBoundingClientRect().left - r.left) / (k || 1);
+    if (pad > 0) el.style.paddingLeft = pad + "px";
+  });
 }
 function toggleDone(id, k) {
   const row = rows.find((r) => r.id === id);

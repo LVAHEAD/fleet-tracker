@@ -492,6 +492,11 @@ def _calc_row(payload, tm):
             except Exception as e:
                 result["extra"] = [{"error": str(e)} for _ in extras]
 
+        # плашка коридора: corridor.to считался по непройденным точкам — в номер точки трипа (с пройденными)
+        cor, act = result.get("corridor"), result.get("active_idx")
+        if cor and act and isinstance(cor.get("to"), int) and 0 <= cor["to"] < len(act):
+            cor["to"] = act[cor["to"]]
+
         tm.mark("extra")
         _week_short_last(result)
 
