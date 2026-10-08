@@ -3067,10 +3067,11 @@ function applyCorStrip(tr, row, c) {
   const chip = i < 0 ? "" : corridorChip(row, c);
   if (!chip) return;
   const strip = `<div class="cor-strip">${chip}</div>`;
-  if (i === 0) {
-    // над первой строкой — пустая полоса сверху у каждой ячейки, в Таргете в ней полоска
+  // над первой видимой строкой (① или первая точка свёрнутого трипа) — пустая полоса сверху у каждой ячейки,
+  // в Таргете в ней полоска (иначе колонки, где у этой точки нет своей строки, съезжают)
+  if (i === 0 || (folded(row) && i === foldVisible(row)[0])) {
     tr.querySelectorAll(":scope > td").forEach((td) => td.insertAdjacentHTML("afterbegin", '<div class="cor-sp"></div>'));
-    const tw = tr.querySelector(".target-wrap:not(.x-stop)");
+    const tw = i === 0 ? tr.querySelector(".target-wrap:not(.x-stop)") : tr.querySelector(`.x-stop[data-k="${i}"]`);
     const sp = tw && tw.closest("td").querySelector(".cor-sp");
     if (sp) { sp.innerHTML = strip; corStripAlign(sp.querySelector(".cor-strip"), tw); }
     return;
