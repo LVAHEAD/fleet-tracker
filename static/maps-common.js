@@ -10,7 +10,6 @@ onClick может вернуть Promise — пока он идёт, кнопк
 (function () {
   const ZOOM = { cluster: 9, num: 6 };
   const STYLES = [
-    { featureType: "poi", stylers: [{ visibility: "off" }] },
     { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] },
   ];
   function make(el, opts) {
