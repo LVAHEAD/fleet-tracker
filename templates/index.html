@@ -88,14 +88,6 @@
 </table>
 
 
-<!-- v3.26: «Карта 2.0» — карта Флота в выезжающей панели справа (язычок 🗺 над 📓); на телефоне — как раньше, во весь экран -->
-<aside id="map-panel" class="map-panel" aria-hidden="true">
-  <div class="map-resize" title="Потянуть — шире / уже (ширина запоминается)"></div>
-  <div id="map"></div>
-</aside>
-<button type="button" class="map-tab" id="map-tab" title="Карта Флота (Esc — закрыть)">🗺</button>
-<!-- v3.28: ⏱ ETA-калькулятор — язычок под 📓, панель строит static/eta-calc.js -->
-<button type="button" class="calc-tab" id="calc-tab" title="ETA-калькулятор (Esc — закрыть)">⏱</button>
 <button type="button" class="m-map-close" id="m-map-close">← К списку</button>
 <button type="button" class="m-fab" id="m-fab-add" title="Добавить строку" hidden>+</button>
 <button type="button" class="m-fab" id="m-fab-map" title="Карта">🗺</button>
@@ -107,6 +99,15 @@
 <datalist id="trucks-list"></datalist>
 
 </div>
+<!-- v3.51: боковые панели — вне вкладки Флота, доступны на всех вкладках -->
+<!-- v3.26: «Карта 2.0» — карта Флота в выезжающей панели справа (язычок 🗺 над 📓); на телефоне — как раньше, во весь экран -->
+<aside id="map-panel" class="map-panel" aria-hidden="true">
+  <div class="map-resize" title="Потянуть — шире / уже (ширина запоминается)"></div>
+  <div id="map"></div>
+</aside>
+<button type="button" class="map-tab" id="map-tab" title="Карта Флота (Esc — закрыть)">🗺</button>
+<!-- v3.28: ⏱ ETA-калькулятор — язычок под 📓, панель строит static/eta-calc.js -->
+<button type="button" class="calc-tab" id="calc-tab" title="ETA-калькулятор (Esc — закрыть)">⏱</button>
 
 <!-- ==================== Вкладка: Карты стран ==================== -->
 <div id="tab-maps" class="tab-panel" hidden>

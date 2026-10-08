@@ -1093,7 +1093,7 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
   }
   .map-tab:hover { opacity: 1; background: #f4f4f4; }
   body.map-open .map-tab { right: var(--sidepw, var(--sidew)); opacity: 1; background: #eef3fd; }
-  body.map-open:has(#tab-fleet:not([hidden])) .nb-tab { right: var(--sidepw, var(--sidew)); }   /* панель карты — только во Флоте */
+  body.map-open .nb-tab { right: var(--sidepw, var(--sidew)); }   /* v3.51: панели сдвигают любую вкладку */
   body.nb-open .map-tab { right: var(--sidepw, var(--sidew)); }
   /* v3.30: боковые панели снова сужают страницу (решение Владимира 06.10).
      v3.31: одна ширина для всех (--sidew, 500) и один резерв под таблицу — таблица одинаковая, какую панель
@@ -1101,8 +1101,8 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
   /* v3.32: левый край не двигается — левый отступ тот же, что без панели (--side-ml замеряет sideMarginFix
      в app.js перед открытием), ширину забирает только правый край */
   body { transition: margin-right .25s ease; }
-  body.map-open:has(#tab-fleet:not([hidden])), body.nb-open, body.calc-open { --side-res: var(--sidew); }
-  body.map-open:has(#tab-fleet:not([hidden])), body.nb-open, body.calc-open {
+  body.map-open, body.nb-open, body.calc-open { --side-res: var(--sidew); }
+  body.map-open, body.nb-open, body.calc-open {
     margin-left: var(--side-ml, 0px);
     margin-right: calc(var(--side-res) + 8px);
     max-width: none;
@@ -1161,7 +1161,7 @@ body.map-resizing .map-panel .w-label, body.ec-resizing .w-label { display: bloc
   #fleet-tbody .row-actions .wide-acts button { padding: 1px 5px; }
 }
 @media (min-width: 1500px) and (max-width: 1799px) {
-  body.map-open:has(#tab-fleet:not([hidden])), body.nb-open, body.calc-open { --side-res: 0px; }
+  body.map-open, body.nb-open, body.calc-open { --side-res: 0px; }
 }
 .refresh-row-btn-w { display: none; }
 @media (min-width: 1500px) { #fleet-tbody .row-actions .refresh-row-btn-w { display: inline-block; } }
@@ -1183,6 +1183,12 @@ body:not(.sort-manual) .acts-br { display: none; }
 .ul-ctl button.on { background: #1a73e8; border-color: #1a73e8; color: #fff; }
 .ul-ctl button[hidden] { display: none; }
 .ul-ctl button:disabled { opacity: .5; cursor: default; }
+/* v3.51: ↻ обновить позиции машин — на всех картах справа сверху, как кнопки Google */
+.mc-rf { margin: 10px 10px 0 0; width: 40px; height: 40px; padding: 0; background: #fff; border: 0; border-radius: 2px;
+  box-shadow: 0 1px 4px -1px rgba(0,0,0,.3); font-size: 20px; line-height: 40px; color: #666; cursor: pointer; }
+.mc-rf:hover { color: #333; }
+.mc-rf:disabled { opacity: .5; cursor: default; }
+.mc-rf[hidden] { display: none; }
 /* v3.40: плашка с номером над кружком машины (label маркера) */
 .ul-lab { background: #fff; border: 1.5px solid #5f6b7a; border-radius: 6px; padding: 3px 6px; box-shadow: 0 1px 3px rgba(0,0,0,.3);
   white-space: nowrap; pointer-events: none; }

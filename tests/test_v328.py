@@ -30,13 +30,14 @@ class EtaCalcWiringTest(unittest.TestCase):
         self.assertIn("window.etaCalc.close()", read("static/map-panel.js"))
 
     def test_no_server_calls(self):
-        # v3.39: расклад — /api/eta-plan (движок Флота), коды регионов — для мини-карты; к Routes — никогда
+        # v3.39: расклад — /api/eta-plan (движок Флота), коды регионов — для мини-карты;
+        # v3.51: Routes — только из полей From / To (/api/route, как вкладка From → To)
         js = read("static/eta-calc.js")
-        self.assertEqual(js.count("fetch("), 2)
+        self.assertEqual(js.count("fetch("), 3)
         self.assertIn('fetch("/api/region-codes")', js)
         self.assertIn('fetch("/api/eta-plan"', js)
+        self.assertIn('fetch("/api/route"', js)
         self.assertNotIn("/api/calc", js)
-        self.assertNotIn("/api/route", js)
 
     def test_tab_under_notebook(self):
         css = read("static/eta-calc.css")

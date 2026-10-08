@@ -4,6 +4,8 @@ MapsCommon.make(элемент, настройки) создаёт карту с
 сверху, без значков Google и Street View, приглушённые подписи магазинов и кафе (наши машины и маршруты виднее),
 цифра зума и зум колесом без Ctrl (ZoomBadge). Настройки карты переопределяют общие.
 MapsCommon.ZOOM — пороги зума для слоя машин: cluster — ниже склеиваем, num — с него плашки номеров.
+v3.51: MapsCommon.refreshBtn(map, onClick) — ↻ «Обновить позиции машин» справа сверху (над + / −) на всех картах;
+onClick может вернуть Promise — пока он идёт, кнопка неактивна. Возвращает кнопку (hidden — спрятать).
 */
 (function () {
   const ZOOM = { cluster: 9, num: 6 };
@@ -24,5 +26,20 @@ MapsCommon.ZOOM — пороги зума для слоя машин: cluster �
     if (window.ZoomBadge) window.ZoomBadge.attach(map);
     return map;
   }
-  window.MapsCommon = { make, ZOOM };
+  function refreshBtn(map, onClick) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "mc-rf";
+    b.title = "Обновить позиции машин (Mapon)";
+    b.textContent = "↻";
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (b.disabled) return;
+      b.disabled = true;
+      Promise.resolve(onClick && onClick()).catch(() => {}).then(() => { b.disabled = false; });
+    });
+    map.controls[google.maps.ControlPosition.RIGHT_TOP].push(b);
+    return b;
+  }
+  window.MapsCommon = { make, ZOOM, refreshBtn };
 })();

@@ -120,8 +120,7 @@ document.addEventListener("mousedown", (e) => {
   const t = e.target;
   if (!t || t.nodeType !== 1 || t === document.documentElement) return;   // полоса прокрутки страницы
   if (t.closest(SIDE_KEEP)) return;
-  const fleet = document.getElementById("tab-fleet");
-  if (window.fleetMapPanel && fleet && !fleet.hidden) window.fleetMapPanel.close();   // карта видна только во Флоте
+  if (window.fleetMapPanel) window.fleetMapPanel.close();   // v3.51: на любой вкладке
   if (window.etaCalc) window.etaCalc.close();
   if (typeof Notebook !== "undefined" && Notebook.close) Notebook.close();
 }, true);
@@ -134,6 +133,7 @@ window.whenGoogleMaps = function (fn) {
 function initMap() {
   // v1.66: + / − справа сверху под ⛶; v1.67: «джойстик» Google (cameraControl) убран; v3.50: общий конфиг — maps-common.js
   map = MapsCommon.make(document.getElementById("map"), { cameraControl: false });
+  MapsCommon.refreshBtn(map, refreshFleetPositions);   // v3.51: ↻ — позиции машин из Mapon
 
   Object.keys(pendingPositions).forEach((rowId) => {
     const p = pendingPositions[rowId];
@@ -293,8 +293,24 @@ function truckBadgeHtml(label, status, heading, km) {
   return `${escapeHtml(label || "")}${arrow}${kmTxt}`;
 }
 
+// v3.51: ↻ на карте Флота — только позиции машин строк из Mapon (/api/units), без пересчёта км и Google
+const markerArgs = {};
+async function refreshFleetPositions() {
+  const d = await fetch("/api/units?t=" + Date.now()).then((r) => r.json());
+  const us = (d.units || []).filter((u) => u.kind === "truck" && u.lat != null && u.lng != null);
+  const nrm = (s) => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  Object.keys(markerArgs).forEach((id) => {
+    const a = markerArgs[id], row = rows.find((r) => String(r.id) === String(id));
+    if (!row || !row.unit) return;
+    const u = us.find((x) => nrm(x.number) === nrm(row.unit));
+    if (!u) return;
+    updateMarker(Number(id), u.lat, u.lng, a.label, u.st, u.dir, a.km, a.trailer);
+    if (rowPositions[id]) { rowPositions[id].unitLat = u.lat; rowPositions[id].unitLng = u.lng; }
+  });
+}
 function updateMarker(rowId, lat, lng, label, status, heading, km, trailer) {
   if (lat == null || lng == null) return;
+  markerArgs[rowId] = { label, km, trailer };
   if (!map) {
     pendingPositions[rowId] = { lat, lng, label, status, heading, km, trailer };
     return;

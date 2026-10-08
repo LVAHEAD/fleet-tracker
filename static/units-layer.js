@@ -3,7 +3,7 @@ Fleet ETA Tracker — слой «все машины» (v3.38) для карт �
 Все тягачи группы HEAD TRUCK из /api/units (координаты, едет / стоит, курс — тот же запрос к Mapon, Google не нужен).
 Кружок — как на карте Флота: заливка цветом диспетчера трипа, где эта машина (без трипа — серый), обводка — едет
 (зелёная) / стоит (красная), у едущей — стрелка курса; при отдалении близкие — кружок с числом (клик приближает).
-Номер — в подсказке при наведении и (v3.40) плашкой над кружком с зума 6 (v3.44); кнопка «№» прячет / показывает плашки. Позиции — при открытии вкладки и по кнопке ↻. Слой вкл / выкл — помнит браузер.
+Номер — в подсказке при наведении и (v3.40) плашкой над кружком с зума 6 (v3.44); кнопка «№» прячет / показывает плашки. Позиции — при открытии вкладки и по кнопке ↻ (v3.51 — справа сверху, общая кнопка карт). Слой вкл / выкл — помнит браузер.
 UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машине (From → To ставит её в From1).
 */
 (function () {
@@ -111,19 +111,19 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
     opts = opts || {};
     const L = { map, on: visibleSaved(), nums: numsSaved(), group: groupSaved(), marks: [] };
 
-    // кнопки на карте: «🚚 Машины» (вкл / выкл) и ↻ (обновить позиции)
+    // кнопки на карте: «🚚 Машины» (вкл / выкл), «№», «Группировать»
     const box = document.createElement("div");
     box.className = "ul-ctl";
     box.innerHTML = '<button type="button" class="ul-tg" title="Все машины HEAD TRUCK на карте — показать / спрятать">🚚 Машины</button>'
       + '<button type="button" class="ul-nm" title="Номера машин плашками (с зума 6) — показать / спрятать">№</button>'
-      + '<button type="button" class="ul-gr" title="Группировать близкие машины в кружок с числом (ниже зума 9) — вкл / выкл">Группировать</button>'
-      + '<button type="button" class="ul-rf" title="Обновить позиции машин">↻</button>';
-    const tg = box.querySelector(".ul-tg"), rf = box.querySelector(".ul-rf"), nm = box.querySelector(".ul-nm"), gr = box.querySelector(".ul-gr");
+      + '<button type="button" class="ul-gr" title="Группировать близкие машины в кружок с числом (ниже зума 9) — вкл / выкл">Группировать</button>';
+    const tg = box.querySelector(".ul-tg"), nm = box.querySelector(".ul-nm"), gr = box.querySelector(".ul-gr");
+    // v3.51: ↻ — общая кнопка карт справа сверху (MapsCommon.refreshBtn)
+    const rf = window.MapsCommon ? MapsCommon.refreshBtn(map, () => load(true)) : document.createElement("button");
     const ui = () => { tg.classList.toggle("on", L.on); rf.hidden = !L.on; nm.hidden = !L.on; gr.hidden = !L.on; nm.classList.toggle("on", L.nums); gr.classList.toggle("on", L.group); };
     tg.addEventListener("click", () => { L.on = !L.on; saveVisible(L.on); ui(); if (L.on && !units.length) load(true); else L.draw(); });
     gr.addEventListener("click", () => { L.group = !L.group; saveGroup(L.group); ui(); L.draw(); });
     nm.addEventListener("click", () => { L.nums = !L.nums; saveNums(L.nums); ui(); L.draw(); });
-    rf.addEventListener("click", () => { rf.disabled = true; load(true).then(() => { rf.disabled = false; }); });
     ui();
     map.controls[google.maps.ControlPosition.TOP_LEFT].push(box);
 
@@ -173,5 +173,11 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
     if (layers.some((L) => L.on)) load(true);
   }
 
-  window.UnitsLayer = { attach, refreshOnShow };
+  // v3.51: для мини-карты ⏱ — одна машина: найти по номеру (свежие позиции), кружок как на картах
+  async function findUnit(number, fresh) {
+    if (fresh || !units.length) await load(fresh);
+    const n = norm(number), d = digits(number);
+    return units.find((u) => norm(u.number) === n) || units.find((u) => d && digits(u.number) === d) || null;
+  }
+  window.UnitsLayer = { attach, refreshOnShow, findUnit, icon: (u) => unitIcon(u), title: (u) => unitTitle(u) };
 })();

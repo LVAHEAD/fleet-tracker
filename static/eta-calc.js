@@ -95,12 +95,16 @@ const EtaCalc = (() => {
       <div class="w-label"></div>
       <div class="ec-head"><span>⏱ ETA-калькулятор</span><button type="button" class="ec-x" title="Закрыть (Esc)">×</button></div>
       <div class="ec-body">
+        <div class="ec-sec ec-ft"><div class="ec-lb"><span>Откуда — куда</span><span class="ec-ftst"></span></div>
+          <div class="ec-ftg"><span class="ec-ftk">From</span><input type="text" id="ec-from" list="points-list" autocomplete="off" placeholder="машина, ГПС, город или код">
+            <span class="ec-ftk">To</span><input type="text" id="ec-to" list="points-list" autocomplete="off" placeholder="ГПС, город или код"></div></div>
         <div class="ec-sec"><div class="ec-lb"><span>Расстояние, км</span><span>70 … 5000</span></div>
           <div class="ec-ln"><input type="number" id="ec-km-n" min="70" step="10" value="1500"><input type="range" id="ec-km-r" min="70" max="5000" step="10" value="1500"></div></div>
-        <div class="ec-sec"><div class="ec-lb"><span>Сдвиг выезда, ч</span><span class="ec-now"></span></div>
+        <div class="ec-sec ec-two"><div>
+          <div class="ec-lb"><span>Сдвиг выезда, ч</span><span class="ec-now"></span></div>
           <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-sh-n" class="ec-hm" inputmode="numeric" value="00:00" title="ЧЧ:ММ · ↑ ↓ — шаг 30 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+30 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−30 мин">▾</button></span></span><input type="range" id="ec-sh-r" min="0" max="72" step="0.5" value="0"></div></div>
-        <div class="ec-sec"><div class="ec-lb"><span>Остаток вождения на момент выезда, ч</span><span class="ec-lmax"></span></div>
-          <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-lf-n" class="ec-hm" inputmode="numeric" value="18:00" title="ЧЧ:ММ · ↑ ↓ — шаг 15 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+15 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−15 мин">▾</button></span></span><input type="range" id="ec-lf-r" min="0" max="18" step="0.25" value="18"></div></div>
+          <div><div class="ec-lb"><span>Остаток вождения, ч</span><span class="ec-lmax"></span></div>
+          <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-lf-n" class="ec-hm" inputmode="numeric" value="18:00" title="ЧЧ:ММ · ↑ ↓ — шаг 15 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+15 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−15 мин">▾</button></span></span><input type="range" id="ec-lf-r" min="0" max="18" step="0.25" value="18"></div></div></div>
         <div class="ec-sec ec-g2">
           <span class="ec-lb">Состав</span>
           <div class="ec-rl"><span class="ec-seg ec-team"><button type="button" data-v="1" class="on">Экипаж</button><button type="button" data-v="0">Соло</button></span>
@@ -128,7 +132,7 @@ const EtaCalc = (() => {
           <div class="ec-h"><a href="#" class="ec-mtg" title="Свернуть / развернуть карту">▾ Карта</a><span class="ec-mut ec-mnote"></span></div>
           <div class="ec-mbox">
             <div class="ec-map"></div>
-            <div class="ec-mempty">Кликни строку трипа — здесь будет её маршрут с отдыхами</div>
+            <div class="ec-mempty">Заполни From и To или кликни строку трипа — здесь будет маршрут с отдыхами</div>
           </div>
         </div>
       </div>`;
@@ -139,7 +143,7 @@ const EtaCalc = (() => {
     $(".ec-x").addEventListener("click", close);
     // v3.31: правка руками — подпись «из строки» пропадает; км поменяли — линия строки больше не та
     $(".ec-body").addEventListener("input", (e) => {
-      if (!e.isTrusted || !e.target.closest(".ec-sec") || e.target.closest(".ec-msec")) return;
+      if (!e.isTrusted || !e.target.closest(".ec-sec") || e.target.closest(".ec-msec, .ec-ft")) return;
       manual(e.target.id === "ec-km-n" || e.target.id === "ec-km-r");
     }, true);
     $(".ec-body").addEventListener("click", (e) => { if (e.target.closest(".ec-team button, .ec-rest button")) manual(false); }, true);
@@ -165,12 +169,14 @@ const EtaCalc = (() => {
     $(".ec-rst").addEventListener("click", (e) => { e.preventDefault(); st.extras = {}; st.shifts = {}; calc(); });
     bindStrip();
     bindResize();
+    bindFT();
     restUI();
   }
 
   // ---------- v3.31: данные машины из строки Флота ----------
-  function fromRow(r) {
+  function fromRow(r, fromFT) {
     if (!panel) return;
+    if (!fromFT) { $("#ec-from").value = ""; $("#ec-to").value = ""; ftStatus(""); ftKey = ""; }   // v3.51: строка Флота / From → To — поля From / To чистые
     if (r.km == null || !(r.km > 0)) {          // строка не посчитана или ошибка — ничего не меняем
       st.srcShown = true;
       st.src = { unit: r.unit, point: r.point, km: null, polyline: null, note: "нет км у строки — не посчитана или ошибка" };
@@ -204,6 +210,46 @@ const EtaCalc = (() => {
     st.srcShown = true;
     st.mapFit = true;
     restUI(); srcUI(); calc();
+  }
+  // ---------- v3.51: From / To — км, линия и (машина в From) тахограф через /api/route, как вкладка From → To ----------
+  let ftKey = "", ftSeq = 0;
+  function ftStatus(t, bad) {
+    const el = $(".ec-ftst");
+    el.textContent = t;
+    el.classList.toggle("bad", !!bad);
+  }
+  function bindFT() {
+    const f = $("#ec-from"), t = $("#ec-to");
+    [f, t].forEach((el) => {
+      el.addEventListener("change", ftCalc);           // выбор из подсказок и уход из поля
+      el.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); ftCalc(); } });
+      el.addEventListener("focus", () => el.select());
+    });
+  }
+  async function ftCalc() {
+    const from = $("#ec-from").value.trim(), to = $("#ec-to").value.trim();
+    if (!from || !to) { ftStatus(""); return; }
+    const key = from + "\n" + to;
+    if (key === ftKey) return;
+    ftKey = key;
+    const seq = ++ftSeq;
+    ftStatus("считаю…");
+    try {
+      const r = await fetch("/api/route", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from: [from], to: [to] }) });
+      const d = await r.json();
+      if (seq !== ftSeq) return;
+      if (d.error || d.dist_km == null) { ftKey = ""; ftStatus(d.error || "не посчитать", true); return; }
+      ftStatus(d.dist_km.toFixed(0) + " км по дорогам");
+      const p0 = (d.points || [])[0] || {}, truck = !!p0.is_truck;
+      fromRow({
+        label: "From → To: " + from + " → " + to, unit: truck ? from : "", km: d.dist_km,
+        polyline: d.route_polyline || null, seed: truck ? (d.calc_seed || null) : null,
+        noSeedNote: truck ? "тахографа машины нет — состав и остаток прежние" : "",
+      }, true);
+    } catch (e) {
+      if (seq === ftSeq) { ftKey = ""; ftStatus("ошибка запроса", true); }
+    }
   }
   function manual(kmChanged) {
     if (st.srcShown) { st.srcShown = false; srcUI(); }
@@ -484,6 +530,15 @@ const EtaCalc = (() => {
   const MAP_KEY = "eta-calc-map";
   const ZONE_KM = 40;                 // точка отдыха примерная (70 км/ч) — кружок ±40 км
   const CODE_MAX_KM = 80;             // дальше — кода нет (AT, CH без своих кодов — не подставлять соседский)
+  let refBtn = null, unitData = null, unitFor = "";
+  async function loadUnit(fresh) {              // v3.51: своя машина на мини-карте — позиция из Mapon (/api/units)
+    const num = (st.src && st.src.unit) || "";
+    if (num !== unitFor) unitData = null;
+    unitFor = num;
+    if (!num || !window.UnitsLayer) { unitData = null; return; }
+    const u = await UnitsLayer.findUnit(num, fresh).catch(() => null);
+    if (unitFor === num) { unitData = u; drawMapSoon(); }
+  }
   let gmap = null, lays = [], codes = null, codesLoading = false, mapRaf = 0, lineKey = "", lineCache = null;
   function mapFold(folded, init) {
     st.mapFolded = folded;
@@ -542,16 +597,21 @@ const EtaCalc = (() => {
     loadCodes();
     if (!gmap) {
       gmap = MapsCommon.make($(".ec-map"), { disableDefaultUI: true, zoomControl: true });   // v3.50: общий конфиг
+      refBtn = MapsCommon.refreshBtn(gmap, () => loadUnit(true));                           // v3.51: ↻ — своя машина
     }
+    const unitNum = (st.src && st.src.unit) || "";
+    refBtn.hidden = !unitNum;
+    if (unitNum && unitFor !== unitNum) loadUnit(true);
     lays.forEach((o) => o.setMap(null));
     lays = [];
     const L = line(enc), k = L.len / ((S.dist || 1) * 1000);   // км расклада → метры линии
     const add = (o) => { lays.push(o); return o; };
+    // v3.51: подписи — на белых плашках, как номера машин (ul-lab)
     const dot = (pos, color, scale, title, label) => add(new google.maps.Marker({
       map: gmap, position: pos, title, zIndex: label ? 3 : 2,
       icon: { path: google.maps.SymbolPath.CIRCLE, scale, fillColor: color, fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2,
-              labelOrigin: new google.maps.Point(0, -2.6) },
-      label: label ? { text: label, fontSize: "11px", fontWeight: "600", color: "#1a1a1a" } : null,
+              labelOrigin: new google.maps.Point(0, -16 / scale) },
+      label: label ? { text: label, className: "ul-lab ec-plate", fontSize: "11px", fontWeight: "600", color: "#1a1a1a" } : null,
     }));
     let day = 0;
     S.ev.forEach((e) => {
@@ -570,7 +630,17 @@ const EtaCalc = (() => {
       }
     });
     if (S.wk) dot(pointAt(L, S.wk.km * 1000 * k), "#c0392b", 5, "Недельный остаток кончился " + fdt(new Date(S.wk.ms)));
-    dot(L.path[0], "#1a1a1a", 5, "Машина сейчас · ETD " + fdt(new Date(S.etd)));
+    // v3.51: старт — машина кружком, как на картах Флота / Локатора; без машины — плашка 📍 ETD
+    if (unitNum && unitData && window.UnitsLayer) {
+      const drv = unitData.st === "driving";
+      add(new google.maps.Marker({ map: gmap, position: { lat: unitData.lat, lng: unitData.lng }, zIndex: 5,
+        icon: UnitsLayer.icon(unitData), title: UnitsLayer.title(unitData) + "\nETD " + fdt(new Date(S.etd)),
+        label: { text: String(unitData.number), className: "ul-lab " + (drv ? "ul-drv" : "ul-std"), color: "#1a1a1a", fontSize: "12px", fontWeight: "600" } }));
+    } else if (unitNum) {
+      dot(L.path[0], "#1a1a1a", 5, unitNum + " · ETD " + fdt(new Date(S.etd)));
+    } else {
+      dot(L.path[0], "#1a1a1a", 5, "Старт · ETD " + fdt(new Date(S.etd)), "📍 " + fdt(new Date(S.etd)));
+    }
     dot(L.path[L.path.length - 1], "#2f6fd6", 6, "ETA " + fdt(new Date(S.eta)) + " · " + km(S.dist), "🏁 " + fdt(new Date(S.eta)));
     if (st.mapFit) {
       st.mapFit = false;
