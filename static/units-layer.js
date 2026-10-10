@@ -83,6 +83,13 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
     return { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
              scaledSize: new google.maps.Size(24, 24), anchor: new google.maps.Point(12, 12), labelOrigin: new google.maps.Point(12, -9) };
   }
+  // v3.53: на плашке номера — стрелка направления, если машина едет (курс Mapon, 8 направлений)
+  const ARROWS = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"];
+  function dirArrow(u) {
+    if (u.st !== "driving" || u.dir == null) return "";
+    const i = Math.round((((u.dir % 360) + 360) % 360) / 45) % 8;
+    return ARROWS[i] + " ";
+  }
   function clusterIcon(n) {
     const r = n < 10 ? 13 : 15;
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${2 * r + 2}" height="${2 * r + 2}">`
@@ -146,7 +153,7 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
           const opt = { position: { lat: u.lat, lng: u.lng }, map, icon: unitIcon(u), zIndex: 15,
             title: unitTitle(u) + (opts.onPick ? "\nКлик — поставить в From1" : "") };
           if (L.nums && z >= NUM_MIN_ZOOM) {
-            opt.label = { text: String(u.number), className: u.st === "driving" ? "ul-lab ul-drv" : "ul-lab ul-std", color: "#1a1a1a", fontSize: "12px", fontWeight: "600" };
+            opt.label = { text: dirArrow(u) + String(u.number), className: u.st === "driving" ? "ul-lab ul-drv" : "ul-lab ul-std", color: "#1a1a1a", fontSize: "12px", fontWeight: "600" };
             opt.zIndex = 17;
           }
           const m = new google.maps.Marker(opt);

@@ -67,6 +67,7 @@ def parse_address_rows(values):
             "supplier": get(row, "supplier"),
             "country": get(row, "country").upper()[:2],
             "city": city,
+            "full": full,
             "lat": gps[0], "lng": gps[1],
         })
     return items, problems
@@ -110,7 +111,7 @@ def find_address(query):
 
 
 def address_public(a):
-    return {k: a[k] for k in ("name", "alias", "type", "open", "notes", "client", "supplier", "country", "city")}
+    return {k: a[k] for k in ("name", "alias", "type", "open", "notes", "client", "supplier", "country", "city", "full")}
 
 
 # ~99% грузов в Финляндию и ~70% в Эстонию основная машина везёт до Базы (Рига),

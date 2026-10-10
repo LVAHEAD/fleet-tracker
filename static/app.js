@@ -104,7 +104,7 @@ function sideMarginApply() {
 }
 window.addEventListener("resize", sideMarginApply);
 
-/* v3.31: боковые панели (🗺, 📓, ⏱) закрываются кликом в любом месте аппы, кроме строк трипов (клик по строке —
+/* v3.31: исключения из закрытия боковых панелей кликом мимо (с v3.53 такого закрытия нет, список — для notebook.js) (клик по строке —
    маршрут на карте, данные машины в калькулятор), всплывашек из строки (комментарий, прицеп, корзина,
    ✓ завершённые), фильтров и сортировки над таблицей. Нажатие ловим до обработчиков (capture): всплывашка
    может закрыться раньше, чем мы посмотрим, где был клик. */
@@ -115,15 +115,9 @@ const SIDE_KEEP = [
   ".nb-modal-bg", ".tabs-more-wrap", ".fleet-toast", ".pac-container", ".cor-pop",
   "[data-tab]",   // v3.36: смена вкладки аппы панель не закрывает (карта вернётся при возврате во Флот)
 ].join(", ");
-document.addEventListener("mousedown", (e) => {
-  if (e.button !== 0) return;
-  const t = e.target;
-  if (!t || t.nodeType !== 1 || t === document.documentElement) return;   // полоса прокрутки страницы
-  if (t.closest(SIDE_KEEP)) return;
-  if (window.fleetMapPanel) window.fleetMapPanel.close();   // v3.51: на любой вкладке
-  if (window.etaCalc) window.etaCalc.close();
-  if (typeof Notebook !== "undefined" && Notebook.close) Notebook.close();
-}, true);
+/* v3.53: правые панели сами не закрываются — ни кликом мимо, ни при смене вкладки. Закрывает только свой ярлык
+   или крестик; открытие одной панели закрывает другую (это действие диспетчера). SIDE_KEEP читает notebook.js
+   (страница /notebook), поэтому константа оставлена. */
 
 window.whenGoogleMaps = function (fn) {
   if (window.googleMapsReady) fn();

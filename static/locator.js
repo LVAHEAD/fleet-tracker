@@ -259,9 +259,13 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
         info.innerHTML = `${esc(d.label)} &nbsp;→&nbsp; ближайший код <b>${esc(d.code)}</b> — ${esc(d.code_place)}`
           + ` <span style="color:#888">(${d.dist_km} км до центра зоны)</span>`;
         if (d.address) {
+          // v3.53: полный адрес и ГПС из адресной базы (если есть в таблице)
           const a = d.address;
-          const bits = [a.open && `🕒 ${a.open}`, a.notes && `📝 ${a.notes}`].filter(Boolean).map(esc);
-          if (bits.length) info.innerHTML += `<div class="loc-addr">${bits.join(" &nbsp; ")}</div>`;
+          const gpsLine = /^-?\d+[.,]\d+\s*,\s*-?\d+[.,]\d+$/;
+          const full = String(a.full || "").split("\n").map((x) => x.trim()).filter((x) => x && !gpsLine.test(x)).join(", ");
+          const bits = [full && `📍 ${full}`, `ГПС ${Number(d.lat).toFixed(5)}, ${Number(d.lng).toFixed(5)}`,
+            a.open && `🕒 ${a.open}`, a.notes && `📝 ${a.notes}`].filter(Boolean).map(esc);
+          info.innerHTML += `<div class="loc-addr">${bits.join("<br>")}</div>`;
         }
       }
 
