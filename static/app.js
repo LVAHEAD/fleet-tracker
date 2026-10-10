@@ -1792,7 +1792,7 @@ function etaCellHtml(row, c, composed) {
     if (ce && ce.done) {
       inner = doneEtaHtml(ce);
       tip = ce.done_by != null ? `Точка пройдена: пройдена следующая ${STOP_NUM[ce.done_by + 1]}`
-        : ce.done_auto ? `Точка пройдена: трак стоял ${ce.done_zone ? "в зоне «" + ce.done_zone + "»" : "здесь"}, уехал ${ce.done_at}`
+        : ce.done_auto ? `Точка пройдена: трак стоял ${ce.done_zone ? "в зоне «" + ce.done_zone + "»" : "здесь"}${ce.done_arr ? " с " + ce.done_arr : ""}, уехал ${ce.done_at}`
         : "Отмечена пройденной вручную";
     } else if (ce && ce.error) {
       inner = `<span class="eta-x-err">${escapeHtml(ce.error)}</span>`;
@@ -2651,7 +2651,7 @@ async function calcRow(id, why) {
         row.crew ? { crew: row.crew } : {},
         row.x10 ? { x10: true } : {},                                    // v3.39: 10-й час сегодня
         row.corridor ? { corridor: row.corridor } : {},                 // v3.32: коридор выбрал диспетчер
-        { done: doneManualArray(row), done_seen: doneSeenArray(row), why: why || "edit" })),
+        { done: doneManualArray(row), done_seen: doneSeenArray(row), done_arr: doneArrArray(row), why: why || "edit" })),
     });
     const data = await res.json();
     if (!data.error) { keepDoneSeen(row, data); remapDone(data); }
@@ -2979,18 +2979,27 @@ function doneSeenArray(row) {
   const m = row.doneSeen || {};
   return [row.target || ""].concat((row.extra || []).map((x) => x.target || "")).map((t) => (t && m[t]) || null);
 }
+// v3.57: приезд к авто-✓ — отдельная карта doneArr (та же логика, что doneSeen)
+function doneArrArray(row) {
+  const m = row.doneArr || {};
+  return [row.target || ""].concat((row.extra || []).map((x) => x.target || "")).map((t) => (t && m[t]) || null);
+}
 function keepDoneSeen(row, data) {
   const pts = [row.target || ""].concat((row.extra || []).map((x) => x.target || ""));
   const old = row.doneSeen || {};
+  const oldA = row.doneArr || {};
   const next = {};
+  const nextA = {};
   (data.points_done || []).forEach((x, i) => {
     const t = pts[i];
     if (!t) return;
     if (x && x.done && x.auto && x.at) next[t] = x.at;
     else if (old[t] && !(x && x.manual === false)) next[t] = old[t];
+    if (x && x.done && x.auto && x.arr) nextA[t] = x.arr;
   });
-  if (JSON.stringify(next) !== JSON.stringify(old)) {
+  if (JSON.stringify(next) !== JSON.stringify(old) || JSON.stringify(nextA) !== JSON.stringify(oldA)) {
     if (Object.keys(next).length) row.doneSeen = next; else delete row.doneSeen;
+    if (Object.keys(nextA).length) row.doneArr = nextA; else delete row.doneArr;
     saveRows();
   }
 }
@@ -3008,15 +3017,18 @@ function doneEtaHtml(x) {
     return `<span class="done-eta done-by" title="Пройдена следующая точка ${STOP_NUM[by + 1]} — значит, и эта">✓ по ${STOP_NUM[by + 1]}</span>`;
   }
   const zone = x.done_zone || x.zone;
-  const tip = auto ? (zone ? `Трак стоял в зоне Mapon «${zone}» и уехал` : "Трак стоял на точке и уехал") : "Отмечено вручную";
-  return `<span class="done-eta" title="${escapeHtml(tip)}">✓ ${escapeHtml(auto && at ? at : "пройдена")}</span>`;
+  const arr = x.done_arr || x.arr;   // v3.57: приезд на точку (если трек его знает)
+  const where = zone ? `в зоне Mapon «${zone}»` : "на точке";
+  const tip = auto ? (arr && at ? `Трак стоял ${where} с ${arr} до ${at} и уехал` : `Трак стоял ${where} и уехал`) : "Отмечено вручную";
+  const label = auto && at ? (arr ? `${arr} – ${at}` : at) : "пройдена";
+  return `<span class="done-eta" title="${escapeHtml(tip)}">✓ ${escapeHtml(label)}</span>`;
 }
 // ответ сервера (① и extra — только непройденные) -> по исходным номерам точек
 function remapDone(data) {
   const dn = data.points_done;
   if (!dn) return data;
   const act = data.active_idx || [];
-  const doneItem = (i) => ({ done: true, done_at: dn[i].at, done_auto: dn[i].auto,
+  const doneItem = (i) => ({ done: true, done_at: dn[i].at, done_arr: dn[i].arr || null, done_auto: dn[i].auto,
     done_by: dn[i].by != null ? dn[i].by : null, done_zone: dn[i].zone || null,
     badge: dn[i].badge || null, badge_hint: dn[i].badge_hint || null });
   const main = data.target_lat != null ? {
@@ -3133,7 +3145,7 @@ function toggleDone(id, k) {
 function extraCalc(data) {
   return (data.extra || []).map((x) => ({
     error: x.error || null,
-    done: !!x.done, done_at: x.done_at || null, done_auto: !!x.done_auto, from_truck: !!x.from_truck,
+    done: !!x.done, done_at: x.done_at || null, done_arr: x.done_arr || null, done_auto: !!x.done_auto, from_truck: !!x.from_truck,
     done_by: x.done_by != null ? x.done_by : null, done_zone: x.done_zone || null,
     dist_km: x.dist_km, leg_km: x.leg_km,
     eta_tacho: x.eta_tacho || null, eta_local: x.eta_local || null,

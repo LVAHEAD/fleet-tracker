@@ -294,11 +294,12 @@ def recent_passes(unit_id):
     return res
 
 
-def points_done(pts, manual, unit, units, seen=None):
+def points_done(pts, manual, unit, units, seen=None, seen_arr=None):
     """pts — строки точек (① + следующие), manual — [True/False/None] ручные отметки,
     seen — [время|None] уже запомненные в строке авто-✓ (v3.17: не теряются, когда стоянка
-    уходит из окна истории Mapon).
-    -> список {done, auto, at}: пройдена ли точка (ручная отметка важнее автоматической).
+    уходит из окна истории Mapon); seen_arr — [время приезда|None] к ним (v3.57).
+    -> список {done, auto, at, arr}: пройдена ли точка (ручная отметка важнее автоматической);
+    at — отъезд, arr — приезд на точку (v3.57; у проезда по треку приезда нет — None).
     v3.29: у точки есть зона Mapon — стоянка внутри зоны, «уехал» = вышел из зоны;
     пройдена следующая — пройдены и все предыдущие (by — номер точки, по которой поставлен ✓, без времени)."""
     seen = seen or []
@@ -318,6 +319,10 @@ def points_done(pts, manual, unit, units, seen=None):
             except Exception:
                 t = None
         seen_at = seen[i] if i < len(seen) and isinstance(seen[i], str) and seen[i] else None
+        seen_arr_at = None
+        if seen_arr and i < len(seen_arr) and isinstance(seen_arr[i], str) and seen_arr[i]:
+            seen_arr_at = seen_arr[i]
+        auto_arr = None      # v3.57: приезд на точку — начало стоянки, которая дала ✓
         if t is not None and m is None and seen_at is None and unit.get("lat") is not None:
             try:
                 # точка-машина (перецеп) двигается — по истории не проверяем
@@ -332,15 +337,16 @@ def points_done(pts, manual, unit, units, seen=None):
                     if left and is_transit(tstr):          # v3.49: проезд — трек / короткие стоянки в зоне
                         for p in recent_passes(unit.get("unit_id")) or []:
                             if any(haversine_km(a, b, lat, lng) <= TRANSIT_NEAR_KM and near(a, b) for a, b in p["pts"]):
-                                auto_at = max(auto_at or 0, p["end"])
+                                if p["end"] > (auto_at or 0):
+                                    auto_at, auto_arr = p["end"], None   # проезд: приезда по треку нет
                     if left and not auto_at:
                         if stops is None:
                             stops = recent_stops(unit.get("unit_id")) or []
                         for st in stops:
                             if st.get("now") or st.get("lat") is None:
                                 continue
-                            if near(st["lat"], st["lng"]):
-                                auto_at = max(auto_at or 0, st["end"])
+                            if near(st["lat"], st["lng"]) and st["end"] > (auto_at or 0):
+                                auto_at, auto_arr = st["end"], st.get("start")
                     if left and obj and auto_at:
                         info["zone"] = obj["name"]
             except Exception:
@@ -348,10 +354,11 @@ def points_done(pts, manual, unit, units, seen=None):
         if m is True:
             info["done"] = True
         elif m is None and seen_at:
-            info.update(done=True, auto=True, at=seen_at, kept=True)
+            info.update(done=True, auto=True, at=seen_at, kept=True, arr=seen_arr_at)
         elif m is None and auto_at:
             info.update(done=True, auto=True,
-                        at=ts_west(auto_at).strftime("%d/%m %H:%M"))
+                        at=ts_west(auto_at).strftime("%d/%m %H:%M"),
+                        arr=ts_west(auto_arr).strftime("%d/%m %H:%M") if auto_arr else None)
         out.append(info)
     # v3.29: пройдена следующая точка — значит, пройдены и предыдущие (ручное «не пройдена» не трогаем)
     last = max((i for i, x in enumerate(out) if x["done"]), default=-1)
