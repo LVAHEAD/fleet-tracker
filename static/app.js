@@ -128,6 +128,7 @@ function initMap() {
   // v1.66: + / − справа сверху под ⛶; v1.67: «джойстик» Google (cameraControl) убран; v3.50: общий конфиг — maps-common.js
   map = MapsCommon.make(document.getElementById("map"), { cameraControl: false });
   if (window.ObjLayer) ObjLayer.attach(map);   // v3.55: объекты Mapon — 🏭 под ↻
+  ensureOverlap();                              // v3.58: машины в одной точке — счётчик и веер
 
   Object.keys(pendingPositions).forEach((rowId) => {
     const p = pendingPositions[rowId];
@@ -302,6 +303,35 @@ async function refreshFleetPositions() {
     if (rowPositions[id]) { rowPositions[id].unitLat = u.lat; rowPositions[id].unitLng = u.lng; }
   });
 }
+// v3.58: машины в одной точке — счётчик и веер (static/overlap-spider.js); плашка машины едет вместе с маркером
+let overlapCtl = null;
+let overlapTimer = null;
+function ensureOverlap() {
+  if (overlapCtl || !map || !window.OverlapSpider) return;
+  overlapCtl = OverlapSpider.create(map, {
+    refresh: () => scheduleOverlap(),
+    move: (id, lat, lng) => {
+      const b = truckBadges[id];
+      if (b) { b.pos = new google.maps.LatLng(lat, lng); b.draw(); }
+    },
+  });
+}
+function scheduleOverlap() {
+  clearTimeout(overlapTimer);
+  overlapTimer = setTimeout(applyOverlap, 40);
+}
+function applyOverlap() {
+  ensureOverlap();
+  if (!overlapCtl) return;
+  const items = [];
+  Object.keys(markers).forEach((id) => {
+    const m = markers[id], p = lastTruckPos[id];
+    if (!m || !p || !m.getMap || !m.getMap() || !m.getVisible()) return;
+    items.push({ id, lat: p.lat, lng: p.lng, marker: m, title: (markerArgs[id] && markerArgs[id].label) || String(id) });
+  });
+  overlapCtl.apply(items);
+}
+
 function updateMarker(rowId, lat, lng, label, status, heading, km, trailer) {
   if (lat == null || lng == null) return;
   markerArgs[rowId] = { label, km, trailer };
@@ -339,6 +369,7 @@ function updateMarker(rowId, lat, lng, label, status, heading, km, trailer) {
   else truckBadges[rowId] = makeBadge(lat, lng, html, cls, 14, () => selectFromMap(rowId));
   applyBadgeLook(rowId);
   scheduleMapSync();
+  scheduleOverlap();   // v3.58
 }
 
 // v3.11: плашка машины — фон цвета диспетчера, рамка темнее, слева полоска статуса (едет/стоит)
@@ -466,6 +497,7 @@ function syncMapVisibility() {
   });
   syncTruckLabels();
   applyTargetVisibility();
+  scheduleOverlap();   // v3.58: кластеры / фильтр поменялись — пересчёт счётчиков
 }
 window.fleetMapSync = syncMapVisibility;
 let mapSyncTimer = null;
@@ -517,6 +549,7 @@ function removeMarker(rowId) {
   if (markers[rowId]) {
     markers[rowId].setMap(null);
     delete markers[rowId];
+    scheduleOverlap();   // v3.58
   }
   if (truckBadges[rowId]) {
     truckBadges[rowId].setMap(null);

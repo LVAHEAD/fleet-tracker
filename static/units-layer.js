@@ -134,10 +134,13 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
     ui();
     map.controls[google.maps.ControlPosition.TOP_LEFT].push(box);
 
+    // v3.58: машины в одной точке — счётчик и веер (overlap-spider.js); создаём до слушателя зума
+    const overlap = window.OverlapSpider ? OverlapSpider.create(map, {}) : { apply() {} };
     L.clear = () => { L.marks.forEach((m) => m.setMap(null)); L.marks = []; };
     L.draw = () => {
       L.clear();
-      if (!L.on || !units.length) return;
+      const items = [];
+      if (!L.on || !units.length) { overlap.apply([]); return; }
       const z = map.getZoom() || 0;
       const groups = [];
       if (L.group && z < CLUSTER_MAX_ZOOM) {
@@ -159,6 +162,7 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
           const m = new google.maps.Marker(opt);
           if (opts.onPick) m.addListener("click", () => opts.onPick(u.number));
           L.marks.push(m);
+          items.push({ id: u.number, lat: u.lat, lng: u.lng, marker: m, title: String(u.number) });
         } else {
           const lat = g.items.reduce((a, u) => a + u.lat, 0) / g.items.length;
           const lng = g.items.reduce((a, u) => a + u.lng, 0) / g.items.length;
@@ -168,6 +172,7 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
           L.marks.push(m);
         }
       });
+      overlap.apply(items);
     };
     map.addListener("zoom_changed", () => L.draw());
     layers.push(L);
