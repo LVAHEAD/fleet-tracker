@@ -1201,3 +1201,27 @@ body:not(.sort-manual) .acts-br { display: none; }
 
 /* v3.48: значок страны во Флоте кликабелен — открывает ⏱ калькулятор */
 #fleet-tbody .cc-badge:not([hidden]) { cursor: pointer; }
+
+/* ---------- v3.54: левая выезжалка — оверлей поверх страницы, ничего не сдвигает ---------- */
+.left-panel {
+  position: fixed; top: 0; left: calc(-1 * var(--sidew) - 24px); width: var(--sidew); height: 100vh;
+  z-index: 1450; background: #fff; border-right: 1px solid #d0d0d0; box-shadow: 4px 0 16px rgba(0,0,0,.10);
+  transition: left .25s ease; overflow-y: auto; box-sizing: border-box; padding: 0 12px 12px;
+}
+body.left-open .left-panel { left: 0; }
+.left-head { display: flex; justify-content: flex-end; position: sticky; top: 0; background: #fff; padding: 6px 0; }
+.left-close { border: 0; background: none; font-size: 18px; cursor: pointer; padding: 4px 8px; }
+.left-sec { border-top: 1px solid #e5e5e5; padding-top: 8px; margin-top: 8px; }
+.left-sec-title { font-size: 14px; margin: 0 0 6px; }
+.left-tab {
+  position: fixed; left: 0; top: calc(50% - 52px); transform: translateY(-50%); z-index: 1490;
+  width: 30px; height: 44px; padding: 0; border: 1px solid #d0d0d0; border-left: 0; border-radius: 0 8px 8px 0;
+  background: #fff; box-shadow: 2px 1px 6px rgba(0,0,0,.10); font-size: 16px; line-height: 1; cursor: pointer; opacity: .85;
+  transition: left .25s ease, opacity .15s;
+}
+.left-tab:hover { opacity: 1; background: #f4f4f4; }
+body.left-open .left-tab { left: var(--sidew); opacity: 1; background: #eef3fd; }
+@media (max-width: 767px) {
+  .left-panel { width: 100vw; left: -100vw; }
+  body.left-open .left-tab { display: none; }
+}

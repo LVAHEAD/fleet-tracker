@@ -16,7 +16,6 @@ Fleet ETA Tracker — вкладка "Запреты" (справочная)
   const nowEl = document.getElementById("bansNow");
   const calEl = document.getElementById("bansCalendar");
   const btn = document.getElementById("bansRefresh");
-    const tab = document.querySelector('.main-tab-btn[data-tab="bans"]');
   if (!nowEl || !calEl) return;
 
   const DAYS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
@@ -147,7 +146,8 @@ Fleet ETA Tracker — вкладка "Запреты" (справочная)
   }
 
   let loaded = false;
-  if (tab) tab.addEventListener("click", () => { load(false); loaded = true; });
+  // v3.54: вкладка переехала в левую выезжалку — грузим при каждом открытии панели
+  window.addEventListener("left-panel:open", () => { load(false); loaded = true; });
   if (btn) btn.addEventListener("click", async () => {
     btn.disabled = true; btn.textContent = "Обновляю…";
     await load(true);

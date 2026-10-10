@@ -23,7 +23,6 @@
   <button class="main-tab-btn" data-tab="gf" data-wip>GF построитель</button>
   <button class="main-tab-btn m-only" data-tab="maps" data-locator>Локатор</button>
   <span class="main-tabs-spacer"></span>
-  <button class="main-tab-btn ref-tab" data-tab="bans">Запреты</button>
   <button class="main-tab-btn ref-tab" data-tab="ferries" data-wip>Паромы</button>
   <button class="main-tab-btn ref-tab" data-tab="maps">Карты стран</button>
   <button class="main-tab-btn ref-tab" data-tab="truckinfo" data-wip>Truck Info</button>
@@ -108,6 +107,31 @@
 <button type="button" class="map-tab" id="map-tab" title="Карта Флота (Esc — закрыть)">🗺</button>
 <!-- v3.28: ⏱ ETA-калькулятор — язычок под 📓, панель строит static/eta-calc.js -->
 <button type="button" class="calc-tab" id="calc-tab" title="ETA-калькулятор (Esc — закрыть)">⏱</button>
+
+<!-- v3.54: левая выезжалка — оверлей поверх страницы, ничего не сдвигает. Разделы: Запреты (переехали из шапки), Links (пока пусто) -->
+<aside id="left-panel" class="left-panel" aria-hidden="true">
+  <div class="left-head"><button type="button" class="left-close" title="Закрыть (Esc)">✕</button></div>
+  <section class="left-sec" id="sec-bans">
+    <h3 class="left-sec-title">Запреты</h3>
+  <div class="bans-head">
+    <div id="bansNow" class="bans-now">Загрузка…</div>
+    <button type="button" id="bansRefresh" class="bans-refresh">↻ Обновить</button>
+  </div>
+  <div id="bansCalendar" class="bans-calendar"></div>
+  <div class="bans-legend">
+    <span class="ban-chip ban-full">DE</span> запрет по всей стране (воскресенье, праздник)
+    <span class="ban-chip ban-part">AT</span> отдельные дороги / участки
+    <span class="ban-chip ban-full ban-ours">DE</span> страна, где сейчас машина или её таргет
+    · запреты только для ADR скрыты
+  </div>
+  <p class="bans-note">Данные: <a href="https://nakordoni.eu/" target="_blank" rel="noopener">nakordoni.eu</a>, обновляются раз в 30 минут; информация справочная — критичные рейсы сверяйте с официальными источниками.
+    Показаны только страны, где мы ездим.</p>
+  </section>
+  <section class="left-sec" id="sec-links">
+    <h3 class="left-sec-title">Links</h3>
+  </section>
+</aside>
+<button type="button" class="left-tab" id="left-tab" title="Левая панель — Запреты, Links (Esc — закрыть)">▤</button>
 
 <!-- ==================== Вкладка: Карты стран ==================== -->
 <div id="tab-maps" class="tab-panel" hidden>
@@ -199,23 +223,6 @@
   </div>
 </div>
 
-<!-- ==================== Вкладка: Запреты (справочная) ==================== -->
-<div id="tab-bans" class="tab-panel" hidden>
-  <div class="bans-head">
-    <div id="bansNow" class="bans-now">Загрузка…</div>
-    <button type="button" id="bansRefresh" class="bans-refresh">↻ Обновить</button>
-  </div>
-  <div id="bansCalendar" class="bans-calendar"></div>
-  <div class="bans-legend">
-    <span class="ban-chip ban-full">DE</span> запрет по всей стране (воскресенье, праздник)
-    <span class="ban-chip ban-part">AT</span> отдельные дороги / участки
-    <span class="ban-chip ban-full ban-ours">DE</span> страна, где сейчас машина или её таргет
-    · запреты только для ADR скрыты
-  </div>
-  <p class="bans-note">Данные: <a href="https://nakordoni.eu/" target="_blank" rel="noopener">nakordoni.eu</a>, обновляются раз в 30 минут; информация справочная — критичные рейсы сверяйте с официальными источниками.
-    Показаны только страны, где мы ездим.</p>
-</div>
-
 <!-- ==================== Вкладка: Паромы (справочная) ==================== -->
 <div id="tab-ferries" class="tab-panel" hidden>
   <p class="ferries-note">Расписания паромов. Клик по картинке — открыть в полный размер. Пометки терминалов: vuos — Vuosaari, Lansi — Länsisatama (West Harbour), TermA — Terminal A, muuga — Muuga.</p>
@@ -301,6 +308,7 @@
 <script src="{{ url_for('static', filename='locator.js') }}"></script>
 <script src="{{ url_for('static', filename='notes.js') }}"></script>
 <script src="{{ url_for('static', filename='bans-tab.js') }}"></script>
+<script src="{{ url_for('static', filename='left-panel.js') }}"></script>
 <script src="{{ url_for('static', filename='truckinfo.js') }}"></script>
 <script src="{{ url_for('static', filename='gusage.js') }}"></script>
 <script src="{{ url_for('static', filename='changelog.js') }}"></script>
