@@ -48,6 +48,7 @@ function initRouteMapFit() {
 function initRouteTab() {
   if (window.routeMap) return; // уже создана
   window.routeMap = MapsCommon.make(document.getElementById("route-map"));   // v3.50: общий конфиг
+  if (window.ObjLayer) ObjLayer.attach(window.routeMap);   // v3.55: объекты Mapon — 🏭
 
   // v3.38: все машины HEAD TRUCK на карте; клик по машине — она в From1, остальные вниз (пересчёт — по кнопке)
   if (window.UnitsLayer) window.UnitsLayer.attach(window.routeMap, { onPick: routePutTruck });

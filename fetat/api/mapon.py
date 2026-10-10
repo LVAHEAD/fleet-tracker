@@ -12,7 +12,7 @@ from fetat.domain.points import find_unit_exact
 from fetat.domain.regions import nearest_region_code
 from fetat.domain.tacho import tacho_no_subscription, WEEKLY_FULL_SEC, weekly_status
 from fetat.domain.trailers import is_trailer
-from fetat.utils.geo import haversine_km, _wkt_center
+from fetat.utils.geo import haversine_km, _wkt_center, _wkt_vertices
 from fetat.utils.timefmt import _hm, _lv, _utc_iso
 
 bp = Blueprint("mapon", __name__)
@@ -220,16 +220,25 @@ def api_mapon_units():
                               mimetype="application/json; charset=utf-8")
 
 
+_objs_cache = {"t": 0.0, "objs": None}   # v3.55: кеш списка объектов Mapon
+
+
 @bp.route("/api/mapon-objects")
 def api_mapon_objects():
     """Объекты Mapon: /api/mapon-objects (таблица) или ?format=csv (файл для Excel)."""
     if not MAPON_API_KEY:
         return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
-    try:
-        objs = (mapon_get(MAPON_BASE + "object/list.json", {"key": MAPON_API_KEY}, timeout=60)
-                .get("data") or {}).get("objects") or []
-    except Exception as e:
-        return jsonify({"error": f"object/list: {e}"}), 502
+    import time
+    now = time.time()
+    if _objs_cache["objs"] is None or now - _objs_cache["t"] > 600:   # v3.55: список объектов — кеш на 10 минут
+        try:
+            _objs_cache["objs"] = (mapon_get(MAPON_BASE + "object/list.json", {"key": MAPON_API_KEY}, timeout=60)
+                                   .get("data") or {}).get("objects") or []
+            _objs_cache["t"] = now
+        except Exception as e:
+            if _objs_cache["objs"] is None:
+                return jsonify({"error": f"object/list: {e}"}), 502
+    objs = _objs_cache["objs"]
     groups = {}
     try:
         gl = mapon_get(MAPON_BASE + "object/list_groups.json", {"key": MAPON_API_KEY}).get("data") or {}
@@ -246,7 +255,8 @@ def api_mapon_objects():
                      "lat": lat, "lng": lng, "points": n,
                      "gps": f"{lat:.5f}, {lng:.5f}" if lat is not None else "",
                      "created": (o.get("created") or "")[:10], "updated": (o.get("updated") or "")[:10],
-                     "private": o.get("private")})
+                     "private": o.get("private"),
+                     "poly": _wkt_vertices(o.get("wkt")) if n else []})
     rows.sort(key=lambda r: r["name"].lower())
     if request.args.get("format") == "csv":
         import csv, io

@@ -1225,3 +1225,30 @@ body.left-open .left-tab { left: var(--sidew); opacity: 1; background: #eef3fd; 
   .left-panel { width: 100vw; left: -100vw; }
   body.left-open .left-tab { display: none; }
 }
+
+/* ---------- v3.55: вкладки левой панели ---------- */
+.left-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.left-tabs { display: flex; gap: 4px; }
+.left-tabbtn { border: 1px solid #d0d0d0; background: #f7f7f7; border-radius: 6px 6px 0 0; padding: 6px 12px;
+  font-size: 13px; cursor: pointer; color: #555; }
+.left-tabbtn.active { background: #fff; color: #222; border-bottom-color: #fff; font-weight: 600; }
+.left-pane[hidden] { display: none; }
+.left-empty { color: #888; font-size: 13px; margin: 12px 0; }
+.left-sec-title { display: none; }
+
+/* ---------- v3.55: объекты Mapon — 🏭 под ↻ на каждой карте ---------- */
+.ob-wrap { position: relative; margin: 6px 10px 0 0; }
+.ob-btn { width: 40px; height: 40px; padding: 0; background: #fff; border: 0; border-radius: 2px;
+  box-shadow: 0 1px 4px -1px rgba(0,0,0,.3); font-size: 18px; line-height: 40px; cursor: pointer; }
+.ob-btn:hover { background: #f4f4f4; }
+.ob-pop { position: absolute; right: 0; top: 46px; width: 300px; max-height: 60vh; overflow-y: auto;
+  background: #fff; border: 1px solid #d0d0d0; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.18);
+  padding: 8px 10px; font-size: 13px; text-align: left; z-index: 5; }
+.ob-pop[hidden] { display: none; }
+.ob-head { font-weight: 600; margin-bottom: 6px; }
+.ob-empty { color: #888; }
+.ob-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; cursor: pointer; }
+.ob-name { flex: 1; }
+.ob-n { color: #888; font-size: 12px; }
+.ob-bar { display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; }
+.ob-bar button { border: 1px solid #d0d0d0; background: #f7f7f7; border-radius: 4px; padding: 3px 10px; cursor: pointer; }

@@ -127,7 +127,7 @@ window.whenGoogleMaps = function (fn) {
 function initMap() {
   // v1.66: + / − справа сверху под ⛶; v1.67: «джойстик» Google (cameraControl) убран; v3.50: общий конфиг — maps-common.js
   map = MapsCommon.make(document.getElementById("map"), { cameraControl: false });
-  MapsCommon.refreshBtn(map, refreshFleetPositions);   // v3.51: ↻ — позиции машин из Mapon
+  if (window.ObjLayer) ObjLayer.attach(map);   // v3.55: объекты Mapon — 🏭 под ↻
 
   Object.keys(pendingPositions).forEach((rowId) => {
     const p = pendingPositions[rowId];

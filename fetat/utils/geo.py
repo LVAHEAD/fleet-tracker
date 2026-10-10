@@ -47,6 +47,17 @@ def _decode_polyline(enc):
     return pts
 
 
+def _wkt_vertices(wkt):
+    """Вершины полигона Mapon (v3.55): список [lat, lng] без замыкающей точки; та же логика порядка, что у _wkt_center."""
+    nums = re.findall(r"-?\d+(?:\.\d+)?", str(wkt or ""))
+    pts = [[float(nums[i]), float(nums[i + 1])] for i in range(0, len(nums) - 1, 2)]
+    if len(pts) > 1 and pts[0] == pts[-1]:
+        pts = pts[:-1]
+    if pts and abs(pts[0][0]) > 90:        # на случай долготы первой
+        pts = [[b, a] for a, b in pts]
+    return [[round(a, 5), round(b, 5)] for a, b in pts]
+
+
 def _wkt_center(wkt):
     """Центр объекта из WKT Mapon (по умолчанию широта первой): среднее вершин."""
     nums = re.findall(r"-?\d+(?:\.\d+)?", str(wkt or ""))

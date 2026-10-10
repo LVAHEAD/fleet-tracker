@@ -20,6 +20,12 @@ Fleet ETA Tracker — левая выезжалка (v3.54): оверлей по
   }
 
   tab.addEventListener("click", () => set(!isOpen()));
+  // v3.55: вкладки Запреты / Links — панель одна, показываем одну вкладку
+  panel.querySelectorAll(".left-tabbtn").forEach((b) => b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    panel.querySelectorAll(".left-tabbtn").forEach((x) => x.classList.toggle("active", x === b));
+    panel.querySelectorAll(".left-pane").forEach((p) => { p.hidden = p.id !== "lp-" + b.dataset.lp; });
+  }));
   const close = panel.querySelector(".left-close");
   if (close) close.addEventListener("click", () => set(false));
   document.addEventListener("keydown", (e) => {

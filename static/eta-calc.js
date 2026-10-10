@@ -598,6 +598,7 @@ const EtaCalc = (() => {
     if (!gmap) {
       gmap = MapsCommon.make($(".ec-map"), { disableDefaultUI: true, zoomControl: true });   // v3.50: общий конфиг
       refBtn = MapsCommon.refreshBtn(gmap, () => loadUnit(true));                           // v3.51: ↻ — своя машина
+      if (window.ObjLayer) ObjLayer.attach(gmap);   // v3.55: объекты Mapon — 🏭
     }
     const unitNum = (st.src && st.src.unit) || "";
     refBtn.hidden = !unitNum;
