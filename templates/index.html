@@ -108,13 +108,10 @@
 <!-- v3.28: ⏱ ETA-калькулятор — язычок под 📓, панель строит static/eta-calc.js -->
 <button type="button" class="calc-tab" id="calc-tab" title="ETA-калькулятор (Esc — закрыть)">⏱</button>
 
-<!-- v3.54: левая выезжалка — оверлей поверх страницы, ничего не сдвигает. Разделы: Запреты (переехали из шапки), Links (пока пусто) -->
+<!-- v3.56: левая выезжалка — как правая: на всю высоту, свой ярлык у края на каждый раздел (Запреты, Links). Оверлей, ничего не сдвигает -->
 <aside id="left-panel" class="left-panel" aria-hidden="true">
   <div class="left-head">
-    <div class="left-tabs" role="tablist">
-      <button type="button" class="left-tabbtn active" data-lp="bans" role="tab">Запреты</button>
-      <button type="button" class="left-tabbtn" data-lp="links" role="tab">Links</button>
-    </div>
+    <div class="left-title" id="left-title">Запреты</div>
     <button type="button" class="left-close" title="Закрыть (Esc)">✕</button>
   </div>
   <section class="left-pane" id="lp-bans">
@@ -136,7 +133,8 @@
     <p class="left-empty">Пока пусто.</p>
   </section>
 </aside>
-<button type="button" class="left-tab" id="left-tab" title="Левая панель — Запреты, Links (Esc — закрыть)">▤</button>
+<button type="button" class="left-tab" id="left-tab-bans" data-lp="bans" title="Запреты (Esc — закрыть)">🚫</button>
+<button type="button" class="left-tab" id="left-tab-links" data-lp="links" title="Links (Esc — закрыть)">🔗</button>
 
 <!-- ==================== Вкладка: Карты стран ==================== -->
 <div id="tab-maps" class="tab-panel" hidden>

@@ -1220,18 +1220,18 @@ body.left-open .left-panel { left: 0; }
   transition: left .25s ease, opacity .15s;
 }
 .left-tab:hover { opacity: 1; background: #f4f4f4; }
-body.left-open .left-tab { left: var(--sidew); opacity: 1; background: #eef3fd; }
+body.left-open .left-tab { left: var(--sidew); opacity: 1; }
 @media (max-width: 767px) {
   .left-panel { width: 100vw; left: -100vw; }
   body.left-open .left-tab { display: none; }
 }
 
-/* ---------- v3.55: вкладки левой панели ---------- */
+/* ---------- v3.56: левая панель — свой ярлык у края на каждый раздел, как у правых панелей ---------- */
 .left-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.left-tabs { display: flex; gap: 4px; }
-.left-tabbtn { border: 1px solid #d0d0d0; background: #f7f7f7; border-radius: 6px 6px 0 0; padding: 6px 12px;
-  font-size: 13px; cursor: pointer; color: #555; }
-.left-tabbtn.active { background: #fff; color: #222; border-bottom-color: #fff; font-weight: 600; }
+.left-title { font-size: 15px; font-weight: 600; color: #222; }
+#left-tab-bans { top: calc(50% - 26px); }
+#left-tab-links { top: calc(50% + 26px); }
+body.left-open .left-tab.on { background: #eef3fd; opacity: 1; }
 .left-pane[hidden] { display: none; }
 .left-empty { color: #888; font-size: 13px; margin: 12px 0; }
 .left-sec-title { display: none; }
