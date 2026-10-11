@@ -39,6 +39,7 @@
 | `fetat/api/reference.py` | `/api/region-codes`, `/api/locate`, `/api/addresses`, `/api/freights`, `/api/bans` |
 | `fetat/api/fleet.py` | `/api/fleet*`: чтение, sync (смена `disp` — только назначающий), 🔒, корзина, восстановление, импорт; завершить / вернуть / список завершённых (`complete`, `reopen`, `done` — хозяин или назначающий); `/api/dispatchers` |
 | `static/map-core.js` | карта Флота (v3.71, вынесено из app.js): `initMap`, машины, таргеты, плашки, кластеры, `drawRoute`; грузится до `app.js` |
+| `static/corridor-menu.js` | плашка ⛰ и меню выбора коридора (v3.77, вынесено из app.js): `corridorChip`, `corridorMenu`, `COR_TUNNEL`; для Флота и From → To (`route-tab.js`); грузится до `app.js` |
 | `static/foreign-edits.js` | чужая правка (v3.76, вынесено из app.js): красная рамка и плашка «✎ кто», `markForeign`, `clearChg`; грузится до `app.js` |
 | `static/row-comments.js` | комментарий строки и точек (v3.75, вынесено из app.js): `comBtnHtml`, `comOf`, `showComPop`, `openComEditor`, слушатели; грузится до `app.js` |
 | `static/trailer-link.js` | привязка прицепа к тягачу (v3.74, вынесено из app.js): `linkTrailer`, `linkTrailerRowToTruck`, `unlinkTrailer`, редактор `openTrailerEditor`, клики в таблице; грузится до `app.js` |
