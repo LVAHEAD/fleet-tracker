@@ -25,7 +25,23 @@ Fleet ETA Tracker — левая выезжалка (v3.56): как правая
     try { localStorage.setItem(SEC_KEY, name); } catch (e) { /* режим без хранилища */ }
   }
 
+  // v3.63: переключение раздела — как у правых: панель уезжает, раздел меняется, панель выезжает обратно
+  let swapTimer = null;
+  function switchSection(name) {
+    if (!isOpen()) { section = name; set(true); return; }
+    if (name === section && !swapTimer) return;
+    clearTimeout(swapTimer);
+    body.classList.add("left-swap");
+    swapTimer = setTimeout(() => {
+      swapTimer = null;
+      body.classList.remove("left-swap");
+      showSection(name);
+    }, 250);
+  }
+
   function set(open) {
+    clearTimeout(swapTimer); swapTimer = null;
+    body.classList.remove("left-swap");
     body.classList.toggle("left-open", open);
     panel.setAttribute("aria-hidden", open ? "false" : "true");
     showSection(section);
@@ -36,8 +52,7 @@ Fleet ETA Tracker — левая выезжалка (v3.56): как правая
   tabs.forEach((t) => t.addEventListener("click", () => {
     const name = t.dataset.lp;
     if (isOpen() && section === name) { set(false); return; }
-    section = name;
-    set(true);
+    switchSection(name);
   }));
   const close = panel.querySelector(".left-close");
   if (close) close.addEventListener("click", () => set(false));
