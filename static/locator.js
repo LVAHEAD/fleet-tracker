@@ -244,7 +244,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     if (a.notes) add("📝 " + esc(a.notes));
     const btns = document.createElement("div");
     btns.style.cssText = "margin-top:6px;display:flex;gap:6px;flex-wrap:wrap";
-    [["Скопировать адрес", full], ["Скопировать GPS", gps]].forEach(([t, v]) => {
+    [["Скопировать адрес", full && full + "\n" + gps], ["Скопировать GPS", gps]].forEach(([t, v]) => {
       if (!v) return;
       const b = document.createElement("button");
       b.type = "button";
