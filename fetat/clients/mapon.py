@@ -280,8 +280,11 @@ def unit_passes(unit_id, days=4):
         return []
 
     def ts_of(x):
+        t = (x or {}).get("time")
+        if not t:   # у идущего сейчас отрезка конца ещё нет — это норма
+            return None
         try:
-            return datetime.strptime((x or {}).get("time"), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+            return datetime.strptime(t, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
         except Exception as _e:
             warn("mapon:281", _e)
             return None
