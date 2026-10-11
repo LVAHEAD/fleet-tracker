@@ -128,7 +128,8 @@ body.ec-resizing .ec-panel, body.ec-resizing .calc-tab, body.ec-resizing .nb-tab
 .ec-hr i { position: absolute; bottom: 0; width: 1px; height: 3px; background: #ccc; }
 .ec-hr i.e { height: 5px; background: #999; }
 .ec-dl { color: #666; white-space: nowrap; }
-.ec-day { position: relative; height: 18px; background: #fafafa; border: 1px solid #e0e0e0; border-radius: 3px; overflow: hidden; }
+.ec-day { position: relative; height: 18px; background: #fafafa; border: 1px solid #e0e0e0; border-radius: 3px; }
+.ec-day .ec-hdl { top: -4px; bottom: -4px; }
 .ec-day .gl { position: absolute; top: 0; bottom: 0; width: 1px; background: #e6e6e6; }
 .ec-day i { position: absolute; top: 0; bottom: 0; cursor: help; }
 .ec-day i.w { width: 2px; }

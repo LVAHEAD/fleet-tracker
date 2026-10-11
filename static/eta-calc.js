@@ -121,7 +121,7 @@ const EtaCalc = (() => {
         </div>
         <div class="ec-sec">
           <div class="ec-h">Шкала <a href="#" class="ec-rst">сбросить отдыхи</a></div>
-          <p class="ec-note">Правый край отдыха — длиннее (шаг 15 мин), левый — весь отдых раньше. Двойной клик по ручке — вернуть.</p>
+          <p class="ec-note">Правый край отдыха — длиннее (шаг 15 мин), левый — весь отдых раньше. Двойной клик по ручке — вернуть. Те же ручки есть в таблице по дням.</p>
           <div class="ec-ext ec-rl"></div>
           <div class="ec-strip"></div>
           <div class="ec-days"></div>
@@ -468,8 +468,15 @@ const EtaCalc = (() => {
         return `<i class="${e.k}" title="${tip(e)}" style="left:${((s - d0) / len * 100).toFixed(3)}%;width:${((f - s) / len * 100).toFixed(3)}%"></i>`;
       }).join("");
       const wk = S.wk && S.wk.ms >= d0 && S.wk.ms < d1 ? `<i class="w" title="Недельный остаток кончился ${ft(new Date(S.wk.ms))}" style="left:${((S.wk.ms - d0) / len * 100).toFixed(3)}%"></i>` : "";
+      // v3.59: ручки отдыха и в таблице по дням — те же, что на шкале (тянуть отдых прямо здесь)
+      const hd = S.ev.filter((e) => e.k === "r").map((e) => {
+        const dr = st.drag, act = (side) => dr && dr.i === e.i && dr.side === side ? " act" : "";
+        const one = (side, ms, aria) => ms >= d0 && ms < d1
+          ? `<div class="ec-hdl${side === "l" ? " l" : ""}${act(side)}" tabindex="0" role="slider" aria-label="${side === "l" ? "Начало" : "Длина"} отдыха ${e.i + 1}" aria-valuetext="${aria}" data-i="${e.i}" data-side="${side}" style="left:${((ms - d0) / len * 100).toFixed(3)}%"></div>` : "";
+        return one("l", S.at(e.t0), fdt(new Date(S.at(e.t0)))) + one("r", S.at(e.t1), hm(e.t1 - e.t0));
+      }).join("");
       cum += kmd;
-      rows.push(`<span class="ec-dl">${WD[day.w.getUTCDay()]} ${fd(d0)}</span><div class="ec-day">${[6, 12, 18].map((h) => `<span class="gl" style="left:${h / 24 * 100}%"></span>`).join("")}${segs}${wk}</div>` +
+      rows.push(`<span class="ec-dl">${WD[day.w.getUTCDay()]} ${fd(d0)}</span><div class="ec-day" data-len="${len}">${[6, 12, 18].map((h) => `<span class="gl" style="left:${h / 24 * 100}%"></span>`).join("")}${segs}${wk}${hd}</div>` +
         `<span class="ec-dv">${hmm(drv)} <span>(${km(kmd)})</span></span><span class="ec-dr">${S.eta <= d1 ? "🏁 " + ft(new Date(S.eta)) : km(Math.max(0, S.dist - cum))}</span>`);
     }
     const axis = Array.from({ length: 13 }, (_, k) => `<span style="left:${k * 2 / 24 * 100}%">${k * 2}</span>`).join("") +
@@ -478,18 +485,25 @@ const EtaCalc = (() => {
   }
 
   // ---------- ручки отдыха: правая — длина, левая — весь отдых раньше ----------
+  // v3.59: один обработчик на шкалу (.ec-strip) и на таблицу по дням (.ec-days);
+  // на дне 1 px = len / ширина строки (data-len), на шкале — весь рейс / ширина шкалы
   function bindStrip() {
-    const strip = $(".ec-strip");
-    strip.addEventListener("pointerdown", (e) => {
+    [$(".ec-strip"), $(".ec-days")].forEach(bindDrag);
+  }
+  function bindDrag(box) {
+    box.addEventListener("pointerdown", (e) => {
       const h = e.target.closest(".ec-hdl");
       if (!h) return;
       e.preventDefault();
-      const i = Number(h.dataset.i), side = h.dataset.side, w = strip.getBoundingClientRect().width || 1;
-      st.drag = { i, side, x0: e.clientX, v0: (side === "l" ? st.shifts : st.extras)[i] || 0, hpp: (S.eta - S.etd) / 3600e3 / w };
-      strip.setPointerCapture(e.pointerId);
+      const i = Number(h.dataset.i), side = h.dataset.side;
+      const track = h.parentElement.dataset.len ? h.parentElement : box;
+      const w = track.getBoundingClientRect().width || 1;
+      const spanH = track.dataset.len ? Number(track.dataset.len) / 3600e3 : (S.eta - S.etd) / 3600e3;
+      st.drag = { i, side, x0: e.clientX, v0: (side === "l" ? st.shifts : st.extras)[i] || 0, hpp: spanH / w };
+      box.setPointerCapture(e.pointerId);
       calc();
     });
-    strip.addEventListener("pointermove", (e) => {
+    box.addEventListener("pointermove", (e) => {
       const dr = st.drag;
       if (!dr) return;
       const dh = (e.clientX - dr.x0) * dr.hpp, store = dr.side === "l" ? st.shifts : st.extras;
@@ -506,22 +520,22 @@ const EtaCalc = (() => {
       st.drag = null;
       calc();
     };
-    strip.addEventListener("pointerup", end);
-    strip.addEventListener("pointercancel", end);
-    strip.addEventListener("dblclick", (e) => {
+    box.addEventListener("pointerup", end);
+    box.addEventListener("pointercancel", end);
+    box.addEventListener("dblclick", (e) => {
       const h = e.target.closest(".ec-hdl");
       if (!h) return;
       delete (h.dataset.side === "l" ? st.shifts : st.extras)[Number(h.dataset.i)];
       calc();
     });
-    strip.addEventListener("keydown", (e) => {
+    box.addEventListener("keydown", (e) => {
       const h = e.target.closest(".ec-hdl");
       if (!h || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
       e.preventDefault();
       const i = Number(h.dataset.i), side = h.dataset.side, store = side === "l" ? st.shifts : st.extras;
       store[i] = Math.max(0, (store[i] || 0) + (e.key === "ArrowRight" ? 0.25 : -0.25) * (side === "l" ? -1 : 1));
       calc();
-      const again = strip.querySelector(`.ec-hdl[data-i="${i}"][data-side="${side}"]`);
+      const again = box.querySelector(`.ec-hdl[data-i="${i}"][data-side="${side}"]`);
       if (again) again.focus();
     });
   }
