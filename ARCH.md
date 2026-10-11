@@ -39,6 +39,7 @@
 | `fetat/api/reference.py` | `/api/region-codes`, `/api/locate`, `/api/addresses`, `/api/freights`, `/api/bans` |
 | `fetat/api/fleet.py` | `/api/fleet*`: чтение, sync (смена `disp` — только назначающий), 🔒, корзина, восстановление, импорт; завершить / вернуть / список завершённых (`complete`, `reopen`, `done` — хозяин или назначающий); `/api/dispatchers` |
 | `static/map-core.js` | карта Флота (v3.71, вынесено из app.js): `initMap`, машины, таргеты, плашки, кластеры, `drawRoute`; грузится до `app.js` |
+| `static/fleet-sort-filter.js` | сортировка Флота и фильтр L/O (v3.79, вынесено из app.js): `sortMode`, `manualOrder`, `displayOrder`, `loFilter`, `computeOrder`, `orderedRows`, `rowLoKind`, `stripeRow`, `rowPassesFilter`; переменные присваиваются и из `app.js`; грузится до `app.js` |
 | `static/done-marks.js` | отметки ✓ «пройдено» на клиенте (v3.78, вынесено из app.js): `keepDoneSeen`, `remapDone`, `applyDoneClasses`, `toggleDone`, `doneEtaHtml`; сам расчёт — `domain/points.py`; грузится до `app.js` |
 | `static/corridor-menu.js` | плашка ⛰ и меню выбора коридора (v3.77, вынесено из app.js): `corridorChip`, `corridorMenu`, `COR_TUNNEL`; для Флота и From → To (`route-tab.js`); грузится до `app.js` |
 | `static/foreign-edits.js` | чужая правка (v3.76, вынесено из app.js): красная рамка и плашка «✎ кто», `markForeign`, `clearChg`; грузится до `app.js` |
