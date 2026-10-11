@@ -97,6 +97,112 @@ def _compute_multi_route(points, api_key, corridor=None):
     return legs, polyline
 
 
+def _as_list(v):
+    if isinstance(v, list):
+        return [str(x).strip() for x in v if str(x or "").strip()]
+    v = str(v or "").strip()
+    return [v] if v else []
+
+
+def _resolve_points(froms, tos):
+    """Точки по порядку from1..fromN, to1..toM. -> (points, None) или (None, (ответ, 400))."""
+    # Список машин из Mapon запрашиваем максимум один раз и только если он нужен
+    units_cache = {}
+
+    def units_getter():
+        if "units" not in units_cache:
+            units_cache["units"] = fetch_units(MAPON_API_KEY)
+        return units_cache["units"]
+
+    points = []
+    for kind, values in (("L", froms), ("O", tos)):
+        for n, raw in enumerate(values, start=1):
+            try:
+                pt = resolve_point(raw, units_getter)
+            except ValueError as e:
+                field = "From" if kind == "L" else "To"
+                return None, ({"error": f"{field}{n}: {e}"}, 400)
+            pt.update({"kind": kind, "num": n, "raw": raw})
+            points.append(pt)
+    return points, None
+
+
+def _add_corridor(result, points, corridor):
+    """v3.32: первый отрезок, где действует обход Швейцарии, — для кнопок выбора коридора."""
+    for a, b in zip(points, points[1:]):
+        cc = swiss_bypass_candidates(a["country"], a["lat"], a["lng"], b["country"], b["lat"], b["lng"])
+        if cc:
+            wps = resolve_waypoints(a["country"], a["lat"], a["lng"], b["country"], b["lat"], b["lng"], corridor)
+            info = corridor_info(cc, wps, corridor, (a["lat"], a["lng"], b["lat"], b["lng"]))
+            info["countries"] = [a["country"], b["country"]]
+            result["corridor"] = info
+            break
+
+
+def _add_legs(result, points, legs, polyline):
+    """Отрезки, общие км / часы (70 км/ч; в ч:мм форматирует фронт), линия. -> total км."""
+    total = 0.0
+    for i, leg in enumerate(legs):
+        a, b = points[i], points[i + 1]
+        total += leg["dist_km"]
+        result["legs"].append({
+            "from": f"{a['kind']}{a['num']}",
+            "to": f"{b['kind']}{b['num']}",
+            "from_code": a.get("code"),
+            "to_code": b.get("code"),
+            "dist_km": round(leg["dist_km"], 1),
+            "duration_h": round(leg["dist_km"] / 70, 3),
+            "waypoints_applied": leg["waypoints_applied"],
+            "rule": leg.get("rule") or "",
+        })
+    result["dist_km"] = round(total, 1)
+    result["duration_h"] = round(total / 70, 3)
+    result["route_polyline"] = polyline
+    result["waypoints_applied"] = any(l["waypoints_applied"] for l in legs)
+    return total
+
+
+def _add_eta(result, points, total):
+    """v3.39: ETD | В пути | ETA при выезде сейчас — тот же движок, что Флот и калькулятор:
+    From1 — машина → по её тахографу, иначе соло со свежего дня. -> расклад (sim) или None."""
+    import time as _time
+    sim = None
+    try:
+        start = ceil_15_ts(_time.time())
+        tu0 = points[0].get("unit") if points[0].get("is_truck") else None
+        tk = _truck_tacho(tu0) if tu0 else None
+        sim = tacho_eta(tk or FRESH_SOLO_TACHO, total, now_ts=start)
+        etd = start
+        for stp in sim["stops"]:                  # стоит на отдыхе / перерыве — выезд после него
+            if abs(stp["start"] - etd) < 1:
+                etd = stp["end"]
+            else:
+                break
+        fmt = lambda ts: ceil_15min(ts_west(ts)).strftime("%d/%m %H:%M")
+        result["etd"], result["eta"] = fmt(etd), fmt(sim["eta_ts"])
+        result["eta_src"] = "по тахографу машины" if tk else "соло со свежего дня"
+        result["eta_week_hit"] = bool(sim["week"]["hit"])
+    except Exception as e:
+        result["eta_error"] = str(e)
+    return sim
+
+
+def _add_bans(result, points, polyline, total, sim):
+    """v1.45: запреты по пути — при выезде сейчас (стоянки — из того же расклада)."""
+    try:
+        if sim is None:
+            sim = tacho_eta(FRESH_SOLO_TACHO, total)
+        # v1.83: ночь в Австрии — для MAN-тягача в первой точке; без тягача — "если MAN"
+        tu = points[0].get("unit") if points[0].get("is_truck") else None
+        at_n = needs_at_night_ban(tu) if tu else True
+        hits, bst = bans_on_route(polyline, total, sim["stops"], at_night=at_n)
+        loc = lambda ts: ts_west(ts).strftime("%d/%m %H:%M")
+        result["bans_route"] = bans_hits_text(hits, loc, "MAN без L" if tu else "если MAN")
+        result["bans_status"] = bst
+    except Exception as e:
+        result["bans_status"] = f"ошибка: {e}"
+
+
 def route_calc(payload):
     """From → To. payload: {"from": ["OI-4310", "IT20", ...], "to": ["SE25", "59.9, 10.8", ...]}
     (старый формат {"from": "ES30", "to": "SE25"} тоже принимается). Каждое поле — машина / GPS /
@@ -105,36 +211,15 @@ def route_calc(payload):
     if not GOOGLE_API_KEY:
         return {"error": "GOOGLE_API_KEY не настроен на сервере"}, 500
 
-
-    def as_list(v):
-        if isinstance(v, list):
-            return [str(x).strip() for x in v if str(x or "").strip()]
-        v = str(v or "").strip()
-        return [v] if v else []
-
-    froms = as_list(payload.get("from"))
-    tos = as_list(payload.get("to"))
+    froms = _as_list(payload.get("from"))
+    tos = _as_list(payload.get("to"))
     if not froms and not tos:
         return {"error": "Заполните хотя бы одно поле — From или To"}, 400
 
-    # Список машин из Mapon запрашиваем максимум один раз и только если он нужен
-    units_cache = {}
-    def units_getter():
-        if "units" not in units_cache:
-            units_cache["units"] = fetch_units(MAPON_API_KEY)
-        return units_cache["units"]
-
     try:
-        points = []
-        for kind, values in (("L", froms), ("O", tos)):
-            for n, raw in enumerate(values, start=1):
-                try:
-                    pt = resolve_point(raw, units_getter)
-                except ValueError as e:
-                    field = "From" if kind == "L" else "To"
-                    return {"error": f"{field}{n}: {e}"}, 400
-                pt.update({"kind": kind, "num": n, "raw": raw})
-                points.append(pt)
+        points, err = _resolve_points(froms, tos)
+        if err:
+            return err
 
         result = {
             "points": [
@@ -153,67 +238,10 @@ def route_calc(payload):
         if len(points) >= 2:
             corridor = clean_corridor(payload.get("corridor"))      # v3.32: коридор выбрал диспетчер
             legs, polyline = compute_multi_route(points, GOOGLE_API_KEY, corridor)
-            # v3.32: первый отрезок, где действует обход Швейцарии, — для кнопок выбора коридора
-            for a, b in zip(points, points[1:]):
-                cc = swiss_bypass_candidates(a["country"], a["lat"], a["lng"], b["country"], b["lat"], b["lng"])
-                if cc:
-                    wps = resolve_waypoints(a["country"], a["lat"], a["lng"], b["country"], b["lat"], b["lng"], corridor)
-                    info = corridor_info(cc, wps, corridor, (a["lat"], a["lng"], b["lat"], b["lng"]))
-                    info["countries"] = [a["country"], b["country"]]
-                    result["corridor"] = info
-                    break
-            total = 0.0
-            for i, leg in enumerate(legs):
-                a, b = points[i], points[i + 1]
-                total += leg["dist_km"]
-                result["legs"].append({
-                    "from": f"{a['kind']}{a['num']}",
-                    "to": f"{b['kind']}{b['num']}",
-                    "from_code": a.get("code"),
-                    "to_code": b.get("code"),
-                    "dist_km": round(leg["dist_km"], 1),
-                    "duration_h": round(leg["dist_km"] / 70, 3),
-                    "waypoints_applied": leg["waypoints_applied"],
-                    "rule": leg.get("rule") or "",
-                })
-            result["dist_km"] = round(total, 1)
-            result["duration_h"] = round(total / 70, 3)  # 70 км/ч; в ч:мм форматирует фронт
-            result["route_polyline"] = polyline
-            result["waypoints_applied"] = any(l["waypoints_applied"] for l in legs)
-            # v3.39: ETD | В пути | ETA при выезде сейчас — тот же движок, что Флот и калькулятор:
-            # From1 — машина → по её тахографу, иначе соло со свежего дня
-            import time as _time
-            sim = None
-            try:
-                start = ceil_15_ts(_time.time())
-                tu0 = points[0].get("unit") if points[0].get("is_truck") else None
-                tk = _truck_tacho(tu0) if tu0 else None
-                sim = tacho_eta(tk or FRESH_SOLO_TACHO, total, now_ts=start)
-                etd = start
-                for stp in sim["stops"]:                  # стоит на отдыхе / перерыве — выезд после него
-                    if abs(stp["start"] - etd) < 1:
-                        etd = stp["end"]
-                    else:
-                        break
-                fmt = lambda ts: ceil_15min(ts_west(ts)).strftime("%d/%m %H:%M")
-                result["etd"], result["eta"] = fmt(etd), fmt(sim["eta_ts"])
-                result["eta_src"] = "по тахографу машины" if tk else "соло со свежего дня"
-                result["eta_week_hit"] = bool(sim["week"]["hit"])
-            except Exception as e:
-                result["eta_error"] = str(e)
-            # v1.45: запреты по пути — при выезде сейчас (стоянки — из того же расклада)
-            try:
-                if sim is None:
-                    sim = tacho_eta(FRESH_SOLO_TACHO, total)
-                # v1.83: ночь в Австрии — для MAN-тягача в первой точке; без тягача — "если MAN"
-                tu = points[0].get("unit") if points[0].get("is_truck") else None
-                at_n = needs_at_night_ban(tu) if tu else True
-                hits, bst = bans_on_route(polyline, total, sim["stops"], at_night=at_n)
-                loc = lambda ts: ts_west(ts).strftime("%d/%m %H:%M")
-                result["bans_route"] = bans_hits_text(hits, loc, "MAN без L" if tu else "если MAN")
-                result["bans_status"] = bst
-            except Exception as e:
-                result["bans_status"] = f"ошибка: {e}"
+            _add_corridor(result, points, corridor)
+            total = _add_legs(result, points, legs, polyline)
+            sim = _add_eta(result, points, total)
+            _add_bans(result, points, polyline, total, sim)
 
         # v3.32: From — машина: данные тахографа для ⏱ калькулятора («⏱ Послать в калькулятор»)
         if len(points) >= 2 and points[0].get("is_truck"):
