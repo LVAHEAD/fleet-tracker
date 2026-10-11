@@ -95,7 +95,7 @@ const EtaCalc = (() => {
       <div class="w-label"></div>
       <div class="ec-head"><span>⏱ ETA-калькулятор</span><button type="button" class="ec-x" title="Закрыть (Esc)">×</button></div>
       <div class="ec-body">
-        <div class="ec-sec ec-ft"><div class="ec-lb"><span>Откуда — куда</span><span class="ec-ftst"></span></div>
+        <div class="ec-sec ec-ft">
           <div class="ec-ftg"><span class="ec-ftk">From</span><input type="text" id="ec-from" list="points-list" autocomplete="off" placeholder="машина, ГПС, город или код">
             <span class="ec-ftk">To</span><input type="text" id="ec-to" list="points-list" autocomplete="off" placeholder="ГПС, город или код"></div></div>
         <div class="ec-sec"><div class="ec-lb"><span>Расстояние, км</span><span>70 … 5000</span></div>
@@ -215,6 +215,7 @@ const EtaCalc = (() => {
   let ftKey = "", ftSeq = 0;
   function ftStatus(t, bad) {
     const el = $(".ec-ftst");
+    if (!el) return;                 // строка «Откуда — куда» убрана
     el.textContent = t;
     el.classList.toggle("bad", !!bad);
   }
