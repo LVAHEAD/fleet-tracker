@@ -426,6 +426,55 @@ def calc_row(payload):
     return res
 
 
+def _find_unit(units, unit_query):
+    """-> (unit, None) или (None, (ответ, код))."""
+    exact = find_unit_exact(units, unit_query)
+    matches = [exact] if exact else find_unit_by_label(units, unit_query)
+    if not matches:
+        return None, ({"error": f"Машина '{unit_query}' не найдена"}, 404)
+    if len(matches) > 1:
+        return None, ({
+            "error": "Найдено несколько машин, уточните запрос",
+            "candidates": [u.get("number") for u in matches],
+        }, 409)
+    return matches[0], None
+
+
+def _add_route_to_target(result, unit, target_lat, target_lng, payload):
+    """Маршрут «машина → цель»: коридор, км, ETA по простой скорости, линия."""
+    cur_lat, cur_lng = unit["lat"], unit["lng"]
+    corridor = clean_corridor(payload.get("corridor"))                # v3.32: коридор выбрал диспетчер
+    wps = fleet_waypoints(cur_lat, cur_lng, target_lat, target_lng, corridor)   # v2.03: паромы/Инсбрук и во Флоте
+    cc = fleet_corridor_cands(cur_lat, cur_lng, target_lat, target_lng)
+    if cc:
+        result["corridor"] = corridor_info(cc, wps, corridor, (cur_lat, cur_lng, target_lat, target_lng))
+    dist_km, polyline = road_distance_km_google(cur_lat, cur_lng, target_lat, target_lng, GOOGLE_API_KEY, wps)
+    if wps:
+        result["waypoints_applied"] = True
+    _, eta_local = calc_eta(dist_km)
+    result["dist_km"] = round(dist_km, 1)
+    result["eta_local"] = eta_local.strftime("%d/%m %H:%M")
+    result["target_lat"] = target_lat
+    result["target_lng"] = target_lng
+    result["route_polyline"] = polyline
+
+
+def _add_extra(result, extras, units, unit, tacho, sim, payload):
+    """v1.64: следующие точки той же машины (2-я, 3-я выгрузка...) — цепочкой от предыдущей точки,
+    плюс UNLOAD_STOP_SEC на каждую предыдущую точку. v1.74: до 12 точек; v1.79: без пройденных."""
+    if extras and result.get("target_lat") is not None:
+        try:
+            result["extra"] = calc_extra_stops(extras, units, unit, result, tacho, sim,
+                                               clean_corridor(payload.get("corridor")))
+        except Exception as e:
+            result["extra"] = [{"error": str(e)} for _ in extras]
+
+    # плашка коридора: corridor.to считался по непройденным точкам — в номер точки трипа (с пройденными)
+    cor, act = result.get("corridor"), result.get("active_idx")
+    if cor and act and isinstance(cor.get("to"), int) and 0 <= cor["to"] < len(act):
+        cor["to"] = act[cor["to"]]
+
+
 def _calc_row(payload, tm):
     """Строка Флота. payload: {"unit", "target", "extra": [...], "done": [...], "trailer"}.
     target — "43.30726, -8.48246" | "Oslo" | "NO01" | "". Возвращает (ответ, HTTP-код)."""
@@ -441,17 +490,9 @@ def _calc_row(payload, tm):
     try:
         units = fetch_units(MAPON_API_KEY)
         tm.mark("units")
-        exact = find_unit_exact(units, unit_query)
-        matches = [exact] if exact else find_unit_by_label(units, unit_query)
-        if not matches:
-            return {"error": f"Машина '{unit_query}' не найдена"}, 404
-        if len(matches) > 1:
-            return ({
-                "error": "Найдено несколько машин, уточните запрос",
-                "candidates": [u.get("number") for u in matches],
-            }), 409
-
-        unit = matches[0]
+        unit, err = _find_unit(units, unit_query)
+        if err:
+            return err
         result = _unit_status(unit)
 
         trailer = _add_trailer_info(result, unit, units, payload)
@@ -471,41 +512,13 @@ def _calc_row(payload, tm):
             return {"error": "GOOGLE_API_KEY не настроен на сервере"}, 500
 
         if target_lat is not None:
-            cur_lat, cur_lng = unit["lat"], unit["lng"]
-            corridor = clean_corridor(payload.get("corridor"))                # v3.32: коридор выбрал диспетчер
-            wps = fleet_waypoints(cur_lat, cur_lng, target_lat, target_lng, corridor)   # v2.03: паромы/Инсбрук и во Флоте
-            cc = fleet_corridor_cands(cur_lat, cur_lng, target_lat, target_lng)
-            if cc:
-                result["corridor"] = corridor_info(cc, wps, corridor, (cur_lat, cur_lng, target_lat, target_lng))
-            dist_km, polyline = road_distance_km_google(cur_lat, cur_lng, target_lat, target_lng, GOOGLE_API_KEY, wps)
-            if wps:
-                result["waypoints_applied"] = True
-            _, eta_local = calc_eta(dist_km)
-            result["dist_km"] = round(dist_km, 1)
-            result["eta_local"] = eta_local.strftime("%d/%m %H:%M")
-            result["target_lat"] = target_lat
-            result["target_lng"] = target_lng
-            result["route_polyline"] = polyline
+            _add_route_to_target(result, unit, target_lat, target_lng, payload)
             tm.mark("route")
 
         tacho, sim = _add_tacho(result, unit, trailer, payload.get("crew"), bool(payload.get("x10")))
         tm.mark("tacho")
 
-        # v1.64: следующие точки той же машины (2-я, 3-я выгрузка...) — цепочкой от
-        # предыдущей точки, плюс UNLOAD_STOP_SEC на каждую предыдущую точку
-        extras = active_extras   # v1.74: до 12 точек; v1.79: без пройденных
-        if extras and result.get("target_lat") is not None:
-            try:
-                result["extra"] = calc_extra_stops(extras, units, unit, result, tacho, sim,
-                                                   clean_corridor(payload.get("corridor")))
-            except Exception as e:
-                result["extra"] = [{"error": str(e)} for _ in extras]
-
-        # плашка коридора: corridor.to считался по непройденным точкам — в номер точки трипа (с пройденными)
-        cor, act = result.get("corridor"), result.get("active_idx")
-        if cor and act and isinstance(cor.get("to"), int) and 0 <= cor["to"] < len(act):
-            cor["to"] = act[cor["to"]]
-
+        _add_extra(result, active_extras, units, unit, tacho, sim, payload)
         tm.mark("extra")
         _week_short_last(result)
 
