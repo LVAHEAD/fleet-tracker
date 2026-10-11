@@ -11,9 +11,10 @@ def read(rel):
 
 
 class CalcTopLineTest(unittest.TestCase):
-    def test_source_caption_is_above_from_to(self):
+    def test_source_caption_is_above_results(self):
+        # подпись источника — над ETD / В пути / ETA (возвращена по просьбе Владимира)
         js = read("static/eta-calc.js")
-        self.assertLess(js.index('class="ec-src"'), js.index('class="ec-sec ec-ft"'))
+        self.assertLess(js.index('class="ec-src"'), js.index('class="ec-res"'))
         self.assertNotIn("Откуда — куда", js)
 
     def test_status_goes_to_source_line(self):

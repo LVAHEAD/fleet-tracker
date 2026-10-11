@@ -1252,3 +1252,8 @@ body.left-open .left-tab.on { background: #eef3fd; opacity: 1; }
 .ob-n { color: #888; font-size: 12px; }
 .ob-bar { display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; }
 .ob-bar button { border: 1px solid #d0d0d0; background: #f7f7f7; border-radius: 4px; padding: 3px 10px; cursor: pointer; }
+
+/* v3.61: верхняя панель Флота — все контролы одной высоты, по центру строки, одинаковый отступ между группами */
+.sort-bar button, .sort-bar select, .auto-lbl select { height: 24px; line-height: 1; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; }
+.sort-bar .sb-l, .sort-bar .sb-c, .sort-bar .sb-r, .sort-bar .auto-lbl { align-items: center; }
+.sort-bar .auto-lbl { height: 24px; line-height: 1; }

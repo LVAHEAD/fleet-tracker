@@ -1,7 +1,7 @@
 /*
 Fleet ETA Tracker — слипшиеся маркеры машин (v3.58): машины в одной точке экрана показываются счётчиком
-(подпись при наведении — номера). Клик по счётчику — веер: маркеры разводятся по кругу, пока карта не отдалят
-или не приблизят. Координаты данных не меняются, только позиции маркеров на время веера.
+(v3.61: плашка с номерами на виду — 1–2 машины строка на машину, 3–4 — две строки через запятую, 5+ — «+N»).
+Клик по плашке — веер: маркеры разводятся по кругу, пока карта не отдалят или не приблизят. Координаты данных не меняются, только позиции маркеров на время веера.
 Общий для 🗺 Флот (app.js), Локатор и From → To (units-layer.js).
 */
 (function () {
@@ -13,13 +13,26 @@ Fleet ETA Tracker — слипшиеся маркеры машин (v3.58): ма
     const s = Math.min(Math.max(Math.sin((lat * Math.PI) / 180), -0.9999), 0.9999);
     return { x: ((lng + 180) / 360) * scale, y: (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * scale };
   }
-  function badgeIcon(n) {
-    const r = 11;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${2 * r + 2}" height="${2 * r + 2}">`
-      + `<circle cx="${r + 1}" cy="${r + 1}" r="${r}" fill="#c0392b" stroke="#fff" stroke-width="2"/>`
-      + `<text x="${r + 1}" y="${r + 5}" text-anchor="middle" font-family="Arial" font-size="12" font-weight="700" fill="#fff">${n}</text></svg>`;
+  // v3.61: номера машин на виду в плашке кластера
+  function plateLines(names) {
+    const n = names.length;
+    if (n >= 5) return ["+" + n];
+    if (n <= 2) return names;
+    const h = Math.ceil(n / 2);
+    return [names.slice(0, h).join(", "), names.slice(h).join(", ")];
+  }
+  function esc(t) {
+    return String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  }
+  function plateIcon(lines) {
+    const lh = 15, padX = 6, padY = 4;
+    const w = Math.ceil(Math.max(...lines.map((l) => l.length)) * 7.4 + 2 * padX);
+    const h = lines.length * lh + 2 * padY;
+    const texts = lines.map((l, i) => `<text x="${w / 2}" y="${padY + (i + 1) * lh - 3}" text-anchor="middle" font-family="Arial" font-size="12" font-weight="700" fill="#1a1a1a">${esc(l)}</text>`).join("");
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">`
+      + `<rect x="1" y="1" width="${w - 2}" height="${h - 2}" rx="5" fill="#fff" stroke="#c0392b" stroke-width="2"/>${texts}</svg>`;
     return { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
-             scaledSize: new google.maps.Size(2 * r + 2, 2 * r + 2), anchor: new google.maps.Point(r + 1, r + 1) };
+             scaledSize: new google.maps.Size(w, h), anchor: new google.maps.Point(w / 2, h / 2) };
   }
   // кучки: точки, которые на экране легли почти друг на друга
   function groupItems(items, z) {
@@ -96,7 +109,8 @@ Fleet ETA Tracker — слипшиеся маркеры машин (v3.58): ма
         }
         const lat = g.reduce((a, it) => a + it.lat, 0) / g.length;
         const lng = g.reduce((a, it) => a + it.lng, 0) / g.length;
-        const b = new google.maps.Marker({ position: { lat, lng }, map, icon: badgeIcon(g.length), zIndex: 30,
+        const names = g.map((it) => it.title || String(it.id));
+        const b = new google.maps.Marker({ position: { lat, lng }, map, icon: plateIcon(plateLines(names)), zIndex: 30,
           title: g.map((it) => it.title || String(it.id)).join("\n") + "\nКлик — развести" });
         b.addListener("click", () => { spiderKey = key; apply(); });
         badges.push(b);

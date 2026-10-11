@@ -228,6 +228,17 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     }
   }
 
+  // v3.61: попап на найденной точке — название и текст из «Full address» адресной базы
+  function openPointInfo(d, marker) {
+    const a = d.address || {};
+    const gpsLine = /^-?\d+[.,]\d+\s*,\s*-?\d+[.,]\d+$/;
+    const full = String(a.full || "").split("\n").map((x) => x.trim()).filter((x) => x && !gpsLine.test(x)).join(", ");
+    const rows = [`<b>${esc(d.label)}</b>`, full && esc(full), `ГПС ${Number(d.lat).toFixed(5)}, ${Number(d.lng).toFixed(5)}`,
+      a.open && "🕒 " + esc(a.open), a.notes && "📝 " + esc(a.notes)].filter(Boolean);
+    infoWindow.setContent(`<div style="font-size:13px;line-height:1.4;max-width:260px">${rows.join("<br>")}</div>`);
+    infoWindow.open({ map: map, anchor: marker });
+  }
+
   async function locate(q) {
     if (!map) { pendingQuery = q; return; }
     info.textContent = "Ищу…";
@@ -270,11 +281,12 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
         }
       }
 
-      map.setZoom(8);
+      map.setZoom(d.is_truck ? 16 : 8);   // v3.61: машина — зум 16
       map.panTo({ lat: d.lat, lng: d.lng });
       highlightCode = d.code;
       if (overlay) overlay.scheduleDraw();
-      if (codeP) openCodeInfo(codeP);
+      if (!d.is_code && !d.is_truck && resultMarker) openPointInfo(d, resultMarker);   // точка по названию — свой попап
+      else if (codeP) openCodeInfo(codeP);
     } catch (e) {
       info.innerHTML = `<span class="loc-err">Ошибка запроса. Попробуйте ещё раз.</span>`;
     }
