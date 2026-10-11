@@ -95,6 +95,7 @@ const EtaCalc = (() => {
       <div class="w-label"></div>
       <div class="ec-head"><span>⏱ ETA-калькулятор</span><button type="button" class="ec-x" title="Закрыть (Esc)">×</button></div>
       <div class="ec-body">
+        <div class="ec-src" hidden></div>
         <div class="ec-sec ec-ft">
           <div class="ec-ftg"><span class="ec-ftk">From</span><input type="text" id="ec-from" list="points-list" autocomplete="off" placeholder="машина, ГПС, город или код">
             <span class="ec-ftk">To</span><input type="text" id="ec-to" list="points-list" autocomplete="off" placeholder="ГПС, город или код"></div></div>
@@ -112,7 +113,6 @@ const EtaCalc = (() => {
           <span class="ec-lb">Отдых</span><div class="ec-rest"></div>
         </div>
         <div class="ec-sec">
-          <div class="ec-src" hidden></div>
           <div class="ec-res">
             <div><span class="ec-k">ETD</span><b class="ec-etd"></b></div><i></i>
             <div><span class="ec-k">В пути</span><b class="ec-dur"></b> <span class="ec-drv"></span></div><i></i>
@@ -213,11 +213,10 @@ const EtaCalc = (() => {
   }
   // ---------- v3.51: From / To — км, линия и (машина в From) тахограф через /api/route, как вкладка From → To ----------
   let ftKey = "", ftSeq = 0;
+  // v3.59: статус From / To выводится в ту же строку наверху, что и подпись источника
   function ftStatus(t, bad) {
-    const el = $(".ec-ftst");
-    if (!el) return;                 // строка «Откуда — куда» убрана
-    el.textContent = t;
-    el.classList.toggle("bad", !!bad);
+    st.ftMsg = t ? { t, bad: !!bad } : null;
+    srcUI();
   }
   function bindFT() {
     const f = $("#ec-from"), t = $("#ec-to");
@@ -257,12 +256,16 @@ const EtaCalc = (() => {
     if (kmChanged && st.src && st.src.polyline) { st.src.polyline = null; drawMapSoon(); }
   }
   function srcUI() {
-    const el = $(".ec-src"), s = st.src;
-    el.hidden = !(st.srcShown && s);
+    const el = $(".ec-src"), s = st.src, fm = st.ftMsg;
+    if (!el) return;
+    const cap = !!(st.srcShown && s);
+    el.hidden = !(cap || fm);
     if (el.hidden) return;
-    el.classList.toggle("bad", s.km == null);
-    el.innerHTML = (s.label ? "из " + escH(s.label) : `из <b>${escH(s.unit || "строки")}</b>${s.point ? " → " + escH(s.point) : ""}`) +
-      (s.note ? `<span class="ec-mut"> · ${escH(s.note)}</span>` : "");
+    el.classList.toggle("bad", fm ? fm.bad : (cap && s.km == null));
+    const capHtml = cap ? (s.label ? "из " + escH(s.label) : `из <b>${escH(s.unit || "строки")}</b>${s.point ? " → " + escH(s.point) : ""}`) +
+      (s.note ? `<span class="ec-mut"> · ${escH(s.note)}</span>` : "") : "";
+    const fmHtml = fm ? (cap ? '<span class="ec-mut"> · </span>' : "") + escH(fm.t) : "";
+    el.innerHTML = capHtml + fmHtml;
   }
   const escH = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
