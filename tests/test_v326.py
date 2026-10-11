@@ -169,7 +169,7 @@ class MapPanelTest(unittest.TestCase):
         self.assertLess(html.index("app.js"), html.index("map-panel.js"))
 
     def test_mechanics_present(self):
-        js = self.read("static/app.js")
+        js = self.read("static/app.js") + self.read("static/map-core.js")   # v3.71: блок карты — в map-core.js
         for name in ("function recluster", "function syncMapVisibility", "function selectFromMap",
                      "function truckIcon", 'localStorage.getItem("fleet-target-v326")', "rowFilteredOut(rid)"):
             self.assertIn(name, js, name)

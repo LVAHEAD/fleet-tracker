@@ -38,6 +38,7 @@
 | `fetat/api/calc.py` | `/api/calc`, `/api/route` → services; `/api/eta-plan` — расклад калькулятора (v3.39) |
 | `fetat/api/reference.py` | `/api/region-codes`, `/api/locate`, `/api/addresses`, `/api/freights`, `/api/bans` |
 | `fetat/api/fleet.py` | `/api/fleet*`: чтение, sync (смена `disp` — только назначающий), 🔒, корзина, восстановление, импорт; завершить / вернуть / список завершённых (`complete`, `reopen`, `done` — хозяин или назначающий); `/api/dispatchers` |
+| `static/map-core.js` | карта Флота (v3.71, вынесено из app.js): `initMap`, машины, таргеты, плашки, кластеры, `drawRoute`; грузится до `app.js` |
 | `static/eta-calc.js` | ⏱ ETA-калькулятор (v3.28): панель справа; v3.39 — расклад с сервера (`/api/eta-plan`, движок Флота), тянучка отдыха и «+1 ч» на дне — параметрами; v3.31 — `fromRow` (данные строки: `calc_seed` из `domain/tacho`), мини-карта по линии строки |
 | `data/` | `region_codes.json`, `region_codes_geonames.json` |
 | `tests/` | unittest + фикстуры; код через `A` из `tests/__init__.py` (ищет имя во всех модулях, подмена ставится везде) |
