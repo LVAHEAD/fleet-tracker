@@ -95,7 +95,6 @@ const EtaCalc = (() => {
       <div class="w-label"></div>
       <div class="ec-head"><span>⏱ ETA-калькулятор</span><button type="button" class="ec-x" title="Закрыть (Esc)">×</button></div>
       <div class="ec-body">
-        <div class="ec-src" hidden></div>
         <div class="ec-sec ec-ft">
           <div class="ec-ftg"><span class="ec-ftk">From</span><input type="text" id="ec-from" list="points-list" autocomplete="off" placeholder="машина, ГПС, город или код">
             <span class="ec-ftk">To</span><input type="text" id="ec-to" list="points-list" autocomplete="off" placeholder="ГПС, город или код"></div></div>
@@ -113,6 +112,7 @@ const EtaCalc = (() => {
           <span class="ec-lb">Отдых</span><div class="ec-rest"></div>
         </div>
         <div class="ec-sec">
+          <div class="ec-src" hidden></div>
           <div class="ec-res">
             <div><span class="ec-k">ETD</span><b class="ec-etd"></b></div><i></i>
             <div><span class="ec-k">В пути</span><b class="ec-dur"></b> <span class="ec-drv"></span></div><i></i>
