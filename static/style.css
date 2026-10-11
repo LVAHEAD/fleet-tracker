@@ -1073,7 +1073,7 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 /* ---------- v3.26: «Карта 2.0» — панель карты справа, кружки машин, кластеры ---------- */
 @media (min-width: 768px) {
   .map-panel {
-    position: fixed; top: 0; right: calc(-1 * var(--sidepw, var(--sidew)) - 24px); width: var(--sidepw, var(--sidew)); height: 100vh;
+    position: fixed; top: 0; bottom: 0; right: calc(-1 * var(--sidepw, var(--sidew)) - 24px); width: var(--sidepw, var(--sidew));
     z-index: 1450; background: #eee; border-left: 1px solid #d0d0d0; box-shadow: -4px 0 16px rgba(0,0,0,.10);
     transition: right .25s ease; overflow: hidden;
   }
@@ -1204,7 +1204,8 @@ body:not(.sort-manual) .acts-br { display: none; }
 
 /* ---------- v3.54: левая выезжалка — оверлей поверх страницы, ничего не сдвигает ---------- */
 .left-panel {
-  position: fixed; top: 0; left: calc(-1 * var(--sidew) - 24px); width: var(--sidew); height: 100vh;
+  /* v3.63: высота как у правой панели — top/bottom 0 вместо 100vh (100vh в окне приложения даёт короче) */
+  position: fixed; top: 0; bottom: 0; left: calc(-1 * var(--sidew) - 24px); width: var(--sidew);
   z-index: 1450; background: #fff; border-right: 1px solid #d0d0d0; box-shadow: 4px 0 16px rgba(0,0,0,.10);
   transition: left .25s ease; overflow-y: auto; box-sizing: border-box; padding: 0 12px 12px;
 }
