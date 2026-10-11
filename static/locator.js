@@ -233,10 +233,49 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     const a = d.address || {};
     const gpsLine = /^-?\d+[.,]\d+\s*,\s*-?\d+[.,]\d+$/;
     const full = String(a.full || "").split("\n").map((x) => x.trim()).filter((x) => x && !gpsLine.test(x)).join(", ");
-    const rows = [`<b>${esc(d.label)}</b>`, full && esc(full), `ГПС ${Number(d.lat).toFixed(5)}, ${Number(d.lng).toFixed(5)}`,
-      a.open && "🕒 " + esc(a.open), a.notes && "📝 " + esc(a.notes)].filter(Boolean);
-    infoWindow.setContent(`<div style="font-size:13px;line-height:1.4;max-width:260px">${rows.join("<br>")}</div>`);
+    const gps = `${Number(d.lat).toFixed(5)}, ${Number(d.lng).toFixed(5)}`;
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "font-size:13px;line-height:1.4;max-width:260px";
+    const add = (html) => { const el = document.createElement("div"); el.innerHTML = html; wrap.appendChild(el); };
+    add(`<b>${esc(d.label)}</b>`);
+    if (full) add(esc(full));
+    add(gps);
+    if (a.open) add("🕒 " + esc(a.open));
+    if (a.notes) add("📝 " + esc(a.notes));
+    const btns = document.createElement("div");
+    btns.style.cssText = "margin-top:6px;display:flex;gap:6px;flex-wrap:wrap";
+    [["Скопировать адрес", full], ["Скопировать GPS", gps]].forEach(([t, v]) => {
+      if (!v) return;
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = t;
+      b.style.cssText = "font-size:12px;padding:3px 8px;border:1px solid #d6dbe3;border-radius:5px;background:#fff;cursor:pointer";
+      b.addEventListener("click", () => copyText(v, b));
+      btns.appendChild(b);
+    });
+    wrap.appendChild(btns);
+    infoWindow.setContent(wrap);
     infoWindow.open({ map: map, anchor: marker });
+  }
+
+  // копирование в буфер обмена; запасной путь, если буфер недоступен (не HTTPS)
+  function copyText(t, btn) {
+    const old = btn.textContent;
+    const done = () => {
+      btn.textContent = "✓ скопировано";
+      setTimeout(() => { btn.textContent = old; }, 1200);
+    };
+    const fallback = () => {
+      const ta = document.createElement("textarea");
+      ta.value = t;
+      ta.style.cssText = "position:fixed;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) { /* ничего */ }
+      ta.remove();
+    };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(done, fallback);
+    else fallback();
   }
 
   async function locate(q) {
@@ -275,7 +314,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
           const a = d.address;
           const gpsLine = /^-?\d+[.,]\d+\s*,\s*-?\d+[.,]\d+$/;
           const full = String(a.full || "").split("\n").map((x) => x.trim()).filter((x) => x && !gpsLine.test(x)).join(", ");
-          const bits = [full && `📍 ${full}`, `ГПС ${Number(d.lat).toFixed(5)}, ${Number(d.lng).toFixed(5)}`,
+          const bits = [full && `📍 ${full}`, `${Number(d.lat).toFixed(5)}, ${Number(d.lng).toFixed(5)}`,
             a.open && `🕒 ${a.open}`, a.notes && `📝 ${a.notes}`].filter(Boolean).map(esc);
           info.innerHTML += `<div class="loc-addr">${bits.join("<br>")}</div>`;
         }
