@@ -9,6 +9,7 @@ Fleet ETA Tracker — слипшиеся маркеры машин (v3.58): ма
   // v3.65: плашки не перекрываются — точки ближе размера плашки (≈ 90×50 px) сводятся в одну, цепочкой
   const PLATE_SEP_X = 90;
   const PLATE_SEP_Y = 50;
+  const PLATE_MIN_ZOOM = 9;   // плашки слипшихся машин — с зума 9 и выше (как порог кластеров)
 
   function px(lat, lng, zoom) {
     const scale = 256 * Math.pow(2, zoom);
@@ -103,6 +104,7 @@ Fleet ETA Tracker — слипшиеся маркеры машин (v3.58): ма
       badges = [];
       if (!lastItems.length) return;
       const z = map.getZoom() || 0;
+      if (z < PLATE_MIN_ZOOM) return;   // ниже зума 9 плашек нет — там кружки (units-layer), а не плашки
       groupItems(lastItems, z).forEach((g) => {
         const key = g.map((it) => String(it.id)).sort().join("|");
         if (spiderKey === key) {
