@@ -981,6 +981,8 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 .sort-bar .sb-r { justify-content: flex-end; }
 .sort-bar .sb-c { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; }
 .sort-bar .sb-l .auto-lbl { order: 0; margin: 0 0 0 10px; }
+/* v3.65: левая группа Флота — все кнопки и список одной высоты, «+ строка» не съезжает вниз */
+.sort-bar .sb-l button, .sort-bar .sb-l select { height: 24px; box-sizing: border-box; line-height: 1; margin: 0; vertical-align: middle; }
 .sort-bar .bar-add, .sort-bar .bar-refresh { padding: 2px 9px; }
 /* v3.10: опоздание к TimeSlot у любой непройденной точки */
 .eta-cell .sl-late .eta-x-t, .eta-cell .sl-late .eta-tacho { color: #c0392b; }
