@@ -5,8 +5,10 @@ Fleet ETA Tracker — слипшиеся маркеры машин (v3.58): ма
 Общий для 🗺 Флот (app.js), Локатор и From → To (units-layer.js).
 */
 (function () {
-  const OVERLAP_PX = 14;   // точки ближе этого (в px экрана) — одна кучка
   const SPIDER_PX = 22;    // радиус веера
+  // v3.65: плашки не перекрываются — точки ближе размера плашки (≈ 90×50 px) сводятся в одну, цепочкой
+  const PLATE_SEP_X = 90;
+  const PLATE_SEP_Y = 50;
 
   function px(lat, lng, zoom) {
     const scale = 256 * Math.pow(2, zoom);
@@ -15,6 +17,7 @@ Fleet ETA Tracker — слипшиеся маркеры машин (v3.58): ма
   }
   // v3.61: номера машин на виду в плашке кластера
   function plateLines(names) {
+    names = Array.from(new Set(names));   // v3.65: одна машина с двумя строками Флота — имя один раз
     const n = names.length;
     if (n >= 5) return ["+" + n];
     if (n <= 2) return names;
@@ -34,23 +37,27 @@ Fleet ETA Tracker — слипшиеся маркеры машин (v3.58): ма
     return { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
              scaledSize: new google.maps.Size(w, h), anchor: new google.maps.Point(w / 2, h / 2) };
   }
-  // кучки: точки, которые на экране легли почти друг на друга
+  // кучки: точки на экране ближе размера плашки — одна кучка; связность транзитивная (цепочкой),
+  // чтобы две плашки не лежали одна на другой; только машины одного статуса (стоящая и едущая — отдельно)
   function groupItems(items, z) {
     const pts = items.map((it) => ({ it, p: px(it.lat, it.lng, z) }));
-    const used = new Set();
+    const seen = new Array(pts.length).fill(false);
     const out = [];
-    pts.forEach((a, i) => {
-      if (used.has(i)) return;
-      used.add(i);
-      const g = [a.it];
-      pts.forEach((b, j) => {
-        // стоящая и едущая машина в одну плашку не сводим — у каждой свой статус (it.st)
-        if (!used.has(j) && a.it.st === b.it.st && Math.abs(a.p.x - b.p.x) < OVERLAP_PX && Math.abs(a.p.y - b.p.y) < OVERLAP_PX) {
-          used.add(j);
-          g.push(b.it);
-        }
-      });
-      if (g.length > 1) out.push(g);
+    pts.forEach((start, i) => {
+      if (seen[i]) return;
+      seen[i] = true;
+      const comp = [i];
+      for (let k = 0; k < comp.length; k++) {
+        const a = pts[comp[k]];
+        pts.forEach((b, j) => {
+          if (!seen[j] && a.it.st === b.it.st
+            && Math.abs(a.p.x - b.p.x) < PLATE_SEP_X && Math.abs(a.p.y - b.p.y) < PLATE_SEP_Y) {
+            seen[j] = true;
+            comp.push(j);
+          }
+        });
+      }
+      if (comp.length > 1) out.push(comp.map((j) => pts[j].it));
     });
     return out;
   }
@@ -110,7 +117,7 @@ Fleet ETA Tracker — слипшиеся маркеры машин (v3.58): ма
         }
         const lat = g.reduce((a, it) => a + it.lat, 0) / g.length;
         const lng = g.reduce((a, it) => a + it.lng, 0) / g.length;
-        const names = g.map((it) => it.title || String(it.id));
+        const names = g.map((it) => it.title || String(it.id));   // имена — уникальные (plateLines)
         const b = new google.maps.Marker({ position: { lat, lng }, map, icon: plateIcon(plateLines(names)), zIndex: 30,
           title: g.map((it) => it.title || String(it.id)).join("\n") + "\nКлик — развести" });
         b.addListener("click", () => { spiderKey = key; apply(); });
