@@ -39,6 +39,7 @@
 | `fetat/api/reference.py` | `/api/region-codes`, `/api/locate`, `/api/addresses`, `/api/freights`, `/api/bans` |
 | `fetat/api/fleet.py` | `/api/fleet*`: чтение, sync (смена `disp` — только назначающий), 🔒, корзина, восстановление, импорт; завершить / вернуть / список завершённых (`complete`, `reopen`, `done` — хозяин или назначающий); `/api/dispatchers` |
 | `static/map-core.js` | карта Флота (v3.71, вынесено из app.js): `initMap`, машины, таргеты, плашки, кластеры, `drawRoute`; грузится до `app.js` |
+| `static/trailer-link.js` | привязка прицепа к тягачу (v3.74, вынесено из app.js): `linkTrailer`, `linkTrailerRowToTruck`, `unlinkTrailer`, редактор `openTrailerEditor`, клики в таблице; грузится до `app.js` |
 | `static/row-alerts.js` | тревоги строки Флота (v3.73, вынесено из app.js): мало топлива ⛽ и реф ❄ — мигание до клика «увидел», задержка рефа 30 мин, `alertTitle`; состояние в localStorage; грузится до `app.js` |
 | `static/delivery-check.js` | окна Delivery / TimeSlot (v3.72, вынесено из app.js): `parseDeliveryWindow`, `deliveryCheck`, `slotCheck`, `extrasLate`, `parseEta`, `mkDate`; чистые функции, грузится до `app.js` |
 | `static/eta-calc.js` | ⏱ ETA-калькулятор (v3.28): панель справа; v3.39 — расклад с сервера (`/api/eta-plan`, движок Флота), тянучка отдыха и «+1 ч» на дне — параметрами; v3.31 — `fromRow` (данные строки: `calc_seed` из `domain/tacho`), мини-карта по линии строки |
