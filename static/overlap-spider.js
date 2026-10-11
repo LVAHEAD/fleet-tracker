@@ -44,7 +44,8 @@ Fleet ETA Tracker — слипшиеся маркеры машин (v3.58): ма
       used.add(i);
       const g = [a.it];
       pts.forEach((b, j) => {
-        if (!used.has(j) && Math.abs(a.p.x - b.p.x) < OVERLAP_PX && Math.abs(a.p.y - b.p.y) < OVERLAP_PX) {
+        // стоящая и едущая машина в одну плашку не сводим — у каждой свой статус (it.st)
+        if (!used.has(j) && a.it.st === b.it.st && Math.abs(a.p.x - b.p.x) < OVERLAP_PX && Math.abs(a.p.y - b.p.y) < OVERLAP_PX) {
           used.add(j);
           g.push(b.it);
         }

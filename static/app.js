@@ -327,7 +327,7 @@ function applyOverlap() {
   Object.keys(markers).forEach((id) => {
     const m = markers[id], p = lastTruckPos[id];
     if (!m || !p || !m.getMap || !m.getMap() || !m.getVisible()) return;
-    items.push({ id, lat: p.lat, lng: p.lng, marker: m, title: (markerArgs[id] && markerArgs[id].label) || String(id) });
+    items.push({ id, lat: p.lat, lng: p.lng, marker: m, st: truckStatus[id], title: (markerArgs[id] && markerArgs[id].label) || String(id) });
   });
   overlapCtl.apply(items);
 }

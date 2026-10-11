@@ -162,7 +162,7 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
           const m = new google.maps.Marker(opt);
           if (opts.onPick) m.addListener("click", () => opts.onPick(u.number));
           L.marks.push(m);
-          items.push({ id: u.number, lat: u.lat, lng: u.lng, marker: m, title: String(u.number) });
+          items.push({ id: u.number, lat: u.lat, lng: u.lng, marker: m, st: u.st, title: String(u.number) });
         } else {
           const lat = g.items.reduce((a, u) => a + u.lat, 0) / g.items.length;
           const lng = g.items.reduce((a, u) => a + u.lng, 0) / g.items.length;
