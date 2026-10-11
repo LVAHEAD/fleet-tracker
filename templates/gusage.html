@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Запросы к Google — F.ETA.T</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='notebook.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='gusage-page.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=app_version) }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='notebook.css', v=app_version) }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='gusage-page.css', v=app_version) }}">
 <meta name="theme-color" content="#fafafa">
 </head>
 <body data-page="gusage">
@@ -50,6 +50,6 @@
   <tbody></tbody>
 </table>
 
-<script src="{{ url_for('static', filename='gusage-page.js') }}"></script>
+<script src="{{ url_for('static', filename='gusage-page.js', v=app_version) }}"></script>
 </body>
 </html>

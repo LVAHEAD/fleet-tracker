@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fleet ETA Tracker</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='notebook.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='eta-calc.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=app_version) }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='mobile.css', v=app_version) }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='notebook.css', v=app_version) }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='eta-calc.css', v=app_version) }}">
 <meta name="theme-color" content="#fafafa">
 </head>
 <body>
@@ -310,27 +310,27 @@
 
 <div class="version-tag">v{{ app_version }}</div>
 
-<script src="{{ url_for('static', filename='notebook.js') }}"></script>
-<script src="{{ url_for('static', filename='sync.js') }}"></script>
-<script src="{{ url_for('static', filename='app.js') }}"></script>
-<script src="{{ url_for('static', filename='map-panel.js') }}"></script>
-<script src="{{ url_for('static', filename='zoom-badge.js') }}"></script>
-<script src="{{ url_for('static', filename='maps-common.js') }}"></script>
-<script src="{{ url_for('static', filename='objects-layer.js') }}"></script>
-<script src="{{ url_for('static', filename='eta-calc.js') }}"></script>
-<script src="{{ url_for('static', filename='postcode-maps.js') }}"></script>
-<script src="{{ url_for('static', filename='overlap-spider.js') }}"></script>
-<script src="{{ url_for('static', filename='units-layer.js') }}"></script>
-<script src="{{ url_for('static', filename='route-tab.js') }}"></script>
-<script src="{{ url_for('static', filename='locator.js') }}"></script>
-<script src="{{ url_for('static', filename='notes.js') }}"></script>
-<script src="{{ url_for('static', filename='bans-tab.js') }}"></script>
-<script src="{{ url_for('static', filename='left-panel.js') }}"></script>
-<script src="{{ url_for('static', filename='truckinfo.js') }}"></script>
-<script src="{{ url_for('static', filename='gusage.js') }}"></script>
-<script src="{{ url_for('static', filename='changelog.js') }}"></script>
-<script src="{{ url_for('static', filename='wip.js') }}"></script>
-<script src="{{ url_for('static', filename='mobile.js') }}"></script>
+<script src="{{ url_for('static', filename='notebook.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='sync.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='app.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='map-panel.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='zoom-badge.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='maps-common.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='objects-layer.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='eta-calc.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='postcode-maps.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='overlap-spider.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='units-layer.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='route-tab.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='locator.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='notes.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='bans-tab.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='left-panel.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='truckinfo.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='gusage.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='changelog.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='wip.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='mobile.js', v=app_version) }}"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_js_key }}&libraries=geometry&callback=initMap" async defer></script>
 </body>
 </html>

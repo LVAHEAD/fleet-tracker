@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Блокнот ФЕТАТ</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='notebook.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=app_version) }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='notebook.css', v=app_version) }}">
 <meta name="theme-color" content="#fafafa">
 </head>
 <body data-page="notebook">
@@ -42,7 +42,7 @@
   <tbody id="nbpBody"><tr><td colspan="9" class="nbp-empty">Загрузка…</td></tr></tbody>
 </table>
 
-<script src="{{ url_for('static', filename='notebook.js') }}"></script>
-<script src="{{ url_for('static', filename='notebook-page.js') }}"></script>
+<script src="{{ url_for('static', filename='notebook.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='notebook-page.js', v=app_version) }}"></script>
 </body>
 </html>

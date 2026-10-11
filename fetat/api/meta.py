@@ -174,6 +174,17 @@ def parse_changelog(doc):
     return out
 
 
+_changelog_cache = {"mtime": None, "items": None}
+
+
 @bp.route("/api/changelog")
 def api_changelog():
-    return jsonify({"version": APP_VERSION, "items": parse_changelog(read_changelog())})
+    # v3.67: разбор CHANGELOG.md — один раз на изменение файла, а не на каждый запрос
+    try:
+        mtime = os.path.getmtime(CHANGELOG_PATH)
+    except OSError:
+        mtime = None
+    if _changelog_cache["items"] is None or _changelog_cache["mtime"] != mtime:
+        _changelog_cache["items"] = parse_changelog(read_changelog())
+        _changelog_cache["mtime"] = mtime
+    return jsonify({"version": APP_VERSION, "items": _changelog_cache["items"]})
