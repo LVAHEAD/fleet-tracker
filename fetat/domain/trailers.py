@@ -1,5 +1,4 @@
 """Прицепы: тип юнита, сводка рефа, угадывание сцепки тягач–прицеп."""
-from datetime import datetime, timedelta, timezone
 
 from fetat.utils.timefmt import ts_west
 from fetat.domain.addresses import base_point

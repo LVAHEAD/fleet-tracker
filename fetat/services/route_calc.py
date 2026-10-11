@@ -1,6 +1,5 @@
 """From → To: маршрут по точкам строго по порядку (Routes API + правила паромов/Инсбрука),
 запреты по пути, похожие рейсы."""
-from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -18,6 +17,7 @@ from fetat.domain.regions import nearest_region_code
 from fetat.domain.tacho import FRESH_SOLO_TACHO, calc_seed, country_tz, crew_mode, tacho_eta
 from fetat.services.corridors import clean_corridor, corridor_info, resolve_waypoints
 from fetat.domain.routing_rules import swiss_bypass_candidates
+from fetat.utils.log import warn
 
 
 MAX_INTERMEDIATES = 25      # лимит Routes API на промежуточные точки (вместе с паромами/Инсбруком)
@@ -245,7 +245,8 @@ def _truck_tacho(unit):
             if code:
                 out["tz"] = country_tz(code[:2])
         return out
-    except Exception:
+    except Exception as _e:
+        warn("route_calc:248", _e)
         return None
 
 
@@ -258,5 +259,6 @@ def _truck_seed(unit):
         days = unit_driving_days(unit.get("unit_id")) if len(tacho["drivers"]) < 2 else None
         team, src, _ = crew_mode(tacho, None, days)
         return calc_seed(dict(tacho, team=team, crew_src=src))
-    except Exception:
+    except Exception as _e:
+        warn("route_calc:261", _e)
         return None

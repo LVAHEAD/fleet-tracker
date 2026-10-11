@@ -14,6 +14,7 @@ from fetat.domain.tacho import tacho_no_subscription, WEEKLY_FULL_SEC, weekly_st
 from fetat.domain.trailers import is_trailer
 from fetat.utils.geo import haversine_km, _wkt_center, _wkt_vertices
 from fetat.utils.timefmt import _hm, _lv, _utc_iso
+from fetat.utils.log import warn
 
 bp = Blueprint("mapon", __name__)
 
@@ -176,7 +177,8 @@ def api_mapon_units():
             try:
                 for uid in fetch_group_unit_ids(MAPON_API_KEY, gid):
                     unit_groups.setdefault(uid, []).append(groups[gid])
-            except Exception:
+            except Exception as _e:
+                warn("mapon:179", _e)
                 pass
     except Exception as e:
         gerr = str(e)
@@ -245,7 +247,8 @@ def api_mapon_objects():
         for g in gl.get("groups") or gl.get("object_groups") or (gl if isinstance(gl, list) else []):
             if isinstance(g, dict):
                 groups[str(g.get("id"))] = g.get("name") or g.get("title") or ""
-    except Exception:
+    except Exception as _e:
+        warn("mapon:248", _e)
         pass
     rows = []
     for o in objs:
@@ -369,7 +372,8 @@ def api_mapon_check():
                                {"key": MAPON_API_KEY, "driver": did,
                                 "from": _utc_iso(now - 86400), "till": _utc_iso(now)})
                 err["образец"] = json.dumps(r0, ensure_ascii=False)[:1500]
-            except Exception:
+            except Exception as _e:
+                warn("mapon:372", _e)
                 pass
             da[str(did)] = err
     out["driver/daily_activities"] = da or {"ok": False, "ошибка": "нет driver_id от тахографа"}

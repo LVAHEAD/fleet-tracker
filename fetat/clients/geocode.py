@@ -17,6 +17,9 @@ PHOTON_URL = "https://photon.komoot.io/api/"
 GEO_CACHE_TTL = 24 * 3600
 
 
+GEO_CACHE_MAX = 2000   # v3.68: ключ — текст запроса, без лимита кеш рос бы до перезапуска
+
+
 _geo_cache = {}
 
 
@@ -90,6 +93,9 @@ def geocode(q):
         raise ValueError(f"Геокодер сейчас не отвечает ({'; '.join(errors)}). "
                          f"Попробуйте через минуту или введите код региона / GPS.")
     _geo_cache[key] = (now, res)
+    if len(_geo_cache) > GEO_CACHE_MAX:
+        for k, v in sorted(_geo_cache.items(), key=lambda kv: kv[1][0])[:GEO_CACHE_MAX // 4]:
+            _geo_cache.pop(k, None)
     return res
 
 

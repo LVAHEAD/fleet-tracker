@@ -1,5 +1,4 @@
 """Точки и таргеты: разбор ввода (код, GPS, город, адрес, машина), подписи, ✓ пройдено, «на объекте»."""
-from datetime import datetime, timedelta, timezone
 
 from fetat.utils.timefmt import ts_west
 from fetat.clients.geocode import geocode, geocode_city

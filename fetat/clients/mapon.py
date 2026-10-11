@@ -8,6 +8,7 @@ import requests
 from fetat.config import MAPON_API_KEY
 from fetat.utils.geo import _wkt_points
 from fetat.utils.timefmt import _iso_utc, _lv_time, _utc_iso
+from fetat.utils.log import warn
 
 
 MAPON_API_URL = "https://mapon.com/api/v1/unit/list.json"
@@ -104,7 +105,8 @@ def unit_driver_names(unit_id):
     Формат поля у Mapon точно не известен — разбираем мягко; нет данных — []."""
     try:
         u = (fetch_reefer_units() or {}).get(unit_id) or {}
-    except Exception:
+    except Exception as _e:
+        warn("mapon:107", _e)
         return []
     raw = u.get("drivers") if u.get("drivers") is not None else u.get("driver")
     items = raw if isinstance(raw, list) else [raw]
@@ -248,7 +250,8 @@ def unit_stops(unit_id, days=3, min_sec=2 * 3600):
                 e_raw = (r.get("end") or {}).get("time")
                 e_ts = (datetime.strptime(e_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
                         if e_raw else now)
-            except Exception:
+            except Exception as _e:
+                warn("mapon:251", _e)
                 continue
             if out and abs(s_ts - out[-1]["end"]) <= 60 and out[-1]["address"] == st.get("address"):
                 out[-1]["end"] = e_ts
@@ -272,13 +275,15 @@ def unit_passes(unit_id, days=4):
             d = mapon_get("https://mapon.com/api/v1/route/list.json", dict(base, **{"include[]": "polyline"}), timeout=30)
         except Exception:
             d = mapon_get("https://mapon.com/api/v1/route/list.json", base, timeout=30)
-    except Exception:
+    except Exception as _e:
+        warn("mapon:275", _e)
         return []
 
     def ts_of(x):
         try:
             return datetime.strptime((x or {}).get("time"), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
-        except Exception:
+        except Exception as _e:
+            warn("mapon:281", _e)
             return None
 
     out = []
@@ -293,7 +298,8 @@ def unit_passes(unit_id, days=4):
             if r.get("type") == "route" and isinstance(pl, str) and pl:
                 try:
                     pts += [(float(a), float(b)) for a, b in _decode_polyline(pl)]
-                except Exception:
+                except Exception as _e:
+                    warn("mapon:296", _e)
                     pass
             end = ts_of(r.get("end")) or now
             if pts and end < now - 60:
@@ -332,7 +338,8 @@ def unit_driving_days(unit_id, days=7):
                     s_ts = datetime.strptime(s_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
                     e_ts = (datetime.strptime(e_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
                             if e_raw else now)
-                except Exception:
+                except Exception as _e:
+                    warn("mapon:335", _e)
                     continue
                 # отрезок через полночь делим по суткам
                 while s_ts < e_ts:

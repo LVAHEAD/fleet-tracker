@@ -1,8 +1,6 @@
 """v3.28: ⏱ ETA-калькулятор — панель справа (язычок под 📓). v3.39: расклад — с сервера (/api/eta-plan,
 тот же движок, что Флот), Google не нужен."""
 import os
-import shutil
-import subprocess
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

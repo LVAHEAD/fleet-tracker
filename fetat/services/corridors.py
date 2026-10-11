@@ -8,6 +8,7 @@ from fetat.config import GOOGLE_API_KEY
 from fetat.domain.regions import _country_at
 from fetat.domain.routing_rules import (SWISS_BYPASS, corridor_is_tie, pick_waypoints_by_country,
                                         swiss_bypass_candidates)
+from fetat.utils.log import warn
 
 # v3.32: выбор коридора диспетчером (трип / From → To): имя из SWISS_BYPASS или None — авто
 CORRIDOR_NAMES = tuple(name for name, _ in SWISS_BYPASS)
@@ -50,7 +51,8 @@ def fleet_waypoints_resolved(lat1, lng1, lat2, lng2, corridor=None):
     """Флот: страны точек — по ближайшему коду региона (как domain.routing_rules.fleet_waypoints)."""
     try:
         return resolve_waypoints(_country_at(lat1, lng1), lat1, lng1, _country_at(lat2, lng2), lat2, lng2, corridor)
-    except Exception:
+    except Exception as _e:
+        warn("corridors:53", _e)
         return None
 
 
@@ -58,7 +60,8 @@ def fleet_corridor_cands(lat1, lng1, lat2, lng2):
     """v3.32: коридоры обхода Швейцарии для пары точек Флота (страны по кодам регионов) или None."""
     try:
         return swiss_bypass_candidates(_country_at(lat1, lng1), lat1, lng1, _country_at(lat2, lng2), lat2, lng2)
-    except Exception:
+    except Exception as _e:
+        warn("corridors:61", _e)
         return None
 
 

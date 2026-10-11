@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 
 from fetat.utils.geo import _decode_polyline, _encode_polyline, haversine_km
+from fetat.utils.log import warn
 
 
 ROUTES_API_URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
@@ -242,7 +243,8 @@ def _along_remember(tkey, dist_km, polyline, now):
             cum.append(cum[-1] + haversine_km(a[0], a[1], b[0], b[1]))
         scale = (dist_km / cum[-1]) if cum[-1] > 0 else 1.0
         _along_cache[tkey] = {"at": now, "pts": pts, "cum": cum, "scale": scale}
-    except Exception:
+    except Exception as _e:
+        warn("google_routes:245", _e)
         pass
 
 
@@ -295,7 +297,8 @@ def _shared_get(key):
     try:
         from fetat.clients.firestore import fs_get
         return fs_get(ROUTES_CACHE_COLL, _doc_id(key))
-    except Exception:
+    except Exception as _e:
+        warn("google_routes:298", _e)
         return None
 
 
@@ -306,7 +309,8 @@ def _shared_put(key, data):
         try:
             from fetat.clients.firestore import fs_set
             fs_set(ROUTES_CACHE_COLL, _doc_id(key), data)
-        except Exception:
+        except Exception as _e:
+            warn("google_routes:309", _e)
             pass
     threading.Thread(target=put, daemon=True).start()
 

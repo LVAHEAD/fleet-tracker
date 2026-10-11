@@ -13,6 +13,7 @@ from fetat.store.fleet_store import (
     FLEET_STORE, FLEET_TRASH_MS, chg_apply, done_out, done_record, fleet_owner,
 )
 from fetat.utils.timefmt import _now_ms
+from fetat.utils.log import warn
 
 bp = Blueprint("fleet", __name__)
 
@@ -41,14 +42,16 @@ def api_fleet():
                 if now - (m.get("completed_at") or 0) > FLEET_TRASH_MS:
                     try:
                         FLEET_STORE.purge(d["id"])
-                    except Exception:
+                    except Exception as _e:
+                        warn("fleet:44", _e)
                         pass
                 continue
             if m.get("deleted"):
                 if now - (m.get("deleted_at") or 0) > FLEET_TRASH_MS:
                     try:
                         FLEET_STORE.purge(d["id"])
-                    except Exception:
+                    except Exception as _e:
+                        warn("fleet:51", _e)
                         pass
                 else:
                     trash.append(_fleet_row_out(d))

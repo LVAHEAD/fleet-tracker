@@ -1,5 +1,4 @@
 """Справочники: коды регионов, Локатор, адреса, фрахты, запреты движения."""
-from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, jsonify, request
 

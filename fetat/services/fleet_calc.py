@@ -1,6 +1,5 @@
 """Флот: расчёт строки — статус машины, прицеп/реф, точки (✓ пройдено), км/ETA, тахо-ETA,
 следующие точки цепочкой, страны, «на объекте», запреты, плашки кодов."""
-from datetime import datetime, timedelta, timezone
 
 from fetat.utils.timefmt import ts_west
 from fetat.clients.google_routes import road_distance_km_google
@@ -22,6 +21,7 @@ from fetat.domain.tacho import (FRESH_SOLO_TACHO, TACHO_SPEED_KMH, calc_eta, cal
 from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM, truck_fuel, truck_weight
 from fetat.utils.geo import haversine_km
 from fetat.utils.timefmt import ceil_15min, format_duration
+from fetat.utils.log import warn
 
 
 UNLOAD_STOP_SEC = 0         # v3.39: стоянка на точке не учитывается — чистые км / время (было 30 мин)
@@ -80,7 +80,8 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
                 item["eta_tacho"] = ceil_15min(loc(arr)).strftime("%d/%m %H:%M")
                 item["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sk["stops"])
                 item["tacho_weeklimit"] = bool(sk.get("week", {}).get("hit"))   # отметка, ETA не сдвинут
-            except Exception:
+            except Exception as _e:
+                warn("fleet_calc:83", _e)
                 pass
         item["badge"], item["badge_hint"] = target_badge_info(tstr, lat, lng, t.get("target_address"))
         if leg_poly and leg_km >= 5:
@@ -92,7 +93,8 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
                 item["bans_route"] = bans_hits_text(hits, fmt)
                 item["bans_near"] = bans_near_text(det.get("near") or [], fmt)   # v3.12
                 item["bans_times"] = countries_times_text(det.get("countries") or [], fmt)
-            except Exception:
+            except Exception as _e:
+                warn("fleet_calc:95", _e)
                 pass
         out.append(item)
         prev_lat, prev_lng, prev_arr = lat, lng, arr
@@ -134,7 +136,8 @@ def _add_trailer_info(result, unit, units, payload):
         h = find_hitch(unit, units, truck_ids)
         if h:
             result["hitch"] = h
-    except Exception:
+    except Exception as _e:
+        warn("fleet_calc:137", _e)
         pass
     if trailer:
         try:
@@ -150,7 +153,8 @@ def _add_trailer_info(result, unit, units, payload):
             tw = truck_weight(fetch_reefer_units().get(unit.get("unit_id")))   # v3.34: гружён ли — для тревоги рефа
             if tw:
                 result["truck_weight"] = tw
-        except Exception:
+        except Exception as _e:
+            warn("fleet_calc:153", _e)
             pass
     # v1.71: прицеп, привязанный к тягачу вручную (строка Флота) — где он и что с рефкой
     lt = str(payload.get("trailer") or "").strip()
@@ -260,7 +264,8 @@ def _eta_opts(unit, x10):
             code, _d = nearest_region_code(unit["lat"], unit["lng"])
             if code:
                 out["tz"] = country_tz(code[:2])
-    except Exception:
+    except Exception as _e:
+        warn("fleet_calc:263", _e)
         pass
     return out
 
@@ -343,7 +348,8 @@ def _add_route_context(result, unit):
     if result.get("route_polyline") and result.get("dist_km"):
         try:
             result["route_countries"] = country_chain(result["route_polyline"], result["dist_km"])
-        except Exception:
+        except Exception as _e:
+            warn("fleet_calc:346", _e)
             pass
     # v1.59: трак на объекте таргета (полигон Mapon или радиус вокруг точки)
     if result.get("target_lat") is not None:
@@ -351,7 +357,8 @@ def _add_route_context(result, unit):
             ot = on_target(unit["lat"], unit["lng"], result["target_lat"], result["target_lng"])
             if ot:
                 result["on_target"] = ot
-        except Exception:
+        except Exception as _e:
+            warn("fleet_calc:354", _e)
             pass
 
     # v1.45: полные запреты по пути (по тахо-симуляции, иначе без остановок)
@@ -384,7 +391,8 @@ def _add_code_badges(result, target_str):
         if result.get("target_lat") is not None:
             result["target_badge"], result["target_code_hint"] = target_badge_info(
                 target_str, result["target_lat"], result["target_lng"], result.get("target_address"))
-    except Exception:
+    except Exception as _e:
+        warn("fleet_calc:387", _e)
         pass
 
 
