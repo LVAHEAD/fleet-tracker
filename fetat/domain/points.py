@@ -102,77 +102,67 @@ def looks_like_gps_or_code(s):
     return False
 
 
-def resolve_point(raw, units_getter):
-    """Разбирает одно поле From/To: машина / GPS / код региона / город.
-    Возвращает dict: lat, lng, label, country, near_code, is_truck."""
-    raw = (raw or "").strip()
-    unit = None
-    if not looks_like_gps_or_code(raw) and MAPON_API_KEY:
-        unit = find_unit_exact(units_getter(), raw)
+def _near(lat, lng):
+    """Ближайший код региона и «код для подписи», если он не дальше NEAR_LABEL_MAX_KM."""
+    code, d = nearest_region_code(lat, lng)
+    return code, d, (code if d <= NEAR_LABEL_MAX_KM else None)
 
-    if unit is not None:
-        lat, lng = unit.get("lat"), unit.get("lng")
-        if lat is None or lng is None:
-            raise ValueError(f"У машины {raw} нет текущих координат в Mapon")
-        state = unit.get("state", {}) or {}
-        status_name = state.get("name")
-        status_txt = f"{STATUS_RU.get(status_name, status_name or '')} {format_duration(state.get('duration', 0))}".strip()
-        code, d = nearest_region_code(lat, lng)
-        near = f", около {code}" if d <= NEAR_LABEL_MAX_KM else ""
-        return {
-            "lat": lat, "lng": lng,
-            "label": f"{unit.get('number') or raw} ({status_txt}{near})",
-            "country": code[:2] if code else None,
-            "near_code": code,
-            "code": code if d <= NEAR_LABEL_MAX_KM else None,
-            "is_truck": True,
-            "unit": unit,   # v1.83: марка для ночного запрета AT
-        }
 
-    # v1.62: "lv" / "Латвия" — просто База
-    if is_base_word(raw):
-        blat, blng, bname = base_point()
-        code, d = nearest_region_code(blat, blng)
-        return {
-            "lat": blat, "lng": blng,
-            "label": f"База ({bname})",
-            "country": "LV",
-            "near_code": code,
-            "code": code if d <= NEAR_LABEL_MAX_KM else None,
-            "is_truck": False,
-        }
+def _unit_point(raw, unit):
+    lat, lng = unit.get("lat"), unit.get("lng")
+    if lat is None or lng is None:
+        raise ValueError(f"У машины {raw} нет текущих координат в Mapon")
+    state = unit.get("state", {}) or {}
+    status_name = state.get("name")
+    status_txt = f"{STATUS_RU.get(status_name, status_name or '')} {format_duration(state.get('duration', 0))}".strip()
+    code, d, near_code = _near(lat, lng)
+    near = f", около {code}" if d <= NEAR_LABEL_MAX_KM else ""
+    return {
+        "lat": lat, "lng": lng,
+        "label": f"{unit.get('number') or raw} ({status_txt}{near})",
+        "country": code[:2] if code else None,
+        "near_code": code,
+        "code": near_code,
+        "is_truck": True,
+        "unit": unit,   # v1.83: марка для ночного запрета AT
+    }
 
-    # v1.40: страна через Базу (fin / ee ...) — маршрут до Базы + плашка "+довоз"
-    dv = dovoz_country(raw)
-    if dv:
-        blat, blng, bname = base_point()
-        code, d = nearest_region_code(blat, blng)
-        return {
-            "lat": blat, "lng": blng,
-            "label": f"База ({bname})",
-            "country": "LV",
-            "near_code": code,
-            "code": code if d <= NEAR_LABEL_MAX_KM else None,
-            "is_truck": False,
-            "dovoz": dv,
-        }
 
-    # v1.28: точка из адресной базы
-    addr = None if looks_like_gps_or_code(raw) else find_address(raw)
-    if addr is not None:
-        lat, lng = addr["lat"], addr["lng"]
-        code, d = nearest_region_code(lat, lng)
-        near = f" (около {code})" if code and d <= NEAR_LABEL_MAX_KM else ""
-        return {
-            "lat": lat, "lng": lng,
-            "label": f"{addr['name']}{near}",
-            "country": addr["country"] or (code[:2] if code else None),
-            "near_code": code,
-            "code": code if d <= NEAR_LABEL_MAX_KM else None,
-            "is_truck": False,
-            "address": address_public(addr),
-        }
+def _base_point(dovoz=None):
+    """v1.62: «lv» / «Латвия» — просто База; v1.40: страна через Базу (fin / ee ...) — плюс «довоз»."""
+    blat, blng, bname = base_point()
+    code, d, near_code = _near(blat, blng)
+    out = {
+        "lat": blat, "lng": blng,
+        "label": f"База ({bname})",
+        "country": "LV",
+        "near_code": code,
+        "code": near_code,
+        "is_truck": False,
+    }
+    if dovoz:
+        out["dovoz"] = dovoz
+    return out
 
+
+def _address_point(addr):
+    """v1.28: точка из адресной базы."""
+    lat, lng = addr["lat"], addr["lng"]
+    code, d, near_code = _near(lat, lng)
+    near = f" (около {code})" if code and d <= NEAR_LABEL_MAX_KM else ""
+    return {
+        "lat": lat, "lng": lng,
+        "label": f"{addr['name']}{near}",
+        "country": addr["country"] or (code[:2] if code else None),
+        "near_code": code,
+        "code": near_code,
+        "is_truck": False,
+        "address": address_public(addr),
+    }
+
+
+def _place_point(raw):
+    """Код региона / GPS / город или адрес через геокодер."""
     geo = None
     key0 = raw.upper().replace(" ", "")
     if key0 not in REGION_CODES and not parse_gps(raw):
@@ -203,6 +193,26 @@ def resolve_point(raw, units_getter):
         country = geo["cc"]
     return {"lat": lat, "lng": lng, "label": label, "country": country,
             "near_code": near_code, "code": code, "is_truck": False, "geo": geo}
+
+
+def resolve_point(raw, units_getter):
+    """Разбирает одно поле From/To: машина / GPS / код региона / город.
+    Возвращает dict: lat, lng, label, country, near_code, is_truck."""
+    raw = (raw or "").strip()
+    unit = None
+    if not looks_like_gps_or_code(raw) and MAPON_API_KEY:
+        unit = find_unit_exact(units_getter(), raw)
+    if unit is not None:
+        return _unit_point(raw, unit)
+    if is_base_word(raw):
+        return _base_point()
+    dv = dovoz_country(raw)
+    if dv:
+        return _base_point(dv)
+    addr = None if looks_like_gps_or_code(raw) else find_address(raw)
+    if addr is not None:
+        return _address_point(addr)
+    return _place_point(raw)
 
 
 # v1.64: разбор таргета строки Флота (машина-перецеп / довоз / адресная база / код / GPS / город).
