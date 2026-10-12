@@ -852,7 +852,7 @@ function etaCellHtml(row, c, composed) {
     let inner = '<span class="eta-x-t">—</span>';
     let tip = "";
     // v3.10: опоздание к TimeSlot любой непройденной точки — красным
-    const chk = ce && !ce.done && !ce.error ? slotCheck(x.delivery, ce.eta_tacho || ce.eta_local) : { late: false, lines: [] };
+    const chk = ce && !ce.done && !ce.error ? slotCheck(x.delivery, (nbAt === i && c.onArr) || ce.eta_tacho || ce.eta_local) : { late: false, lines: [] };
     const lateCls = chk.late ? " sl-late" : "";
     if (ce && ce.done) {
       inner = doneEtaHtml(ce);
@@ -928,6 +928,17 @@ function markDeliveryInput(tr, row) {
 
 // v1.48: NoBan — кнопка в начале ETA. 🚫 (розовая) — полный запрет по пути, клик → NoBan;
 // NB (зелёная) — NoBan включён, запреты не показываем; ⊘ (бледная) — запретов нет.
+// v3.82: трак стоит на объекте первой непройденной точки k — в её ETA время ПРИЕЗДА вместо расчётного ⏱
+// (зелёное; красное, если приехал позже окна TimeSlot). Уехал — дальше работает «✓ время отъезда».
+function onSiteArr(row, data, k) {
+  const ot = data.on_target;
+  if (!ot || !ot.arr) return null;
+  const pt = k === 0 ? row : ((row.extra && row.extra[k - 1]) || {});
+  const chk = slotCheck(pt.delivery, ot.arr);
+  const tip = `📍 Приехал ${ot.arr}, стоит на объекте${data.duration_str ? " " + data.duration_str : ""}. Уедет — здесь будет время отъезда`;
+  return { arr: ot.arr, late: chk.late, lines: chk.lines, tip,
+           html: `<span class="eta-x-t eta-arr${chk.late ? " eta-arr-late" : ""}" title="${escapeHtml(tip)}">📍 ${escapeHtml(ot.arr)}</span>` };
+}
 function composeEta(row, c) {
   const bans = c.bansR || [];
   const near = c.nearR || [];
@@ -1168,6 +1179,7 @@ async function calcRow(id, why) {
     let late = false, anyLate = false;
     let etaCore = null, bansR = [], tipLines = [];
     let nearR = [], banInfo = [];   // v3.12: «впритык» и подробности проверки запретов
+    let onArr = null;               // v3.82: время приезда, пока трак на объекте первой непройденной точки
     if (data.dist_km != null && !data.first_done) {
       distText = String(Math.round(data.dist_km));   // v3.35: без десятых
       distCell.classList.remove("muted");
@@ -1184,12 +1196,14 @@ async function calcRow(id, why) {
       if (data.tacho_weeklimit) {
         etaText = `<span class="wk-mark" title="Недельный лимит вождения кончится по пути — стоп до пн 00:00 UTC (02:00 CEST), учтено в ⏱ ETA">56</span>` + etaText;
       }
+      const osa = onSiteArr(row, data, 0);
+      if (osa) { etaText = osa.html; onArr = osa.arr; }
       etaCore = etaText;
       bansR = (data.bans_route || []).slice();
       (data.extra || []).forEach((x, i) => (x.bans_route || []).forEach((b) => bansR.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
       nearR = banNearLines(data);
       banInfo = banInfoLines(data);
-      const chk = deliveryCheck(row, data.eta_tacho || data.eta_local);
+      const chk = deliveryCheck(row, onArr || data.eta_tacho || data.eta_local);
       late = chk.late;
       anyLate = late || extrasLate(row, extraCalc(data));
       // v1.59: стала опаздывать с прошлого расчёта — мигать до клика (v3.10: любая точка)
@@ -1200,6 +1214,7 @@ async function calcRow(id, why) {
       }
       etaCell.classList.toggle("eta-late", late);
       tip.unshift(...chk.lines);
+      if (osa) tip.unshift(osa.tip);
       tipLines = tip;
       // v1.48: кнопка NoBan / 🚫 в начале ETA
       const composed = composeEta(row, { etaCore, bansR, tipLines, nearR, banInfo });
@@ -1221,14 +1236,17 @@ async function calcRow(id, why) {
       if (data.first_done && act0 != null && data.target_lat != null) {
         const et = data.eta_tacho || data.eta_local;
         const wk = data.tacho_weeklimit ? '<span class="wk-mark" title="Недельный лимит вождения кончится по пути">56</span>' : "";
-        etaCore = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(et || "—")}</span>`;
+        const osa = onSiteArr(row, data, act0);
+        if (osa) onArr = osa.arr;
+        etaCore = osa ? osa.html : `${wk}<span class="eta-x-t">⏱ ${escapeHtml(et || "—")}</span>`;
         bansR = (data.bans_route || []).slice();
         (data.extra || []).forEach((x, i) => (x.bans_route || []).forEach((b) => bansR.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
         nearR = banNearLines(data);
         banInfo = banInfoLines(data);
         tipLines = ["Простой ETA: " + (data.eta_local || "—")].concat(data.eta_tacho ? ["⏱ По тахографу: " + data.eta_tacho] : [])
           .concat(data.route_countries && data.route_countries.length > 1 ? ["Страны: " + data.route_countries.join(" → ")] : []);
-        Object.assign(cx, { etaCore, bansR, tipLines, nearR, banInfo, nbAt: act0 - 1 });
+        if (osa) tipLines.unshift(osa.tip);
+        Object.assign(cx, { etaCore, bansR, tipLines, nearR, banInfo, nbAt: act0 - 1, onArr });
         composed = composeEta(row, cx);
       }
       anyLate = extrasLate(row, cx.extra);
@@ -1268,8 +1286,8 @@ async function calcRow(id, why) {
 
     const wasWait = awaitsComplete(row);   // v3.81
     const fv0 = folded(row) ? foldVisible(row).join() : "";   // v3.11: окно свёрнутых точек до расчёта
-    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo,
-                         etaStr: data.eta_tacho || data.eta_local, extra: extraCalc(data),
+    lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo, onArr,
+                         etaStr: onArr || data.eta_tacho || data.eta_local, extra: extraCalc(data),
                          crew: crewOf(data),
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual,
                            by: x.by != null ? x.by : null, zone: x.zone || null })),

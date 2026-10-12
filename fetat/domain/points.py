@@ -337,6 +337,26 @@ def _auto_done(tstr, t, lat, lng, unit, stops_box):
     return auto_at, auto_arr, zone
 
 
+def site_arrival(unit):
+    """v3.82: трак стоит на объекте точки — время ПРИЕЗДА «dd/mm HH:MM»: начало текущей стоянки из истории Mapon
+    (стоянка «сейчас» рядом с траком), запасной вариант — «сейчас минус длительность состояния». Нет данных — None."""
+    import time
+    try:
+        for st in recent_stops(unit.get("unit_id")) or []:
+            if (st.get("now") and st.get("start") and st.get("lat") is not None
+                    and haversine_km(unit["lat"], unit["lng"], st["lat"], st["lng"]) <= 0.5):
+                return ts_west(st["start"]).strftime("%d/%m %H:%M")
+    except Exception:
+        pass
+    try:
+        dur = float((unit.get("state") or {}).get("duration") or 0)
+        if dur > 0:
+            return ts_west(time.time() - dur).strftime("%d/%m %H:%M")
+    except Exception:
+        pass
+    return None
+
+
 def points_done(pts, manual, unit, units, seen=None, seen_arr=None):
     """pts — строки точек (① + следующие), manual — [True/False/None] ручные отметки,
     seen — [время|None] уже запомненные в строке авто-✓ (v3.17: не теряются, когда стоянка

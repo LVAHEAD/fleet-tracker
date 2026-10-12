@@ -9,7 +9,7 @@ from fetat.config import GOOGLE_API_KEY, HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.bans import (bans_hits_text, bans_near_text, bans_on_route, countries_times_text, country_chain,
                                needs_at_night_ban)
 from fetat.domain.points import (
-    find_unit_by_label, find_unit_exact, NEAR_LABEL_MAX_KM, on_target, points_done,
+    find_unit_by_label, find_unit_exact, NEAR_LABEL_MAX_KM, on_target, points_done, site_arrival,
     resolve_fleet_target, STATUS_RU, target_badge_info,
 )
 from fetat.domain.regions import nearest_region_code
@@ -356,6 +356,10 @@ def _add_route_context(result, unit):
         try:
             ot = on_target(unit["lat"], unit["lng"], result["target_lat"], result["target_lng"])
             if ot:
+                ot = dict(ot)
+                arr = site_arrival(unit)      # v3.82: приезд на объект — в ETA точки вместо расчёта
+                if arr:
+                    ot["arr"] = arr
                 result["on_target"] = ot
         except Exception as _e:
             warn("fleet_calc:354", _e)

@@ -657,6 +657,9 @@ body.sort-manual .manual-only { display: block; }
 @media (prefers-reduced-motion: reduce) { #fleet-tbody tr.row-blink-fuel:not(.row-blink):not(.row-blink-rf) td { animation: none; background: #fdf0d5 !important; } }
 /* v3.34: тревога рефа — синее мигание (опоздание красным важнее, реф важнее топлива) */
 @keyframes rowBlinkRf { 0%, 100% { box-shadow: none; } 50% { box-shadow: inset 0 0 0 999px rgba(47, 111, 214, 0.20); } }
+/* v3.82: ETA точки, на объекте которой стоит трак, — время приезда: зелёное, красное при опоздании к окну */
+.eta-arr { color: #2d6b3c; font-weight: 600; }
+.eta-arr.eta-arr-late { color: #c0392b; }
 /* v3.81: трип ждёт «✓ Завершён» — лимонно-жёлтое мигание всей строки (тревоги важнее) */
 @keyframes rowBlinkDone { 0%, 100% { box-shadow: none; } 50% { box-shadow: inset 0 0 0 999px rgba(255, 214, 0, 0.30); } }
 #fleet-tbody tr.row-blink-done:not(.row-blink):not(.row-blink-fuel):not(.row-blink-rf) td { animation: rowBlinkDone 1.2s ease-in-out infinite; }
