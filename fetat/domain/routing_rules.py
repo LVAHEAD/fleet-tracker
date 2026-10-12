@@ -80,6 +80,14 @@ def _ferry_pair_for_country(other_country, other_lat, other_lng):
     return None
 
 
+def in_zealand_zone(lat, lng):
+    """v3.83: Дания восточнее Большого Бельта — Зеландия, Лолланн, Фальстер, Мён (не Ютландия и Фюн, не Борнхольм).
+    Туда с материка только паромами (Путтгарден — Рёдбю / Росток — Гедсер), не по мосту через Ютландию."""
+    if lat is None or lng is None or not (54.5 <= lat <= 56.2):
+        return False
+    return 11.0 <= lng <= 12.8 or (lat >= 55.6 and 10.8 <= lng < 11.0)   # второе — Кальдборг и Рёснес
+
+
 def _swiss_risk(country, lat, lng):
     """v3.26: точка, куда из Италии Google может повести через Швейцарию: Бенелюкс и восток / северо-восток
     Франции (Эльзас, Лотарингия, Франш-Конте). Юг Франции (через Вентимилью) и запад — нет."""
@@ -168,6 +176,17 @@ def pick_waypoints_by_country(from_country, from_lat, from_lng, to_country, to_l
             south_port, dk_port = pair
             # едем с юга на север
             return [south_port, dk_port, HELSINGOR, HELSINGBORG]
+
+
+    # v3.83: материк <-> Дания восточнее Большого Бельта (Зеландия, Лолланн, Фальстер) — только паромами
+    if to_country == "DK" and from_country not in SCANDI | {"DK"} and in_zealand_zone(to_lat, to_lng):
+        pair = _ferry_pair_for_country(from_country, from_lat, from_lng)
+        if pair:
+            return [pair[0], pair[1]]          # материковый порт -> датский порт
+    if from_country == "DK" and to_country not in SCANDI | {"DK"} and in_zealand_zone(from_lat, from_lng):
+        pair = _ferry_pair_for_country(to_country, to_lat, to_lng)
+        if pair:
+            return [pair[1], pair[0]]          # датский порт -> материковый порт
 
     return None
 
