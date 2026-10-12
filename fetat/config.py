@@ -35,6 +35,8 @@ FREIGHT_SHEET = os.environ.get("FREIGHT_SHEET", "Фрахты")
 SETTINGS_SHEET = os.environ.get("SETTINGS_SHEET", "Настройки")
 # v3.11: лист со списком диспетчеров (Email, Инициалы, Цвет, Назначает)
 DISP_SHEET = os.environ.get("DISP_SHEET", "Диспетчеры")
+# лист со ссылками левой выезжалки Links (A — ссылка или заголовок группы, B — название)
+LINKS_SHEET = os.environ.get("LINKS_SHEET", "Ссылки")
 
 GOOGLE_PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT") or "my-n8n-bot-496614"
 

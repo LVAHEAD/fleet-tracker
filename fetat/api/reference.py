@@ -8,6 +8,7 @@ from fetat.clients.nakordoni import _bans_cache, _bans_fetch_lock, _bans_lock
 from fetat.config import MAPON_API_KEY
 from fetat.domain.addresses import _addr_cache, address_public, get_addresses
 from fetat.domain.bans import BANS_MANUAL_MIN, _bans_refresh, BANS_TTL
+from fetat.domain.links import _links_cache, get_links
 from fetat.domain.freights import _frt_cache, get_contract_clients, get_freights, _set_cache
 from fetat.domain.points import resolve_point
 from fetat.domain.regions import nearest_region_code, REGION_CODES
@@ -121,3 +122,10 @@ def api_bans():
     if data is None:
         return jsonify({"error": err or "нет данных — попробуйте позже"}), 502
     return jsonify({**data, "error": err, "loaded_at": loaded_txt})
+
+
+@bp.route("/api/links")
+def api_links():
+    """Ссылки левой выезжалки Links из листа «Ссылки». ?refresh=1 — перечитать лист сейчас."""
+    groups = get_links(force=request.args.get("refresh") == "1")
+    return jsonify({"ok": True, "groups": groups, "source": _links_cache["source"], "error": _links_cache["error"]})

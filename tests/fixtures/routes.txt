@@ -18,6 +18,7 @@
 /api/freights GET
 /api/google-usage GET
 /api/google-usage/log GET
+/api/links GET
 /api/locate POST
 /api/mapon-check GET
 /api/mapon-objects GET
