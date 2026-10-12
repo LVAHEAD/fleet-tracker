@@ -53,7 +53,7 @@ function doneEtaHtml(x) {
   const arr = x.done_arr || x.arr;   // v3.57: приезд на точку (если трек его знает)
   const where = zone ? `в зоне Mapon «${zone}»` : "на точке";
   const tip = auto ? (arr && at ? `Трак стоял ${where} с ${arr} до ${at} и уехал` : `Трак стоял ${where} и уехал`) : "Отмечено вручную";
-  const label = auto && at ? (arr ? `${arr} – ${at}` : at) : "пройдена";
+  const label = auto && at ? at : "пройдена";   // v3.81: в ячейке только время отъезда, «приехал – уехал» — в подсказке
   return `<span class="done-eta" title="${escapeHtml(tip)}">✓ ${escapeHtml(label)}</span>`;
 }
 // ответ сервера (① и extra — только непройденные) -> по исходным номерам точек
@@ -84,6 +84,7 @@ function applyDoneClasses(tr, row, c) {
   const flags = (c && c.doneFlags) || [];
   tr.classList.toggle("row-done", !!(c && c.allDone));
   // v3.22: все точки пройдены — строка серая и ждёт подтверждения хозяина / назначающего
+  tr.classList.toggle("row-blink-done", typeof awaitsComplete === "function" && awaitsComplete(row));   // v3.81
   const cb = tr.querySelector(".cmpl-btn");
   if (cb) cb.hidden = !(c && c.allDone && window.fleetCanComplete && window.fleetCanComplete(row));
   // v1.81: трак на объекте точки k — её строка бледно-зелёная во всех колонках
@@ -102,6 +103,9 @@ function applyDoneClasses(tr, row, c) {
     const k = w.classList.contains("x-stop") ? Number(w.dataset.k) : 0;
     const f = flags[k];
     w.classList.toggle("pt-done", !!(f && f.done));
+    // v3.81: окно Delivery пройденной точки — тоже зачёркнуто
+    const dl = k === 0 ? tr.querySelector(".delivery-input") : tr.querySelector(`.xd-input[data-k="${k}"]`);
+    if (dl) dl.classList.toggle("pt-done", !!(f && f.done));
     const chip = w.querySelector(".stop-n");
     if (chip) {
       const m = row.done && (row.done[k] === true || row.done[k] === false) ? row.done[k] : null;

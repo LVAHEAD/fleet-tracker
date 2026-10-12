@@ -1266,6 +1266,7 @@ async function calcRow(id, why) {
     const oldTb = tr.querySelector(".target-cc");
     if (oldTb) oldTb.outerHTML = targetBadge;
 
+    const wasWait = awaitsComplete(row);   // v3.81
     const fv0 = folded(row) ? foldVisible(row).join() : "";   // v3.11: окно свёрнутых точек до расчёта
     lastCalcText[id] = { status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo,
                          etaStr: data.eta_tacho || data.eta_local, extra: extraCalc(data),
@@ -1281,6 +1282,11 @@ async function calcRow(id, why) {
                          corridor: data.corridor || null,          // v3.32: плашка коридора ИТ ↔ Бенелюкс
                          nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };
     applyDoneClasses(tr, row, lastCalcText[id]);
+    // v3.81: трип стал «ждущим завершения» (или перестал) — поднять / опустить; не во время набора текста
+    if (awaitsComplete(row) !== wasWait) {
+      const ae = document.activeElement;
+      if (!(ae && ae.closest && ae.closest("#fleet-tbody"))) setTimeout(resort, 0);
+    }
     applyFuelBlink(tr, id);
     applyReeferBlink(tr, id);
     const cb = tr.querySelector(".crew-b");     // v3.15: 👤/👥

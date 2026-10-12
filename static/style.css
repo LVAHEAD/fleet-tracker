@@ -657,6 +657,10 @@ body.sort-manual .manual-only { display: block; }
 @media (prefers-reduced-motion: reduce) { #fleet-tbody tr.row-blink-fuel:not(.row-blink):not(.row-blink-rf) td { animation: none; background: #fdf0d5 !important; } }
 /* v3.34: тревога рефа — синее мигание (опоздание красным важнее, реф важнее топлива) */
 @keyframes rowBlinkRf { 0%, 100% { box-shadow: none; } 50% { box-shadow: inset 0 0 0 999px rgba(47, 111, 214, 0.20); } }
+/* v3.81: трип ждёт «✓ Завершён» — лимонно-жёлтое мигание всей строки (тревоги важнее) */
+@keyframes rowBlinkDone { 0%, 100% { box-shadow: none; } 50% { box-shadow: inset 0 0 0 999px rgba(255, 214, 0, 0.30); } }
+#fleet-tbody tr.row-blink-done:not(.row-blink):not(.row-blink-fuel):not(.row-blink-rf) td { animation: rowBlinkDone 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { #fleet-tbody tr.row-blink-done:not(.row-blink):not(.row-blink-fuel):not(.row-blink-rf) td { animation: none; background: #fff6bf !important; } }
 #fleet-tbody tr.row-blink-rf:not(.row-blink) td { animation: rowBlinkRf 1.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { #fleet-tbody tr.row-blink-rf:not(.row-blink) td { animation: none; background: #dfe9fa !important; } }
 .tf-pill { margin-left: 4px; padding: 0 5px; border-radius: 8px; background: #fde2e1; color: #b42318; font-size: 11px; font-weight: 600; white-space: nowrap; }
@@ -711,6 +715,12 @@ body { max-width: 95vw; }
 .stop-x:hover { color: #c0392b; }
 .stop-n { flex: 0 0 auto; width: 16px; text-align: center; color: #2f6fd6; font-size: 14px; line-height: 1; }
 .x-stop { margin-top: 4px; }
+/* v3.81: единая высота подстроки во всех колонках (точка, Delivery, км, ETA, заметка) — без накопления сдвига */
+:root { --stop-h: 28px; }
+@media (min-width: 768px) {
+  #fleet-tbody tr.multi .target-wrap, #fleet-tbody tr.multi .note-wrap { height: var(--stop-h); box-sizing: border-box; }
+  #fleet-tbody tr.multi .delivery-input, #fleet-tbody tr.multi .xd-input { height: var(--stop-h); box-sizing: border-box; }
+}
 .xt-input { flex: 1; min-width: 0; }
 #fleet-tbody tr.multi > td { vertical-align: top; }
 .delivery-td .xd-input { display: block; margin-top: 4px; width: 100%; box-sizing: border-box; }
@@ -868,6 +878,8 @@ button.hitch-ic:hover { background: #e6dfcc; }
 /* ---------- v1.79: пройденные точки ✓ ---------- */
 .target-wrap.pt-done .lo-btn, .target-wrap.pt-done .cc-badge, .target-wrap.pt-done input { opacity: .45; }
 .target-wrap.pt-done input { text-decoration: line-through; }
+/* v3.81: окно Delivery пройденной точки — зачёркнуто, мягче названия (время должно читаться) */
+.delivery-input.pt-done, .xd-input.pt-done { text-decoration: line-through; opacity: .6; }
 .target-wrap.pt-done .pn-chip { background: #e3f1e6 !important; color: #2d6b3c !important; }
 .stop-n-click { cursor: pointer; }
 .stop-n-click:hover .pn-chip { outline: 2px solid #2f6fd6; outline-offset: 1px; }

@@ -44,7 +44,21 @@ function slotKey(row) {
   return t ? t.getTime() : null;
 }
 
+// v3.81: трип ждёт «✓ Завершён» — все точки пройдены и этот человек может его завершить
+function awaitsComplete(row) {
+  const c = lastCalcText[row.id];
+  return !!(row && row.unit && c && c.allDone && window.fleetCanComplete && window.fleetCanComplete(row));
+}
+// v3.81: такие трипы всегда наверху при любой сортировке (порядок между ними и остальных — прежний)
 function computeOrder() {
+  const base = computeBaseOrder();
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const up = base.filter((id) => byId.has(id) && awaitsComplete(byId.get(id)));
+  if (!up.length) return base;
+  const upSet = new Set(up);
+  return up.concat(base.filter((id) => !upSet.has(id)));
+}
+function computeBaseOrder() {
   if (sortMode === "manual") {
     const pos = new Map(manualOrder.map((id, i) => [id, i]));
     const known = rows.filter((r) => pos.has(r.id)).sort((a, b) => pos.get(a.id) - pos.get(b.id));
@@ -126,6 +140,7 @@ function stripeRow(tr, row) {
 function rowPassesFilter(row) {
   if (!row.unit) return true;
   if (!rowPassesOwn(row)) return false;   // v2.01 / v3.11
+  if (awaitsComplete(row)) return true;   // v3.81: ждущие «✓ Завершён» видны при любом L/O
   if (loFilter === "all") return true;
   return rowLoKind(row) === loFilter;
 }
