@@ -21,6 +21,8 @@ NICE = (43.70, 7.26)
 LYON = (45.76, 4.84)
 VENICE = (45.44, 12.33)
 AMSTERDAM = (52.37, 4.90)
+MB_N = [rr.MONT_BLANC, rr.ANNECY, rr.BOURG_EN_BRESSE]   # v3.84: Монблан + точки привязки во Франции
+MB_S = list(reversed(MB_N))
 IBK_N = [rr.INNSBRUCK, rr.KUFSTEIN]      # v3.29: коридор Инсбрук на север — выезд на Куфштайн
 IBK_S = [rr.KUFSTEIN, rr.INNSBRUCK]
 
@@ -35,12 +37,12 @@ class SwissBypassTest(unittest.TestCase):
         self.assertEqual(rr.pick_waypoints_by_country("IT", *BARI, "NL", *NL29), IBK_N)
 
     def test_west_italy_via_mont_blanc(self):
-        self.assertEqual(rr.pick_waypoints_by_country("IT", *TURIN, "NL", *NL29), [rr.MONT_BLANC])
-        self.assertEqual(rr.pick_waypoints_by_country("IT", *MILAN, "FR", *STRASBOURG), [rr.MONT_BLANC])
+        self.assertEqual(rr.pick_waypoints_by_country("IT", *TURIN, "NL", *NL29), MB_N)
+        self.assertEqual(rr.pick_waypoints_by_country("IT", *MILAN, "FR", *STRASBOURG), MB_N)
 
     def test_reverse_direction(self):
         self.assertEqual(rr.pick_waypoints_by_country("NL", *NL29, "IT", *BARI), IBK_S)
-        self.assertEqual(rr.pick_waypoints_by_country("BE", *BRUSSELS, "IT", *TURIN), [rr.MONT_BLANC])
+        self.assertEqual(rr.pick_waypoints_by_country("BE", *BRUSSELS, "IT", *TURIN), MB_S)
 
     def test_countries(self):
         for cc, pt in (("BE", BRUSSELS), ("NL", NL29), ("LU", (49.61, 6.13)), ("FR", STRASBOURG)):
@@ -67,7 +69,7 @@ class SwissBypassTest(unittest.TestCase):
         self.assertFalse(rr.corridor_is_tie(cands("IT", BOLOGNA, "BE", BRUSSELS)))
 
     def test_label(self):
-        self.assertEqual(rr.waypoints_label([rr.MONT_BLANC]), "через Монблан")
+        self.assertEqual(rr.waypoints_label(MB_N), "через Монблан")
         self.assertEqual(rr.waypoints_label([rr.INNSBRUCK]), "через Инсбрук")
         self.assertEqual(rr.waypoints_label(IBK_N), "через Инсбрук")
         self.assertEqual(rr.waypoints_label(IBK_S), "через Инсбрук")
@@ -106,7 +108,7 @@ class CorridorChoiceTest(unittest.TestCase):
     def test_google_error_falls_back(self):
         with mock.patch.object(corridors, "GOOGLE_API_KEY", "k"), \
                 mock.patch.object(gr, "_road_distance_km_google", side_effect=RuntimeError("нет сети")):
-            self.assertEqual(corridors.resolve_waypoints("IT", *BOLOGNA, "NL", *AMSTERDAM), [rr.MONT_BLANC])
+            self.assertEqual(corridors.resolve_waypoints("IT", *BOLOGNA, "NL", *AMSTERDAM), MB_N)
 
     def test_fleet_uses_resolver(self):
         self.assertEqual(corridors.fleet_waypoints_resolved(*VENICE, *NL29), IBK_N)

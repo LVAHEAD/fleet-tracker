@@ -25,6 +25,17 @@ MONT_BLANC = (45.854, 6.914)
 FREJUS = (45.1365, 6.6855)
 
 
+# v3.84: Монблан — после туннеля Google ехал к Бенелюксу кратчайшим путём через Женеву и Базель, т. е. по Швейцарии.
+# Точки привязки во Франции держат маршрут: туннель → Анси (A40 / A410, мимо Женевы) → Бур-ан-Брес (дальше A6 / A31 / A36).
+ANNECY = (45.899, 6.129)
+
+
+BOURG_EN_BRESSE = (46.2056, 5.2256)
+
+
+FRANCE_ANCHORS = {"Монблан": (ANNECY, BOURG_EN_BRESSE)}     # после туннеля по ходу из Италии; в Италию — в обратном порядке
+
+
 # v3.26: обход Швейцарии — коридоры и правило «впритык» (два лучших ближе этой доли — решает Google)
 SWISS_BYPASS = (("Инсбрук", VIA_INNSBRUCK), ("Монблан", (MONT_BLANC,)), ("Фрежюс", (FREJUS,)))
 
@@ -109,7 +120,10 @@ def swiss_bypass_candidates(from_country, from_lat, from_lng, to_country, to_lat
     for name, pts in SWISS_BYPASS:
         pts = list(reversed(pts)) if to_italy else list(pts)
         chain = [(from_lat, from_lng)] + pts + [(to_lat, to_lng)]
-        km = sum(haversine_km(a[0], a[1], b[0], b[1]) for a, b in zip(chain, chain[1:]))
+        km = sum(haversine_km(a[0], a[1], b[0], b[1]) for a, b in zip(chain, chain[1:]))   # выбор коридора — по самому туннелю
+        anchors = list(FRANCE_ANCHORS.get(name, ()))        # v3.84: точки привязки во Франции — только в маршрут
+        if anchors:
+            pts = list(reversed(anchors)) + pts if to_italy else pts + anchors
         est.append((km, name, pts))
     est.sort(key=lambda x: x[0])
     return [(name, pts, round(km)) for km, name, pts in est]
@@ -127,9 +141,10 @@ def waypoints_label(waypoints):
         return ""
     if set(wps) == set(VIA_INNSBRUCK) or wps == [INNSBRUCK]:
         return "через Инсбрук"
-    names = {MONT_BLANC: "через Монблан", FREJUS: "через Фрежюс"}
-    if len(wps) == 1 and wps[0] in names:
-        return names[wps[0]]
+    if MONT_BLANC in wps:                      # v3.84: Монблан — туннель + точки привязки во Франции
+        return "через Монблан"
+    if wps == [FREJUS]:
+        return "через Фрежюс"
     return "паромы"
 
 

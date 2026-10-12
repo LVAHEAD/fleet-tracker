@@ -182,6 +182,7 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
   border: 1px solid #c9c9c9; border-radius: 9px; background: #f6f6f6; color: #555; cursor: pointer; white-space: nowrap; vertical-align: 1px; }
 .cor-b:hover { background: #eef3fd; border-color: #2f6fd6; color: #2f6fd6; }
 .cor-b.cor-man { border-color: #2f6fd6; color: #2f6fd6; background: #eef3fd; font-weight: 600; }
+.cor-b.cor-warn { color: #b42318; border-color: #e0a39c; background: #fdecea; }   /* v3.84: маршрут заходит в Швейцарию */
 .cor-pop { position: absolute; z-index: 1600; width: 290px; background: #fff; border: 1px solid #ccc; border-radius: 8px;
   box-shadow: 0 6px 20px rgba(0,0,0,.15); padding: 6px; font-size: 12px; }
 .cor-h { font-weight: 600; padding: 4px 6px 6px; color: #333; }

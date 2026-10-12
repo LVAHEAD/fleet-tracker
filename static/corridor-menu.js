@@ -10,10 +10,11 @@ function corridorChip(row, c) {
   const k = c && c.corridor;
   if (!k || !k.used) return "";
   const man = !!row.corridor;
+  const warn = k.swiss ? "\n⚠ Маршрут заходит в Швейцарию — проверь линию на карте" : "";   // v3.84
   const tip = `Коридор в обход Швейцарии: ${k.used}${man ? " (выбран вручную)" : " (авто)"}` +
-    (COR_TUNNEL[k.used] ? ` · туннель ~${COR_TUNNEL[k.used]} €` : "") + ". Клик — выбрать другой";
+    (COR_TUNNEL[k.used] ? ` · туннель ~${COR_TUNNEL[k.used]} €` : "") + ". Клик — выбрать другой" + warn;
   const eur = COR_TUNNEL[k.used] ? ` · туннель ~${COR_TUNNEL[k.used]} €` : "";   // v3.45: цена — в самой полоске
-  return `<button type="button" class="cor-b${man ? " cor-man" : ""}" title="${escapeHtml(tip)}">⛰ ${escapeHtml(k.used)}${eur}</button>`;
+  return `<button type="button" class="cor-b${man ? " cor-man" : ""}${k.swiss ? " cor-warn" : ""}" title="${escapeHtml(tip)}">⛰ ${escapeHtml(k.used)}${eur}${k.swiss ? " ⚠" : ""}</button>`;
 }
 let corPop = null;
 function closeCorridorMenu() { if (corPop) { corPop.remove(); corPop = null; } }

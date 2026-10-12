@@ -60,6 +60,8 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
             cc = fleet_corridor_cands(prev_lat, prev_lng, lat, lng)
             if cc:
                 first["corridor"] = corridor_info(cc, leg_wps, corridor, (prev_lat, prev_lng, lat, lng), to=xi + 1)   # v3.45: плечо к точке xi + 2
+                if _enters_switzerland(leg_poly, leg_km):
+                    first["corridor"]["swiss"] = True     # v3.84: ⚠ на плашке коридора
         cum_km += leg_km
         n_stops += 1
         dwell = n_stops * UNLOAD_STOP_SEC
@@ -342,12 +344,23 @@ def _week_short_last(result):
         result["week_short_last"] = {"need": int(need), "left": int(left), "short": int(need - left)}
 
 
+def _enters_switzerland(polyline, dist_km):
+    """v3.84: линия маршрута заходит в Швейцарию (для плашки коридора обхода Швейцарии)."""
+    try:
+        return bool(polyline and dist_km) and "CH" in country_chain(polyline, dist_km)
+    except Exception as _e:
+        warn("fleet_calc:swiss", _e)
+        return False
+
+
 def _add_route_context(result, unit):
     """v1.59/v1.45: страны по маршруту, «на объекте», полные запреты по пути."""
     # v1.59: цепочка стран по маршруту (без времени)
     if result.get("route_polyline") and result.get("dist_km"):
         try:
             result["route_countries"] = country_chain(result["route_polyline"], result["dist_km"])
+            if result.get("corridor") and "CH" in result["route_countries"]:
+                result["corridor"]["swiss"] = True        # v3.84: ⚠ на плашке коридора
         except Exception as _e:
             warn("fleet_calc:346", _e)
             pass

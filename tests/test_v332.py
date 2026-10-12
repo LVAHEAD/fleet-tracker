@@ -10,6 +10,8 @@ from fetat.services import corridors
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VENICE = (45.44, 12.33)
 NL29 = (51.9482, 4.9309)
+MB_N = [rr.MONT_BLANC, rr.ANNECY, rr.BOURG_EN_BRESSE]   # v3.84: Монблан + точки привязки во Франции
+MB_S = list(reversed(MB_N))
 IBK_N = [rr.INNSBRUCK, rr.KUFSTEIN]
 
 
@@ -28,7 +30,7 @@ class CorridorPickTest(unittest.TestCase):
     def test_manual_wins(self):
         # по прямой Венеция → NL — Инсбрук; диспетчер выбрал Монблан
         self.assertEqual(corridors.resolve_waypoints("IT", *VENICE, "NL", *NL29), IBK_N)
-        self.assertEqual(corridors.resolve_waypoints("IT", *VENICE, "NL", *NL29, "Монблан"), [rr.MONT_BLANC])
+        self.assertEqual(corridors.resolve_waypoints("IT", *VENICE, "NL", *NL29, "Монблан"), MB_N)
         self.assertEqual(corridors.fleet_waypoints_resolved(*VENICE, *NL29, "Фрежюс"), [rr.FREJUS])
 
     def test_manual_ignored_outside_rule(self):
@@ -44,7 +46,7 @@ class CorridorPickTest(unittest.TestCase):
 
     def test_info_names_used(self):
         cc = rr.swiss_bypass_candidates("IT", *VENICE, "NL", *NL29)
-        info = corridors.corridor_info(cc, [rr.MONT_BLANC], "Монблан", (*VENICE, *NL29))
+        info = corridors.corridor_info(cc, MB_N, "Монблан", (*VENICE, *NL29))
         self.assertEqual(info["used"], "Монблан")
         self.assertTrue(info["manual"])
         self.assertEqual(sorted(info["names"]), sorted(corridors.CORRIDOR_NAMES))

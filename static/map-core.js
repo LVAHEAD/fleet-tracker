@@ -613,7 +613,7 @@ function numChip(n, lo) {
 }
 let routeExtraLines = [];
 
-function drawRoute(rowId) {
+function drawRoute(rowId, keepView) {   // v3.84: keepView — перерисовать линию, не двигая карту
   const pos = rowPositions[rowId];
   selectedRowId = rowId;           // v1.75: для режима таргетов "Выбранная"
   markSelectedRow();               // v3.26: строка отмечена, её машинка — с подписью и вне кластера
@@ -627,13 +627,13 @@ function drawRoute(rowId) {
   routeExtraLines = [];
 
   if (!pos || pos.targetLat == null || pos.targetLng == null) {
-    centerMapOn(rowId);
+    if (!keepView) centerMapOn(rowId);
     return;
   }
 
   if (!pos.polyline) {
     // координаты таргета есть, а линии нет (например, Routes API не вернул её) — просто центрируем
-    centerMapOn(rowId);
+    if (!keepView) centerMapOn(rowId);
     return;
   }
 
@@ -655,5 +655,18 @@ function drawRoute(rowId) {
     routeExtraLines.push(new google.maps.Polyline({ path: p2, strokeColor: "#4285F4", strokeOpacity: 0.55, strokeWeight: 4, map: map }));
     p2.forEach((p) => bounds.extend(p));
   });
-  map.fitBounds(bounds, 40);
+  if (!keepView) map.fitBounds(bounds, 40);
+}
+
+// v3.84: смена коридора — линию выбранной строки приглушить на время расчёта, потом перерисовать (выбранную — без сдвига карты,
+// невыбранную — выбрать и показать, как по клику). Панель карты сама не открывается; карты ещё нет — ничего не делаем.
+function dimRoute(rowId) {
+  if (!map || !isSelected(rowId)) return;
+  if (routePolyline) routePolyline.setOptions({ strokeOpacity: 0.3 });
+  routeExtraLines.forEach((l) => l.setOptions({ strokeOpacity: 0.2 }));
+}
+function refreshRoute(rowId) {
+  if (!map) return;
+  const id = Number(rowId);
+  drawRoute(id, isSelected(id));
 }

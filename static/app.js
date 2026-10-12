@@ -1790,7 +1790,8 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
   corridorMenu(b, c.corridor, row.corridor || null, (name) => {
     if (name) row.corridor = name; else delete row.corridor;
     saveRows();
-    calcRow(id, "edit");
+    dimRoute(id);                                                  // v3.84: старая линия бледнее, пока считаем
+    Promise.resolve(calcRow(id, "edit")).finally(() => refreshRoute(id));   // v3.84: новая линия — сразу, без сдвига карты
   });
 });
 
