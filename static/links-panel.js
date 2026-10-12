@@ -2,10 +2,13 @@
 Fleet ETA Tracker — раздел Links левой выезжалки: группы и ссылки из листа «Ссылки» (/api/links).
 Стиль — как у ⏱ калькулятора: белые секции-группы (подпись и число ссылок), строка: иконка сайта (favicon через Google s2, у mailto — ✉), название, адрес справа.
 Грузится после left-panel.js; перечитывает не чаще раза в минуту при открытии панели.
+Кнопка ↻ внизу слева — перечитать лист сразу (/api/links?refresh=1); рядом — время обновления или «лист не прочитан».
 */
 (function () {
   const root = document.getElementById("links-root");
   if (!root) return;
+  const btn = document.getElementById("links-refresh");
+  const stat = document.getElementById("links-stat");
   let loadedAt = 0, busy = false;
 
   function icon(url) {
@@ -57,20 +60,36 @@ Fleet ETA Tracker — раздел Links левой выезжалки: груп
     });
   }
 
-  async function load(force) {
+  function setStat(text, bad) {
+    if (!stat) return;
+    stat.textContent = text;
+    stat.classList.toggle("bad", !!bad);
+  }
+
+  // force — игнорировать минутную паузу; refresh — попросить сервер перечитать лист (кнопка ↻), а не взять из кеша
+  async function load(force, refresh) {
     if (busy || (!force && Date.now() - loadedAt < 60000 && loadedAt)) return;
     busy = true;
+    if (btn) { btn.disabled = true; btn.textContent = "↻ …"; }
     try {
-      const r = await fetch("/api/links");
+      const r = await fetch("/api/links" + (refresh ? "?refresh=1" : ""));
       const j = await r.json();
       if (!j.ok || !Array.isArray(j.groups)) throw new Error("bad response");
       render(j.groups);
       loadedAt = Date.now();
+      const hm = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+      if (j.source === "sheet") setStat("обновлено " + hm);
+      else setStat("лист не прочитан — запасной список", true);
     } catch (e) {
       if (!loadedAt) { root.textContent = ""; const d = document.createElement("div"); d.className = "links-note"; d.textContent = "Не удалось загрузить ссылки"; root.appendChild(d); }
-    } finally { busy = false; }
+      setStat("не удалось обновить", true);
+    } finally {
+      busy = false;
+      if (btn) { btn.disabled = false; btn.textContent = "↻ Обновить"; }
+    }
   }
 
   window.addEventListener("left-panel:open", () => load(false));
-  load(true);
+  if (btn) btn.addEventListener("click", () => load(true, true));
+  load(true, false);
 })();
