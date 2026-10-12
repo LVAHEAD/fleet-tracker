@@ -1300,4 +1300,7 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
     box-sizing: border-box; width: 22px; height: 22px; padding: 0; margin: 0;
     display: inline-flex !important; align-items: center; justify-content: center; font-size: 13px; line-height: 1;
   }
+  /* ↑ ↓ ⠿ — только при «Руками»: правило выше (с !important и id) иначе показывает их и при L → O / O → L */
+  body:not(.sort-manual) #fleet-tbody .row-actions .wide-acts .manual-inline,
+  body:not(.sort-manual) #fleet-tbody .row-actions .wide-acts .drag-h-w { display: none !important; }
 }
