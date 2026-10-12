@@ -1,6 +1,6 @@
 /*
 Fleet ETA Tracker — раздел Links левой выезжалки: группы и ссылки из листа «Ссылки» (/api/links).
-Заголовок группы — как «Наша аппа» в Справке; у ссылки — иконка сайта (favicon через Google s2), у mailto — ✉.
+Стиль — как у ⏱ калькулятора: белые секции-группы (подпись и число ссылок), строка: иконка сайта (favicon через Google s2, у mailto — ✉), название, адрес справа.
 Грузится после left-panel.js; перечитывает не чаще раза в минуту при открытии панели.
 */
 (function () {
@@ -23,6 +23,11 @@ Fleet ETA Tracker — раздел Links левой выезжалки: груп
     return span;
   }
 
+  function subText(url) {
+    if (/^mailto:/i.test(url)) return url.slice(7);
+    try { return new URL(url).hostname.replace(/^www\./, ""); } catch (e) { return ""; }
+  }
+
   function render(groups) {
     root.textContent = "";
     groups.forEach((g) => {
@@ -30,18 +35,22 @@ Fleet ETA Tracker — раздел Links левой выезжалки: груп
       box.className = "links-group";
       if (g.title) {
         const h = document.createElement("div");
-        h.className = "fixed-links-sub";
-        h.textContent = g.title;
+        h.className = "links-h";
+        const t = document.createElement("span"); t.textContent = g.title;
+        const n = document.createElement("span"); n.textContent = String(g.items.length);
+        h.appendChild(t); h.appendChild(n);
         box.appendChild(h);
       }
       g.items.forEach((it) => {
+        const mail = /^mailto:/i.test(it.url);
         const a = document.createElement("a");
         a.className = "lnk";
         a.href = it.url;
-        a.title = /^mailto:/i.test(it.url) ? it.url.slice(7) : it.url;
-        if (!/^mailto:/i.test(it.url)) { a.target = "_blank"; a.rel = "noopener"; }
-        a.appendChild(icon(it.url));
-        a.appendChild(document.createTextNode(it.name));
+        a.title = mail ? it.url.slice(7) : it.url;
+        if (!mail) { a.target = "_blank"; a.rel = "noopener"; }
+        const name = document.createElement("span"); name.className = "lnk-name"; name.textContent = it.name;
+        const sub = document.createElement("span"); sub.className = "lnk-sub"; sub.textContent = subText(it.url);
+        a.appendChild(icon(it.url)); a.appendChild(name); a.appendChild(sub);
         box.appendChild(a);
       });
       root.appendChild(box);
@@ -49,7 +58,7 @@ Fleet ETA Tracker — раздел Links левой выезжалки: груп
   }
 
   async function load(force) {
-    if (busy || (!force && Date.now() - loadedAt < 60000 && root.childElementCount)) return;
+    if (busy || (!force && Date.now() - loadedAt < 60000 && loadedAt)) return;
     busy = true;
     try {
       const r = await fetch("/api/links");
@@ -58,7 +67,7 @@ Fleet ETA Tracker — раздел Links левой выезжалки: груп
       render(j.groups);
       loadedAt = Date.now();
     } catch (e) {
-      if (!root.childElementCount) root.textContent = "Не удалось загрузить ссылки";
+      if (!loadedAt) { root.textContent = ""; const d = document.createElement("div"); d.className = "links-note"; d.textContent = "Не удалось загрузить ссылки"; root.appendChild(d); }
     } finally { busy = false; }
   }
 

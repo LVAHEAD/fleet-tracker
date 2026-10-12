@@ -1305,11 +1305,23 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
   body:not(.sort-manual) #fleet-tbody .row-actions .wide-acts .drag-h-w { display: none !important; }
 }
 
-/* Links (левая выезжалка): группы из листа «Ссылки», иконка сайта слева от названия */
-.links-root { display: flex; flex-direction: column; gap: 4px; }
-.links-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
-.links-group .fixed-links-sub { margin-top: 0; }
-.links-root .lnk { display: flex; align-items: center; gap: 7px; color: #2f6fd6; text-decoration: none; }
-.links-root .lnk:hover { text-decoration: underline; }
-.links-root .lnk-ico { flex: 0 0 16px; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1; }
+/* Links (левая выезжалка) — в стиле ⏱ калькулятора: серая подложка, белые секции с тонкими разделителями,
+   мелкие серые подписи, синий акцент, скругления 6 px */
+.left-panel:has(#lp-links:not([hidden])) { background: #fafafa; }
+.left-panel:has(#lp-links:not([hidden])) .left-head { margin: 0 -12px; padding: 10px 12px; border-bottom: 1px solid #e0e0e0; font-size: 14px; }
+#lp-links { margin: 0 -12px; }
+.links-root { display: block; }
+.links-group { padding: 10px 12px 8px; background: #fff; border-bottom: 1px solid #e6e6e6; }
+.links-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0 0 6px; font-size: 12px; color: #666; }
+.links-h span:last-child { color: #999; font-size: 11px; }
+.links-root .lnk { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 5px 8px; margin: 0 -8px; border-radius: 6px; color: #1a1a1a; text-decoration: none; font-size: 13px; }
+.links-root .lnk:hover { background: #eef3fd; text-decoration: none; }
+.links-root .lnk-ico { width: 26px; height: 26px; flex: none; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid #e6e6e6; border-radius: 6px; background: #fafafa; font-size: 13px; line-height: 1; color: #666; }
+.links-root .lnk:hover .lnk-ico { border-color: #c9d8f3; background: #fff; }
 .links-root .lnk-ico img { display: block; width: 16px; height: 16px; }
+.links-root .lnk-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.links-root .lnk-sub { color: #999; font-size: 11px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.links-root .lnk:hover .lnk-sub { color: #2f6fd6; }
+.links-note { padding: 12px; color: #888; font-size: 12px; }
