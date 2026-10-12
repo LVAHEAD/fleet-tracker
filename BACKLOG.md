@@ -88,6 +88,15 @@ _(на сервере v3.85; следующий билд — после `//ко�
   (группа, название, URL, порядок; правка без деплоя); общий для всех; полоска всегда видна или раскрывается;
   сколько сайтов (10–15 — одна колонка, больше — группы по клику); ссылки из Справки — перенести или оставить.
   Потом: ссылки по контексту строки (паром трипа, запреты по пути).
+  **Стартовые данные листа «Ссылки» (12.10, от Владимира; колонки: URL · название · подпись; пустая строка = разделитель блоков):**
+  блок 1 — паромы: `https://cargo.eckeroline.com/` · Eckero Resrvation Portal [sic] · заказ паромов; `mailto:cargo@eckeroline.fi` · Tallink · заказ паромов; `mailto:booking@kreiss.lv` · Kreiss · заказ паромов.
+  Блок 2 — `https://login.transporeon.com/?locale=en_US#UnityStart` · Transporeon · Transporeon.
+  Блок 3 — `https://www.skypass.no/` · SkyPass · Norwegian DIGITOLL.
+  Блок 4 — `https://express.tnt.com/subcontractor/login.jsp` · FedEx · Fedex portal.
+  Блок 5 — `https://app.yourtravis.com/customer/login?session-expired=true` · Travis · Travis.
+  Блок 6 — парковки: `https://web.trucksnb.eu/` · TrucksNB · Parkingis [sic]; `https://truckerapps.eu/transparking/en/map/` · Parkings EU · Parkings; `https://www.truckfly.com/search?category=PARKIN` · TruckFly · Parkings; `https://www.autohof-guide.de/strassenkarte.html` · autohof · Parkings.
+  Блок 7 — заправки: EWAG · Заправки EWAG (в таблице длинная сессионная ссылка `login.eurowag.com/auth/…state=…nonce=…` — в лист класть короткую `https://selfcare.eurowag.com/`, как в коде сейчас); `https://network.as24.com/stationfinder/en/stations?countries=FRA&products=03` · AS24 · Заправки AS24.
+  Из этого следует: ссылки бывают `mailto:` (Tallink, Kreiss) — без «в новой вкладке»; пустые строки между блоками — отступ в списке. Не решено: третья колонка — подпись-подсказка к ссылке или имя группы (значения «заказ паромов» и «Parkings» повторяются по несколько раз, остальные — по одному).
 - **5** — Карты — что дальше (07.10, обсуждение идёт). Сейчас: 🗺 Флот, From → To, Локатор, мини-карта ⏱ (все Google Maps JS) и
   «Карты стран» (картинки почтовых зон, без Google). Идеи, не решено: (1) единый конфиг и вид карт — вместе с «Вся аппа в стиле
   калькулятора»; (2) слой машин на мини-карту ⏱ — не нужен (07.10, решено); (3) запреты и паромы линиями / точками на картах
