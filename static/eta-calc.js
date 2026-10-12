@@ -193,8 +193,8 @@ const EtaCalc = (() => {
       setLf(s.left_h || 0);
       setSh(s.shift_h || 0);
       if (!st.team) {
-        st.rest = s.shorts > 0 ? 9 : 11;
-        st.shorts = Math.max(1, Math.min(3, s.shorts || 1));
+        st.rest = 9;   // v3.85: 0 сокращённых — это «9 ч, остаток 0» (до недельного 11 ч), а не «11 ч»
+        st.shorts = Math.max(0, Math.min(3, s.shorts || 0));
         if (s.week_left_h != null) $("#ec-wk-n").value = s.week_left_h;
       }
       if (s.resting) notes.push("на отдыхе — выезд после него");
@@ -361,9 +361,9 @@ const EtaCalc = (() => {
     box.innerHTML = '<div class="ec-rl"><span class="ec-seg ec-sm ec-r911">' +
       [9, 11].map((v) => `<button type="button" data-v="${v}" class="${st.rest === v ? "on" : ""}">${v} ч</button>`).join("") + "</span>" +
       (st.rest === 9 ? '<span class="ec-mut2">9-к осталось</span><span class="ec-seg ec-sm ec-sh">' +
-        [1, 2, 3].map((v) => `<button type="button" data-v="${v}" class="${st.shorts === v ? "on" : ""}">${v}</button>`).join("") +
-        '</span><span class="ec-mut">→ 11 ч</span>' : "") + "</div>";
-    box.querySelectorAll(".ec-r911 button").forEach((b) => b.addEventListener("click", () => { st.rest = Number(b.dataset.v); restUI(); calc(); }));
+        [0, 1, 2, 3].map((v) => `<button type="button" data-v="${v}" class="${st.shorts === v ? "on" : ""}">${v}</button>`).join("") +
+        '</span><span class="ec-mut">' + (st.shorts ? "→ 11 ч" : "до недельного — 11 ч, потом снова 3") + '</span>' : "") + "</div>";
+    box.querySelectorAll(".ec-r911 button").forEach((b) => b.addEventListener("click", () => { st.rest = Number(b.dataset.v); if (st.rest === 9 && !st.shorts) st.shorts = 3; restUI(); calc(); }));
     box.querySelectorAll(".ec-sh button").forEach((b) => b.addEventListener("click", () => { st.shorts = Number(b.dataset.v); restUI(); calc(); }));
   }
 
