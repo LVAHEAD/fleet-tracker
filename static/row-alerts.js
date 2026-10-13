@@ -121,12 +121,23 @@ setInterval(() => {
     if (rfState[id] && lastCalcText[id]) applyReeferBlink(tr, id);
   });
 }, 60e3);
+// v3.95: значки слева в ячейке машины — показываются CSS-ом по классу строки (красное важнее рефа, реф важнее топлива)
+function blinkIcoHtml() {
+  return '<span class="blink-ico" data-k="late" title="Опаздывает">!</span>'
+    + '<span class="blink-ico" data-k="rf" title="Тревога рефа">❄</span>'
+    + '<span class="blink-ico" data-k="fuel" title="Мало топлива">⛽</span>';
+}
 // подсказка строки, пока она мигает топливом / рефом
 function alertTitle(tr, id) {
   const c = lastCalcText[id] || {};
   const lines = [];
   if (tr.classList.contains("row-blink-rf")) lines.push(...(reeferActive(id) || []));
   if (tr.classList.contains("row-blink-fuel")) lines.push(...(c.fuelLow || []));
+  // v3.95: иконки слева в строке — подсказка по тому, что мигает
+  const rfIco = tr.querySelector('.blink-ico[data-k="rf"]');
+  if (rfIco) rfIco.title = (reeferActive(id) || []).join("\n") || "Тревога рефа";
+  const fuelIco = tr.querySelector('.blink-ico[data-k="fuel"]');
+  if (fuelIco) fuelIco.title = (c.fuelLow || []).join("\n") || "Мало топлива";
   if (lines.length) tr.title = lines.join("\n") + "\nКлик по строке — «увидел»";
   else if (tr.title && (tr.title.indexOf("⛽") === 0 || tr.title.indexOf("❄") === 0)) tr.title = "";
 }

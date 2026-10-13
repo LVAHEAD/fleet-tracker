@@ -167,7 +167,10 @@ class FrontendTest(unittest.TestCase):
         js = self.read("static/app.js")
         i_menu = js.index('<button class="del-btn">✕ удалить строку</button>')
         i_cmpl = js.index('<button class="cmpl-btn" hidden')
-        self.assertGreater(i_cmpl, i_menu)
+        # v3.95: «✓ Завершить» перенесена в ячейку машины (слева, под диспетчером) — до меню строки
+        i_unit = js.index('<td class="unit-cell"')
+        self.assertGreater(i_cmpl, i_unit)
+        self.assertLess(i_cmpl, i_menu)
 
 
 if __name__ == "__main__":

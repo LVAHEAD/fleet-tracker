@@ -662,9 +662,9 @@ body.sort-manual .manual-only { display: block; }
 .eta-arr { color: #2d6b3c; font-weight: 600; }
 .eta-arr.eta-arr-late { color: #c0392b; }
 /* v3.81: трип ждёт «✓ Завершён» — лимонно-жёлтое мигание всей строки (тревоги важнее) */
-@keyframes rowBlinkDone { 0%, 100% { box-shadow: none; } 50% { box-shadow: inset 0 0 0 999px rgba(255, 214, 0, 0.30); } }
+@keyframes rowBlinkDone { 0%, 100% { box-shadow: none; } 50% { box-shadow: inset 0 0 0 999px rgba(46, 160, 67, 0.28); } }
 #fleet-tbody tr.row-blink-done:not(.row-blink):not(.row-blink-fuel):not(.row-blink-rf) td { animation: rowBlinkDone 1.2s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { #fleet-tbody tr.row-blink-done:not(.row-blink):not(.row-blink-fuel):not(.row-blink-rf) td { animation: none; background: #fff6bf !important; } }
+@media (prefers-reduced-motion: reduce) { #fleet-tbody tr.row-blink-done:not(.row-blink):not(.row-blink-fuel):not(.row-blink-rf) td { animation: none; background: #d4f0dc !important; } }
 #fleet-tbody tr.row-blink-rf:not(.row-blink) td { animation: rowBlinkRf 1.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { #fleet-tbody tr.row-blink-rf:not(.row-blink) td { animation: none; background: #dfe9fa !important; } }
 .tf-pill { margin-left: 4px; padding: 0 5px; border-radius: 8px; background: #fde2e1; color: #b42318; font-size: 11px; font-weight: 600; white-space: nowrap; }
@@ -1083,6 +1083,15 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 #fleet-tbody .row-actions > .cmpl-btn { display: block; margin: 4px auto 0; max-width: calc(100% + 16px); box-sizing: border-box;
   padding: 1px 4px; font-size: 10px; letter-spacing: -.1px; overflow: hidden; text-overflow: clip; }
 @media (min-width: 1500px) { #fleet-tbody .row-actions > .cmpl-btn { padding: 1px 6px; font-size: 11px; letter-spacing: 0; } }
+/* v3.95: «✓ Завершить» — в ячейке машины, под диспетчером (слева) */
+#fleet-tbody td.unit-cell > .cmpl-btn { display: block; margin: 3px 0 0; max-width: 100%; box-sizing: border-box; font-size: 11px; }
+/* v3.95: значки слева в ячейке машины — только у мигающей строки; красное важнее рефа, реф важнее топлива */
+#fleet-tbody .blink-ico { display: none; vertical-align: middle; margin-right: 3px; }
+#fleet-tbody tr.row-blink td.unit-cell .blink-ico[data-k="late"],
+#fleet-tbody tr.row-blink-rf:not(.row-blink) td.unit-cell .blink-ico[data-k="rf"],
+#fleet-tbody tr.row-blink-fuel:not(.row-blink):not(.row-blink-rf) td.unit-cell .blink-ico[data-k="fuel"] { display: inline-block; }
+#fleet-tbody .blink-ico[data-k="late"] { width: 16px; height: 16px; border-radius: 50%; background: #e74c3c; color: #fff; font-weight: 700; font-size: 11px; line-height: 16px; text-align: center; }
+#fleet-tbody .blink-ico[data-k="rf"], #fleet-tbody .blink-ico[data-k="fuel"] { font-size: 13px; line-height: 16px; }
 .done-pop { width: 420px; }
 .done-pop .dp-q { display: block; width: calc(100% - 20px); margin: 6px 10px; padding: 4px 8px; font-size: 12px;
   border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
@@ -1213,6 +1222,10 @@ body:not(.sort-manual) .acts-br { display: none; }
   font-size: 16px; line-height: 28px; color: #2f6fd6; cursor: pointer; }
 .mc-rf:hover { background: #eef3fd; }
 .mc-rf:disabled { opacity: .5; cursor: default; }
+.mc-tr { margin: 6px 10px 0 0; width: 30px; height: 30px; padding: 0; background: #fff; border: 0.5px solid #c9d6ee; border-radius: 6px;
+  font-size: 12px; line-height: 28px; color: #2f6fd6; cursor: pointer; }
+.mc-tr:hover { background: #eef3fd; }
+.mc-tr.on { background: #2f6fd6; color: #fff; border-color: #2f6fd6; }
 .mc-rf[hidden] { display: none; }
 /* v3.40: плашка с номером над кружком машины (label маркера) */
 .ul-lab { background: #fff; border: 1.5px solid #5f6b7a; border-radius: 6px; padding: 3px 6px; box-shadow: 0 1px 3px rgba(0,0,0,.3);

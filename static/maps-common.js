@@ -25,6 +25,7 @@ onClick может вернуть Promise — пока он идёт, кнопк
         position: google.maps.ControlPosition.LEFT_TOP, mapTypeIds: ["roadmap", "satellite"] },
     }, opts || {}));
     zoomBtns(map);
+    trafficBtn(map);   // v3.95: «Пр» — слой пробок (вкл / выкл)
     if (window.ZoomBadge) window.ZoomBadge.attach(map);
     return map;
   }
@@ -49,6 +50,24 @@ onClick может вернуть Promise — пока он идёт, кнопк
     });
     map.controls[google.maps.ControlPosition.RIGHT_TOP].push(box);
     return box;
+  }
+  // v3.95: «Пр» под + / − — слой пробок Google (только отображение, расчёт ETA не трогаем); стиль калькулятора, включённое — синее
+  function trafficBtn(map) {
+    const layer = new google.maps.TrafficLayer();
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "mc-tr";
+    b.title = "Пробки";
+    b.setAttribute("aria-label", "Пробки");
+    b.textContent = "Пр";
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const on = !b.classList.contains("on");
+      b.classList.toggle("on", on);
+      layer.setMap(on ? map : null);
+    });
+    map.controls[google.maps.ControlPosition.RIGHT_TOP].push(b);
+    return b;
   }
   function refreshBtn(map, onClick) {
     const b = document.createElement("button");

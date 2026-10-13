@@ -360,7 +360,7 @@ function renderRows() {
       : (cached && cached.extra && cached.extra.length ? etaCellHtml(row, cached, null) : (cached ? cached.eta : "—"));
     const etaMuted = cached ? "" : "muted";
     tr.innerHTML = `
-      <td class="unit-cell"${dispTag(rowDisp(row)) ? ` data-dc="${dispTag(rowDisp(row))}"` : ""}><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" title="${escapeHtml(window.fleetMetaTitle ? window.fleetMetaTitle(row.id) : "")}" placeholder="номер" />${dispHtml(row)}</td>
+      <td class="unit-cell"${dispTag(rowDisp(row)) ? ` data-dc="${dispTag(rowDisp(row))}"` : ""}><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span>${blinkIcoHtml()}<input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" title="${escapeHtml(window.fleetMetaTitle ? window.fleetMetaTitle(row.id) : "")}" placeholder="номер" />${dispHtml(row)}<button class="cmpl-btn" hidden title="Все точки пройдены — завершить трип (уйдёт в «Завершённые», оттуда можно вернуть)">✓ Завершить</button></td>
       <td class="status-cell ${statusClass}">${statusHtml}</td>
       <td>
         <div class="target-wrap${hideK(row, 0) ? " fold-hide" : ""}">
@@ -404,7 +404,6 @@ function renderRows() {
             <button class="del-btn">✕ удалить строку</button>
           </span>
         </span>
-        <button class="cmpl-btn" hidden title="Все точки пройдены — завершить трип (уйдёт в «Завершённые», оттуда можно вернуть)">✓ Завершить?</button>
       </td>
     `;
     if (blinkRows.has(row.id)) tr.classList.add("row-blink");
