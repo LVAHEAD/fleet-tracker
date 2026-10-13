@@ -150,7 +150,7 @@ def api_fleet_done():
 
 
 # v3.17: поля, которые браузер пишет сам (не человек): не меняют «кто изменил»
-AUTO_FIELDS = {"doneSeen", "doneArr", "chg"}   # v3.57: doneArr — приезд к авто-✓ (служебное)
+AUTO_FIELDS = {"doneSeen", "doneArr", "crewSeen", "chg"}   # v3.57: doneArr — приезд к авто-✓; v3.105: crewSeen — память «экипаж» (служебное)
 
 
 @bp.route("/api/fleet/sync", methods=["POST"])

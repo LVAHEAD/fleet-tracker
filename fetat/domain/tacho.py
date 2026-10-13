@@ -111,11 +111,16 @@ FORTNIGHT_MAX_SEC = 90 * 3600    # за две соседние недели
 TEAM_HIST_DAY_SEC = 10.5 * 3600  # v3.15: трак ехал дольше этого за сутки — значит экипаж
 
 
-def crew_mode(tacho, override=None, drive_days=None):
+CREW_MEMORY_SEC = 14 * 24 * 3600   # v3.105: «видели экипаж по двум картам» помним 14 суток (пока тот же трак)
+
+
+def crew_mode(tacho, override=None, drive_days=None, seen_ts=None, now=None):
     """v3.15: соло или экипаж. Возвращает (team, src, hist_max_sec).
     override "solo"/"team" — ручная правка диспетчера; иначе карта во втором слоте тахографа
     (два водителя — экипаж); если карта одна — история трака за неделю (сутки с ездой
-    дольше TEAM_HIST_DAY_SEC — экипаж: второй водитель мог вынуть карту на стоянке)."""
+    дольше TEAM_HIST_DAY_SEC — экипаж: второй водитель мог вынуть карту на стоянке);
+    v3.105: иначе память строки — seen_ts (сек), когда по тахографу видели две карты: не старше CREW_MEMORY_SEC —
+    экипаж ("memory"), вторая карта могла пропасть из Mapon (OI-3194: два дня 👥, потом «соло»)."""
     hist_max = max((drive_days or {}).values(), default=0.0)
     if override in ("solo", "team"):
         return override == "team", "manual", hist_max
@@ -123,6 +128,11 @@ def crew_mode(tacho, override=None, drive_days=None):
         return True, "tacho", hist_max
     if hist_max > TEAM_HIST_DAY_SEC:
         return True, "hist", hist_max
+    if seen_ts:
+        import time
+        t = float(now or time.time())
+        if 0 <= t - float(seen_ts) <= CREW_MEMORY_SEC:
+            return True, "memory", hist_max
     return False, "tacho", hist_max
 
 
@@ -423,7 +433,8 @@ def tacho_summary(tacho, sim=None, weekly=None):
     state = {"DRIVING": "едет", "REST": "отдыхает", "AVAILABLE": "готовность", "WORK": "работа"}.get(d0.get("current_state"), d0.get("current_state") or "")
     team = _team(tacho)
     if team:
-        parts.append({"manual": "экипаж (вручную)", "hist": "экипаж (по истории: ехал > 10 ч за сутки)"}
+        parts.append({"manual": "экипаж (вручную)", "hist": "экипаж (по истории: ехал > 10 ч за сутки)",
+                      "memory": "экипаж (из памяти: две карты видели раньше, сейчас одна)"}
                      .get(tacho.get("crew_src"), "экипаж"))
     if state:
         rest_now = float(nowd.get("rest") or 0)

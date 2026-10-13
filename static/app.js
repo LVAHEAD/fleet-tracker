@@ -290,7 +290,18 @@ function crewOf(data) {
   return data.crew ? { crew: data.crew, src: data.crew_src, wl: data.week_left_sec, lim: data.week_limit,
                        driven: data.week_driven_sec, next: data.week_next_sec, hmax: data.crew_hist_max_h,
                        short: data.week_short_last || null, names: data.crew_names || null,
-                       nocard: !!data.crew_nocard, nosub: !!data.crew_nosub, gpsfix: data.tacho_gps_fix || null } : null;
+                       nocard: !!data.crew_nocard, nosub: !!data.crew_nosub, gpsfix: data.tacho_gps_fix || null, seenAt: data.crew_seen_at || null } : null;
+}
+// v3.105: память «экипаж». Две карты в тахографе — запоминаем в строке (трак + время), метку обновляем раз в сутки;
+// Mapon потом может потерять вторую карту (OI-3194), а режим остаётся экипажем до 14 суток. Другой трак — память сбрасываем.
+function keepCrewSeen(row, data) {
+  const u = row.unit || "", cs = row.crewSeen;
+  if (data && data.crew === "team" && data.crew_src === "tacho" && u) {
+    if (!cs || cs.u !== u || Date.now() - cs.t > 24 * 3600 * 1000) { row.crewSeen = { u, t: Date.now() }; saveRows(); }
+  } else if (cs && cs.u !== u) {
+    delete row.crewSeen;
+    saveRows();
+  }
 }
 function crewHtml(row, cached) {
   const c = cached && cached.crew;
@@ -309,6 +320,9 @@ function crewHtml(row, cached) {
   }
   if (crew === "team") {
     tip.push(man ? "Экипаж — поставлено вручную" :
+      c && c.src === "memory" ? "⚠ Экипаж — из памяти: две карты в тахографе видели " +
+        (c.seenAt ? new Date(c.seenAt * 1000).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "раньше") +
+        ", сейчас Mapon видит одну (если это уже соло — клик: соло вручную)" :
       c && c.src === "hist" ? `Экипаж — по истории: трак ехал ${c.hmax} ч за сутки` + (nocard ? "" : " (карта второго сейчас не вставлена)") :
       "Экипаж — две карты в тахографе");
   } else {
@@ -1110,12 +1124,13 @@ async function calcRow(id, why) {
         row.extra && row.extra.length ? { extra: row.extra.map((x) => x.target || "") } : {},
         row.trailer ? { trailer: row.trailer } : {},
         row.crew ? { crew: row.crew } : {},
+        row.crewSeen && row.crewSeen.u === row.unit ? { crew_seen: Math.floor(row.crewSeen.t / 1000) } : {},   // v3.105: память «экипаж»
         row.x10 ? { x10: true } : {},                                    // v3.39: 10-й час сегодня
         row.corridor ? { corridor: row.corridor } : {},                 // v3.32: коридор выбрал диспетчер
         { done: doneManualArray(row), done_seen: doneSeenArray(row), done_arr: doneArrArray(row), why: why || "edit" })),
     });
     const data = await res.json();
-    if (!data.error) { keepDoneSeen(row, data); remapDone(data); }
+    if (!data.error) { keepDoneSeen(row, data); keepCrewSeen(row, data); remapDone(data); }
 
     if (data.error) {
       statusCell.textContent = data.error;

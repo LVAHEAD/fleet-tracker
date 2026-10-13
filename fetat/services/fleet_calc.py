@@ -205,9 +205,10 @@ def _apply_points_done(result, payload, target_str, unit, units):
     return target_str, active_extras
 
 
-def _add_tacho(result, unit, trailer, crew=None, x10=False):
+def _add_tacho(result, unit, trailer, crew=None, x10=False, crew_seen=None):
     """v1.33: тахограф — ETA по режиму труда и отдыха + подробности. Возвращает (tacho, sim).
-    v3.15: crew — ручная правка "solo"/"team"; иначе тахограф (2 карты) + история трака за неделю."""
+    v3.15: crew — ручная правка "solo"/"team"; иначе тахограф (2 карты) + история трака за неделю;
+    v3.105: crew_seen — когда по тахографу видели две карты (сек), память строки."""
     tacho, sim = None, None
     try:
         tacho, terr = (None, None) if trailer else get_tacho(unit.get("unit_id"))
@@ -215,7 +216,7 @@ def _add_tacho(result, unit, trailer, crew=None, x10=False):
             days = None
             if crew not in ("solo", "team") and len(tacho["drivers"]) < 2:
                 days = unit_driving_days(unit.get("unit_id"))
-            team, src, hist_max = crew_mode(tacho, crew, days)
+            team, src, hist_max = crew_mode(tacho, crew, days, crew_seen)
             tacho = dict(tacho, team=team, crew_src=src)     # копия: кеш тахографа не трогаем
             tacho.update(_eta_opts(unit, x10))               # v3.39: пояс страны (ночная смена) и 10-й час
             g = _gps_shift_of(unit)                          # v3.104: смена по GPS — поправка, если тахограф отстаёт
@@ -223,6 +224,8 @@ def _add_tacho(result, unit, trailer, crew=None, x10=False):
                 tacho["gps"] = g
             result["crew"] = "team" if team else "solo"
             result["crew_src"] = src
+            if src == "memory":
+                result["crew_seen_at"] = int(float(crew_seen))   # v3.105: когда видели две карты
             # v3.18: имена водителей из Mapon (карты в тахографе)
             names = [" ".join(filter(None, [(d.get("driver_name") or "").strip(), (d.get("driver_surname") or "").strip()]))
                      for d in tacho["drivers"]]
@@ -260,10 +263,19 @@ def _add_tacho(result, unit, trailer, crew=None, x10=False):
         else:
             result["tacho_error"] = terr
             if not trailer:
-                tacho, sim = _no_card_crew(result, unit, crew, terr)
+                tacho, sim = _no_card_crew(result, unit, crew, terr, crew_seen)
     except Exception as e:
         result["tacho_error"] = str(e)
     return tacho, sim
+
+
+def _crew_seen(payload):
+    """v3.105: когда по тахографу видели две карты (сек) — память строки; мусор — None."""
+    try:
+        v = float(payload.get("crew_seen") or 0)
+        return v if v > 0 else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _gps_shift_of(unit):
@@ -293,15 +305,17 @@ def _eta_opts(unit, x10):
 NO_CARD_FRESH_SEC = 9 * 3600     # v3.29: без карт — стоит не меньше суточного отдыха → считаем со свежего дня
 
 
-def _no_card_crew(result, unit, crew=None, terr=None):
+def _no_card_crew(result, unit, crew=None, terr=None, crew_seen=None):
     """v3.29 (OS-2438): Mapon не видит карт водителя, хотя водители в машине. Соло / экипаж — по истории
     вождения за неделю (или вручную); стоит ≥ 9 ч — тахо-ETA со свежего дня (без недельного лимита),
     иначе ETA простой. Возвращает (tacho, sim) — подменный тахограф или (None, None)."""
     import copy
     days = None if crew in ("solo", "team") else unit_driving_days(unit.get("unit_id"))
-    team, src, hist_max = crew_mode(None, crew, days)
+    team, src, hist_max = crew_mode(None, crew, days, crew_seen)
     result["crew"] = "team" if team else "solo"
-    result["crew_src"] = "manual" if src == "manual" else "hist"
+    result["crew_src"] = src if src in ("manual", "memory") else "hist"
+    if src == "memory":
+        result["crew_seen_at"] = int(float(crew_seen))   # v3.105
     result["crew_nocard"] = True
     nosub = tacho_no_subscription(terr)     # v3.30: нет подписки на тахограф (Mapon 1015) — не временно
     if nosub:
@@ -550,7 +564,8 @@ def _calc_row(payload, tm):
             _add_route_to_target(result, unit, target_lat, target_lng, payload)
             tm.mark("route")
 
-        tacho, sim = _add_tacho(result, unit, trailer, payload.get("crew"), bool(payload.get("x10")))
+        tacho, sim = _add_tacho(result, unit, trailer, payload.get("crew"), bool(payload.get("x10")),
+                                _crew_seen(payload))
         tm.mark("tacho")
 
         _add_extra(result, active_extras, units, unit, tacho, sim, payload)
