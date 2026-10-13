@@ -62,7 +62,7 @@ onClick может вернуть Promise — пока он идёт, кнопк
       b.disabled = true;
       Promise.resolve(onClick && onClick()).catch(() => {}).then(() => { b.disabled = false; });
     });
-    map.controls[google.maps.ControlPosition.RIGHT_TOP].push(b);
+    map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(b);   // ↻ — справа снизу, отдельно от + / −
     return b;
   }
   window.MapsCommon = { make, ZOOM, refreshBtn };
