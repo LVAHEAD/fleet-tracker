@@ -20,7 +20,10 @@ onClick может вернуть Promise — пока он идёт, кнопк
       streetViewControl: false,
       styles: STYLES,
       zoomControl: true,
-      zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP },
+      zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP, style: google.maps.ZoomControlStyle.SMALL },
+      mapTypeControl: true,   // v3.92: «Map ▾» одной кнопкой — карта / спутник на всех картах
+      mapTypeControlOptions: { style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
+        position: google.maps.ControlPosition.LEFT_TOP, mapTypeIds: ["roadmap", "satellite"] },
     }, opts || {}));
     if (window.ZoomBadge) window.ZoomBadge.attach(map);
     return map;

@@ -1204,8 +1204,8 @@ body:not(.sort-manual) .acts-br { display: none; }
 .ul-ctl button[hidden] { display: none; }
 .ul-ctl button:disabled { opacity: .5; cursor: default; }
 /* v3.51: ↻ обновить позиции машин — на всех картах справа сверху, как кнопки Google */
-.mc-rf { margin: 10px 10px 0 0; width: 40px; height: 40px; padding: 0; background: #fff; border: 0; border-radius: 2px;
-  box-shadow: 0 1px 4px -1px rgba(0,0,0,.3); font-size: 20px; line-height: 40px; color: #666; cursor: pointer; }
+.mc-rf { margin: 10px 10px 0 0; width: 30px; height: 30px; padding: 0; background: #fff; border: 0; border-radius: 2px;
+  box-shadow: 0 1px 4px -1px rgba(0,0,0,.3); font-size: 16px; line-height: 30px; color: #666; cursor: pointer; }
 .mc-rf:hover { color: #333; }
 .mc-rf:disabled { opacity: .5; cursor: default; }
 .mc-rf[hidden] { display: none; }
@@ -1262,8 +1262,8 @@ body.left-swap .left-tab { left: 0; }
 
 /* ---------- v3.55: объекты Mapon — 🏭 под ↻ на каждой карте ---------- */
 .ob-wrap { position: relative; margin: 6px 10px 0 0; }
-.ob-btn { width: 40px; height: 40px; padding: 0; background: #fff; border: 0; border-radius: 2px;
-  box-shadow: 0 1px 4px -1px rgba(0,0,0,.3); font-size: 18px; line-height: 40px; cursor: pointer; }
+.ob-btn { width: 30px; height: 30px; padding: 0; background: #fff; border: 0; border-radius: 2px;
+  box-shadow: 0 1px 4px -1px rgba(0,0,0,.3); font-size: 15px; line-height: 30px; cursor: pointer; }
 .ob-btn:hover { background: #f4f4f4; }
 .ob-pop { position: absolute; right: 0; top: 46px; width: 300px; max-height: 60vh; overflow-y: auto;
   background: #fff; border: 1px solid #d0d0d0; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.18);
