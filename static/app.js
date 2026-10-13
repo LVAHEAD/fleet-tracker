@@ -1375,7 +1375,7 @@ async function calcRow(id, why) {
         const multi = row.extra && row.extra.length;
         const label = data.target_is_truck ? `${row.unit} → ${data.target_unit}` : row.unit;
         updateTargetMarker(id, data.target_lat, data.target_lng, label, markerKind(row), multi ? 1 : null,
-          data.dist_km != null ? fmtKm(data.dist_km) : "");
+          data.dist_km != null ? fmtKm(data.dist_km) : "", data.target_is_truck ? "" : tgtLine(row.target));
       } else {
         removeTargetMarker(id);
       }
@@ -1386,7 +1386,7 @@ async function calcRow(id, why) {
         const ex = (row.extra || [])[i] || {};
         const kind = ex.lo || (x.target_address && ["port", "customs", "misc"].includes(x.target_address.type) ? x.target_address.type : "");
         updateTargetMarker(id + "_" + (i + 1), x.lat, x.lng, row.unit, kind, i + 2,
-          x.leg_km != null ? fmtKm(x.leg_km) : "");   // v1.78: без "+"
+          x.leg_km != null ? fmtKm(x.leg_km) : "", tgtLine(ex.target));   // v1.78: без "+"; v3.102: таргет точки
       });
     }
   } catch (e) {

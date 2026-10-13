@@ -19,6 +19,13 @@ class BadgeTargetTest(unittest.TestCase):
         self.assertIn("a.km, a.trailer, a.tgt);", js)
         self.assertIn("badgeTargetText(row)); }", _read("static/app.js"))
 
+    def test_target_point_plates_get_second_line(self):
+        js = _read("static/map-core.js")
+        self.assertIn("function targetBadgeParts(label, lo, n, km, tgt)", js)
+        self.assertIn("${tgtTxt}`,", js)
+        self.assertIn("updateTargetMarker(id + \"_\" + (i + 1), x.lat, x.lng, row.unit, kind, i + 2,", _read("static/app.js"))
+        self.assertIn("tgtLine(ex.target)", _read("static/app.js"))
+
     def test_css_second_line_does_not_widen_badge(self):
         css = _read("static/style.css")
         self.assertIn(".mk-tgt { display: block; width: 0; min-width: 100%;", css)
