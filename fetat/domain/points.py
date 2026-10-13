@@ -304,6 +304,14 @@ def recent_passes(unit_id):
     return res
 
 
+def _near_point(a, b, lat, lng, obj):
+    """v3.99: стоянка (a, b) «у точки» — в зоне Mapon (до DONE_IN_ZONE_KM) или рядом с самой точкой
+    (до DONE_RADIUS_KM). Точка из адресной базы точная, зона может захватить соседний участок (ES08, 250 м)."""
+    if obj and poly_dist_km(a, b, obj["poly"]) <= DONE_IN_ZONE_KM:
+        return True
+    return haversine_km(a, b, lat, lng) <= DONE_RADIUS_KM
+
+
 def _auto_done(tstr, t, lat, lng, unit, stops_box):
     """Автоматическое ✓ по истории Mapon. -> (отъезд ts | None, приезд ts | None, имя зоны | None).
     Ошибка посреди проверки не теряет уже найденное (как и раньше)."""
@@ -314,7 +322,7 @@ def _auto_done(tstr, t, lat, lng, unit, stops_box):
             obj = target_object(lat, lng)          # v3.29: зона Mapon у точки
             if obj:
                 left = poly_dist_km(unit["lat"], unit["lng"], obj["poly"]) > DONE_LEFT_ZONE_KM
-                near = lambda a, b: poly_dist_km(a, b, obj["poly"]) <= DONE_IN_ZONE_KM
+                near = lambda a, b: _near_point(a, b, lat, lng, obj)   # v3.99: зона или радиус
             else:
                 left = haversine_km(unit["lat"], unit["lng"], lat, lng) > DONE_LEFT_KM
                 near = lambda a, b: haversine_km(a, b, lat, lng) <= DONE_RADIUS_KM
@@ -382,8 +390,8 @@ def done_debug(tstr, unit, units):
     rep["zone"] = obj["name"] if obj else None
     if obj:
         left_km = poly_dist_km(unit["lat"], unit["lng"], obj["poly"])
-        near_fn = lambda a, b: poly_dist_km(a, b, obj["poly"])
-        near_lim, left_lim = DONE_IN_ZONE_KM, DONE_LEFT_ZONE_KM
+        near_fn = lambda a, b: _near_point(a, b, lat, lng, obj)
+        near_lim, left_lim = DONE_RADIUS_KM, DONE_LEFT_ZONE_KM
     else:
         left_km = haversine_km(unit["lat"], unit["lng"], lat, lng)
         near_fn = lambda a, b: haversine_km(a, b, lat, lng)
@@ -402,9 +410,10 @@ def done_debug(tstr, unit, units):
         if st.get("end"):
             row["end"] = ts_west(st["end"]).strftime("%d/%m %H:%M")
         if st.get("lat") is not None:
-            d = near_fn(st["lat"], st["lng"])
-            row["dist_km"] = round(d, 3)
-            row["in"] = bool(d <= near_lim and not st.get("now"))
+            row["dist_km"] = round(haversine_km(st["lat"], st["lng"], lat, lng), 3)
+            if obj:
+                row["zone_km"] = round(poly_dist_km(st["lat"], st["lng"], obj["poly"]), 3)
+            row["in"] = bool(near_fn(st["lat"], st["lng"]) and not st.get("now"))
         rep["stops"].append(row)
     auto_at, auto_arr, zone = _auto_done(tstr, t, lat, lng, unit, [stops])
     rep["auto"] = {"end": ts_west(auto_at).strftime("%d/%m %H:%M") if auto_at else None,
