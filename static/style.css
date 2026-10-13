@@ -1204,9 +1204,14 @@ body:not(.sort-manual) .acts-br { display: none; }
 .ul-ctl button[hidden] { display: none; }
 .ul-ctl button:disabled { opacity: .5; cursor: default; }
 /* v3.51: ↻ обновить позиции машин — на всех картах справа сверху, как кнопки Google */
-.mc-rf { margin: 10px 10px 0 0; width: 30px; height: 30px; padding: 0; background: #fff; border: 0; border-radius: 2px;
-  box-shadow: 0 1px 4px -1px rgba(0,0,0,.3); font-size: 16px; line-height: 30px; color: #666; cursor: pointer; }
-.mc-rf:hover { color: #333; }
+/* v3.93: кнопки карт — одного размера (30 px), стиль калькулятора: белые, тонкая рамка, синий значок */
+.mc-zoom { display: flex; flex-direction: column; gap: 6px; margin: 10px 10px 0 0; }
+.mc-zb { width: 30px; height: 30px; padding: 0; background: #fff; border: 0.5px solid #c9d6ee; border-radius: 6px;
+  font-size: 18px; line-height: 28px; color: #2f6fd6; cursor: pointer; }
+.mc-zb:hover { background: #eef3fd; }
+.mc-rf { margin: 10px 10px 0 0; width: 30px; height: 30px; padding: 0; background: #fff; border: 0.5px solid #c9d6ee; border-radius: 6px;
+  font-size: 16px; line-height: 28px; color: #2f6fd6; cursor: pointer; }
+.mc-rf:hover { background: #eef3fd; }
 .mc-rf:disabled { opacity: .5; cursor: default; }
 .mc-rf[hidden] { display: none; }
 /* v3.40: плашка с номером над кружком машины (label маркера) */
@@ -1262,9 +1267,9 @@ body.left-swap .left-tab { left: 0; }
 
 /* ---------- v3.55: объекты Mapon — 🏭 под ↻ на каждой карте ---------- */
 .ob-wrap { position: relative; margin: 6px 10px 0 0; }
-.ob-btn { width: 30px; height: 30px; padding: 0; background: #fff; border: 0; border-radius: 2px;
-  box-shadow: 0 1px 4px -1px rgba(0,0,0,.3); font-size: 15px; line-height: 30px; cursor: pointer; }
-.ob-btn:hover { background: #f4f4f4; }
+.ob-btn { width: 30px; height: 30px; padding: 0; background: #fff; border: 0.5px solid #c9d6ee; border-radius: 6px;
+  font-size: 15px; line-height: 28px; color: #2f6fd6; cursor: pointer; }
+.ob-btn:hover { background: #eef3fd; }
 .ob-pop { position: absolute; right: 0; top: 46px; width: 300px; max-height: 60vh; overflow-y: auto;
   background: #fff; border: 1px solid #d0d0d0; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.18);
   padding: 8px 10px; font-size: 13px; text-align: left; z-index: 5; }

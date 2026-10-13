@@ -19,14 +19,36 @@ onClick может вернуть Promise — пока он идёт, кнопк
       clickableIcons: false,
       streetViewControl: false,
       styles: STYLES,
-      zoomControl: true,
-      zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP, style: google.maps.ZoomControlStyle.SMALL },
+      zoomControl: false,     // v3.93: свои кнопки + / − (zoomBtns), одного размера с ↻ и 🏭
       mapTypeControl: true,   // v3.92: «Map ▾» одной кнопкой — карта / спутник на всех картах
       mapTypeControlOptions: { style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
         position: google.maps.ControlPosition.LEFT_TOP, mapTypeIds: ["roadmap", "satellite"] },
     }, opts || {}));
+    zoomBtns(map);
     if (window.ZoomBadge) window.ZoomBadge.attach(map);
     return map;
+  }
+  // v3.93: + / − справа сверху, 30 px, стиль калькулятора (белая кнопка, тонкая рамка, синий значок)
+  function zoomBtns(map) {
+    const box = document.createElement("div");
+    box.className = "mc-zoom";
+    [["+", 1, "Приблизить"], ["−", -1, "Отдалить"]].forEach(([sign, d, title]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "mc-zb";
+      b.title = title;
+      b.setAttribute("aria-label", title);
+      b.textContent = sign;
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const z = map.getZoom();
+        if (z == null) return;
+        map.setZoom(Math.max(0, Math.min(21, z + d)));
+      });
+      box.appendChild(b);
+    });
+    map.controls[google.maps.ControlPosition.RIGHT_TOP].push(box);
+    return box;
   }
   function refreshBtn(map, onClick) {
     const b = document.createElement("button");
