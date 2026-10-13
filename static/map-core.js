@@ -21,7 +21,7 @@ function initMap() {
 
   Object.keys(pendingPositions).forEach((rowId) => {
     const p = pendingPositions[rowId];
-    updateMarker(Number(rowId), p.lat, p.lng, p.label, p.status, p.heading, p.km, p.trailer);
+    updateMarker(Number(rowId), p.lat, p.lng, p.label, p.status, p.heading, p.km, p.trailer, p.tgt);
   });
   pendingPositions = {};
 
@@ -170,11 +170,24 @@ function fmtKm(km) {
   return Math.round(v).toLocaleString("ru-RU") + " км";
 }
 
-function truckBadgeHtml(label, status, heading, km) {
+// v3.101: вторая строка плашки — таргет текущей открытой точки строки (как в колонке «Таргет»).
+// Координаты «lat, lng» — до 3 знаков после точки (обрезка); название — обрезает CSS по ширине первой строки (.mk-tgt)
+function badgeTargetText(row) {
+  const k = firstOpenIdx(row);
+  if (k < 0) return "";
+  const t = String((k === 0 ? row.target : ((row.extra || [])[k - 1] || {}).target) || "").trim();
+  const m = t.match(/^(-?\d+(?:\.\d+)?)[\s,]+(-?\d+(?:\.\d+)?)$/);
+  if (!m) return t;
+  const cut = (v) => (Math.trunc(parseFloat(v) * 1000) / 1000).toFixed(3);
+  return cut(m[1]) + ", " + cut(m[2]);
+}
+
+function truckBadgeHtml(label, status, heading, km, tgt) {
   const arrow = status === "driving" && heading != null
     ? `<span class="mk-arrow" style="transform: rotate(${Math.round(heading)}deg)">↑</span>` : "";
   const kmTxt = km != null ? `<span class="mk-km">· ${fmtKm(km)}</span>` : "";
-  return `${escapeHtml(label || "")}${arrow}${kmTxt}`;
+  const tgtTxt = tgt ? `<span class="mk-tgt">${escapeHtml(tgt)}</span>` : "";
+  return `${escapeHtml(label || "")}${arrow}${kmTxt}${tgtTxt}`;
 }
 
 // v3.51: ↻ на карте Флота — только позиции машин строк из Mapon (/api/units), без пересчёта км и Google
@@ -188,7 +201,7 @@ async function refreshFleetPositions() {
     if (!row || !row.unit) return;
     const u = us.find((x) => nrm(x.number) === nrm(row.unit));
     if (!u) return;
-    updateMarker(Number(id), u.lat, u.lng, a.label, u.st, u.dir, a.km, a.trailer);
+    updateMarker(Number(id), u.lat, u.lng, a.label, u.st, u.dir, a.km, a.trailer, a.tgt);
     if (rowPositions[id]) { rowPositions[id].unitLat = u.lat; rowPositions[id].unitLng = u.lng; }
   });
 }
@@ -221,11 +234,11 @@ function applyOverlap() {
   overlapCtl.apply(items);
 }
 
-function updateMarker(rowId, lat, lng, label, status, heading, km, trailer) {
+function updateMarker(rowId, lat, lng, label, status, heading, km, trailer, tgt) {
   if (lat == null || lng == null) return;
-  markerArgs[rowId] = { label, km, trailer };
+  markerArgs[rowId] = { label, km, trailer, tgt };
   if (!map) {
-    pendingPositions[rowId] = { lat, lng, label, status, heading, km, trailer };
+    pendingPositions[rowId] = { lat, lng, label, status, heading, km, trailer, tgt };
     return;
   }
   // курс: из Mapon, иначе по двум последним позициям (если сдвинулась заметно)
@@ -253,7 +266,7 @@ function updateMarker(rowId, lat, lng, label, status, heading, km, trailer) {
     markers[rowId].addListener("mouseout", () => { if (hoverRowId === String(rowId)) hoverRowId = null; syncTruckLabels(); });
   }
   const cls = `mk-badge ${status === "driving" ? "mk-driving" : "mk-standing"}${trailer ? " mk-trailer" : ""}`;
-  const html = truckBadgeHtml(label, status, heading, km);
+  const html = truckBadgeHtml(label, status, heading, km, tgt);
   if (truckBadges[rowId]) truckBadges[rowId].update(new google.maps.LatLng(lat, lng), html, cls);
   else truckBadges[rowId] = makeBadge(lat, lng, html, cls, 14, () => selectFromMap(rowId));
   applyBadgeLook(rowId);
