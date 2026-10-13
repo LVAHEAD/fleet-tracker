@@ -1503,6 +1503,15 @@ function extraCalc(data) {
   }));
 }
 
+// v3.103: подсказка автообновления — время последнего пересчёта всех строк (и автоматического, и ↻)
+let lastCalcAt = 0;
+function updateAutoTip() {
+  const lbl = document.querySelector(".auto-lbl");
+  if (!lbl) return;
+  if (!lbl.dataset.tipBase) lbl.dataset.tipBase = lbl.title || "";
+  const t = lastCalcAt ? new Date(lastCalcAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : "";
+  lbl.title = lbl.dataset.tipBase + (t ? "\nПоследнее обновление: " + t : "");
+}
 function calcAllRows(opts) {
   // v3.20: ход обновления на кнопке ↻ — «12/30»
   const todo = rows.filter((r) => r.unit);
@@ -1520,7 +1529,7 @@ function calcAllRows(opts) {
   // v1.53: после "Обновить всё" (и загрузки) — пересортировать по выбранному режиму;
   // v1.59: автообновление строки не переставляет
   const resortAfter = !(opts && opts.auto);
-  return Promise.allSettled(jobs).then(() => { if (resortAfter) resort(); });
+  return Promise.allSettled(jobs).then(() => { lastCalcAt = Date.now(); updateAutoTip(); if (resortAfter) resort(); });
 }
 
 // ---------- v1.59: автообновление Флота; v1.64: период на выбор — выкл / 15 / 30 / 60 мин ----------
@@ -1543,6 +1552,7 @@ setInterval(() => {
 (function () {
   const sel = document.getElementById("auto-refresh");
   if (!sel) return;
+  updateAutoTip();
   sel.value = String(autoRefreshMin);
   if (sel.value !== String(autoRefreshMin)) { autoRefreshMin = 15; sel.value = "15"; }
   sel.addEventListener("change", () => {
