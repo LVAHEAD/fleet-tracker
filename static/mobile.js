@@ -100,7 +100,7 @@
   });
 
   if (nav) {
-    const hiddenTabs = [...nav.querySelectorAll(".main-tab-btn.ref-tab, .main-tab-btn[data-tab='gf']")];
+    const hiddenTabs = [...nav.querySelectorAll(".main-tab-btn.ref-tab:not(.notes-hidden), .main-tab-btn[data-tab='gf']")];
     const wrap = document.createElement("span");
     wrap.className = "tabs-more-wrap";
     wrap.innerHTML = '<button type="button" class="tabs-more-btn" title="Ещё разделы">⋯</button><div class="tabs-more-menu" hidden></div>';

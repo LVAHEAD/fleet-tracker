@@ -42,3 +42,5 @@ GOOGLE_PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT") or "my-n8n-bot-496614
 
 # v2.02: кто может удалять любую строку (кроме создателя и диспетчера строки)
 FLEET_ADMINS = {e.strip().lower() for e in (os.environ.get("FLEET_ADMINS") or "vladimirs.head@gmail.com").split(",") if e.strip()}
+# [.] «Справка» (блокнот, история версий, фрахты, адреса): видят только эти аккаунты (13.10). Остальным вкладка не показывается
+NOTES_TAB_USERS = {e.strip().lower() for e in (os.environ.get("NOTES_TAB_USERS") or "vladimirs.head@gmail.com,ladins@gmail.com").split(",") if e.strip()}

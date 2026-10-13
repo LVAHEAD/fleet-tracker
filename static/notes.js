@@ -91,7 +91,7 @@ Fleet ETA Tracker — вкладка [.] (блокнот)
   // грузим лениво — при первом открытии вкладки [.]
   let frtLoaded = false;
   const notesTabBtn = document.querySelector('.main-tab-btn[data-tab="notes"]');
-  notesTabBtn.addEventListener("click", () => {
+  if (notesTabBtn) notesTabBtn.addEventListener("click", () => {
     if (!frtLoaded) { frtLoaded = true; loadFrt(false); }
   });
 
