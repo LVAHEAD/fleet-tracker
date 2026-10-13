@@ -357,6 +357,50 @@ def unit_driving_days(unit_id, days=7):
     return out
 
 
+ROUTE_SEG_TTL = 300             # v3.104: смена по GPS — история свежая, кеш 5 минут
+
+
+_route_seg_cache = {}           # unit_id -> {"at", "data"}
+
+
+def unit_route_segments(unit_id, hours=48):
+    """v3.104: поездки и стоянки трака за последние hours часов (route/list) — для смены по GPS:
+    [{"k": "route" | "stop", "s": ts, "e": ts, "m": метры}] по времени. Идущая поездка / стоянка (без конца) —
+    до сейчас. Кеш ROUTE_SEG_TTL. Ошибка — прежние данные или [] (расчёт тогда без поправки по GPS)."""
+    import time
+    if not MAPON_API_KEY:
+        return []
+    now = time.time()
+    c = _route_seg_cache.get(unit_id)
+    if c and now - c["at"] < ROUTE_SEG_TTL:
+        return c["data"]
+    out = []
+    try:
+        d = mapon_get("https://mapon.com/api/v1/route/list.json",
+                      {"key": MAPON_API_KEY, "unit_id": unit_id,
+                       "from": _iso_utc(now - hours * 3600), "till": _iso_utc(now)}, timeout=30)
+        for u in (d.get("data") or {}).get("units") or []:
+            for r in u.get("routes") or []:
+                k = r.get("type")
+                if k not in ("route", "stop"):
+                    continue
+                try:
+                    s_raw = (r.get("start") or {}).get("time")
+                    e_raw = (r.get("end") or {}).get("time")
+                    s_ts = datetime.strptime(s_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+                    e_ts = (datetime.strptime(e_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+                            if e_raw else now)
+                except Exception as _e:
+                    warn("mapon:route_seg", _e)
+                    continue
+                out.append({"k": k, "s": s_ts, "e": e_ts, "m": float(r.get("distance") or 0)})
+        out.sort(key=lambda x: x["s"])
+    except Exception:
+        return c["data"] if c else []
+    _route_seg_cache[unit_id] = {"at": now, "data": out}
+    return out
+
+
 MAPON_BASE = "https://mapon.com/api/v1/"
 
 

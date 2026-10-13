@@ -198,6 +198,7 @@ const EtaCalc = (() => {
         if (s.week_left_h != null) $("#ec-wk-n").value = s.week_left_h;
       }
       if (s.resting) notes.push("на отдыхе — выезд после него");
+      if (s.gps_fix) notes.push("тахограф отстаёт от GPS — остаток по GPS");   // v3.104
       if (s.unknown) notes.push("тахографа нет — остаток по максимуму");
       else if (s.nocard) notes.push("тахографа нет — стоит ≥ 9 ч, свежий день");
     } else {

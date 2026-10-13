@@ -4,7 +4,7 @@
 from fetat.utils.timefmt import ts_west
 from fetat.clients.google_routes import road_distance_km_google
 from fetat.clients.mapon import (fetch_group_unit_ids, fetch_reefer_units, fetch_units, get_tacho, unit_driver_names,
-                                 unit_driving_days)
+                                 unit_driving_days, unit_route_segments)
 from fetat.config import GOOGLE_API_KEY, HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.bans import (bans_hits_text, bans_near_text, bans_on_route, countries_times_text, country_chain,
                                needs_at_night_ban)
@@ -15,8 +15,8 @@ from fetat.domain.points import (
 from fetat.domain.regions import nearest_region_code
 from fetat.services.corridors import fleet_waypoints_resolved as fleet_waypoints   # v3.26: + выбор коридора
 from fetat.services.corridors import clean_corridor, corridor_info, fleet_corridor_cands   # v3.32: выбор диспетчера
-from fetat.domain.tacho import (FRESH_SOLO_TACHO, TACHO_SPEED_KMH, calc_eta, calc_seed, country_tz, crew_mode, tacho_eta,
-                               tacho_no_subscription,
+from fetat.domain.tacho import (FRESH_SOLO_TACHO, TACHO_SPEED_KMH, calc_eta, calc_seed, country_tz, crew_mode, gps_shift,
+                               tacho_eta, tacho_no_subscription,
                                tacho_summary, week_left_info)
 from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM, truck_fuel, truck_weight
 from fetat.utils.geo import haversine_km
@@ -218,6 +218,9 @@ def _add_tacho(result, unit, trailer, crew=None, x10=False):
             team, src, hist_max = crew_mode(tacho, crew, days)
             tacho = dict(tacho, team=team, crew_src=src)     # копия: кеш тахографа не трогаем
             tacho.update(_eta_opts(unit, x10))               # v3.39: пояс страны (ночная смена) и 10-й час
+            g = _gps_shift_of(unit)                          # v3.104: смена по GPS — поправка, если тахограф отстаёт
+            if g:
+                tacho["gps"] = g
             result["crew"] = "team" if team else "solo"
             result["crew_src"] = src
             # v3.18: имена водителей из Mapon (карты в тахографе)
@@ -244,6 +247,10 @@ def _add_tacho(result, unit, trailer, crew=None, x10=False):
                 result["eta_tacho"] = eta_t.strftime("%d/%m %H:%M")
                 result["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sim["stops"])
                 result["_sim_stops"] = sim["stops"]
+                gf = sim.get("gps_fix")
+                if gf:                                       # v3.104: для подсказки значка «экипаж / соло»
+                    result["tacho_gps_fix"] = {"driven": int(gf["driven"]), "tacho": int(gf["tacho"]),
+                                               "start": int(gf["start"])}
             d0 = next((d for d in tacho["drivers"] if d.get("current_state") == "DRIVING"), tacho["drivers"][0])
             result["tacho_resting_now"] = d0.get("current_state") == "REST"
             result["tacho_team"] = team
@@ -257,6 +264,16 @@ def _add_tacho(result, unit, trailer, crew=None, x10=False):
     except Exception as e:
         result["tacho_error"] = str(e)
     return tacho, sim
+
+
+def _gps_shift_of(unit):
+    """v3.104: {"start", "driven"} — смена по GPS-истории Mapon или None (нет истории / ошибка — без поправки)."""
+    import time
+    try:
+        return gps_shift(unit_route_segments(unit.get("unit_id")), time.time())
+    except Exception as e:
+        warn("fleet:gps_shift", e)
+        return None
 
 
 def _eta_opts(unit, x10):

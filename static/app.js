@@ -290,7 +290,7 @@ function crewOf(data) {
   return data.crew ? { crew: data.crew, src: data.crew_src, wl: data.week_left_sec, lim: data.week_limit,
                        driven: data.week_driven_sec, next: data.week_next_sec, hmax: data.crew_hist_max_h,
                        short: data.week_short_last || null, names: data.crew_names || null,
-                       nocard: !!data.crew_nocard, nosub: !!data.crew_nosub } : null;
+                       nocard: !!data.crew_nocard, nosub: !!data.crew_nosub, gpsfix: data.tacho_gps_fix || null } : null;
 }
 function crewHtml(row, cached) {
   const c = cached && cached.crew;
@@ -330,6 +330,10 @@ function crewHtml(row, cached) {
     } else if (c && c.crew === "team") {
       tip.push("Остаток недели не показан: по тахографу это экипаж");
     }
+  }
+  // v3.104: тахограф Mapon отстаёт от GPS (карты не считаны) — остаток дня и начало смены по GPS
+  if (c && c.gpsfix) {
+    tip.push(`⚠ Тахограф отстаёт от GPS: в смене по GPS ${hm(c.gpsfix.driven)} вождения, по тахографу ${hm(c.gpsfix.tacho)} — ETA по GPS`);
   }
   // v3.18: имена водителей — первой строкой подсказки
   const nm = c && c.names && c.names.length ? c.names : null;
