@@ -45,14 +45,14 @@ function knownDispatchers() {
 // v3.11: диспетчеры — из листа «Диспетчеры» (/api/dispatchers); до загрузки — список по умолчанию
 let DISP_LIST = [
   { email: "vladimirs.head@gmail.com", tag: "VL", color: "#ebebeb" }, { email: "vadims@gmail.com", tag: "VJ", color: "#fde6cc" },
-  { email: "janis@gmail.com", tag: "JZ", color: "#eceefc" }, { email: "jekaterina@gmail.com", tag: "JB", color: "#dcf1e0" },
+  { email: "j.zemesarajs@gmail.com", tag: "JZ", color: "#eceefc" }, { email: "jekaterina@gmail.com", tag: "JB", color: "#dcf1e0" },
   { email: "antons@gmail.com", tag: "AA", color: "#ffffff" }, { email: "ladins@gmail.com", tag: "VV", color: "#e8dcf7" },
 ];
 function dispEntry(u) {
   const e = String(u || "").toLowerCase();
   if (!e) return null;
-  const k = dispShort(e).toLowerCase();
-  return DISP_LIST.find((d) => d.email === e) || DISP_LIST.find((d) => dispShort(d.email).toLowerCase() === k) || null;
+  // v3.97: главный источник — лист «Диспетчеры»; сопоставление только по точному e-mail (без угадывания по короткому имени)
+  return DISP_LIST.find((d) => d.email === e) || null;
 }
 function dispTag(u) { const d = dispEntry(u); return d ? d.tag : ""; }
 // v3.15: вошедший есть в листе «Диспетчеры» (точное совпадение e-mail; до загрузки листа — считаем, что есть)
