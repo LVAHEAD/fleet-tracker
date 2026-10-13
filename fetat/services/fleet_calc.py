@@ -190,7 +190,8 @@ def _apply_points_done(result, payload, target_str, unit, units):
             seen = [(v if isinstance(v, str) else None) for v in (payload.get("done_seen") or [])]
             seen_arr = [(v if isinstance(v, str) else None) for v in (payload.get("done_arr") or [])]   # v3.57
             dn = points_done(pts_all, manual, unit, units, seen, seen_arr)
-        except Exception:
+        except Exception as e:
+            warn("fleet:points_done", e)      # v3.98: раньше молча — вся строка без ✓
             dn = [{"done": False} for _ in pts_all]
         result["points_done"] = dn
         active = [i for i, p in enumerate(pts_all) if not dn[i]["done"]]

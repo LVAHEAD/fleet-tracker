@@ -323,3 +323,22 @@ def api_fleet_import():
         return jsonify({"ok": True, "added": added, "skipped": skipped, "now": _now_ms()})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 503
+
+
+@bp.route("/api/done-debug")
+def api_done_debug():
+    """v3.98: что видит авто-✓ для точки строки, только чтение:
+    /api/done-debug?unit=NU-8704&target=Bonfred%20S.A"""
+    from fetat.clients.mapon import fetch_units
+    from fetat.config import MAPON_API_KEY
+    from fetat.domain.points import done_debug, find_unit_exact
+    if not MAPON_API_KEY:
+        return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
+    try:
+        units = fetch_units(MAPON_API_KEY)
+    except Exception as e:
+        return jsonify({"error": f"Mapon: {e}"}), 502
+    unit = find_unit_exact(units, request.args.get("unit"))
+    if not unit:
+        return jsonify({"error": "машина не найдена"}), 404
+    return jsonify(done_debug(request.args.get("target") or "", unit, units))

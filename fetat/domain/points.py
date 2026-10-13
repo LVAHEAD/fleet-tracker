@@ -11,6 +11,7 @@ from fetat.domain.regions import (
     get_region_country, nearest_region_code, OUR_COUNTRIES, REGION_CODES,
 )
 from fetat.utils.geo import haversine_km, parse_gps, poly_dist_km, _point_in_poly
+from fetat.utils.log import warn
 from fetat.utils.text import normalize
 from fetat.utils.timefmt import format_duration
 
@@ -332,8 +333,8 @@ def _auto_done(tstr, t, lat, lng, unit, stops_box):
                         auto_at, auto_arr = st["end"], st.get("start")
             if left and obj and auto_at:
                 zone = obj["name"]
-    except Exception:
-        pass
+    except Exception as e:
+        warn("points:auto_done", e)     # v3.98: раньше молча — ✓ не ставился без следа
     return auto_at, auto_arr, zone
 
 
@@ -355,6 +356,61 @@ def site_arrival(unit):
     except Exception:
         pass
     return None
+
+
+def done_debug(tstr, unit, units):
+    """v3.98: что видит авто-✓ для одной точки — для отладки, только чтение (в Флот ничего не пишет).
+    -> разрешённая точка, зона или радиус, «уехал», стоянки с расстояниями и итог _auto_done.
+    Ошибки разрешения и стоянок не глотаются: попадают в rep["errors"]."""
+    rep = {"target": tstr, "number": unit.get("number"), "unit_id": unit.get("unit_id"),
+           "truck": [unit.get("lat"), unit.get("lng")], "errors": []}
+    try:
+        t = resolve_fleet_target(tstr, units, unit)
+    except Exception as e:
+        rep["errors"].append(f"resolve: {type(e).__name__}: {e}")
+        return rep
+    lat, lng = t.get("lat"), t.get("lng")
+    rep["point"] = [lat, lng]
+    rep["by"] = "машина" if t.get("target_is_truck") else ("адресная база" if t.get("target_address") else "геокод")
+    if lat is None or unit.get("lat") is None:
+        rep["errors"].append("нет координат точки или машины")
+        return rep
+    if t.get("target_is_truck"):
+        rep["errors"].append("точка — машина: по истории не проверяется")
+        return rep
+    obj = target_object(lat, lng)
+    rep["zone"] = obj["name"] if obj else None
+    if obj:
+        left_km = poly_dist_km(unit["lat"], unit["lng"], obj["poly"])
+        near_fn = lambda a, b: poly_dist_km(a, b, obj["poly"])
+        near_lim, left_lim = DONE_IN_ZONE_KM, DONE_LEFT_ZONE_KM
+    else:
+        left_km = haversine_km(unit["lat"], unit["lng"], lat, lng)
+        near_fn = lambda a, b: haversine_km(a, b, lat, lng)
+        near_lim, left_lim = DONE_RADIUS_KM, DONE_LEFT_KM
+    rep.update(left_km=round(left_km, 3), left_need_km=left_lim, left_ok=left_km > left_lim,
+               near_limit_km=near_lim)
+    try:
+        stops = recent_stops(unit.get("unit_id")) or []
+    except Exception as e:
+        rep["errors"].append(f"stops: {type(e).__name__}: {e}")
+        stops = []
+    rep["stops"] = []
+    for st in stops:
+        row = {"start": ts_west(st["start"]).strftime("%d/%m %H:%M"), "now": bool(st.get("now")),
+               "address": st.get("address")}
+        if st.get("end"):
+            row["end"] = ts_west(st["end"]).strftime("%d/%m %H:%M")
+        if st.get("lat") is not None:
+            d = near_fn(st["lat"], st["lng"])
+            row["dist_km"] = round(d, 3)
+            row["in"] = bool(d <= near_lim and not st.get("now"))
+        rep["stops"].append(row)
+    auto_at, auto_arr, zone = _auto_done(tstr, t, lat, lng, unit, [stops])
+    rep["auto"] = {"end": ts_west(auto_at).strftime("%d/%m %H:%M") if auto_at else None,
+                   "arr": ts_west(auto_arr).strftime("%d/%m %H:%M") if auto_arr else None,
+                   "zone": zone}
+    return rep
 
 
 def points_done(pts, manual, unit, units, seen=None, seen_arr=None):
@@ -379,7 +435,8 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None):
                 lat, lng = t.get("lat"), t.get("lng")
                 if lat is not None:       # v1.80: код региона и у пройденной точки
                     info["badge"], info["badge_hint"] = target_badge_info(tstr, lat, lng, t.get("target_address"))
-            except Exception:
+            except Exception as e:
+                warn("points:resolve", e)   # v3.98: раньше молча — точка «не пройдена» без следа
                 t = None
         seen_at = seen[i] if i < len(seen) and isinstance(seen[i], str) and seen[i] else None
         seen_arr_at = None
