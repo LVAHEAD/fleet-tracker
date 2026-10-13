@@ -614,7 +614,12 @@ const EtaCalc = (() => {
     if (!enc || !window.googleMapsReady || !window.google || !google.maps.geometry) return;
     loadCodes();
     if (!gmap) {
-      gmap = MapsCommon.make($(".ec-map"), { disableDefaultUI: true, zoomControl: true });   // v3.50: общий конфиг
+      gmap = MapsCommon.make($(".ec-map"), {
+        disableDefaultUI: true, zoomControl: true,                                          // v3.50: общий конфиг
+        mapTypeControl: true,                                                               // v3.91: «Карта / Спутник»
+        mapTypeControlOptions: { style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+          position: google.maps.ControlPosition.LEFT_TOP, mapTypeIds: ["roadmap", "satellite"] },
+      });
       refBtn = MapsCommon.refreshBtn(gmap, () => loadUnit(true));                           // v3.51: ↻ — своя машина
       if (window.ObjLayer) ObjLayer.attach(gmap);   // v3.55: объекты Mapon — 🏭
     }

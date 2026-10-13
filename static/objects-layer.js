@@ -8,7 +8,7 @@ Fleet ETA Tracker — объекты Mapon на картах (v3.55): полиг
   const KEY = "mapon-obj-groups";
   const PILOT = ["Bama Supliers", "GFI Clients (GreenFood)", "BNX DSL 2025", "BNX - Secured Parkings",
     "Fish Clients (SB/FSF/NSS/Polar/BWS)", "Lad TEMP", "LAD ES vgt frt", "PARKING"];
-  const ZMIN = 15, ZMAX = 18, CAP = 400;
+  const ZMIN = 12, ZMAX = 21, CAP = 400;
   const BLANK = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
   let objs = null, loading = null, groupInfo = [], selected = null;
   const maps = [];
