@@ -1250,8 +1250,8 @@ body.left-open .left-tab { left: var(--sidew); opacity: 1; }
 /* ---------- v3.56: левая панель — свой ярлык у края на каждый раздел, как у правых панелей ---------- */
 .left-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .left-title { font-size: 15px; font-weight: 600; color: #222; }
-#left-tab-bans { top: calc(50% - 26px); }
-#left-tab-links { top: calc(50% + 26px); }
+#left-tab-bans { top: calc(50% - 52px); }   /* зеркально правой колонке: карта, блокнот, калькулятор */
+#left-tab-links { top: 50%; }
 body.left-open .left-tab.on { background: #eef3fd; opacity: 1; }
 /* v3.63: переключение раздела — панель и ярлыки уезжают на 250 мс и выезжают обратно (left-panel.js) */
 body.left-swap .left-panel { left: calc(-1 * var(--sidew) - 24px); }
@@ -1337,7 +1337,7 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 .links-stat.bad { color: #a2342a; }
 
 /* v3.88: вкладка «Как работает» (❔) — третий язычок левой выезжалки, тот же синий стиль калькулятора */
-#left-tab-help { top: calc(50% + 78px); }
+#left-tab-help { top: calc(50% + 52px); }
 .left-panel:has(#lp-help:not([hidden])) { background: #fafafa; }
 .left-panel:has(#lp-help:not([hidden])) .left-head { margin: 0 -12px; padding: 10px 12px; border-bottom: 1px solid #e0e0e0; font-size: 14px; }
 #lp-help { margin: 0 -12px; }
