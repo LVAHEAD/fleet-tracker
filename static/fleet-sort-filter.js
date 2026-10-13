@@ -38,7 +38,12 @@ function saveSortState() {
 // Опаздывающие наверх не поднимаем.
 function slotKey(row) {
   const k = firstOpenIdx(row);
-  const p = k >= 0 ? pointOf(row, k) : null;
+  if (k < 0) return null;
+  // v3.100: у открытой точки TimeSlot пустой — берём TimeSlot следующих точек (первая заполненная)
+  const n = 1 + (row.extra ? row.extra.length : 0);
+  let j = k;
+  while (j < n - 1 && !String((pointOf(row, j) || {}).delivery || "").trim()) j++;
+  const p = pointOf(row, j);
   const w = p ? parseDeliveryWindow(p.delivery) : null;
   const t = w ? (w.start || w.end) : null;
   return t ? t.getTime() : null;
