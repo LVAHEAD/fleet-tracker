@@ -65,7 +65,16 @@ function markForeign(tr, row) {
     b.title = "Чужие правки в трипе:\n" + keys.map((k) => `• ${chgName(k)} — ${chgWho(chg[k])}`).join("\n")
       + (owner ? "\n\nКлик — снять все отметки" : "\n\nСнять отметки может хозяин трипа");
     if (owner) b.addEventListener("click", (e) => { e.stopPropagation(); clearChg(row, keys); renderRows(); });
-    cell.appendChild(b);
+    // v3.96: плашка «кто редактировал» — в одной строке с диспетчером (диспетчер и плашка в одной обёртке)
+    const disp = cell.querySelector(".disp-lbl, .disp-sel");
+    if (disp) {
+      const wrap = document.createElement("span");
+      wrap.className = "disp-row";
+      disp.before(wrap);
+      wrap.append(disp, b);
+    } else {
+      cell.appendChild(b);
+    }
   }
   if (!owner) return;
   tr.querySelectorAll(".chg-mark").forEach((el) => {
