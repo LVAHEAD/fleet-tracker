@@ -1,6 +1,6 @@
 /*
 Fleet ETA Tracker — левая выезжалка (v3.56): как правая — на всю высоту, свой ярлык у края на каждый раздел
-(Запреты 🚫, Links 🔗). Оверлей поверх страницы, ничего не сдвигает.
+(Запреты 🚫, Links 🔗, Как работает ❔). Оверлей поверх страницы, ничего не сдвигает.
 Ярлык открывает свой раздел; тот же ярлык или ✕ / Esc — закрывают; другой ярлык — переключает раздел.
 Клик мимо не закрывает (как правые панели с v3.53). Открыта и раздел — помнит ("left-panel-open", "left-panel-sec").
 При открытии шлёт "left-panel:open" — Запреты грузят данные.
@@ -13,7 +13,7 @@ Fleet ETA Tracker — левая выезжалка (v3.56): как правая
   const body = document.body;
   const KEY = "left-panel-open";
   const SEC_KEY = "left-panel-sec";
-  const TITLES = { bans: "Запреты", links: "Links" };
+  const TITLES = { bans: "Запреты", links: "Links", help: "Как работает" };
   const isOpen = () => body.classList.contains("left-open");
   let section = "bans";
 
@@ -60,7 +60,7 @@ Fleet ETA Tracker — левая выезжалка (v3.56): как правая
     if (e.key === "Escape" && isOpen()) set(false);
   });
 
-  try { section = localStorage.getItem(SEC_KEY) === "links" ? "links" : "bans"; } catch (e) { /* ignore */ }
+  try { const s = localStorage.getItem(SEC_KEY); section = s === "links" || s === "help" ? s : "bans"; } catch (e) { /* ignore */ }
   showSection(section);
   try { if (localStorage.getItem(KEY) === "1") set(true); } catch (e) { /* ignore */ }
 })();

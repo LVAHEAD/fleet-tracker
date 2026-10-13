@@ -136,9 +136,31 @@
       <span class="links-stat" id="links-stat"></span>
     </div>
   </section>
+  <section class="left-pane" id="lp-help" hidden>
+    <div class="help-root">
+      <div class="help-group">
+        <div class="help-h"><span>Мигание строк Флота</span><span>все мигания — цикл 1,2 с, вся строка</span></div>
+        <div class="help-row"><span class="help-chip" style="background:#c0392b"></span><div><b>Красный.</b> Трип стал опаздывать с прошлого расчёта: любая точка (в том числе следующие ②③…) выехала за окно Delivery / TimeSlot. Если уже опаздывал при загрузке страницы — не мигает. <i>Гасит:</i> клик по строке («увидел»).</div></div>
+        <div class="help-row"><span class="help-chip" style="background:#2f6fd6"></span><div><b>Синий — реф.</b> Одна из трёх тревог: (1) температура ушла от уставки дальше допуска (заморозка 5°, охлаждёнка 3°) дольше 30 мин; (2) реф выключен, а прицеп гружён (по весу с CAN тягача, иначе по отметкам L / O и ✓ точек) дольше 30 мин; (3) данные рефа не обновлялись ≥ 2 ч, а машина едет — сразу, без задержки. <i>Гасит:</i> клик («увидел»). Снова замигает, когда всё вернулось в норму и случилась новая беда.</div></div>
+        <div class="help-row"><span class="help-chip" style="background:#e69614"></span><div><b>Янтарный — топливо.</b> У тягача меньше 100 л или у рефа меньше 40 л. <i>Гасит:</i> клик («увидел»). Снова замигает после заправки и нового падения.</div></div>
+        <div class="help-row"><span class="help-chip" style="background:#ffd600"></span><div><b>Лимонно-жёлтый — «✓ Завершён».</b> Трип ждёт завершения: все точки пройдены, завершить может хозяин трипа или назначающий. Такие строки стоят наверху при любой сортировке и фильтре L / O. <i>Гаснет</i>, когда трип завершён или возвращён.</div></div>
+      </div>
+      <div class="help-group">
+        <div class="help-h"><span>Приоритет</span></div>
+        <div class="help-txt">Если сразу несколько: красный важнее всех, потом синий (реф), потом янтарный (топливо), потом лимонный. Мигает один цвет; остальные видны в подсказке строки.</div>
+      </div>
+      <div class="help-group">
+        <div class="help-h"><span>Нюансы</span></div>
+        <div class="help-txt">«Увидел» для рефа и топлива помнит браузер — у каждого диспетчера свой клик. Для красного «увидел» живёт, пока открыта страница (после F5 сбрасывается).</div>
+        <div class="help-txt">При включённом «уменьшить движение» строки не мигают — закрашены ровным светлым цветом того же оттенка.</div>
+        <div class="help-txt">Клик по машинке на карте — строка на 1,6 с вспыхивает бледно-жёлтым и прокручивается в центр экрана.</div>
+      </div>
+    </div>
+  </section>
 </aside>
 <button type="button" class="left-tab" id="left-tab-bans" data-lp="bans" title="Запреты (Esc — закрыть)">🚫</button>
 <button type="button" class="left-tab" id="left-tab-links" data-lp="links" title="Links (Esc — закрыть)">🔗</button>
+<button type="button" class="left-tab" id="left-tab-help" data-lp="help" title="Как работает (Esc — закрыть)">❔</button>
 
 <!-- ==================== Вкладка: Карты стран ==================== -->
 <div id="tab-maps" class="tab-panel" hidden>
