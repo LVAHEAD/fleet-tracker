@@ -152,9 +152,10 @@ function ecFromRow(id, force, k) {
       }
     }
   }
-  // v3.112: км 0 (машина уже на точке) — маркеры машины и первой точки вместо маршрута
+  // v3.112: км 0 (машина уже на точке) — маркеры машины и первой непройденной точки вместо маршрута
+  // (после v3.116: «первая непройденная» — не обязательно ①: у OI-1781 ① пройдена, машина стоит на ②, клик у ②)
   const pinPos = rowPositions[id];
-  const pins = km === 0 && at === 0 && pinPos && pinPos.unitLat != null && pinPos.targetLat != null
+  const pins = km === 0 && at === first && pinPos && pinPos.unitLat != null && pinPos.targetLat != null
     ? { unit: [pinPos.unitLat, pinPos.unitLng], target: [pinPos.targetLat, pinPos.targetLng] } : null;
   window.etaCalc.fromRow({
     unit: row.unit || "", point: ((STOP_NUM[at + 1] || "") + " " + String(pt || "").trim()).trim(),
