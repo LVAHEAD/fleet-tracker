@@ -1136,8 +1136,10 @@ async function calcRow(id, why) {
   const distCell = tr.querySelector(".dist-cell");
   const etaCell = tr.querySelector(".eta-cell");
 
-  statusCell.textContent = "…";
-  statusCell.className = "status-cell muted";
+  // v3.124: прежний статус не затираем «…» — приглушаем строку (calc-busy), пока идёт расчёт, чтобы можно было работать;
+  // «…» — только когда статуса ещё нет (первое открытие)
+  if (statusCell.querySelector(".status-line")) tr.classList.add("calc-busy");
+  else { statusCell.textContent = "…"; statusCell.className = "status-cell muted"; }
 
   try {
     const res = await fetch("/api/calc", {
@@ -1436,6 +1438,8 @@ async function calcRow(id, why) {
   } catch (e) {
     console.error("calcRow", e);
     statusCell.textContent = "Ошибка запроса";
+  } finally {
+    tr.classList.remove("calc-busy");   // v3.124
   }
 }
 

@@ -499,7 +499,7 @@ class _StepTimer:
         return self._t() - self.t0
 
 
-SLOW_ROW_SEC = 3.0
+SLOW_ROW_SEC = 1.5   # v3.124: было 3.0 — в лог попадает больше строк, чтобы видеть, что тормозит
 
 
 def calc_row(payload):
@@ -526,15 +526,21 @@ def _find_unit(units, unit_query):
     return matches[0], None
 
 
-def _add_route_to_target(result, unit, target_lat, target_lng, payload):
+def _add_route_to_target(result, unit, target_lat, target_lng, payload, tm=None):
     """Маршрут «машина → цель»: коридор, км, ETA по простой скорости, линия."""
     cur_lat, cur_lng = unit["lat"], unit["lng"]
     corridor = clean_corridor(payload.get("corridor"))                # v3.32: коридор выбрал диспетчер
     wps = fleet_waypoints(cur_lat, cur_lng, target_lat, target_lng, corridor)   # v2.03: паромы/Инсбрук и во Флоте
+    if tm:
+        tm.mark("r_wps")      # v3.124: из чего состоит шаг route (в лог — только то, что ≥ 0,05 с)
     cc = fleet_corridor_cands(cur_lat, cur_lng, target_lat, target_lng)
     if cc:
         result["corridor"] = corridor_info(cc, wps, corridor, (cur_lat, cur_lng, target_lat, target_lng))
+    if tm:
+        tm.mark("r_cor")
     dist_km, polyline = road_distance_km_google(cur_lat, cur_lng, target_lat, target_lng, GOOGLE_API_KEY, wps)
+    if tm:
+        tm.mark("r_gmaps")
     if wps:
         result["waypoints_applied"] = True
     _, eta_local = calc_eta(dist_km)
@@ -598,7 +604,7 @@ def _calc_row(payload, tm):
             return {"error": "GOOGLE_API_KEY не настроен на сервере"}, 500
 
         if target_lat is not None:
-            _add_route_to_target(result, unit, target_lat, target_lng, payload)
+            _add_route_to_target(result, unit, target_lat, target_lng, payload, tm)
             tm.mark("route")
 
         tacho, sim = _add_tacho(result, unit, trailer, payload.get("crew"), bool(payload.get("x10")),
