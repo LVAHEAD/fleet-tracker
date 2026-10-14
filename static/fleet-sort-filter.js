@@ -114,7 +114,10 @@ try { loFilter = localStorage.getItem("fleet-lo-filter") || "all"; } catch (e) {
 if (!["all", "L", "O"].includes(loFilter)) loFilter = "all";
 // точка k: 0 — основная (row.lo / row.delivery), k ≥ 1 — row.extra[k - 1]
 function pointOf(row, k) {
-  return k === 0 ? { lo: row.lo, delivery: row.delivery } : (row.extra && row.extra[k - 1]) || null;
+  // v3.108: у встречи с траком / перецепа тип нейтральный (ptLo, trailer-swap.js)
+  if (k === 0) return { lo: ptLo(row), delivery: row.delivery };
+  const x = row.extra && row.extra[k - 1];
+  return x ? { lo: ptLo(x), delivery: x.delivery } : null;
 }
 // индекс первой непройденной точки (ручные отметки row.done важнее авто), -1 — все пройдены
 function firstOpenIdx(row) {

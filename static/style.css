@@ -260,6 +260,8 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 }
 .lo-btn.lo-L { background: #DCEBFB; border-color: #A9CBEF; color: #1F5A99; }
 .lo-btn.lo-O { background: #FFF4C2; border-color: #EBD37A; color: #7A5C00; }
+.lo-btn.lo-swap { background: #E6EEF8; border-color: #B7C8E2; color: #2F4F7F; }   /* v3.108: перецеп ⇄ */
+.swap-pop .swap-note { color: #777; margin: 0 0 4px; }
 .lo-btn.lo-L:hover { background: #cde0f7; }
 .lo-btn.lo-O:hover { background: #fbeca8; }
 
