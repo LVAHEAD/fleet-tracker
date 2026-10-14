@@ -1173,7 +1173,7 @@ async function calcRow(id, why) {
     const otLo = otIdx ? ptLo(row.extra[otIdx - 1]) : ptLo(row);
     // v3.112: булавка убрана — вместо неё номер точки в кружке (у одной точки тоже)
     const ot = data.on_target
-      ? `<span class="ot-pill" title="${escapeHtml(data.on_target.how === "object" ? "На объекте Mapon: " + data.on_target.name : "В радиусе 300 м от таргета")}">на объекте ${numChip(otIdx + 1, otLo)}</span>` : "";
+      ? `<span class="ot-pill" title="${escapeHtml(data.on_target.how === "object" ? "На объекте Mapon: " + data.on_target.name : "В радиусе 300 м от таргета")}">${numChip(otIdx + 1, otLo)} на точке</span>` : "";
     // v1.70: прицеп — рефка; сцепка тягач ↔ прицеп (угадана по координатам)
     const trTag = data.is_trailer ? '<span class="trl-tag" title="Прицеп">П</span>' : "";
     const reeferHtml = data.is_trailer ? reeferPillHtml(data) : "";
