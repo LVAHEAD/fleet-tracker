@@ -164,7 +164,7 @@ def gps_shift(segs, now_ts):
             continue
         dur, m = e - s, float(g.get("m") or 0)
         still = (g["k"] == "stop" or (m < GPS_TINY_M and dur < 900)
-                 or (dur >= GPS_FERRY_SEC and (m / dur) * 3.6 < GPS_FERRY_KMH))
+                 or (dur >= GPS_FERRY_SEC and m > 0 and (m / dur) * 3.6 < GPS_FERRY_KMH))   # дистанции нет (идущая поездка) — не паром
         if still:
             if cur is not None and s - cur[1] <= 300:
                 cur[1] = max(cur[1], e)

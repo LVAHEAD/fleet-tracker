@@ -54,3 +54,13 @@ class TeamWindowTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GpsNoDistanceTest(unittest.TestCase):
+    def test_ongoing_route_without_distance_is_driving(self):
+        from fetat.domain.tacho import gps_shift
+        segs = [{"k": "stop", "s": NOW - 20 * H, "e": NOW - 6 * H, "m": 0},
+                {"k": "route", "s": NOW - 6 * H, "e": NOW - 2.75 * H, "m": 245_600},
+                {"k": "route", "s": NOW - 2.75 * H, "e": NOW, "m": 0}]   # идущая поездка: distance нет
+        g = gps_shift(segs, NOW)
+        self.assertAlmostEqual(g["driven"] / H, 6.0, places=1)
