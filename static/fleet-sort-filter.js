@@ -134,11 +134,13 @@ function firstOpenIdx(row) {
 function rowLoKind(row) {
   const k = firstOpenIdx(row);
   if (k < 0) return "";
+  // v3.110: цвет — первая непройденная точка с меткой L или O (точки без метки пропускаем)
   const isLo = (p) => p && (p.lo === "L" || p.lo === "O");
-  const p = pointOf(row, k);
-  if (isLo(p)) return p.lo;
-  const q = pointOf(row, k + 1);
-  return isLo(q) ? q.lo : "";
+  for (let i = k; ; i++) {
+    const p = pointOf(row, i);
+    if (!p) return "";
+    if (isLo(p)) return p.lo;
+  }
 }
 function stripeRow(tr, row) {
   tr.classList.remove("lo-row-L", "lo-row-O");

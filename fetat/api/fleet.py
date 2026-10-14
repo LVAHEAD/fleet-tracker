@@ -8,6 +8,7 @@ from flask import Blueprint, jsonify, request
 from fetat.api.meta import current_user_email
 from fetat.config import FLEET_ADMINS
 from fetat.domain.dispatchers import _disp_cache, can_assign, get_dispatchers
+from fetat.domain.presence import presence_tags
 from fetat.store.fleet_store import (
     _fleet_can_delete, _fleet_clean, FLEET_DONE, FLEET_FIELD_RE, FLEET_LOCK_MS, _fleet_rid, _fleet_row_out,
     FLEET_STORE, FLEET_TRASH_MS, chg_apply, done_out, done_record, fleet_owner,
@@ -229,6 +230,12 @@ def api_dispatchers():
     return jsonify({"ok": True, "dispatchers": lst, "source": _disp_cache["source"],
                     "error": _disp_cache["error"], "user": _fleet_user(),
                     "can_assign": can_assign(_fleet_user())})
+
+
+@bp.route("/api/presence")
+def api_presence():
+    """v3.110: пинг «аппа открыта» + инициалы других онлайн-диспетчеров (себя не включаем)."""
+    return jsonify({"ok": True, "tags": presence_tags(current_user_email())})
 
 
 @bp.route("/api/fleet/lock", methods=["POST"])

@@ -33,6 +33,7 @@
 /api/notebook/<rid> PATCH
 /api/notebook/<rid>/comments POST
 /api/notebook/<rid>/comments/<cid> DELETE
+/api/presence GET
 /api/region-codes GET
 /api/route POST
 /api/truck-info GET
