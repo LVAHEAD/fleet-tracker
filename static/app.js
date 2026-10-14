@@ -1189,7 +1189,7 @@ async function calcRow(id, why) {
       ? `<span class="ot-pill" title="${escapeHtml(data.on_target.how === "object" ? "На объекте Mapon: " + data.on_target.name : "В радиусе 300 м от таргета")}">${numChip(otIdx + 1, otLo)} на точке</span>` : "";
     // v1.70: прицеп — рефка; сцепка тягач ↔ прицеп (угадана по координатам)
     const trTag = data.is_trailer ? '<span class="trl-tag" title="Прицеп">П</span>' : "";
-    const reeferHtml = data.is_trailer ? reeferPillHtml(data) : "";
+    const reeferHtml = data.is_trailer ? reeferPillHtml(data, row) : "";
     // у прицепа — вторая строка (рефка + кнопка "к тягачу"); у тягача с привязанным прицепом —
     // вторая строка с прицепом; без привязки — кнопка 🔗? в первой строке (v1.71)
     let hitchHtml = "", line2 = "";
@@ -1203,7 +1203,7 @@ async function calcRow(id, why) {
       hitchHtml = hitchPillHtml(data, false);
       if (reeferHtml || hitchHtml) line2 = `<div class="status-line2">${reeferHtml}${hitchHtml}</div>`;
     } else if (row.trailer) {
-      line2 = `<div class="status-line2">${tfHtml}${linkedTrailerHtml(row.trailer, data.linked_trailer)}</div>`;
+      line2 = `<div class="status-line2">${tfHtml}${linkedTrailerHtml(row.trailer, data.linked_trailer, row)}</div>`;
     } else {
       // v3.37: непривязанный прицеп (🔗 угадан) — во второй строке, где и привязанный
       const hp = hitchPillHtml(data, true);
@@ -1447,7 +1447,8 @@ function truckFuelHtml(data) {
   const tip = [`Топливо тягача: ${f.l} л — мало (< 100 л)`].concat(f.parts && f.parts.length > 1 ? [`баки: ${f.parts.join(" + ")} л`] : []);
   return `<span class="tf-pill" title="${escapeHtml(tip.join("\n"))}">⛽${f.l}</span>`;
 }
-function reeferPillHtml(data) {
+// v3.119: плашка рефа — переключатель Temp / NoTemp (поле строки noTemp; NoTemp — груз без температуры, тревоги рефа выключены)
+function reeferPillHtml(data, row) {
   const r = data.reefer;
   if (!r) return data.reefer_error ? `<span class="rf-pill rf-na" title="${escapeHtml("Рефка: " + data.reefer_error)}">❄ ?</span>` : "";
   const comps = r.compartments || [];
@@ -1462,8 +1463,14 @@ function reeferPillHtml(data) {
   const txt = on.length ? "❄ " + on.map((c) => fmtT(c.ret)).join(" / ") : (comps.length ? "❄ выкл" : "");
   const fuel = r.fuel_l != null ? `<span class="rf-fuel${r.fuel_low ? " rf-fuel-low" : ""}">⛽${Math.round(r.fuel_l)}</span>` : "";
   if (!txt && !fuel) return "";
+  if (row && row.noTemp) {
+    lines.push("NoTemp: тревоги рефа выключены, клик — вернуть Temp");
+    return `<span class="rf-pill rf-nt rf-tog" data-nt="1" title="${escapeHtml(lines.join("\n"))}">NoTemp${fuel}</span>`;
+  }
   const cls = r.warn || r.fuel_low ? "rf-warn" : on.length ? "rf-on" : "rf-off";
-  return `<span class="rf-pill ${cls}" title="${escapeHtml(lines.join("\n"))}">${escapeHtml(txt)}${fuel}</span>`;
+  const tog = row ? " rf-tog" : "";
+  if (row) lines.push("Клик — NoTemp (груз без температуры, тревоги рефа выключатся)");
+  return `<span class="rf-pill ${cls}${tog}" title="${escapeHtml(lines.join("\n"))}">${escapeHtml(txt)}${fuel}</span>`;
 }
 function hitchPillHtml(data, compact) {
   const h = data.hitch;
@@ -1475,12 +1482,12 @@ function hitchPillHtml(data, compact) {
   return `<button class="hitch-pill hitch-link${h.sure ? "" : " hitch-maybe"}" data-truck="${escapeHtml(h.number)}" title="${escapeHtml(tip + "\nКлик — привязать к тягачу")}">🔗 к ${escapeHtml(h.number)}${h.sure ? "" : "?"}</button>`;
 }
 // v1.71: привязанный прицеп во второй строке Статуса тягача
-function linkedTrailerHtml(number, lt) {
+function linkedTrailerHtml(number, lt, row) {
   const un = `<button class="trl-unlink" title="Отвязать прицеп (вернётся отдельной строкой)">×</button>`;
   if (!lt) return `<span class="hitch-pill">🔗 ${escapeHtml(number)}</span>${un}`;
   if (lt.error) return `<span class="hitch-pill rf-warn" title="${escapeHtml(lt.error)}">🔗 ${escapeHtml(number)} ?</span>${un}`;
   const far = lt.far ? `<span class="trl-far" title="Прицеп в ${escapeHtml(fmtKm(lt.km))} от тягача — перецепили?">⚠ ${escapeHtml(fmtKm(lt.km))}</span>` : "";
-  return `<span class="hitch-pill" title="Привязанный прицеп${lt.km != null ? " · " + fmtKm(lt.km) + " от тягача" : ""}">🔗 ${escapeHtml(lt.number)}</span>${un}${far}${reeferPillHtml(lt)}`;
+  return `<span class="hitch-pill" title="Привязанный прицеп${lt.km != null ? " · " + fmtKm(lt.km) + " от тягача" : ""}">🔗 ${escapeHtml(lt.number)}</span>${un}${reeferPillHtml(lt, row)}${far}`;
 }
 
 

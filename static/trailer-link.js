@@ -142,8 +142,20 @@ function openTrailerEditor(id, anchor) {
   inp.select();
 }
 document.addEventListener("mousedown", () => closeTrailerEditor());
+// v3.119: Temp → NoTemp — с подтверждением, обратно без вопроса
+function toggleNoTemp(id) {
+  const row = rows.find((r) => r.id === id);
+  if (!row) return;
+  if (!row.noTemp && !confirm("Груз без температуры? Тревоги рефа выключатся.")) return;
+  updateRowField(id, "noTemp", row.noTemp ? false : true);
+}
 (function () {
   document.getElementById("fleet-tbody").addEventListener("click", (e) => {
+    const tg = e.target.closest && e.target.closest(".rf-tog");   // v3.119: Temp ⇄ NoTemp
+    if (tg) {
+      e.stopPropagation();
+      return toggleNoTemp(Number(tg.closest("tr").dataset.id));
+    }
     const b = e.target.closest && e.target.closest(".hitch-link, .trl-unlink");
     if (!b) return;
     e.stopPropagation();

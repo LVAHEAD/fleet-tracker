@@ -66,6 +66,7 @@ function reeferLoaded(row, data) {
 }
 // условия тревоги сейчас (без задержки): [{k: temp | off | stale, text}]
 function reeferAlertsOf(data, row) {
+  if (row && row.noTemp) return [];   // v3.119: NoTemp — груз без температуры, тревоги рефа выключены
   const rf = data.is_trailer ? data.reefer : data.linked_trailer && data.linked_trailer.reefer;
   const comps = (rf && rf.compartments) || [];
   if (!comps.length) return [];
@@ -77,7 +78,7 @@ function reeferAlertsOf(data, row) {
     const ld = reeferLoaded(row, data);
     if (ld.v) out.push({ k: "off", text: `❄ Реф выключен, а прицеп гружён (${ld.why})` });
   }
-  if (data.status === "driving" && comps.some((c) => c.stale)) {
+  if (data.status === "driving" && comps.some((c) => c.stale) && comps.some((c) => c.on)) {   // v3.119: реф «выкл» — устаревшие данные не тревога
     const at = comps.map((c) => c.at).filter(Boolean)[0];
     out.push({ k: "stale", text: "❄ Данные рефа не обновлялись больше 2 ч" + (at ? ` (последние — ${at})` : "") + ", а машина едет" });
   }

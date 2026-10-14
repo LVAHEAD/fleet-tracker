@@ -794,6 +794,8 @@ body { max-width: 95vw; }
 .rf-pill { padding: 0 5px; border-radius: 8px; font-size: 11px; font-weight: 600; white-space: nowrap; cursor: default; }
 .rf-on { background: #e3f0fb; color: #1f5a99; }
 .rf-off, .rf-na { background: #f0f0f0; color: #777; }
+.rf-nt { background: #e4e4e4; color: #555; }
+.rf-tog { cursor: pointer; }
 .rf-warn { background: #fde2e1; color: #a12622; }
 .rf-fuel { margin-left: 5px; font-weight: 500; opacity: .8; }
 .hitch-pill { padding: 0 5px; border-radius: 8px; background: #f1eee6; color: #5c4a1e; font-size: 11px; font-weight: 600; white-space: nowrap; cursor: default; }
