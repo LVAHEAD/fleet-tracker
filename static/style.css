@@ -1415,3 +1415,5 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 
 /* v3.101: вторая строка плашки машины — таргет; ширина = первой строке (не расширяет плашку), лишнее — многоточием */
 .mk-tgt { display: block; width: 0; min-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; line-height: 1.2; color: #555; font-weight: 400; }
+.help-pdf { display: block; margin: 0 0 10px; padding: 8px 10px; border: 1px solid #d7e3f4; border-radius: 6px; background: #f4f8fd; font-size: 12px; font-weight: 600; color: #1a56b0; text-decoration: none; }
+.help-pdf:hover { background: #e6effa; }

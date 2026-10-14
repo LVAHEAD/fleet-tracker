@@ -150,7 +150,7 @@ function stripeRow(tr, row) {
 function rowPassesFilter(row) {
   if (!row.unit) return true;
   if (!rowPassesOwn(row)) return false;   // v2.01 / v3.11
-  if (awaitsComplete(row)) return true;   // v3.81: ждущие «✓ Завершён» видны при любом L/O (v3.114: и при фильтре по клиентам)
+  if (awaitsComplete(row)) return true;   // v3.81: ждущие «✓ Завершён» видны при любом L/O и фильтре по клиентам, но не при чужом диспетчере
   if (!rowPassesClient(row)) return false;   // v3.114: фильтр по клиентам (client-filter.js)
   if (loFilter === "all") return true;
   return rowLoKind(row) === loFilter;

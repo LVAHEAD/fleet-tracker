@@ -3,7 +3,8 @@
 Пока фильтр включён, заголовок подсвечен синим. Складывается с «Мои / Все», диспетчером и L / O (rowPassesFilter в
 fleet-sort-filter.js); порядок строк не меняет; запоминается после F5 (localStorage, как остальные фильтры).
 Клиенты сравниваются без учёта регистра и пробелов; разные написания («STEF Italia spa» / «STEF Italia») — разные пункты.
-Трипы, ждущие «✓ Завершён», видны при любом фильтре (awaitsComplete раньше проверки в rowPassesFilter).
+Трипы, ждущие «✓ Завершён», видны при любом L / O и фильтре по клиентам, но не при чужом диспетчере (rowPassesOwn раньше awaitsComplete).
+v3.118: список клиентов в окне считает только трипы выбранного диспетчера («Все» — весь Флот).
 Чистые функции — clientName, clientKey, clientList, rowPassesClient (тест на node: tests/test_v3114.py).
 Опирается на глобалы app.js (rows, renderRows) — во время работы. Грузится ДО app.js. */
 
@@ -56,7 +57,7 @@ function rowPassesClient(row) {
 
   function fillList() {
     const q = clientKey(pop.querySelector(".cf-search").value);
-    const items = clientList(rows, clientFilter).filter((it) => !q || it.key.includes(q));
+    const items = clientList(rows.filter((r) => rowPassesOwn(r)), clientFilter).filter((it) => !q || it.key.includes(q));
     pop.querySelector(".cf-list").innerHTML = items.length
       ? items.map((it) => `<label class="cf-item"><input type="checkbox" data-k="${esc(it.key)}"${it.on ? " checked" : ""}>`
         + `<span class="cf-name">${esc(it.name)}</span><span class="cf-n">${it.count}</span></label>`).join("")

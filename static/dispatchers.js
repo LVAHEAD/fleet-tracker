@@ -8,8 +8,11 @@ ownFilter присваивается и из app.js — общая област�
 
 // ---------- v2.01: диспетчер строки + фильтр "Мои / Все" ----------
 // disp — e-mail ответственного; у новой строки — кто создал; у старых без disp — создатель (мета сервера).
-let ownFilter = "all";
-try { ownFilter = localStorage.getItem("fleet-own-filter") || "all"; } catch (e) {}
+let ownFilter = "mine";   // v3.118: при первом открытии (ничего не сохранено) — свои трипы, см. resolveMine
+try {
+  const saved = localStorage.getItem("fleet-own-filter");
+  if (saved) ownFilter = saved;
+} catch (e) { ownFilter = "all"; }
 if (!["all", "mine"].includes(ownFilter) && !String(ownFilter).includes("@")) ownFilter = "all";
 // v3.11: фильтр диспетчера — "all" | "mine" | e-mail. Строки без диспетчера — только в "все".
 // v3.25: кнопки «Все · VL · VJ …» вместо «все · мои · ▾ дисп»; старое "mine" — своя кнопка (resolveMine).
