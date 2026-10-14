@@ -26,8 +26,9 @@
       span.textContent = "";
       return;
     }
+    const text = ` (🎧 ${tags.join(", ")})`;
     span.hidden = false;
-    span.textContent = ` (🎧 ${tags.join(", ")})`;
+    if (span.textContent !== text) span.textContent = text;
     span.title = "Сейчас в аппе (кроме вас)";
   }
 

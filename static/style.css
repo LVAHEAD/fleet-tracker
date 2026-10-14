@@ -527,6 +527,9 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 #fleet-tbody tr.lo-row-L td:first-child { box-shadow: inset 4px 0 0 #6FA6E0; }
 /* v3.110: онлайн-диспетчеры в шапке — ☁ (🎧 JZ, VL) */
 .online-tags { font-size: 12px; font-weight: 400; color: #6b7078; white-space: nowrap; }
+/* статус ☁ меняет ширину (☁ / ☁… / ⚠☁) — резервируем место, чтобы инициалы не прыгали */
+.sync-status { display: inline-block; min-width: 2em; }
+.sync-status[data-st="local"] { min-width: 0; }
 #fleet-tbody tr.lo-row-O td:first-child { box-shadow: inset 4px 0 0 #E3B62E; }
 #fleet-tbody tr:not(.lo-row-L):not(.lo-row-O):hover td { background: #f6f7fa; }
 /* статус — одна строка, без цветной заливки */
