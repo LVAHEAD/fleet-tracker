@@ -1,5 +1,5 @@
 /*
-trailer-swap.js — перецеп: смена тягача у прицепа (v3.108).
+trailer-swap.js — перецеп: смена тягача у прицепа (v3.108; v3.109 — обмен тягачами с чужой строкой, без автоудаления строк).
 Точка, у которой цель — трак из Флота, — встреча. По ✓ (клик по номеру точки) спрашиваем «Передать прицеп → трак?»:
 «Да» — в строке меняется тягач (row.unit), прицеп и точки остаются, в точке запоминается след point.swap = {from, to, at}
 (у ① — row.swap), точка ✓ вручную, вместо буквы L/O — значок ⇄; «Нет» — обычный ✓. Повторный клик по номеру такой точки — отмена перецепа.
@@ -32,10 +32,11 @@ function swapCandidate(row, k) {
   return no && normNo(no) !== normNo(row.unit) ? no : null;
 }
 // «Да»: тягач строки → toNo; точка k ✓ вручную; след — в точке; режим экипажа и «+1 ч» были про старый тягач
-function applyTransfer(row, k, toNo, nowMs) {
+function applyTransfer(row, k, toNo, nowMs, pair) {
   const p = swapPoint(row, k);
   if (!p || !toNo || p.swap) return false;
   p.swap = { from: row.unit, to: toNo, at: nowMs };
+  if (pair) p.swap.pair = pair;   // v3.109: обмен — {rid, p}: в какой строке и на каком месте вставлена встречная точка
   row.unit = toNo;
   row.done = row.done || {};
   row.done[k] = true;
@@ -50,6 +51,40 @@ function undoTransfer(row, k) {
   row.unit = p.swap.from;
   delete p.swap;
   if (row.done) delete row.done[k];
+  return true;
+}
+// v3.109: обмен тягачами. Место встречной точки в чужой строке: перед первой непройденной (openIdx ≥ 1),
+// в конец, если пройдены все (-1); null — пройденных точек нет, вставить встречу нельзя (перед ① точку не вставить)
+function exchangeSlot(other, openIdx) {
+  if (openIdx === -1) return 1 + (other.extra || []).length;
+  return openIdx >= 1 ? openIdx : null;
+}
+// в строке other вместо yNo встаёт mineNo; перед точкой p вставляется ✓-встреча с mineNo со следом ⇄ (парой к моей строке pairRid)
+function applyExchange(other, p, mineNo, yNo, nowMs, pairRid) {
+  const ex = other.extra || (other.extra = []);
+  const pt = { lo: "", target: mineNo, delivery: "", note: "", swap: { from: yNo, to: mineNo, at: nowMs, pair: { rid: pairRid } } };
+  if (p >= 1 + ex.length) ex.push(pt); else ex.splice(p - 1, 0, pt);
+  const nd = {};   // ручные ✓ — по новым номерам (как при вставке точки в середину)
+  Object.keys(other.done || {}).forEach((j) => { nd[Number(j) >= p ? Number(j) + 1 : Number(j)] = other.done[j]; });
+  nd[p] = true;
+  other.done = nd;
+  other.unit = mineNo;
+  other.open = true;
+  delete other.crew;
+  delete other.x10;
+  return true;
+}
+// отмена обмена в чужой строке: убрать встречу (если на месте p та самая — по времени at), вернуть прежний тягач
+function undoExchange(other, p, at) {
+  const ex = other.extra || [];
+  const pt = ex[p - 1];
+  if (!pt || !pt.swap || pt.swap.at !== at) return false;
+  const yNo = pt.swap.from;
+  ex.splice(p - 1, 1);
+  const nd = {};
+  Object.keys(other.done || {}).forEach((j) => { const n = Number(j); if (n !== p) nd[n > p ? n - 1 : n] = other.done[j]; });
+  other.done = nd;
+  other.unit = yNo;
   return true;
 }
 function rowIsEmpty(r) {
@@ -73,45 +108,80 @@ function ptBtnTitle(p) {
 // ---------- вопрос по ✓ ----------
 let swapPop = null;
 function closeSwapPop() { if (swapPop) { swapPop.remove(); swapPop = null; } }
-function openSwapPop(anchor, title, note, buttons) {
+// chk — необязательная галочка {text}; fn кнопки получает её состояние
+function openSwapPop(anchor, title, note, buttons, chk) {
   closeSwapPop();
   swapPop = document.createElement("div");
   swapPop.className = "trl-ed swap-pop";
   swapPop.innerHTML = `<div class="trl-ed-t">${title}</div>${note ? `<div class="trl-ed-err swap-note">${note}</div>` : ""}
+    ${chk ? `<label class="swap-chk"><input type="checkbox" class="swap-chk-in"> ${chk.text}</label>` : ""}
     <div class="trl-ed-b">${buttons.map((b, i) => `<button data-i="${i}" class="${b.ok ? "trl-ed-ok" : "trl-ed-cancel"}">${b.text}</button>`).join("")}</div>`;
   document.body.appendChild(swapPop);
   const r = anchor.getBoundingClientRect();
   const z = uiZoom();
-  swapPop.style.width = "260px";
+  swapPop.style.width = "280px";
   swapPop.style.top = Math.min(window.innerHeight - swapPop.offsetHeight * z - 8, r.bottom + 4) / z + "px";
   swapPop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - swapPop.offsetWidth * z - 8)) / z + "px";
   swapPop.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
     const fn = buttons[Number(b.dataset.i)].fn;
+    const box = swapPop.querySelector(".swap-chk-in");
+    const on = !!(box && box.checked);
     closeSwapPop();
-    if (fn) fn();
+    if (fn) fn(on);
   }));
   swapPop.addEventListener("mousedown", (e) => e.stopPropagation());
 }
 document.addEventListener("mousedown", () => closeSwapPop());
 
-function doTransfer(id, k) {
-  const row = rows.find((r) => r.id === id);
-  const to = row && swapCandidate(row, k);
-  if (!to || !applyTransfer(row, k, to, Date.now())) return;
-  // пустая строка нового тягача больше не нужна (со своими точками — не трогаем)
-  rows.filter((r) => r.id !== id && normNo(r.unit) === normNo(to) && rowIsEmpty(r)).forEach((r) => dropRow(r.id));
-  if (typeof removeMarker === "function") removeMarker(id);
+// другие строки Флота с тем же тягачом: чужая строка для обмена — первая непустая, место встречи в ней
+function swapDupInfo(row, to) {
+  const dups = rows.filter((r) => r.id !== row.id && normNo(r.unit) === normNo(to));
+  const ex = dups.find((r) => !rowIsEmpty(r)) || null;
+  const slot = ex ? exchangeSlot(ex, firstOpenIdx(ex)) : null;
+  const lab = (r) => {
+    const d = typeof rowDisp === "function" && typeof dispLabel === "function" ? dispLabel(rowDisp(r)) : "";
+    return d ? ` (${escapeHtml(d)})` : "";
+  };
+  return { dups, ex, slot, lab };
+}
+function afterSwapChange(ids) {
+  ids.forEach((i) => { if (typeof removeMarker === "function") removeMarker(i); });
   saveRows();
   renderRows();
-  calcRow(id, "edit");
+  ids.forEach((i) => calcRow(i, "edit"));
+}
+function doTransfer(id, k, exchange) {
+  const row = rows.find((r) => r.id === id);
+  const to = row && swapCandidate(row, k);
+  if (!to) return;
+  const mineNo = row.unit;
+  const at = Date.now();
+  let other = null, slot = null;
+  if (exchange) {
+    const inf = swapDupInfo(row, to);
+    other = inf.slot != null ? inf.ex : null;
+    slot = inf.slot;
+  }
+  if (!applyTransfer(row, k, to, at, other ? { rid: other.id, p: slot } : null)) return;
+  if (other) applyExchange(other, slot, mineNo, to, at, row.id);
+  afterSwapChange(other ? [id, other.id] : [id]);
 }
 function doUndoTransfer(id, k) {
   const row = rows.find((r) => r.id === id);
-  if (!row || !undoTransfer(row, k)) return;
-  if (typeof removeMarker === "function") removeMarker(id);
-  saveRows();
-  renderRows();
-  calcRow(id, "edit");
+  const p = row && swapPoint(row, k);
+  if (!p || !p.swap) return;
+  const sw = p.swap;
+  const other = sw.pair && sw.pair.p != null ? rows.find((r) => r.id === sw.pair.rid) : null;
+  const undoneOther = !!(other && undoExchange(other, sw.pair.p, sw.at));
+  if (!undoTransfer(row, k)) return;
+  afterSwapChange(undoneOther ? [id, other.id] : [id]);
+}
+// у строки со встречей, вставленной обменом чужим диспетчером: убрать встречу и вернуть прежний тягач (только в этой строке)
+function doUndoInserted(id, k) {
+  const row = rows.find((r) => r.id === id);
+  const p = row && swapPoint(row, k);
+  if (!p || !p.swap || !undoExchange(row, k, p.swap.at)) return;
+  afterSwapChange([id]);
 }
 
 // клик по номеру точки k строки id; true — клик разобран здесь (дальше обычный ✓ не нужен)
@@ -120,9 +190,12 @@ function swapChipClick(id, k, anchor) {
   if (!row) return false;
   const p = swapPoint(row, k);
   if (p && p.swap) {
+    const inserted = !!(p.swap.pair && p.swap.pair.p == null);   // встреча вставлена обменом из чужой строки
     openSwapPop(anchor, `Перецеп ${escapeHtml(p.swap.from)} → ${escapeHtml(p.swap.to)}, ${swapWhen(p.swap.at)}`,
-      `Отмена вернёт ${escapeHtml(p.swap.from)} в строку и снимет ✓ с точки.`,
-      [{ text: "Отменить перецеп", ok: true, fn: () => doUndoTransfer(id, k) }, { text: "Закрыть" }]);
+      inserted ? `Это обмен, начатый в другой строке. Отмена уберёт встречу и вернёт ${escapeHtml(p.swap.from)} в эту строку.`
+        : `Отмена вернёт ${escapeHtml(p.swap.from)} в строку и снимет ✓ с точки${p.swap.pair ? ", а в строке обмена — тоже" : ""}.`,
+      [{ text: inserted ? "Отменить обмен здесь" : "Отменить перецеп", ok: true, fn: () => (inserted ? doUndoInserted(id, k) : doUndoTransfer(id, k)) },
+       { text: "Закрыть" }]);
     return true;
   }
   const to = swapCandidate(row, k);
@@ -131,10 +204,16 @@ function swapChipClick(id, k, anchor) {
   const f = c && c.doneFlags && c.doneFlags[k];
   const m = row.done && (row.done[k] === true || row.done[k] === false) ? row.done[k] : null;
   if (m != null || (f && f.done)) return false;   // клик не поставил бы ✓ — обычное поведение
-  const dup = rows.find((r) => r.id !== id && normNo(r.unit) === normNo(to) && !rowIsEmpty(r));
-  openSwapPop(anchor, `Передать ${row.trailer ? "прицеп " + escapeHtml(row.trailer) : "рейс"} → ${escapeHtml(to)}?`,
-    dup ? `В Флоте уже есть строка ${escapeHtml(to)} с точками — она останется, удалите её сами.` : "",
-    [{ text: "Да, перецеп", ok: true, fn: () => doTransfer(id, k) },
-     { text: "Нет, просто встреча", fn: () => toggleDone(id, k) }]);
+  const inf = swapDupInfo(row, to);
+  let note = "";
+  if (inf.dups.length) {
+    note = `В Флоте уже есть строка ${escapeHtml(to)}${inf.lab(inf.dups[0])}${inf.dups.length > 1 ? " и ещё " + (inf.dups.length - 1) : ""} — удалите её сами${inf.ex && inf.slot != null ? ", если это не обмен" : ""}.`;
+    if (inf.ex && inf.slot == null) note += " В её трипе нет пройденных точек — обмен там автоматически не сделать.";
+  }
+  const chk = inf.ex && inf.slot != null
+    ? { text: `Обмен: в строке ${escapeHtml(to)}${inf.lab(inf.ex)} поставить ${escapeHtml(row.unit)} и вставить встречу` } : null;
+  openSwapPop(anchor, `Передать ${row.trailer ? "прицеп " + escapeHtml(row.trailer) : "рейс"} → ${escapeHtml(to)}?`, note,
+    [{ text: "Да, перецеп", ok: true, fn: (on) => doTransfer(id, k, on) },
+     { text: "Нет, просто встреча", fn: () => toggleDone(id, k) }], chk);
   return true;
 }
