@@ -267,7 +267,7 @@ async function calcRouteTab() {
     const res = await fetch("/api/route", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign({ from: froms, to: tos }, routeCorridor ? { corridor: routeCorridor } : {})),
+      body: JSON.stringify(Object.assign({ from: froms, to: tos }, routeCorridor ? { corridor: routeCorridor } : {}, fleetCrewFor(froms[0]))),
     });
     const data = await res.json();
 

@@ -161,7 +161,7 @@
   /* ---------- Карты стран / Локатор ---------- */
   .pc-top { flex-direction: column; align-items: stretch; gap: 8px; }
   .pc-tabs { flex-wrap: nowrap !important; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .locator-bar { margin-left: 0; width: 100%; }
+  .locator-bar { margin-left: 0; width: 100%; order: 0; }   /* телефон: страны сверху, локатор под ними — как раньше */
   #locatorInput { flex: 1; width: auto; height: 42px; font-size: 15px; }
   .locator-btn { height: 42px; }
   .locator-map { height: calc(100vh - 230px); min-height: 360px; }

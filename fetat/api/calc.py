@@ -7,7 +7,7 @@ from fetat.clients.google_routes import set_route_ctx
 from fetat.domain.tacho import calc_plan
 from fetat.services.corridors import corridor_options
 from fetat.services.fleet_calc import calc_row
-from fetat.services.route_calc import route_calc, unit_seed
+from fetat.services.route_calc import from_crew, route_calc, unit_seed
 
 bp = Blueprint("calc", __name__)
 
@@ -32,8 +32,9 @@ def api_route():
 @bp.route("/api/unit-seed", methods=["POST"])
 def api_unit_seed():
     """v3.114: ⏱ калькулятор — данные машины из From без маршрута (fetat/services/route_calc.py: unit_seed).
-    body: {"from": "NU-8704"}. Google не нужен."""
-    body, code = unit_seed((request.get_json(force=True, silent=True) or {}).get("from"))
+    body: {"from": "NU-8704", "from_crew": "solo" | "team" (из строки Флота, необязательно), "from_crew_seen": сек}. Google не нужен."""
+    payload = request.get_json(force=True, silent=True) or {}
+    body, code = unit_seed(payload.get("from"), *from_crew(payload))
     return jsonify(body), code
 
 

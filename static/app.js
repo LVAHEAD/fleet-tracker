@@ -309,6 +309,18 @@ function keepCrewSeen(row, data) {
     saveRows();
   }
 }
+// v3.115: соло / экипаж и память «экипаж», которые диспетчер поставил этой машине во Флоте, — для From → To и ⏱ калькулятора
+// (там строки нет, а ручной 👤 / 👥 важнее истории GPS). Нет в Флоте / ничего не ставили — пусто.
+function fleetCrewFor(name) {
+  const k = (s) => String(s || "").toUpperCase().replace(/[\s-]/g, "");
+  const key = k(name), out = {};
+  if (!key) return out;
+  const mine = rows.filter((r) => r.unit && k(r.unit) === key);
+  const rc = mine.find((r) => r.crew), rs = mine.find((r) => r.crewSeen && r.crewSeen.u === r.unit);
+  if (rc) out.from_crew = rc.crew;
+  if (rs) out.from_crew_seen = Math.floor(rs.crewSeen.t / 1000);
+  return out;
+}
 function crewHtml(row, cached) {
   const c = cached && cached.crew;
   const crew = row.crew || (c && c.crew);

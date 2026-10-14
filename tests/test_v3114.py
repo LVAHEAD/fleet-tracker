@@ -47,11 +47,37 @@ class TruckSeedTest(_Patch):
         self.assertFalse(s["team"])
         res = {"dist_km": 900.0}
         A._add_tacho(res, UNIT, False, None)
-        self.assertEqual(s, res["calc_seed"])          # тот же путь, что у строки Флота
+        self.assertEqual({k: v for k, v in s.items() if k not in ("crew_src", "crew_hist_h")}, res["calc_seed"])   # тот же путь, что у строки Флота
+        self.assertEqual(s["crew_src"], "tacho")                                              # + откуда состав — для подписи в калькуляторе
 
     def test_route_seed_uses_it(self):
         A.get_tacho = lambda uid: (solo(), None)
         self.assertEqual(A._truck_seed(UNIT), A.truck_seed(UNIT))
+
+    def test_manual_crew_from_fleet_row_beats_history(self):
+        # v3.115: во Флоте у машины 👤 вручную — From → To и калькулятор берут его, а не «езда за сутки» по GPS
+        A.get_tacho = lambda uid: (solo(), None)
+        A.unit_driving_days = lambda uid: {"d1": 20 * H}
+        auto = A.truck_seed(UNIT)
+        self.assertTrue(auto["team"])
+        self.assertEqual(auto["crew_src"], "hist")
+        self.assertEqual(auto["crew_hist_h"], 20.0)
+        man = A.truck_seed(UNIT, crew="solo")
+        self.assertFalse(man["team"])
+        self.assertEqual(man["crew_src"], "manual")
+        self.assertEqual(man["left_h"], 5.0)
+
+    def test_from_crew_payload(self):
+        self.assertEqual(A.from_crew({"from_crew": "solo", "from_crew_seen": 1700000000}), ("solo", 1700000000.0))
+        self.assertEqual(A.from_crew({"from_crew": "bad", "from_crew_seen": "x"}), (None, None))
+        self.assertEqual(A.from_crew({}), (None, None))
+
+    def test_unit_seed_takes_crew(self):
+        A.get_tacho = lambda uid: (solo(), None)
+        A.unit_driving_days = lambda uid: {"d1": 20 * H}
+        A.fetch_units = lambda key: [UNIT]
+        self.assertTrue(A.unit_seed("NU-8704")[0]["calc_seed"]["team"])
+        self.assertFalse(A.unit_seed("NU-8704", "solo")[0]["calc_seed"]["team"])
 
     def test_no_card_gives_unknown_seed(self):
         A.get_tacho = lambda uid: (None, "нет данных водителя")
@@ -107,6 +133,9 @@ class WiringTest(unittest.TestCase):
         self.assertIn("function applySeed(", js)
         self.assertIn("/api/unit-seed", js)
         self.assertEqual(js.count("applySeed("), 3)    # объявление, fromRow, ftSeed
+        self.assertEqual(js.count("fleetCrewFor(from)"), 2)       # v3.115: ручной 👤 / 👥 из строки Флота — и в /api/route, и в /api/unit-seed
+        self.assertIn("fleetCrewFor(froms[0])", _read("static", "route-tab.js"))
+        self.assertIn("function fleetCrewFor(", _read("static", "app.js"))
 
     def test_client_filter_wiring(self):
         self.assertIn("rowPassesClient(row)", _read("static", "fleet-sort-filter.js"))

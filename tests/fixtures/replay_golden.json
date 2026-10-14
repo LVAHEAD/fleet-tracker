@@ -1111,6 +1111,7 @@
    "bans_route": [],
    "bans_status": "ok",
    "calc_seed": {
+    "crew_src": "hist",
     "left_h": 9.0,
     "nocard": true,
     "resting": false,

@@ -316,7 +316,7 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 /* ---------- v1.24: Локатор во вкладке "Карты стран" ---------- */
 .pc-top { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
 .pc-top .pc-tabs { flex: 1; }
-.locator-bar { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+.locator-bar { display: flex; gap: 6px; align-items: center; order: -1; }   /* после v3.114: слева, кнопки стран — справа от него */
 .locator-btn {
   height: 32px; padding: 0 12px; border: 1.5px solid #ddd; background: #fff;
   border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer;

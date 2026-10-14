@@ -197,12 +197,26 @@ const EtaCalc = (() => {
     st.mapFit = true;
     restUI(); srcUI(); calc();
   }
+  // v3.115: откуда взят состав — чтобы было видно, почему «экипаж» или «соло» (нет crew_src — не пишем)
+  function crewSrcNote(s) {
+    if (!s || s.crew_src == null) return "";
+    const seen = s.crew_seen_at ? new Date(s.crew_seen_at * 1000).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) : "";
+    const src = {
+      manual: "вручную во Флоте",
+      tacho: s.team ? "две карты в тахографе" : "одна карта в тахографе",
+      hist: s.team ? "езда за сутки до " + (s.crew_hist_h || "?") + " ч — если это соло, поставьте 👤 в строке Флота" : "по истории",
+      memory: "две карты видели " + seen,
+    }[s.crew_src] || s.crew_src;
+    return (s.team ? "экипаж" : "соло") + " (" + src + ")";
+  }
   // v3.114: данные машины (seed) — состав, остаток, смена, неделя; одно место для строки Флота, From → To и выбора машины в From.
   // Возвращает заметки для подписи источника.
   function applySeed(s, noSeedNote) {
     const notes = [];
     if (s) {
       st.team = !!s.team;
+      const cn = crewSrcNote(s);
+      if (cn) notes.push(cn);
       panel.querySelectorAll(".ec-team button").forEach((x) => x.classList.toggle("on", (x.dataset.v === "1") === st.team));
       setLf(s.left_h || 0);
       setSh(s.shift_h || 0);
@@ -259,7 +273,7 @@ const EtaCalc = (() => {
     ftStatus("считаю…");
     try {
       const r = await fetch("/api/route", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from: [from], to: [to] }) });
+        body: JSON.stringify(Object.assign({ from: [from], to: [to] }, fleetCrewFor(from))) });
       const d = await r.json();
       if (seq !== ftSeq) return;
       if (d.error || d.dist_km == null) { ftKey = ""; ftStatus(d.error || "не посчитать", true); return; }
@@ -282,7 +296,7 @@ const EtaCalc = (() => {
     const seq = ++ftSeq;
     try {
       const r = await fetch("/api/unit-seed", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from }) });
+        body: JSON.stringify(Object.assign({ from }, fleetCrewFor(from))) });
       const d = await r.json();
       if (seq !== ftSeq) return;
       if (d.error) { ftKey = ""; ftStatus(d.error, true); return; }

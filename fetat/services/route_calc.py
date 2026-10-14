@@ -163,7 +163,7 @@ def _add_legs(result, points, legs, polyline):
     return total
 
 
-def _add_eta(result, points, total):
+def _add_eta(result, points, total, crew=None, crew_seen=None):
     """v3.39: ETD | В пути | ETA при выезде сейчас — тот же движок, что Флот и калькулятор:
     From1 — машина → по её тахографу, иначе соло со свежего дня. -> расклад (sim) или None."""
     import time as _time
@@ -171,7 +171,7 @@ def _add_eta(result, points, total):
     try:
         start = ceil_15_ts(_time.time())
         tu0 = points[0].get("unit") if points[0].get("is_truck") else None
-        tk = _truck_tacho(tu0) if tu0 else None
+        tk = _truck_tacho(tu0, crew, crew_seen) if tu0 else None
         sim = tacho_eta(tk or FRESH_SOLO_TACHO, total, now_ts=start)
         etd = start
         for stp in sim["stops"]:                  # стоит на отдыхе / перерыве — выезд после него
@@ -241,12 +241,12 @@ def route_calc(payload):
             legs, polyline = compute_multi_route(points, GOOGLE_API_KEY, corridor)
             _add_corridor(result, points, corridor)
             total = _add_legs(result, points, legs, polyline)
-            sim = _add_eta(result, points, total)
+            sim = _add_eta(result, points, total, *from_crew(payload))
             _add_bans(result, points, polyline, total, sim)
 
         # v3.32: From — машина: данные тахографа для ⏱ калькулятора («⏱ Послать в калькулятор»)
         if len(points) >= 2 and points[0].get("is_truck"):
-            result["calc_seed"] = _truck_seed(points[0].get("unit") or {})
+            result["calc_seed"] = _truck_seed(points[0].get("unit") or {}, *from_crew(payload))
 
         # v1.29: похожие рейсы из базы фрахтов — первая погрузка -> последняя выгрузка
         if len(points) >= 2:
@@ -260,14 +260,26 @@ def route_calc(payload):
         return {"error": str(e)}, 502
 
 
-def _truck_tacho(unit):
+def from_crew(payload):
+    """v3.115: соло / экипаж и память «экипаж», которые диспетчер поставил этой машине во Флоте (клиент шлёт из строки:
+    from_crew, from_crew_seen) — From → To и ⏱ калькулятор считают так же, как строка. -> (crew | None, seen_ts | None)."""
+    crew = payload.get("from_crew")
+    crew = crew if crew in ("solo", "team") else None
+    try:
+        seen = float(payload.get("from_crew_seen") or 0)
+    except (TypeError, ValueError):
+        seen = 0.0
+    return crew, (seen if seen > 0 else None)
+
+
+def _truck_tacho(unit, crew=None, crew_seen=None):
     """v3.39: тахограф машины из From1 для ETA (соло / экипаж, пояс страны); нет тахографа — None."""
     try:
         tacho, _err = get_tacho(unit.get("unit_id"))
         if not tacho:
             return None
-        days = unit_driving_days(unit.get("unit_id")) if len(tacho["drivers"]) < 2 else None
-        team, src, _ = crew_mode(tacho, None, days)
+        days = unit_driving_days(unit.get("unit_id")) if len(tacho["drivers"]) < 2 and crew not in ("solo", "team") else None
+        team, src, _ = crew_mode(tacho, crew, days, crew_seen)
         out = dict(tacho, team=team, crew_src=src)
         if unit.get("lat") is not None:
             code, _d = nearest_region_code(unit["lat"], unit["lng"])
@@ -279,16 +291,16 @@ def _truck_tacho(unit):
         return None
 
 
-def _truck_seed(unit):
+def _truck_seed(unit, crew=None, crew_seen=None):
     """v3.32: данные машины из From1 для калькулятора; v3.114 — тот же сбор, что у строки Флота (`truck_seed`)."""
     try:
-        return truck_seed(unit)
+        return truck_seed(unit, crew, crew_seen)
     except Exception as _e:
         warn("route_calc:261", _e)
         return None
 
 
-def unit_seed(raw):
+def unit_seed(raw, crew=None, crew_seen=None):
     """v3.114: ⏱ калькулятор — в From выбрана машина, To пока пусто: данные машины без маршрута.
     Не машина (GPS, код, город) — {"truck": False}, без геокодера. -> (ответ, код)"""
     raw = str(raw or "").strip()
@@ -298,6 +310,6 @@ def unit_seed(raw):
         unit = find_unit_exact(fetch_units(MAPON_API_KEY), raw)
         if unit is None:
             return {"truck": False}, 200
-        return {"truck": True, "unit": unit.get("number") or raw, "calc_seed": _truck_seed(unit)}, 200
+        return {"truck": True, "unit": unit.get("number") or raw, "calc_seed": _truck_seed(unit, crew, crew_seen)}, 200
     except Exception as e:
         return {"error": str(e)}, 502

@@ -274,7 +274,15 @@ def truck_seed(unit, crew=None, crew_seen=None):
     память режима, пояс страны, GPS-поправка, начало смены, машина без карт. Нет данных — None."""
     res = {}
     _add_tacho(res, unit, None, crew, False, crew_seen)
-    return res.get("calc_seed")
+    seed = res.get("calc_seed")
+    if seed is None:
+        return None
+    seed = dict(seed, crew_src=res.get("crew_src"))        # откуда состав: manual / tacho / hist / memory — калькулятор показывает
+    if res.get("crew_hist_max_h"):
+        seed["crew_hist_h"] = res["crew_hist_max_h"]
+    if res.get("crew_seen_at"):
+        seed["crew_seen_at"] = res["crew_seen_at"]
+    return seed
 
 
 def _crew_seen(payload):
