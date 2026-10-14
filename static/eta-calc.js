@@ -177,6 +177,12 @@ const EtaCalc = (() => {
   function fromRow(r, fromFT) {
     if (!panel) return;
     if (!fromFT) { $("#ec-from").value = ""; $("#ec-to").value = ""; ftStatus(""); ftKey = ""; }   // v3.51: строка Флота / From → To — поля From / To чистые
+    if (r.km === 0 && r.pins) {                 // v3.112: машина уже на точке — маршрута нет, на карте маркеры машины и точки
+      st.srcShown = true;
+      st.src = { unit: r.unit, point: r.point, km: 0, polyline: null, pins: r.pins, note: "машина уже на точке" };
+      srcUI(); drawMapSoon();
+      return;
+    }
     if (r.km == null || !(r.km > 0)) {          // строка не посчитана или ошибка — ничего не меняем
       st.srcShown = true;
       st.src = { unit: r.unit, point: r.point, km: null, polyline: null, note: "нет км у строки — не посчитана или ошибка" };
@@ -618,11 +624,13 @@ const EtaCalc = (() => {
     return out;
   }
   function drawMap() {
-    if (!panel || !S || !isOpen() || st.mapFolded) return;
-    const enc = st.src && st.src.polyline, box = $(".ec-mbox");
-    box.classList.toggle("empty", !enc);
-    $(".ec-mnote").textContent = enc ? "точки отдыха примерные: 70 км/ч, ±" + ZONE_KM + " км" : "";
-    if (!enc || !window.googleMapsReady || !window.google || !google.maps.geometry) return;
+    if (!panel || !isOpen() || st.mapFolded) return;
+    const enc = st.src && st.src.polyline, pins = !enc && st.src && st.src.pins, box = $(".ec-mbox");
+    if (enc && !S) return;
+    box.classList.toggle("empty", !enc && !pins);
+    $(".ec-mnote").textContent = enc ? "точки отдыха примерные: 70 км/ч, ±" + ZONE_KM + " км" : (pins ? "машина уже на точке — маршрута нет" : "");
+    if (!enc && !pins) return;
+    if (!window.googleMapsReady || !window.google || !google.maps.geometry) return;
     loadCodes();
     if (!gmap) {
       gmap = MapsCommon.make($(".ec-map"), { disableDefaultUI: true });   // v3.50: общий конфиг
@@ -634,6 +642,23 @@ const EtaCalc = (() => {
     if (unitNum && unitFor !== unitNum) loadUnit(true);
     lays.forEach((o) => o.setMap(null));
     lays = [];
+    if (!enc) {                                 // v3.112: маршрута нет (км 0) — маркеры машины и точки
+      const pu = pins.unit, ptg = pins.target;
+      lays.push(new google.maps.Marker({ map: gmap, position: { lat: pu[0], lng: pu[1] }, title: "Машина", zIndex: 2,
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: "#2f6fd6", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
+        label: st.src.unit ? { text: st.src.unit, className: "ul-lab ec-plate", fontSize: "11px", fontWeight: "600", color: "#1a1a1a" } : null }));
+      lays.push(new google.maps.Marker({ map: gmap, position: { lat: ptg[0], lng: ptg[1] }, title: "Точка", zIndex: 3,
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: "#2ea043", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
+        label: { text: "уже на точке", className: "ul-lab ec-plate", fontSize: "11px", fontWeight: "600", color: "#1a1a1a" } }));
+      if (st.mapFit) {
+        const b = new google.maps.LatLngBounds();
+        b.extend({ lat: pu[0], lng: pu[1] }); b.extend({ lat: ptg[0], lng: ptg[1] });
+        gmap.fitBounds(b, 60);
+        google.maps.event.addListenerOnce(gmap, "idle", () => { if (gmap.getZoom() > 16) gmap.setZoom(16); });
+        st.mapFit = false;
+      }
+      return;
+    }
     const L = line(enc), k = L.len / ((S.dist || 1) * 1000);   // км расклада → метры линии
     const add = (o) => { lays.push(o); return o; };
     // v3.51: подписи — на белых плашках, как номера машин (ul-lab)

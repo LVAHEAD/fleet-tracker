@@ -152,9 +152,13 @@ function ecFromRow(id, force, k) {
       }
     }
   }
+  // v3.112: км 0 (машина уже на точке) — маркеры машины и первой точки вместо маршрута
+  const pinPos = rowPositions[id];
+  const pins = km === 0 && at === 0 && pinPos && pinPos.unitLat != null && pinPos.targetLat != null
+    ? { unit: [pinPos.unitLat, pinPos.unitLng], target: [pinPos.targetLat, pinPos.targetLng] } : null;
   window.etaCalc.fromRow({
     unit: row.unit || "", point: ((STOP_NUM[at + 1] || "") + " " + String(pt || "").trim()).trim(),
-    km, seed: c.ecSeed || null, polyline: poly,
+    km, seed: c.ecSeed || null, polyline: poly, pins,
   });
 }
 
@@ -1167,8 +1171,9 @@ async function calcRow(id, why) {
     const otIdx = data.on_target ? ((data.active_idx && data.active_idx.length) ? data.active_idx[0] : 0) : null;
     const otMulti = otIdx != null && row.extra && row.extra.length;
     const otLo = otIdx ? ptLo(row.extra[otIdx - 1]) : ptLo(row);
+    // v3.112: булавка убрана — вместо неё номер точки в кружке (у одной точки тоже)
     const ot = data.on_target
-      ? `<span class="ot-pill" title="${escapeHtml(data.on_target.how === "object" ? "На объекте Mapon: " + data.on_target.name : "В радиусе 300 м от таргета")}">📍 на объекте${otMulti ? " " + numChip(otIdx + 1, otLo) : ""}</span>` : "";
+      ? `<span class="ot-pill" title="${escapeHtml(data.on_target.how === "object" ? "На объекте Mapon: " + data.on_target.name : "В радиусе 300 м от таргета")}">на объекте ${numChip(otIdx + 1, otLo)}</span>` : "";
     // v1.70: прицеп — рефка; сцепка тягач ↔ прицеп (угадана по координатам)
     const trTag = data.is_trailer ? '<span class="trl-tag" title="Прицеп">П</span>' : "";
     const reeferHtml = data.is_trailer ? reeferPillHtml(data) : "";
