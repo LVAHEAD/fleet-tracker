@@ -355,6 +355,31 @@ def plan(start_ts, dist_km, team=False, day_left=None, since_drive=0.0, rest_pre
     return {"ev": ev, "eta_ts": t, "wk": wk}
 
 
+GPS_START_MAX_SEC = 24 * 3600   # v3.106: начало смены по GPS старше суток — не верим (стоянку не распознали)
+
+
+def _shift_start(tacho, d0, team, short_left, t):
+    """v3.106: когда началась текущая смена (ts). Соло — по shift_remaining Mapon (13/15 ч). Экипаж — окно 21 ч:
+    при двух картах по shift_remaining тахографа (самый ранний конец окна), и/или по GPS-стоянке ≥ 9 ч
+    (tacho["gps"]); нет ни того ни другого — от сейчас."""
+    if not team:
+        sr = ((d0.get("today") or {}).get("shift_remaining"))
+        if sr is None:
+            return t
+        return t - max(0.0, (SHIFT_SOLO_SEC if short_left > 0 else 13 * 3600) - float(sr))
+    cands = []
+    drivers = tacho.get("drivers") or []
+    if len(drivers) >= 2:
+        srs = [float((d.get("today") or {}).get("shift_remaining")) for d in drivers
+               if (d.get("today") or {}).get("shift_remaining") is not None]
+        if srs:
+            cands.append(t - max(0.0, SHIFT_TEAM_SEC - min(srs)))
+    g = tacho.get("gps")
+    if g and 0 <= t - float(g["start"]) <= GPS_START_MAX_SEC:
+        cands.append(float(g["start"]))
+    return min(cands) if cands else t
+
+
 def tacho_eta(tacho, dist_km, now_ts=None, weekly=None, no_week=False, ext_days=(), tz=TZ_DEFAULT):
     """Тахо-ETA машины по данным Mapon (v3.39 — через plan, правила калькулятора). Старт: стоит дольше нормы
     отдыха — свежий день; идёт перерыв 45 мин — дождаться конца; на суточном отдыхе и дня не осталось — добыть
@@ -379,9 +404,7 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None, no_week=False, ext_days=
         day_left = float(today.get("driving_remaining") or 0)
         since = float(nowd.get("driving") or 0)
     day_left, gfix = gps_adjust(tacho, day_left, TEAM_DAY_SEC if team else SOLO_DAY_SEC)   # v3.104
-    sr = today.get("shift_remaining")
-    shift_start = t - max(0.0, (SHIFT_SOLO_SEC if short_left > 0 else 13 * 3600) - float(sr)) \
-        if (sr is not None and not team) else t
+    shift_start = _shift_start(tacho, d0, team, short_left, t)   # v3.106: и для экипажа
     if gfix:
         shift_start = min(shift_start, gfix["start"])   # v3.104: окно смены — от начала по GPS
     first_rest = None if team else (float(today.get("daily_rest_min")) if today.get("daily_rest_min") else None)
@@ -518,6 +541,15 @@ def calc_seed(tacho, now_ts=None):
         out.pop("week_left_h", None)
     if gfix:
         out["gps_fix"] = True            # v3.104: остаток вождения — по GPS (тахограф отстаёт)
+    if shift <= 0 and rest_now < need_rest:      # v3.106: сколько окна смены уже съедено — калькулятору
+        import time
+        t = float(now_ts or time.time())
+        st = _shift_start(tacho, d0, team, short_left, t)
+        if gfix:
+            st = min(st, gfix["start"])
+        used = max(0.0, t - st)
+        if used > 0:
+            out["used_h"] = round(used / 3600, 2)
     return out
 
 
@@ -526,6 +558,18 @@ FRESH_SOLO_TACHO = {"drivers": [{
     "today": {"driving_remaining": 9 * 3600, "shift_remaining": 13 * 3600, "daily_rest_min": 11 * 3600},
     "week": {"driving_remaining": 56 * 3600, "10h_driving_extensions_remaining": 2,
              "9h_rest_shortening_remaining": 3, "weekly_rest_min": 45 * 3600}}]}
+
+
+def _calc_shift_start(p, etd, now):
+    """v3.106: начало смены в калькуляторе — реальное (shiftStartMs из seed), а не ETD; не раньше суток назад."""
+    ms = p.get("shiftStartMs")
+    try:
+        st = float(ms) / 1000.0 if ms not in (None, "") else None
+    except (TypeError, ValueError):
+        st = None
+    if st is None or st >= etd or now - st > GPS_START_MAX_SEC:
+        return etd
+    return st
 
 
 def calc_plan(p):
@@ -545,7 +589,7 @@ def calc_plan(p):
     r = plan(etd, float(p.get("dist") or 0), team=team, day_left=max(0.0, float(p.get("leftH") or 0)) * H,
              rest_pref=int(p.get("rest") or 9), shorts=int(p.get("shorts") or 0),
              ext_days=[int(x) for x in (p.get("ext") or [])], extras=hrs(p.get("extras")), shifts=hrs(p.get("shifts")),
-             week_left=wk_left, shift_start=etd, tz=TZ_DEFAULT)
+             week_left=wk_left, shift_start=_calc_shift_start(p, etd, now), tz=TZ_DEFAULT)
     ev = []
     for e in r["ev"]:
         x = dict(e, t0=(e["t0"] - etd) / H, t1=(e["t1"] - etd) / H)

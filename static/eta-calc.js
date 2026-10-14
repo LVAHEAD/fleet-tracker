@@ -192,17 +192,20 @@ const EtaCalc = (() => {
       panel.querySelectorAll(".ec-team button").forEach((x) => x.classList.toggle("on", (x.dataset.v === "1") === st.team));
       setLf(s.left_h || 0);
       setSh(s.shift_h || 0);
+      st.startMs = s.used_h > 0 ? Date.now() - s.used_h * 3600000 : null;   // v3.106: окно смены уже идёт
       if (!st.team) {
         st.rest = 9;   // v3.85: 0 сокращённых — это «9 ч, остаток 0» (до недельного 11 ч), а не «11 ч»
         st.shorts = Math.max(0, Math.min(3, s.shorts || 0));
         if (s.week_left_h != null) $("#ec-wk-n").value = s.week_left_h;
       }
       if (s.resting) notes.push("на отдыхе — выезд после него");
+      else if (s.used_h > 0 && st.team) notes.push("смена идёт уже " + s.used_h.toFixed(1) + " ч — окно 21 ч от её начала");
       if (s.gps_fix) notes.push("тахограф отстаёт от GPS — остаток по GPS");   // v3.104
       if (s.unknown) notes.push("тахографа нет — остаток по максимуму");
       else if (s.nocard) notes.push("тахографа нет — стоит ≥ 9 ч, свежий день");
     } else {
       setSh(0);
+      st.startMs = null;
       const nn = r.noSeedNote != null ? r.noSeedNote : "тахографа нет — состав и остаток прежние";
       if (nn) notes.push(nn);
     }
@@ -372,7 +375,7 @@ const EtaCalc = (() => {
     return {
       dist: Number($("#ec-km-n").value) || 0, shiftH: st.shH, leftH: st.lfH,
       team: st.team, rest: st.rest, shorts: st.shorts, wkLeft: Number($("#ec-wk-n").value),
-      extras: st.extras, shifts: st.shifts, ext: st.team ? [] : Array.from(st.ext), nowMs: Date.now(),
+      extras: st.extras, shifts: st.shifts, ext: st.team ? [] : Array.from(st.ext), nowMs: Date.now(), shiftStartMs: st.startMs || null,
     };
   }
 
