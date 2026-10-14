@@ -143,18 +143,25 @@ function openTrailerEditor(id, anchor) {
 }
 document.addEventListener("mousedown", () => closeTrailerEditor());
 // v3.119: Temp → NoTemp — с подтверждением, обратно без вопроса
-function toggleNoTemp(id) {
+// подтверждение — карточка у плашки (openSwapPop из trailer-swap.js), не системное окно браузера
+function toggleNoTemp(id, anchor) {
   const row = rows.find((r) => r.id === id);
   if (!row) return;
-  if (!row.noTemp && !confirm("Груз без температуры? Тревоги рефа выключатся.")) return;
-  updateRowField(id, "noTemp", row.noTemp ? false : true);
+  if (row.noTemp) return updateRowField(id, "noTemp", false);
+  const go = () => updateRowField(id, "noTemp", true);
+  if (!anchor || typeof openSwapPop !== "function") {
+    if (confirm("Груз без температуры? Тревоги рефа выключатся.")) go();
+    return;
+  }
+  openSwapPop(anchor, "Груз без температуры?", "Тревоги рефа выключатся.",
+    [{ text: "NoTemp", ok: true, fn: go }, { text: "Отмена" }]);
 }
 (function () {
   document.getElementById("fleet-tbody").addEventListener("click", (e) => {
     const tg = e.target.closest && e.target.closest(".rf-tog");   // v3.119: Temp ⇄ NoTemp
     if (tg) {
       e.stopPropagation();
-      return toggleNoTemp(Number(tg.closest("tr").dataset.id));
+      return toggleNoTemp(Number(tg.closest("tr").dataset.id), tg);
     }
     const b = e.target.closest && e.target.closest(".hitch-link, .trl-unlink");
     if (!b) return;
