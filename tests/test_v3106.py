@@ -45,6 +45,11 @@ class TeamWindowTest(unittest.TestCase):
     def test_seed_used_and_calc(self):
         seed = calc_seed(team_tacho(31 * 60), now_ts=NOW)
         self.assertAlmostEqual(seed["used_h"], 20.48, places=1)
+        self.assertEqual(seed["end_ts"] - seed["start_ts"], 21 * 3600)          # v3.107
+        self.assertEqual(seed["shift_src"], "tacho")
+        s2 = calc_seed(dict(team_tacho(None, gps={"start": NOW - 6.6 * H, "driven": 6.4 * H}), drivers=[drv(None)]), now_ts=NOW)
+        self.assertEqual(s2["shift_src"], "gps")
+        self.assertAlmostEqual(s2["driven_h"], 6.4)
         base = dict(nowMs=NOW * 1000, dist=3000, leftH=4, team=True, rest=9, shorts=0)
         a = calc_plan(base)
         b = calc_plan(dict(base, shiftStartMs=(NOW - 20.5 * H) * 1000))

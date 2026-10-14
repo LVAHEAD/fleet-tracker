@@ -199,7 +199,14 @@ const EtaCalc = (() => {
         if (s.week_left_h != null) $("#ec-wk-n").value = s.week_left_h;
       }
       if (s.resting) notes.push("на отдыхе — выезд после него");
-      else if (s.used_h > 0 && st.team) notes.push("смена идёт уже " + s.used_h.toFixed(1) + " ч — окно 21 ч от её начала");
+      else if (s.used_h > 0) {   // v3.107: когда началась, до скольки окно, сколько выезжено; время — по часам браузера
+        const hm = (ts) => new Date(ts * 1000).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+        const hh = (h) => Math.floor(h) + ":" + String(Math.round((h % 1) * 60)).padStart(2, "0");
+        let t = "смена с " + hm(s.start_ts) + " (" + s.used_h.toFixed(1) + " ч) · окно до " + hm(s.end_ts);
+        if (s.driven_h != null) t += " · выезжено " + hh(s.driven_h) + " (GPS)";
+        t += " · остаток " + hh(s.left_h || 0) + (s.shift_src === "gps" ? " · начало — по GPS" : " · по тахографу");
+        notes.push(t);
+      }
       if (s.gps_fix) notes.push("тахограф отстаёт от GPS — остаток по GPS");   // v3.104
       if (s.unknown) notes.push("тахографа нет — остаток по максимуму");
       else if (s.nocard) notes.push("тахографа нет — стоит ≥ 9 ч, свежий день");

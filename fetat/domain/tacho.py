@@ -550,6 +550,12 @@ def calc_seed(tacho, now_ts=None):
         used = max(0.0, t - st)
         if used > 0:
             out["used_h"] = round(used / 3600, 2)
+            out["start_ts"] = int(st)                                   # v3.107: для заметки калькулятора
+            out["end_ts"] = int(shift_window_end(st, team, tacho.get("tz") or TZ_DEFAULT))
+            g = tacho.get("gps")
+            if g:
+                out["driven_h"] = round(float(g["driven"]) / 3600, 2)
+            out["shift_src"] = "gps" if (gfix or (g and not (team and len(tacho["drivers"]) >= 2))) else "tacho"
     return out
 
 
