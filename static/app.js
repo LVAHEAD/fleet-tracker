@@ -874,8 +874,9 @@ function distCellHtml(row, c) {
   row.extra.forEach((x, i) => {
     const ce = c.extra && c.extra[i];
     // v1.65: у 2-й и следующих точек — плечо от предыдущей точки, сумма только в подсказке
-    const txt = ce && ce.done ? '<span class="done-km">✓</span>' : ce && ce.leg_km != null ? String(Math.round(ce.leg_km)) : "—";   // v3.35: без десятых
-    const tip = ce && ce.leg_km != null ? `${Math.round(ce.leg_km)} км от точки ${STOP_NUM[i + 1]} (от машины всего ${Math.round(ce.dist_km)})${totalTip}` : (ce && ce.error) || "";   // v3.45: км до целого
+    const dkm = ce && ce.done && ce.done_leg_km != null ? Math.round(ce.done_leg_km) : null;   // v3.122: км пройденной точки — серым, зачёркнуто
+    const txt = ce && ce.done ? (dkm != null ? `<span class="done-km done-km-n">${dkm}</span>` : '<span class="done-km">✓</span>') : ce && ce.leg_km != null ? String(Math.round(ce.leg_km)) : "—";   // v3.35: без десятых
+    const tip = dkm != null ? `${dkm} км от точки ${STOP_NUM[i + 1]} (пройдена)` : ce && ce.leg_km != null ?`${Math.round(ce.leg_km)} км от точки ${STOP_NUM[i + 1]} (от машины всего ${Math.round(ce.dist_km)})${totalTip}` : (ce && ce.error) || "";   // v3.45: км до целого
     lines.push(`<div class="sl${hideK(row, i + 1) ? " fold-hide" : ""}" title="${escapeHtml(tip)}">${txt}</div>`);
   });
   return lines.join("");

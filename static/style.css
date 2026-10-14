@@ -918,6 +918,7 @@ button.hitch-ic:hover { background: #e6dfcc; }
 .stop-n-click:hover .pn-chip { outline: 2px solid #2f6fd6; outline-offset: 1px; }
 .stop-n-manual .pn-chip { box-shadow: 0 0 0 2px #e8a317; }
 .done-km { color: #2d6b3c; font-weight: 700; }
+.done-km.done-km-n { color: #9a9a9a; font-weight: 400; text-decoration: line-through; }   /* v3.122: км пройденной точки — как её таргет */
 .done-eta { color: #2d6b3c; font-weight: 600; }
 .done-eta.done-by { color: #2d6b3c; opacity: .55; font-weight: 500; }   /* v3.29: ✓ по следующей точке */
 #fleet-tbody tr.row-done td { background: #f1f2f3 !important; }

@@ -178,6 +178,26 @@ def _add_trailer_info(result, unit, units, payload):
     return trailer
 
 
+def _add_done_legs(dn, pts_all, units, unit):
+    """v3.122: км плеча у пройденных точек ②③… — от предыдущей точки до этой (у ① плеча нет: там путь от машины).
+    Тот же расчёт и общий долгий кеш плеч, что у непройденных (kind="leg"): Google только при первом показе плеча.
+    Точки-траки (встреча) пропускаем — у них нет постоянных координат; любая ошибка — просто без км."""
+    for k in range(1, len(pts_all)):
+        if not dn[k].get("done") or not pts_all[k] or not pts_all[k - 1]:
+            continue
+        try:
+            a = resolve_fleet_target(pts_all[k - 1], units, unit)
+            b = resolve_fleet_target(pts_all[k], units, unit)
+            if a.get("target_is_truck") or b.get("target_is_truck"):
+                continue
+            wps = fleet_waypoints(a["lat"], a["lng"], b["lat"], b["lng"], None)
+            km, _poly = road_distance_km_google(a["lat"], a["lng"], b["lat"], b["lng"], GOOGLE_API_KEY, wps, kind="leg")
+            if km is not None:
+                dn[k]["leg_km"] = round(km, 1)
+        except Exception as e:
+            warn("fleet:done_leg", e)
+
+
 def _apply_points_done(result, payload, target_str, unit, units):
     """v1.79: пройденные точки (✓) — считаем от машины сразу до первой непройденной.
     Возвращает (первая непройденная точка, следующие непройденные)."""
@@ -193,6 +213,7 @@ def _apply_points_done(result, payload, target_str, unit, units):
         except Exception as e:
             warn("fleet:points_done", e)      # v3.98: раньше молча — вся строка без ✓
             dn = [{"done": False} for _ in pts_all]
+        _add_done_legs(dn, pts_all, units, unit)   # v3.122
         result["points_done"] = dn
         active = [i for i, p in enumerate(pts_all) if not dn[i]["done"]]
         result["active_idx"] = active

@@ -63,6 +63,7 @@ function remapDone(data) {
   const act = data.active_idx || [];
   const doneItem = (i) => ({ done: true, done_at: dn[i].at, done_arr: dn[i].arr || null, done_auto: dn[i].auto,
     done_by: dn[i].by != null ? dn[i].by : null, done_zone: dn[i].zone || null,
+    done_leg_km: dn[i].leg_km != null ? dn[i].leg_km : null,   // v3.122: плечо пройденной точки ②③…
     badge: dn[i].badge || null, badge_hint: dn[i].badge_hint || null });
   const main = data.target_lat != null ? {
     dist_km: data.dist_km, leg_km: data.dist_km, eta_local: data.eta_local, eta_tacho: data.eta_tacho,
