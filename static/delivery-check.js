@@ -69,6 +69,12 @@ function parseDeliveryWindow(txt) {
     const a = hmOf(after[1], after[2], after[3]);
     if (a != null) return { start: at(a), end: null };
   }
+  // v3.105: «at 10:30» / «в 10:30» — фикс-время приёмки: окно из одного момента (позже — опоздание, раньше — будет ждать)
+  const fixed = rest.match(new RegExp("(?:^|[^a-zа-яё])(?:at|в|@)\\s*" + DT_T));
+  if (fixed) {
+    const t = hmOf(fixed[1], fixed[2], fixed[3]);
+    if (t != null) return { start: at(t), end: at(t), fixed: true };
+  }
   const single = rest.match(new RegExp("(?:^|[^\\d])" + DT_T + "(?![\\d])"));
   if (single) {
     const t = hmOf(single[1], single[2], single[3]);
@@ -96,9 +102,11 @@ function deliveryCheck(row, etaStr) {
   const hm = (d) => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   if (w.end && etaD > w.end) {
     out.late = true;
-    out.lines.push(`Позже TimeSlot (${row.delivery}) — ${w.start ? "окно до" : "срок"} ${hm(w.end)}`);
+    out.lines.push(w.fixed ? `Позже фикс-времени TimeSlot (${row.delivery}) — ${hm(w.end)}`
+      : `Позже TimeSlot (${row.delivery}) — ${w.start ? "окно до" : "срок"} ${hm(w.end)}`);
   } else if (w.start && etaD < w.start) {
-    out.lines.push(`⏳ Раньше окна TimeSlot — с ${hm(w.start)}, будет ждать`);
+    out.lines.push(w.fixed ? `⏳ Раньше фикс-времени TimeSlot — ${hm(w.start)}, будет ждать`
+      : `⏳ Раньше окна TimeSlot — с ${hm(w.start)}, будет ждать`);
   }
   return out;
 }
