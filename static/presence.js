@@ -43,7 +43,22 @@
     }
   }
 
+  // v3.124: прогрев кешей Mapon — раз в 4 мин, пока вкладка видна (к ↻ тахограф и история уже свежие)
+  async function warm() {
+    if (document.visibilityState !== "visible") return;
+    try {
+      const list = (typeof rows !== "undefined" && Array.isArray(rows) ? rows : [])
+        .filter(r => r && r.unit && !r.done).map(r => r.unit);
+      if (!list.length) return;
+      await fetch("/api/warm", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ units: list }) });
+    } catch (e) {
+      // не страшно: просто не прогрелось
+    }
+  }
+
   function start() {
+    setInterval(warm, 240000);
     clearInterval(timer);
     timer = setInterval(ping, PING_MS);
     ping();

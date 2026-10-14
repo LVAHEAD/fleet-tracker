@@ -238,6 +238,36 @@ def api_presence():
     return jsonify({"ok": True, "tags": presence_tags(current_user_email())})
 
 
+@bp.route("/api/warm", methods=["POST"])
+def api_warm():
+    """v3.124: прогрев кешей Mapon (тахограф, история водителей) для машин, которые открыты в таблице.
+    Зовёт сама страница раз в ~4 мин, пока вкладка видна, — к ↻ данные уже свежие. Ничего не пишет."""
+    from concurrent.futures import ThreadPoolExecutor
+    from fetat.clients.mapon import fetch_units, get_driver_rests, get_tacho
+    from fetat.config import MAPON_API_KEY
+    from fetat.services.fleet_calc import _find_unit
+    body = request.get_json(force=True, silent=True) or {}
+    names = [str(x) for x in (body.get("units") or [])][:60]
+    units = fetch_units(MAPON_API_KEY)
+
+    def one(q):
+        try:
+            unit, err = _find_unit(units, q)
+            if err or not unit or not unit.get("unit_id"):
+                return 0
+            tacho, _e = get_tacho(unit["unit_id"], max_age=150)
+            for d in (tacho or {}).get("drivers") or []:
+                if d.get("driver_id"):
+                    get_driver_rests(d["driver_id"], max_age=1500)
+            return 1
+        except Exception as e:
+            warn("warm", e)
+            return 0
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        n = sum(ex.map(one, names))
+    return jsonify({"ok": True, "warmed": n})
+
+
 @bp.route("/api/fleet/lock", methods=["POST"])
 def api_fleet_lock():
     """v2.02: 🔒 строку правит один человек. {id} — занять/продлить на 60 с, {id, release:true} — отпустить.

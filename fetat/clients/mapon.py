@@ -135,13 +135,13 @@ def driver_has_data(d):
     return False
 
 
-def get_tacho(unit_id):
+def get_tacho(unit_id, max_age=None):
     """Данные тахографа по машине (кеш TACHO_TTL). Возвращает (data, error)."""
     import time
     now = time.time()
     with _tacho_lock:
         c = _tacho_cache.get(unit_id)
-        if c and now - c["at"] < TACHO_TTL:
+        if c and now - c["at"] < (max_age if max_age is not None else TACHO_TTL):
             return c["data"], c["error"]
     try:
         d = mapon_get(MAPON_TACHO_URL, {"key": MAPON_API_KEY, "unit_id": unit_id}).get("data") or {}
@@ -172,59 +172,95 @@ _act_cache = {}                 # driver_id -> {"at", "data", "error"}
 _act_lock = threading.Lock()
 
 
-def get_driver_rests(driver_id):
+ACT_FULL_TTL = 21600            # v3.124: полные ACT_DAYS дней — раз в 6 ч
+
+
+ACT_FRESH_DAYS = 3              # v3.124: в промежутке (каждые ACT_TTL) докачиваем только свежие дни
+
+
+def _parse_acts(d, now):
+    rows = d.get("data") if isinstance(d, dict) else d
+    acts = []
+    for day in rows or []:
+        items = day.get("activities") if isinstance(day, dict) else day
+        for a in items or []:
+            if not isinstance(a, dict):
+                continue
+            try:
+                s, e = int(float(a.get("start") or 0)), int(float(a.get("end") or 0))
+            except (TypeError, ValueError):
+                continue
+            acts.append({"start": s, "end": min(e, int(now)), "status": a.get("status"),
+                         "src": a.get("source")})
+    return acts
+
+
+def _merge_acts(old, fresh, from_f):
+    """Старые активности до from_f остаются, всё позже заменяется свежим окном."""
+    keep = [a for a in old if a["start"] < from_f]
+    seen = {(a["start"], a["status"]) for a in keep}
+    for a in fresh:
+        if (a["start"], a["status"]) not in seen:
+            keep.append(a)
+    return keep
+
+
+def _derive_rests(acts, now):
+    acts = sorted(acts, key=lambda a: a["start"])
+    rests, cards, cur = [], [], None
+    for a in acts:
+        if a["status"] in ("CARD_INSERTED", "CARD_REMOVED"):
+            cards.append({"ts": a["start"], "what": a["status"]})
+            continue
+        if a["status"] not in ("REST", "DRIVING", "WORK", "AVAILABLE") or a["end"] <= a["start"]:
+            continue
+        if a["status"] == "REST":
+            if cur and a["start"] - cur["end"] <= 120:
+                cur["end"] = max(cur["end"], a["end"])
+                cur["src"].add(a["src"] or "?")
+            else:
+                cur = {"start": a["start"], "end": a["end"], "src": {a["src"] or "?"}}
+                rests.append(cur)
+        else:
+            cur = None
+    for r in rests:
+        r["src"] = sorted(r["src"])
+    return {"rests": rests, "cards": cards, "from": now - ACT_DAYS * 86400}
+
+
+def get_driver_rests(driver_id, max_age=None):
     """Отдыхи водителя за ACT_DAYS дней: склеенные подряд идущие REST (включая время
     без карты — Mapon заливает его REST с источником can/unkn), конец обрезан по "сейчас".
+    v3.124: раз в ACT_FULL_TTL качаем все дни, в промежутках (ACT_TTL) — только свежие ACT_FRESH_DAYS.
     Возвращает ({"rests": [{start, end, src}], "cards": [...]}, error)."""
     import time
     now = time.time()
     with _act_lock:
         c = _act_cache.get(driver_id)
-        if c and now - c["at"] < ACT_TTL:
+        if c and now - c["at"] < (max_age if max_age is not None else ACT_TTL):
             return c["data"], c["error"]
-    data, err = None, None
+    old = c.get("acts") if c else None
+    full = not old or now - c.get("full_at", 0) >= ACT_FULL_TTL
+    days = ACT_DAYS if full else ACT_FRESH_DAYS
+    data, err, acts, full_at = None, None, None, c.get("full_at", 0) if c else 0
     try:
         d = mapon_get(MAPON_ACTIVITIES_URL, {
             "key": MAPON_API_KEY, "driver": driver_id,
-            "from": _iso_utc(now - ACT_DAYS * 86400), "till": _iso_utc(now),
+            "from": _iso_utc(now - days * 86400), "till": _iso_utc(now),
             "include": "card_events"}, timeout=30)
-        rows = d.get("data") if isinstance(d, dict) else d
-        acts = []
-        for day in rows or []:
-            items = day.get("activities") if isinstance(day, dict) else day
-            for a in items or []:
-                if not isinstance(a, dict):
-                    continue
-                try:
-                    s, e = int(float(a.get("start") or 0)), int(float(a.get("end") or 0))
-                except (TypeError, ValueError):
-                    continue
-                acts.append({"start": s, "end": min(e, int(now)), "status": a.get("status"),
-                             "src": a.get("source")})
-        acts.sort(key=lambda a: a["start"])
-        rests, cards, cur = [], [], None
-        for a in acts:
-            if a["status"] in ("CARD_INSERTED", "CARD_REMOVED"):
-                cards.append({"ts": a["start"], "what": a["status"]})
-                continue
-            if a["status"] not in ("REST", "DRIVING", "WORK", "AVAILABLE") or a["end"] <= a["start"]:
-                continue
-            if a["status"] == "REST":
-                if cur and a["start"] - cur["end"] <= 120:
-                    cur["end"] = max(cur["end"], a["end"])
-                    cur["src"].add(a["src"] or "?")
-                else:
-                    cur = {"start": a["start"], "end": a["end"], "src": {a["src"] or "?"}}
-                    rests.append(cur)
-            else:
-                cur = None
-        for r in rests:
-            r["src"] = sorted(r["src"])
-        data = {"rests": rests, "cards": cards, "from": now - ACT_DAYS * 86400}
+        fresh = _parse_acts(d, now)
+        if full:
+            acts, full_at = fresh, now
+        else:
+            acts = _merge_acts(old, fresh, now - days * 86400)
+        data = _derive_rests(acts, now)
     except Exception as e:
         err = str(e)
+        if old:                                  # сбой докачки — живём на прошлых данных, но в кеш пишем ошибку недолго
+            data, err = _derive_rests(old, now), None
+            acts = old
     with _act_lock:
-        _act_cache[driver_id] = {"at": now, "data": data, "error": err}
+        _act_cache[driver_id] = {"at": now, "data": data, "error": err, "acts": acts, "full_at": full_at}
     return data, err
 
 

@@ -198,7 +198,7 @@ def _add_done_legs(dn, pts_all, units, unit):
             warn("fleet:done_leg", e)
 
 
-def _apply_points_done(result, payload, target_str, unit, units):
+def _apply_points_done(result, payload, target_str, unit, units, tm=None):
     """v1.79: пройденные точки (✓) — считаем от машины сразу до первой непройденной.
     Возвращает (первая непройденная точка, следующие непройденные)."""
     # v1.79: пройденные точки (✓) — считаем от машины сразу до первой непройденной
@@ -213,7 +213,11 @@ def _apply_points_done(result, payload, target_str, unit, units):
         except Exception as e:
             warn("fleet:points_done", e)      # v3.98: раньше молча — вся строка без ✓
             dn = [{"done": False} for _ in pts_all]
+        if tm:
+            tm.mark("d_pts")                          # v3.124: подшаги done
         _add_done_legs(dn, pts_all, units, unit)   # v3.122
+        if tm:
+            tm.mark("d_legs")
         result["points_done"] = dn
         active = [i for i, p in enumerate(pts_all) if not dn[i]["done"]]
         result["active_idx"] = active
@@ -226,18 +230,22 @@ def _apply_points_done(result, payload, target_str, unit, units):
     return target_str, active_extras
 
 
-def _add_tacho(result, unit, trailer, crew=None, x10=False, crew_seen=None):
+def _add_tacho(result, unit, trailer, crew=None, x10=False, crew_seen=None, tm=None):
     """v1.33: тахограф — ETA по режиму труда и отдыха + подробности. Возвращает (tacho, sim).
     v3.15: crew — ручная правка "solo"/"team"; иначе тахограф (2 карты) + история трака за неделю;
     v3.105: crew_seen — когда по тахографу видели две карты (сек), память строки."""
     tacho, sim = None, None
     try:
         tacho, terr = (None, None) if trailer else get_tacho(unit.get("unit_id"))
+        if tm:
+            tm.mark("t_get")                             # v3.124: подшаги tacho
         if tacho:
             days = None
             if crew not in ("solo", "team") and len(tacho["drivers"]) < 2:
                 days = unit_driving_days(unit.get("unit_id"))
             team, src, hist_max = crew_mode(tacho, crew, days, crew_seen)
+            if tm:
+                tm.mark("t_crew")
             tacho = dict(tacho, team=team, crew_src=src)     # копия: кеш тахографа не трогаем
             tacho.update(_eta_opts(unit, x10))               # v3.39: пояс страны (ночная смена) и 10-й час
             g = _gps_shift_of(unit)                          # v3.104: смена по GPS — поправка, если тахограф отстаёт
@@ -267,6 +275,8 @@ def _add_tacho(result, unit, trailer, crew=None, x10=False, crew_seen=None):
             sim = None
             if result.get("dist_km") is not None:
                 sim = tacho_eta(tacho, result["dist_km"])
+                if tm:
+                    tm.mark("t_sim")
                 eta_t = ceil_15min(ts_west(sim["eta_ts"]))
                 result["eta_tacho"] = eta_t.strftime("%d/%m %H:%M")
                 result["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sim["stops"])
@@ -590,7 +600,7 @@ def _calc_row(payload, tm):
         trailer = _add_trailer_info(result, unit, units, payload)
         tm.mark("trailer")
 
-        target_str, active_extras = _apply_points_done(result, payload, target_str, unit, units)
+        target_str, active_extras = _apply_points_done(result, payload, target_str, unit, units, tm)
         tm.mark("done")
 
         try:
@@ -608,7 +618,7 @@ def _calc_row(payload, tm):
             tm.mark("route")
 
         tacho, sim = _add_tacho(result, unit, trailer, payload.get("crew"), bool(payload.get("x10")),
-                                _crew_seen(payload))
+                                _crew_seen(payload), tm)
         tm.mark("tacho")
 
         _add_extra(result, active_extras, units, unit, tacho, sim, payload)

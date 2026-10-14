@@ -39,6 +39,7 @@
 /api/truck-info GET
 /api/unit-seed POST
 /api/units GET
+/api/warm POST
 /gusage GET
 /notebook GET
 /static/<path:filename> GET
