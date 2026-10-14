@@ -888,6 +888,23 @@ button.hitch-ic:hover { background: #e6dfcc; }
 .sort-bar button[data-flt="L"].on { background: #1F5A99; border-color: #1F5A99; }
 .sort-bar button[data-flt="O"].on { background: #9a7400; border-color: #9a7400; }
 
+/* ---------- v3.114: фильтр по клиентам (static/client-filter.js) ---------- */
+#fleet-table thead th.th-client { cursor: pointer; user-select: none; }
+#fleet-table thead th.th-client::after { content: " ▾"; color: #aaa; font-size: 11px; }
+#fleet-table thead th.th-client.client-on { background: #2f6fd6; color: #fff; }
+#fleet-table thead th.th-client.client-on::after { color: #fff; }
+.client-flt-pop { position: fixed; z-index: 1200; width: 260px; background: #fff; border: 1px solid #d5d8dd; border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .18); padding: 8px; font-size: 13px; }
+.client-flt-pop .cf-search { width: 100%; box-sizing: border-box; padding: 5px 8px; border: 1px solid #d5d8dd; border-radius: 6px; font-size: 13px; }
+.client-flt-pop .cf-list { max-height: 280px; overflow-y: auto; margin: 6px 0; }
+.client-flt-pop .cf-item { display: flex; align-items: center; gap: 8px; padding: 4px 4px; border-radius: 4px; cursor: pointer; }
+.client-flt-pop .cf-item:hover { background: #f1f4f9; }
+.client-flt-pop .cf-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.client-flt-pop .cf-n { color: #888; font-variant-numeric: tabular-nums; }
+.client-flt-pop .cf-empty { color: #999; padding: 6px 4px; }
+.client-flt-pop .cf-foot { border-top: 1px solid #eee; padding-top: 6px; text-align: right; }
+.client-flt-pop .cf-reset { padding: 3px 10px; font-size: 12px; border-radius: 12px; }
+
 /* ---------- v1.79: пройденные точки ✓ ---------- */
 .target-wrap.pt-done .lo-btn, .target-wrap.pt-done .cc-badge, .target-wrap.pt-done input { opacity: .45; }
 .target-wrap.pt-done input { text-decoration: line-through; }

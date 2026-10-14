@@ -78,7 +78,7 @@
       <th class="th-center" title="Дистанция, км">KM</th>
       <th class="th-eta">ETA</th>
       <th>Примечание</th>
-      <th class="th-client" title="Клиент (задел под v5)">Client</th>
+      <th class="th-client" id="client-flt-th" title="Фильтр по клиентам — клик">Client</th>
       <th class="th-ref" title="Референс заказа (задел под v5)">Reference</th>
       <th class="th-actions"></th>
     </tr>
@@ -336,6 +336,7 @@
 <script src="{{ url_for('static', filename='corridor-menu.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='done-marks.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='fleet-sort-filter.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='client-filter.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='dispatchers.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='presence.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='app.js', v=app_version) }}"></script>

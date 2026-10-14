@@ -29,9 +29,11 @@ class EtaCalcWiringTest(unittest.TestCase):
 
     def test_no_server_calls(self):
         # v3.39: расклад — /api/eta-plan (движок Флота), коды регионов — для мини-карты;
-        # v3.51: Routes — только из полей From / To (/api/route, как вкладка From → To)
+        # v3.51: Routes — только из полей From / To (/api/route, как вкладка From → To);
+        # v3.114: машина в From без To — данные машины (/api/unit-seed, Google не нужен)
         js = read("static/eta-calc.js")
-        self.assertEqual(js.count("fetch("), 3)
+        self.assertEqual(js.count("fetch("), 4)
+        self.assertIn('fetch("/api/unit-seed"', js)
         self.assertIn('fetch("/api/region-codes")', js)
         self.assertIn('fetch("/api/eta-plan"', js)
         self.assertIn('fetch("/api/route"', js)

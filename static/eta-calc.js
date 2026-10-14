@@ -191,7 +191,15 @@ const EtaCalc = (() => {
     }
     const kmv = Math.round(r.km);
     $("#ec-km-n").value = kmv; $("#ec-km-r").value = Math.min(kmv, 5000);
-    const s = r.seed;
+    const notes = applySeed(r.seed, r.noSeedNote);
+    st.src = { unit: r.unit, point: r.point, label: r.label || "", km: kmv, polyline: r.polyline || null, note: notes.join(" · ") };
+    st.srcShown = true;
+    st.mapFit = true;
+    restUI(); srcUI(); calc();
+  }
+  // v3.114: данные машины (seed) — состав, остаток, смена, неделя; одно место для строки Флота, From → To и выбора машины в From.
+  // Возвращает заметки для подписи источника.
+  function applySeed(s, noSeedNote) {
     const notes = [];
     if (s) {
       st.team = !!s.team;
@@ -219,14 +227,11 @@ const EtaCalc = (() => {
     } else {
       setSh(0);
       st.startMs = null;
-      const nn = r.noSeedNote != null ? r.noSeedNote : "тахографа нет — состав и остаток прежние";
+      const nn = noSeedNote != null ? noSeedNote : "тахографа нет — состав и остаток прежние";
       if (nn) notes.push(nn);
     }
     st.extras = {}; st.shifts = {}; st.ext = new Set();
-    st.src = { unit: r.unit, point: r.point, label: r.label || "", km: kmv, polyline: r.polyline || null, note: notes.join(" · ") };
-    st.srcShown = true;
-    st.mapFit = true;
-    restUI(); srcUI(); calc();
+    return notes;
   }
   // ---------- v3.51: From / To — км, линия и (машина в From) тахограф через /api/route, как вкладка From → To ----------
   let ftKey = "", ftSeq = 0;
@@ -245,7 +250,8 @@ const EtaCalc = (() => {
   }
   async function ftCalc() {
     const from = $("#ec-from").value.trim(), to = $("#ec-to").value.trim();
-    if (!from || !to) { ftStatus(""); return; }
+    if (!from) { ftKey = ""; ftStatus(""); return; }
+    if (!to) { ftSeed(from); return; }            // v3.114: в From машина, To пока пусто — данные машины без маршрута
     const key = from + "\n" + to;
     if (key === ftKey) return;
     ftKey = key;
@@ -264,6 +270,27 @@ const EtaCalc = (() => {
         polyline: d.route_polyline || null, seed: truck ? (d.calc_seed || null) : null,
         noSeedNote: truck ? "тахографа машины нет — состав и остаток прежние" : "",
       }, true);
+    } catch (e) {
+      if (seq === ftSeq) { ftKey = ""; ftStatus("ошибка запроса", true); }
+    }
+  }
+  // v3.114: машина выбрана в From, To пусто — подтянуть её данные (км не трогаем); не машина — ничего не делаем
+  async function ftSeed(from) {
+    const key = "seed:" + from;
+    if (key === ftKey) return;
+    ftKey = key;
+    const seq = ++ftSeq;
+    try {
+      const r = await fetch("/api/unit-seed", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from }) });
+      const d = await r.json();
+      if (seq !== ftSeq) return;
+      if (d.error) { ftKey = ""; ftStatus(d.error, true); return; }
+      if (!d.truck) { ftStatus(""); return; }
+      st.srcShown = false;                           // подпись «из …» относилась к прежнему маршруту
+      const notes = applySeed(d.calc_seed || null, "тахографа машины нет — состав и остаток прежние");
+      ftStatus("🚛 " + d.unit + ": данные подтянуты" + (notes.length ? " · " + notes.join(" · ") : ""));
+      restUI(); calc();
     } catch (e) {
       if (seq === ftSeq) { ftKey = ""; ftStatus("ошибка запроса", true); }
     }

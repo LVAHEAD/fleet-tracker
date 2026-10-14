@@ -269,6 +269,14 @@ def _add_tacho(result, unit, trailer, crew=None, x10=False, crew_seen=None):
     return tacho, sim
 
 
+def truck_seed(unit, crew=None, crew_seen=None):
+    """v3.114: стартовые данные машины для ⏱ калькулятора — тем же путём, что у строки Флота (`_add_tacho`):
+    память режима, пояс страны, GPS-поправка, начало смены, машина без карт. Нет данных — None."""
+    res = {}
+    _add_tacho(res, unit, None, crew, False, crew_seen)
+    return res.get("calc_seed")
+
+
 def _crew_seen(payload):
     """v3.105: когда по тахографу видели две карты (сек) — память строки; мусор — None."""
     try:

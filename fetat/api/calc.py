@@ -7,7 +7,7 @@ from fetat.clients.google_routes import set_route_ctx
 from fetat.domain.tacho import calc_plan
 from fetat.services.corridors import corridor_options
 from fetat.services.fleet_calc import calc_row
-from fetat.services.route_calc import route_calc
+from fetat.services.route_calc import route_calc, unit_seed
 
 bp = Blueprint("calc", __name__)
 
@@ -26,6 +26,14 @@ def api_route():
     """From → To — fetat/services/route_calc.py: route_calc."""
     set_route_ctx("route", current_user_email())
     body, code = route_calc(request.get_json(force=True, silent=True) or {})
+    return jsonify(body), code
+
+
+@bp.route("/api/unit-seed", methods=["POST"])
+def api_unit_seed():
+    """v3.114: ⏱ калькулятор — данные машины из From без маршрута (fetat/services/route_calc.py: unit_seed).
+    body: {"from": "NU-8704"}. Google не нужен."""
+    body, code = unit_seed((request.get_json(force=True, silent=True) or {}).get("from"))
     return jsonify(body), code
 
 

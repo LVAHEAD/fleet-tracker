@@ -37,6 +37,7 @@
 /api/region-codes GET
 /api/route POST
 /api/truck-info GET
+/api/unit-seed POST
 /api/units GET
 /gusage GET
 /notebook GET

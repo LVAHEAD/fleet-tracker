@@ -11,11 +11,12 @@ from fetat.clients.mapon import fetch_units, get_tacho, unit_driving_days
 from fetat.config import GOOGLE_API_KEY, MAPON_API_KEY
 from fetat.domain.bans import bans_hits_text, bans_on_route, needs_at_night_ban
 from fetat.domain.freights import similar_freights
-from fetat.domain.points import resolve_point
+from fetat.domain.points import find_unit_exact, looks_like_gps_or_code, resolve_point
 from fetat.domain.routing_rules import waypoints_label
 from fetat.domain.regions import nearest_region_code
 from fetat.domain.tacho import FRESH_SOLO_TACHO, calc_seed, country_tz, crew_mode, tacho_eta
 from fetat.services.corridors import clean_corridor, corridor_info, resolve_waypoints
+from fetat.services.fleet_calc import truck_seed
 from fetat.domain.routing_rules import swiss_bypass_candidates
 from fetat.utils.log import warn
 
@@ -279,14 +280,24 @@ def _truck_tacho(unit):
 
 
 def _truck_seed(unit):
-    """v3.32: тахограф машины из From1 для калькулятора — как у строки Флота (calc_seed); нет тахографа — None."""
+    """v3.32: данные машины из From1 для калькулятора; v3.114 — тот же сбор, что у строки Флота (`truck_seed`)."""
     try:
-        tacho, _err = get_tacho(unit.get("unit_id"))
-        if not tacho:
-            return None
-        days = unit_driving_days(unit.get("unit_id")) if len(tacho["drivers"]) < 2 else None
-        team, src, _ = crew_mode(tacho, None, days)
-        return calc_seed(dict(tacho, team=team, crew_src=src))
+        return truck_seed(unit)
     except Exception as _e:
         warn("route_calc:261", _e)
         return None
+
+
+def unit_seed(raw):
+    """v3.114: ⏱ калькулятор — в From выбрана машина, To пока пусто: данные машины без маршрута.
+    Не машина (GPS, код, город) — {"truck": False}, без геокодера. -> (ответ, код)"""
+    raw = str(raw or "").strip()
+    if not raw or looks_like_gps_or_code(raw) or not MAPON_API_KEY:
+        return {"truck": False}, 200
+    try:
+        unit = find_unit_exact(fetch_units(MAPON_API_KEY), raw)
+        if unit is None:
+            return {"truck": False}, 200
+        return {"truck": True, "unit": unit.get("number") or raw, "calc_seed": _truck_seed(unit)}, 200
+    except Exception as e:
+        return {"error": str(e)}, 502
