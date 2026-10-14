@@ -96,7 +96,8 @@ function addTargetModeControl() {
 // --- v1.30: плашки на карте (как в Mapon) — HTML-слой поверх карты ---
 // Плашка ставится над точкой lat/lng: низ плашки (с указателем) — на offsetY px выше точки.
 let BadgeOverlayClass = null;
-function makeBadge(lat, lng, html, className, offsetY, onClick) {
+// v3.121: onMap — другая карта (From → To); без него — карта Флота
+function makeBadge(lat, lng, html, className, offsetY, onClick, onMap) {
   if (!BadgeOverlayClass) {
     BadgeOverlayClass = class extends google.maps.OverlayView {
       constructor(pos, html, cls, off, click) {
@@ -147,7 +148,7 @@ function makeBadge(lat, lng, html, className, offsetY, onClick) {
     };
   }
   const o = new BadgeOverlayClass(new google.maps.LatLng(lat, lng), html, className, offsetY, onClick);
-  o.setMap(map);
+  o.setMap(onMap || map);
   return o;
 }
 

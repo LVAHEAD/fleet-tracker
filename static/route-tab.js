@@ -20,8 +20,8 @@ let routeMarkers = [];
 let routeLine = null;
 
 const ROUTE_POINT_COLORS = {
-  L: { fill: "#4A90D9", text: "#ffffff" },
-  O: { fill: "#E0B000", text: "#3D2E00" },
+  L: { fill: "#4A90D9", text: "#ffffff", label: "#1F5A99" },
+  O: { fill: "#E0B000", text: "#3D2E00", label: "#7A5C00" },
 };
 
 // v3.47: высота карты — от её реального места до низа окна (иначе карта вылезала вниз и появлялась прокрутка страницы)
@@ -512,6 +512,51 @@ function routePointIcon(kind) {
   };
 }
 
+// v3.121: плашки как на карте Флота (makeBadge из map-core.js).
+// Машина: номер, стрелка, км до следующей точки; вторая строка — Дисп · Код · Таргет следующей точки.
+// Точка: L1 / O1, км плеча до неё; вторая строка — Код · Таргет. Код — до 50 км зона, дальше только страна.
+function routeBadgeCode(p) {
+  if (!p || !p.badge) return "";
+  const tip = String(p.badge).length <= 2
+    ? ' title="Только страна: ближайший код зоны дальше 50 км; у границы страна может быть соседней"' : "";
+  return `<span${tip}>${escapeHtml(p.badge)}</span>`;
+}
+function routeTargetLine(p, disp) {
+  if (!p) return disp ? `<span class="mk-tgt">${escapeHtml(disp)}</span>` : "";
+  const parts = [];
+  if (disp) parts.push(escapeHtml(disp));
+  const code = routeBadgeCode(p);
+  if (code) parts.push(code);
+  const t = tgtLine(p.raw);
+  if (t && String(t).toUpperCase().replace(/\s/g, "") !== String(p.badge || "").toUpperCase()) parts.push(escapeHtml(t));
+  return parts.length ? `<span class="mk-tgt">${parts.join(" · ")}</span>` : "";
+}
+function routeUnitDisp(unitNo) {   // диспетчер машины — по строке Флота; нет строки — пусто
+  try {
+    if (typeof rows === "undefined" || typeof normNo !== "function") return "";
+    const row = rows.find((r) => normNo(r.unit) === normNo(unitNo));
+    if (!row || typeof rowDisp !== "function" || typeof dispLabel !== "function") return "";
+    return dispLabel(rowDisp(row)) || "";
+  } catch (e) { return ""; }
+}
+function routePointBadge(map, p, i, points, legs) {
+  const next = points[i + 1];
+  if (p.is_truck) {
+    const km = legs[i] ? legs[i].dist_km : null;
+    const html = truckBadgeHtml(p.unit_no, p.st, p.dir, km, null) + routeTargetLine(next, routeUnitDisp(p.unit_no));
+    return makeBadge(p.lat, p.lng, html, `mk-badge ${p.st === "driving" ? "mk-driving" : "mk-standing"}`, 20, null, map);
+  }
+  const c = ROUTE_POINT_COLORS[p.kind] || ROUTE_POINT_COLORS.L;
+  const kmH = i > 0 && legs[i - 1] ? ` <span class="tb-km">${escapeHtml(fmtKm(legs[i - 1].dist_km))}</span>` : "";
+  const html = `<span style="color:${c.label}">${escapeHtml(p.kind + p.num)}</span>${kmH}${routeTargetLine(p, "")}`;
+  const b = makeBadge(p.lat, p.lng, html, "mk-tbadge", 20, null, map);
+  const border = () => { if (b.div) b.div.style.borderColor = c.fill; };
+  b.border = c.fill;
+  border();
+  setTimeout(border, 0);   // div создаётся в onAdd — после setMap
+  return b;
+}
+
 function drawRouteOnMap(data) {
   const map = window.routeMap;
 
@@ -523,19 +568,19 @@ function drawRouteOnMap(data) {
   const bounds = new google.maps.LatLngBounds();
   const points = data.points || [];
 
-  points.forEach((p) => {
+  const legs = data.legs || [];
+  points.forEach((p, i) => {
     if (p.lat == null || p.lng == null) return;
-    const c = ROUTE_POINT_COLORS[p.kind] || ROUTE_POINT_COLORS.L;
-    const m = new google.maps.Marker({
+    const m = new google.maps.Marker({   // v3.121: кружок — точка; подпись — в плашке над ним
       position: { lat: p.lat, lng: p.lng },
       map: map,
       icon: routePointIcon(p.kind),
-      label: { text: `${p.kind}${p.num}`, fontSize: "11px", fontWeight: "700", color: c.text },
       title: p.label,
       zIndex: 10,
     });
     routeMarkers.push(m);
     bounds.extend(m.getPosition());
+    try { routeMarkers.push(routePointBadge(map, p, i, points, legs)); } catch (e) { /* плашка не критична */ }
   });
 
   if (data.route_polyline) {

@@ -11,7 +11,7 @@ from fetat.clients.mapon import fetch_units, get_tacho, unit_driving_days
 from fetat.config import GOOGLE_API_KEY, MAPON_API_KEY
 from fetat.domain.bans import bans_hits_text, bans_on_route, needs_at_night_ban
 from fetat.domain.freights import similar_freights
-from fetat.domain.points import find_unit_exact, looks_like_gps_or_code, resolve_point
+from fetat.domain.points import find_unit_exact, looks_like_gps_or_code, resolve_point, target_badge_info
 from fetat.domain.routing_rules import waypoints_label
 from fetat.domain.regions import nearest_region_code
 from fetat.domain.tacho import FRESH_SOLO_TACHO, calc_seed, country_tz, crew_mode, tacho_eta
@@ -128,6 +128,22 @@ def _resolve_points(froms, tos):
     return points, None
 
 
+def _point_view(p):
+    """Точка для ответа. v3.121: + badge (код зоны до 50 км, дальше — страна) и данные машины для плашек карты."""
+    out = {**{k: p[k] for k in ("kind", "num", "label", "lat", "lng", "is_truck", "code")},
+           "address": p.get("address"), "geo": p.get("geo"), "raw": p.get("raw"), "dovoz": p.get("dovoz")}
+    try:
+        out["badge"] = target_badge_info(p.get("raw"), p["lat"], p["lng"], p.get("address"))[0]
+    except Exception:
+        out["badge"] = None
+    if p.get("is_truck"):
+        u = p.get("unit") or {}
+        out["unit_no"] = u.get("number") or p.get("raw")
+        out["st"] = "driving" if (u.get("state") or {}).get("name") == "driving" else "standing"
+        out["dir"] = next((u.get(k) for k in ("direction", "course", "heading", "angle") if u.get(k) is not None), None)
+    return out
+
+
 def _add_corridor(result, points, corridor):
     """v3.32: первый отрезок, где действует обход Швейцарии, — для кнопок выбора коридора."""
     for a, b in zip(points, points[1:]):
@@ -223,12 +239,7 @@ def route_calc(payload):
             return err
 
         result = {
-            "points": [
-                {**{k: p[k] for k in ("kind", "num", "label", "lat", "lng", "is_truck", "code")},
-                 "address": p.get("address"), "geo": p.get("geo"), "raw": p.get("raw"),
-                 "dovoz": p.get("dovoz")}
-                for p in points
-            ],
+            "points": [_point_view(p) for p in points],
             "legs": [],
             "dist_km": None,
             "duration_h": None,

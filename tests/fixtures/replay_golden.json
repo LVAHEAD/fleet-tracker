@@ -973,6 +973,7 @@
    "points": [
     {
      "address": null,
+     "badge": "ES46",
      "code": "ES46",
      "dovoz": null,
      "geo": null,
@@ -986,6 +987,7 @@
     },
     {
      "address": null,
+     "badge": "ES08",
      "code": "ES08",
      "dovoz": null,
      "geo": null,
@@ -999,6 +1001,7 @@
     },
     {
      "address": null,
+     "badge": "SE25",
      "code": "SE25",
      "dovoz": null,
      "geo": null,
@@ -1049,6 +1052,7 @@
    "points": [
     {
      "address": null,
+     "badge": "IT63",
      "code": "IT63",
      "dovoz": null,
      "geo": null,
@@ -1062,6 +1066,7 @@
     },
     {
      "address": null,
+     "badge": "LV10",
      "code": "LV10",
      "dovoz": null,
      "geo": null,
@@ -1088,6 +1093,7 @@
    "points": [
     {
      "address": null,
+     "badge": "LV10",
      "code": "LV10",
      "dovoz": null,
      "geo": null,
@@ -1148,7 +1154,9 @@
    "points": [
     {
      "address": null,
+     "badge": "IT30",
      "code": "IT30",
+     "dir": null,
      "dovoz": null,
      "geo": null,
      "is_truck": true,
@@ -1157,10 +1165,13 @@
      "lat": 45.4,
      "lng": 11.9,
      "num": 1,
-     "raw": "OI-1778"
+     "raw": "OI-1778",
+     "st": "driving",
+     "unit_no": "OI-1778"
     },
     {
      "address": null,
+     "badge": "DE10",
      "code": "DE10",
      "dovoz": null,
      "geo": {
