@@ -575,6 +575,8 @@ def _calc_shift_start(p, etd, now):
         st = None
     if st is None or st >= etd or now - st > GPS_START_MAX_SEC:
         return etd
+    if shift_window_end(st, bool(p.get("team")), TZ_DEFAULT) <= etd:
+        return etd   # сдвиг выезда ушёл за конец окна старой смены — между ними был отдых, смена новая: с выезда
     return st
 
 
