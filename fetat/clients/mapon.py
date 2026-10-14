@@ -125,6 +125,16 @@ _tacho_cache = {}               # unit_id -> {"at": ts, "data": dict|None, "erro
 _tacho_lock = threading.Lock()
 
 
+def driver_has_data(d):
+    """Есть ли у водителя в тахографе данные (карта читается): хоть одно число в now / today / week.
+    Второй слот Mapon «NO CARD / NO DATA» приходит записью без чисел."""
+    for blk in ("now", "today", "week"):
+        v = d.get(blk)
+        if isinstance(v, dict) and any(x is not None for x in v.values()):
+            return True
+    return False
+
+
 def get_tacho(unit_id):
     """Данные тахографа по машине (кеш TACHO_TTL). Возвращает (data, error)."""
     import time
@@ -136,6 +146,9 @@ def get_tacho(unit_id):
     try:
         d = mapon_get(MAPON_TACHO_URL, {"key": MAPON_API_KEY, "unit_id": unit_id}).get("data") or {}
         drivers = [v for k, v in sorted(d.items()) if k.startswith("driver") and isinstance(v, dict)]
+        has = [v for v in drivers if driver_has_data(v)]
+        if has and len(has) < len(drivers):
+            drivers = has      # NU-8704: второй слот «NO CARD / NO DATA» — не второй водитель, экипажем машину не считаем
         data, err = ({"drivers": drivers} if drivers else None), (None if drivers else "нет данных водителя")
     except Exception as e:
         data, err = None, str(e)

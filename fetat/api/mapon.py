@@ -4,7 +4,7 @@ import re
 from flask import Blueprint, current_app, jsonify, request
 
 from fetat.clients.mapon import (
-    _check_daily_activities, fetch_group_unit_ids, fetch_units, get_driver_rests, get_tacho,
+    _check_daily_activities, driver_has_data, fetch_group_unit_ids, fetch_units, get_driver_rests, get_tacho,
     MAPON_API_URL, MAPON_BASE, mapon_get, MAPON_TACHO_URL, unit_stops,
 )
 from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
@@ -349,7 +349,9 @@ def api_mapon_check():
         out["driving_time_extended"] = {"ok": True, "водители": [
             {"driver_id": x.get("driver_id"),
              "имя": " ".join(filter(None, [x.get("driver_name"), x.get("driver_surname")])),
-             "состояние": x.get("current_state")} for x in drivers]}
+             "состояние": x.get("current_state"),
+             "есть_данные": driver_has_data(x),           # False — слот «NO CARD / NO DATA», в тахо-расчёте не водитель
+             "now": x.get("now"), "today": x.get("today"), "week": x.get("week")} for x in drivers]}
     except Exception as e:
         out["driving_time_extended"] = {"ok": False, "ошибка": str(e)}
 
