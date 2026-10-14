@@ -9,7 +9,6 @@ Fleet ETA Tracker — объекты Mapon на картах (v3.55): полиг
   const PILOT = ["Bama Supliers", "GFI Clients (GreenFood)", "BNX DSL 2025", "BNX - Secured Parkings",
     "Fish Clients (SB/FSF/NSS/Polar/BWS)", "Lad TEMP", "LAD ES vgt frt", "PARKING"];
   const ZMIN = 12, ZMAX = 21, CAP = 400;
-  const BLANK = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
   let objs = null, loading = null, groupInfo = [], selected = null;
   const maps = [];
 
@@ -54,6 +53,25 @@ Fleet ETA Tracker — объекты Mapon на картах (v3.55): полиг
     return { lat: o.poly.reduce((s, p) => s + p[0], 0) / n, lng: o.poly.reduce((s, p) => s + p[1], 0) / n };
   }
 
+  // плашка подписи (Синий Кальк): белая, скруглённая, синий текст; SVG-иконка, ширина по тексту; кеш по названию
+  const FONT = "Roboto, Arial, sans-serif", LBL_MAX = 34, lblCache = {};
+  let measureCtx = null;
+  function labelIcon(name) {
+    if (lblCache[name]) return lblCache[name];
+    let t = String(name || "");
+    if (t.length > LBL_MAX) t = t.slice(0, LBL_MAX - 1) + "…";
+    if (!measureCtx) { measureCtx = document.createElement("canvas").getContext("2d"); measureCtx.font = "600 11px " + FONT; }
+    const w = Math.ceil(measureCtx.measureText(t).width) + 14, h = 18;
+    const esc = t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">`
+      + `<rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" rx="9" fill="#fff" fill-opacity="0.93" stroke="#c9d6ee"/>`
+      + `<text x="${w / 2}" y="12.5" text-anchor="middle" font-family="${FONT}" font-size="11" font-weight="600" fill="#2f6fd6">${esc}</text></svg>`;
+    return (lblCache[name] = {
+      url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+      scaledSize: new google.maps.Size(w, h), anchor: new google.maps.Point(w / 2, h / 2),
+    });
+  }
+
   function clearMap(m) {
     m.polys.forEach((p) => p.setMap(null));
     m.labels.forEach((l) => l.setMap(null));
@@ -78,8 +96,7 @@ Fleet ETA Tracker — объекты Mapon на картах (v3.55): полиг
       }));
       m.labels.push(new google.maps.Marker({
         map: m.map, clickable: false, position: centroid(o), zIndex: 1,
-        icon: { url: BLANK, anchor: new google.maps.Point(0, 0) },
-        label: { text: o.name, color: "#1d3f7a", fontSize: "11px", fontWeight: "600" },
+        icon: labelIcon(o.name),
       }));
     }
   }
