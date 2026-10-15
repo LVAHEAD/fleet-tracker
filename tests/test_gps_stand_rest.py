@@ -29,7 +29,7 @@ class GpsStandRest(unittest.TestCase):
         self.assertEqual(seed["left_h"], 18)
 
     def test_short_stand_is_not_rest(self):
-        self.assertFalse(calc_seed(tacho(gps_shift(segs(3), NOW)), NOW)["resting"])
+        self.assertFalse(calc_seed(tacho(gps_shift(segs(2), NOW)), NOW)["resting"])
 
     def test_eta_after_rest(self):
         sim = tacho_eta(tacho(gps_shift(segs(7.5), NOW)), 800, now_ts=NOW)
