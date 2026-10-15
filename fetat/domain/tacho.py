@@ -561,6 +561,9 @@ def calc_seed(tacho, now_ts=None):
         out.pop("week_left_h", None)
     if gfix:
         out["gps_fix"] = True            # v3.104: остаток вождения — по GPS (тахограф отстаёт)
+    g0 = tacho.get("gps")
+    if g0 and float(g0.get("stand") or 0) > 0 and d0.get("current_state") != "DRIVING":
+        out["stand_h"] = round(float(g0["stand"]) / 3600, 2)   # v3.125: сколько уже стоит — калькулятор прибавляет к сдвигу выезда
     if shift <= 0 and rest_now < need_rest:      # v3.106: сколько окна смены уже съедено — калькулятору
         import time
         t = float(now_ts or time.time())
@@ -614,10 +617,15 @@ def calc_plan(p):
     team = bool(p.get("team"))
     hrs = lambda d: {int(k): float(v) * H for k, v in (d or {}).items() if float(v or 0) > 0}   # noqa: E731
     wk_left = None if team or p.get("wkLeft") in (None, "") else max(0.0, float(p.get("wkLeft"))) * H
-    r = plan(etd, float(p.get("dist") or 0), team=team, day_left=max(0.0, float(p.get("leftH") or 0)) * H,
+    day_left = max(0.0, float(p.get("leftH") or 0)) * H
+    shift_start = _calc_shift_start(p, etd, now)
+    shift_sec = max(0.0, float(p.get("shiftH") or 0)) * H
+    if shift_sec > 0 and float(p.get("standH") or 0) * H + shift_sec >= int(p.get("rest") or 9) * H:
+        day_left, shift_start = (TEAM_DAY_SEC if team else SOLO_DAY_SEC), etd   # v3.125: стоит + сдвиг = отдых отбыт — свежий день
+    r = plan(etd, float(p.get("dist") or 0), team=team, day_left=day_left,
              rest_pref=int(p.get("rest") or 9), shorts=int(p.get("shorts") or 0),
              ext_days=[int(x) for x in (p.get("ext") or [])], extras=hrs(p.get("extras")), shifts=hrs(p.get("shifts")),
-             week_left=wk_left, shift_start=_calc_shift_start(p, etd, now), tz=TZ_DEFAULT)
+             week_left=wk_left, shift_start=shift_start, tz=TZ_DEFAULT)
     ev = []
     for e in r["ev"]:
         x = dict(e, t0=(e["t0"] - etd) / H, t1=(e["t1"] - etd) / H)

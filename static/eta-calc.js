@@ -101,7 +101,7 @@ const EtaCalc = (() => {
         <div class="ec-sec"><div class="ec-lb"><span>Расстояние, км</span><span>70 … 5000</span></div>
           <div class="ec-ln"><input type="number" id="ec-km-n" min="70" step="10" value="1500"><input type="range" id="ec-km-r" min="70" max="5000" step="10" value="1500"></div></div>
         <div class="ec-sec ec-two"><div>
-          <div class="ec-lb"><span>Сдвиг выезда, ч</span><span class="ec-now"></span></div>
+          <div class="ec-lb"><span title="Через сколько часов выезд. Если машина уже стоит на отдыхе — сколько ей осталось отдыхать: остаток вождения и смена начнутся заново">Сдвиг выезда / отдых, ч</span><span class="ec-now"></span></div>
           <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-sh-n" class="ec-hm" inputmode="numeric" value="00:00" title="ЧЧ:ММ · ↑ ↓ — шаг 30 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+30 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−30 мин">▾</button></span></span><input type="range" id="ec-sh-r" min="0" max="72" step="0.5" value="0"></div></div>
           <div><div class="ec-lb"><span>Остаток вождения, ч</span><span class="ec-lmax"></span></div>
           <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-lf-n" class="ec-hm" inputmode="numeric" value="18:00" title="ЧЧ:ММ · ↑ ↓ — шаг 15 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+15 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−15 мин">▾</button></span></span><input type="range" id="ec-lf-r" min="0" max="18" step="0.25" value="18"></div></div></div>
@@ -221,6 +221,7 @@ const EtaCalc = (() => {
       setLf(s.left_h || 0);
       setSh(s.shift_h || 0);
       st.startMs = s.used_h > 0 ? Date.now() - s.used_h * 3600000 : null;   // v3.106: окно смены уже идёт
+      st.standH = s.stand_h || 0;   // v3.125: сколько уже стоит
       if (!st.team) {
         st.rest = 9;   // v3.85: 0 сокращённых — это «9 ч, остаток 0» (до недельного 11 ч), а не «11 ч»
         st.shorts = Math.max(0, Math.min(3, s.shorts || 0));
@@ -241,6 +242,7 @@ const EtaCalc = (() => {
     } else {
       setSh(0);
       st.startMs = null;
+      st.standH = 0;
       const nn = noSeedNote != null ? noSeedNote : "тахографа нет — состав и остаток прежние";
       if (nn) notes.push(nn);
     }
@@ -429,7 +431,7 @@ const EtaCalc = (() => {
     return {
       dist: Number($("#ec-km-n").value) || 0, shiftH: st.shH, leftH: st.lfH,
       team: st.team, rest: st.rest, shorts: st.shorts, wkLeft: Number($("#ec-wk-n").value),
-      extras: st.extras, shifts: st.shifts, ext: st.team ? [] : Array.from(st.ext), nowMs: Date.now(), shiftStartMs: st.startMs || null,
+      extras: st.extras, shifts: st.shifts, ext: st.team ? [] : Array.from(st.ext), nowMs: Date.now(), shiftStartMs: st.startMs || null, standH: st.standH || 0,
     };
   }
 
