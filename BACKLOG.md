@@ -188,6 +188,8 @@ _(на сервере v3.103; следующий билд — после `//ко
 
 ## Напоминания (фикс-лист, `//напомни`, `//Как у вас?`)
 
+- **Вход JZ (15.10 11:40): правильный адрес — `jzemesarajs@gmail.com` (без точки).** IAP не пускал: в списке IAP его нет («You don't have access»); в листе «Диспетчеры» стоит `j.zemesarajs@gmail.com` (с точкой). Нужно руками: (1) Cloud Shell: `gcloud iap web add-iam-policy-binding --member=user:jzemesarajs@gmail.com --role=roles/iap.httpsResourceAccessor --region=europe-west1 --resource-type=cloud-run --service=fleet-eta-tracker` (доступ через 5–10 мин); (2) в листе «Диспетчеры» заменить адрес на `jzemesarajs@gmail.com`; (3) трипы, назначенные JZ со старым адресом (`row.disp`), останутся без метки — переназначить или сделать сопоставление адресов нечувствительным к точкам Gmail (предложено, не решено: `canonEmail` — без точек и `+tag` в локальной части для gmail.com, в `dispatchers.js` и `dispatchers.py`). Резервные списки диспетчеров в коде (`dispatchers.py`, `dispatchers.js`) исправлены локально, уйдут со следующим `//кодим`.
+
 - **Апгрейд Google Cloud до ~21.12.2026** — my-n8n-bot на free trial, без апгрейда Cloud Run может встать.
   Решено 08.10 — платный аккаунт (вариант 1), всё остаётся как есть. Чек-лист (в консоли, без кода):
   (1) Billing → «Activate full account» / «Upgrade»; (2) бюджет-алерт ~$10 / мес.; (3) дневная квота Compute Routes ~600;

@@ -14,7 +14,7 @@ DISP_TTL_SEC = 600   # перечитываем лист не чаще раза 
 DEFAULT_DISPATCHERS = [
     {"email": "vladimirs.head@gmail.com", "tag": "VL", "color": "#ebebeb", "assign": True},
     {"email": "vadims@gmail.com", "tag": "VJ", "color": "#fde6cc", "assign": False},
-    {"email": "j.zemesarajs@gmail.com", "tag": "JZ", "color": "#eceefc", "assign": False},
+    {"email": "jzemesarajs@gmail.com", "tag": "JZ", "color": "#eceefc", "assign": False},
     {"email": "jekaterina@gmail.com", "tag": "JB", "color": "#dcf1e0", "assign": False},
     {"email": "antons@gmail.com", "tag": "AA", "color": "#ffffff", "assign": False},
     {"email": "ladins@gmail.com", "tag": "VV", "color": "#e8dcf7", "assign": False},
