@@ -244,12 +244,12 @@
   S.lockSig = "";
   S.admin = false;
   const serverNow = () => Date.now() + (S.skew || 0);
-  const me = () => String(S.user || "").toLowerCase();
+  const me = () => canonEmail(S.user);
 
   window.fleetLockedBy = function (id) {
     if (S.mode !== "server") return "";
     const m = S.meta[key(id)];
-    if (!m || !m.lock_by || String(m.lock_by).toLowerCase() === me()) return "";
+    if (!m || !m.lock_by || canonEmail(m.lock_by) === me()) return "";
     return (m.lock_until || 0) > serverNow() ? m.lock_by : "";
   };
   function lockSig() {
@@ -258,9 +258,9 @@
   window.fleetCanDelete = function (row) {
     if (S.mode !== "server" || S.admin) return true;
     const m = S.meta[key(row.id)];
-    const created = String((m && m.created_by) || "").toLowerCase();
+    const created = canonEmail((m && m.created_by) || "");
     if (!created || created === "local") return true;
-    const disp = String(row.disp || created).toLowerCase();
+    const disp = canonEmail(row.disp || created);
     return me() === created || me() === disp;
   };
 
@@ -402,7 +402,7 @@
     if (S.mode !== "server" || !row) return false;
     if (S.admin || S.canAssign) return true;
     const m = S.meta[key(row.id)];
-    const owner = String(row.disp || (m && m.created_by) || "").toLowerCase();
+    const owner = canonEmail(row.disp || (m && m.created_by) || "");
     return !owner || owner === "local" || owner === me();
   };
   window.fleetComplete = async function (id) {

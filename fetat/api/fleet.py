@@ -7,6 +7,7 @@ from flask import Blueprint, jsonify, request
 
 from fetat.api.meta import current_user_email
 from fetat.config import FLEET_ADMINS
+from fetat.utils.text import canon_email
 from fetat.domain.dispatchers import _disp_cache, can_assign, get_dispatchers
 from fetat.domain.presence import presence_tags
 from fetat.store.fleet_store import (
@@ -215,8 +216,8 @@ def _check_disp_change(user, rid, new_disp):
     d = FLEET_STORE.get(rid)
     if d is None:
         return
-    cur = str(d["data"].get("disp") or d["meta"].get("created_by") or "").lower()
-    if str(new_disp or "").lower() == cur:
+    cur = canon_email(d["data"].get("disp") or d["meta"].get("created_by"))
+    if canon_email(new_disp) == cur:
         return
     if not can_assign(user):
         raise PermissionError("назначать диспетчера строки может только назначающий (см. лист «Диспетчеры»)")

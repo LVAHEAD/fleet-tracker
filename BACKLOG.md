@@ -188,7 +188,7 @@ _(на сервере v3.103; следующий билд — после `//ко
 
 ## Напоминания (фикс-лист, `//напомни`, `//Как у вас?`)
 
-- **Вход JZ (15.10 11:40): правильный адрес — `jzemesarajs@gmail.com` (без точки).** IAP не пускал: в списке IAP его нет («You don't have access»); в листе «Диспетчеры» стоит `j.zemesarajs@gmail.com` (с точкой). Нужно руками: (1) Cloud Shell: `gcloud iap web add-iam-policy-binding --member=user:jzemesarajs@gmail.com --role=roles/iap.httpsResourceAccessor --region=europe-west1 --resource-type=cloud-run --service=fleet-eta-tracker` (доступ через 5–10 мин); (2) в листе «Диспетчеры» заменить адрес на `jzemesarajs@gmail.com`; (3) трипы, назначенные JZ со старым адресом (`row.disp`), останутся без метки — переназначить или сделать сопоставление адресов нечувствительным к точкам Gmail (предложено, не решено: `canonEmail` — без точек и `+tag` в локальной части для gmail.com, в `dispatchers.js` и `dispatchers.py`). Резервные списки диспетчеров в коде (`dispatchers.py`, `dispatchers.js`) исправлены локально, уйдут со следующим `//кодим`.
+- **Вход JZ (15.10 11:40): правильный адрес — `jzemesarajs@gmail.com` (без точки).** IAP не пускал: в списке IAP его нет («You don't have access»); в листе «Диспетчеры» стоит `j.zemesarajs@gmail.com` (с точкой). Нужно руками: (1) Cloud Shell: `gcloud iap web add-iam-policy-binding --member=user:jzemesarajs@gmail.com --role=roles/iap.httpsResourceAccessor --region=europe-west1 --resource-type=cloud-run --service=fleet-eta-tracker` (доступ через 5–10 мин); (2) в листе «Диспетчеры» заменить адрес на `jzemesarajs@gmail.com`; (3) трипы, назначенные JZ со старым адресом (`row.disp`), останутся без метки — переназначить или сделать сопоставление адресов нечувствительным к точкам Gmail (РЕШЕНО 15.10, сделано локально, ждёт `//кодим`: `canon_email` — без точек и `+tag` в локальной части для gmail.com, в `dispatchers.js` и `dispatchers.py`). Резервные списки диспетчеров в коде (`dispatchers.py`, `dispatchers.js`) исправлены локально, уйдут со следующим `//кодим`.
 
 - **Апгрейд Google Cloud до ~21.12.2026** — my-n8n-bot на free trial, без апгрейда Cloud Run может встать.
   Решено 08.10 — платный аккаунт (вариант 1), всё остаётся как есть. Чек-лист (в консоли, без кода):
@@ -311,3 +311,5 @@ _(на сервере v3.103; следующий билд — после `//ко
 - «Трип в прошлом» (04.10 #3) — глюк у Владимира, не баг.
 - «У экипажа 9694 один водитель» (05.10) — случайный клик по 👥 → «соло вручную» (пунктирная рамка); в соло подсказка
   показывает только первое имя. Защиту от случайного клика / ⚠ «соло вручную, а карт две» — решили не делать.
+
+- **НекстБилд (без номера):** e-mail Gmail сравниваются без учёта точек и `+tag` (`canon_email` в `fetat/utils/text.py`, `canonEmail` в `static/dispatchers.js`): вход, админы, диспетчеры, права на строки, блокнот. Тест `tests/test_canon_email.py`. Проверить руками: под аккаунтом JZ `/api/me` отдаёт `jzemesarajs@gmail.com`, старые трипы с `j.zemesarajs@…` показываются с меткой JZ.

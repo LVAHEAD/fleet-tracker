@@ -7,6 +7,7 @@ import time
 
 from fetat.clients.sheets import read_sheet_values
 from fetat.config import DISP_SHEET, FLEET_ADMINS
+from fetat.utils.text import canon_email
 
 DISP_TTL_SEC = 600   # перечитываем лист не чаще раза в 10 минут
 
@@ -55,7 +56,7 @@ def parse_dispatchers(values):
     out, seen = [], set()
     for r in values[1:]:
         cell = lambda c: str(r[c]).strip() if c is not None and c < len(r) else ""
-        email = cell(ce).lower()
+        email = canon_email(cell(ce))
         if "@" not in email or email in seen:
             continue
         seen.add(email)
@@ -83,7 +84,7 @@ def get_dispatchers(force=False):
 
 def can_assign(user):
     """Может ли пользователь менять диспетчера строки: админ или «Назначает = да» в листе."""
-    u = str(user or "").strip().lower()
+    u = canon_email(user)
     if not u or u == "local":
         return u == "local"   # локальный запуск без IAP
     if u in FLEET_ADMINS:

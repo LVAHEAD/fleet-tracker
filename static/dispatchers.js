@@ -23,14 +23,22 @@ function rowPassesOwn(row) {
   if (ownFilter === "mine") return !fleetMe() || !meInSheet() || d === fleetMe();   // v3.15: нет в листе — «мои» = все
   return d === ownFilter;
 }
+// v3.127: e-mail для сравнения — у Gmail точки и «+метка» не различаются (как canon_email на сервере)
+function canonEmail(e) {
+  const s = String(e || "").trim().toLowerCase();
+  const i = s.lastIndexOf("@");
+  if (i < 0) return s;
+  const dom = s.slice(i + 1);
+  return dom === "gmail.com" || dom === "googlemail.com" ? s.slice(0, i).split("+")[0].replace(/\./g, "") + "@gmail.com" : s;
+}
 function fleetMe() {
   const u = window.fleetSync && window.fleetSync.mode === "server" ? window.fleetSync.user : "";
-  return u && u !== "local" ? String(u).toLowerCase() : "";
+  return u && u !== "local" ? canonEmail(u) : "";
 }
 function rowDisp(row) {
-  if (row.disp) return String(row.disp).toLowerCase();
+  if (row.disp) return canonEmail(row.disp);
   const m = window.fleetSync && window.fleetSync.meta[String(row.id)];
-  return m && m.created_by && m.created_by !== "local" ? String(m.created_by).toLowerCase() : "";
+  return m && m.created_by && m.created_by !== "local" ? canonEmail(m.created_by) : "";
 }
 const dispShort = (u) => String(u || "").split("@")[0].split(".")[0].slice(0, 12);
 function knownDispatchers() {
@@ -39,7 +47,7 @@ function knownDispatchers() {
   rows.forEach((r) => { const d = rowDisp(r); if (d) set.add(d); });
   const meta = (window.fleetSync && window.fleetSync.meta) || {};
   Object.values(meta).forEach((m) => {
-    [m.created_by, m.updated_by].forEach((u) => { if (u && u !== "local") set.add(String(u).toLowerCase()); });
+    [m.created_by, m.updated_by].forEach((u) => { if (u && u !== "local") set.add(canonEmail(u)); });
   });
   const order = new Map(DISP_LIST.map((d, i) => [d.email, i]));
   return Array.from(set).sort((a, b) => (order.has(a) ? order.get(a) : 99) - (order.has(b) ? order.get(b) : 99) || (a < b ? -1 : 1));
@@ -52,7 +60,7 @@ let DISP_LIST = [
   { email: "antons@gmail.com", tag: "AA", color: "#ffffff" }, { email: "ladins@gmail.com", tag: "VV", color: "#e8dcf7" },
 ];
 function dispEntry(u) {
-  const e = String(u || "").toLowerCase();
+  const e = canonEmail(u);
   if (!e) return null;
   // v3.97: главный источник — лист «Диспетчеры»; сопоставление только по точному e-mail (без угадывания по короткому имени)
   return DISP_LIST.find((d) => d.email === e) || null;
@@ -119,7 +127,7 @@ function resolveMine() {
 function loadDispatchers() {
   fetch("/api/dispatchers").then((r) => r.json()).then((d) => {
     if (!d || !d.ok) return;
-    if (d.dispatchers && d.dispatchers.length) DISP_LIST = d.dispatchers;
+    if (d.dispatchers && d.dispatchers.length) DISP_LIST = d.dispatchers.map((x) => Object.assign({}, x, { email: canonEmail(x.email) }));
     DISP_LOADED = true;
     if (window.fleetSync) window.fleetSync.canAssign = !!d.can_assign;
     applyDispColors();

@@ -29,7 +29,7 @@ class DispatchersTest(unittest.TestCase):
 
     def test_parse(self):
         lst = dp.get_dispatchers(force=True)
-        self.assertEqual([d["email"] for d in lst], ["vladimirs.head@gmail.com", "janis@gmail.com", "antons@gmail.com"])
+        self.assertEqual([d["email"] for d in lst], ["vladimirshead@gmail.com", "janis@gmail.com", "antons@gmail.com"])
         self.assertEqual(lst[1]["tag"], "JZ")
         self.assertEqual(lst[1]["color"], "#eceefc")
         self.assertEqual(lst[2]["color"], "#ffffff")

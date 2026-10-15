@@ -8,6 +8,7 @@ import re
 from fetat.clients.firestore import (FLEET_META_FIELDS, FS_BASE, _fs_check, _fs_decode, fs_delete, fs_get, fs_query,
                                     fs_request, fs_set)
 from fetat.config import FLEET_ADMINS
+from fetat.utils.text import canon_email
 
 
 # Документ коллекции fleet_rows = одна строка Флота. Поля строки лежат в map "data" как JSON-строки
@@ -108,13 +109,13 @@ FLEET_LOCK_MS = 60 * 1000
 
 
 def _fleet_can_delete(user, d):
-    if user in FLEET_ADMINS:
+    if canon_email(user) in FLEET_ADMINS:
         return True
-    created = str(d["meta"].get("created_by") or "").lower()
-    disp = str(d["data"].get("disp") or "").lower()
+    created = canon_email(d["meta"].get("created_by"))
+    disp = canon_email(d["data"].get("disp"))
     if not created or created == "local":
         return True
-    return user.lower() in (created, disp)
+    return canon_email(user) in (created, disp)
 
 
 def _fleet_row_out(d):
@@ -157,10 +158,10 @@ CHG_MAX = 60
 
 def fleet_owner(d):
     """Хозяин трипа: диспетчер строки, иначе создатель."""
-    disp = str((d.get("data") or {}).get("disp") or "").lower()
+    disp = canon_email((d.get("data") or {}).get("disp"))
     if disp:
         return disp
-    c = str((d.get("meta") or {}).get("created_by") or "").lower()
+    c = canon_email((d.get("meta") or {}).get("created_by"))
     return "" if c == "local" else c
 
 

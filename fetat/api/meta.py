@@ -7,6 +7,7 @@ from flask import Blueprint, jsonify, render_template, request
 
 from fetat import APP_VERSION
 from fetat.config import NOTES_TAB_USERS
+from fetat.utils.text import canon_email
 from fetat.clients.google_routes import (_quota_day, _route_stats, read_route_stats, read_route_stats_days,
                                          ROUTES_FREE_MONTH, hourly_from_stats, own_forecast)
 from fetat.clients.monitoring import _gusage_cache, _monitoring_sum, monitoring_series, monitoring_token
@@ -20,7 +21,7 @@ bp = Blueprint("meta", __name__)
 # Без IAP (локально / до включения) — None. Заголовку можно верить только за IAP.
 def current_user_email():
     v = request.headers.get("X-Goog-Authenticated-User-Email") or ""
-    v = v.split(":", 1)[-1].strip().lower()
+    v = canon_email(v.split(":", 1)[-1])   # v3.127: Gmail без точек и «+метки»
     return v or None
 
 
@@ -29,7 +30,7 @@ def index():
     """Главная страница аппы (Флот, From → To, Локатор, Справка)."""
     email = current_user_email()
     # локальный запуск (без IAP) — видно всем; в проде — только NOTES_TAB_USERS
-    show_notes = email is None or email.lower() in NOTES_TAB_USERS
+    show_notes = email is None or canon_email(email) in NOTES_TAB_USERS
     return render_template("index.html", google_maps_js_key=GOOGLE_MAPS_JS_KEY, app_version=APP_VERSION,
                            user_email=email, show_notes=show_notes)
 

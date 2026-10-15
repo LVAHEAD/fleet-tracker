@@ -14,6 +14,7 @@ from fetat import APP_VERSION
 from fetat.api.meta import current_user_email
 from fetat.clients.firestore import fs_delete, fs_get, fs_insert, fs_query, fs_update
 from fetat.config import FLEET_ADMINS
+from fetat.utils.text import canon_email
 
 bp = Blueprint("notebook", __name__)
 
@@ -37,7 +38,7 @@ def _now():
 
 
 def _can_edit(user, author):
-    return bool(user) and (user == author or user in FLEET_ADMINS)
+    return bool(user) and (canon_email(user) == canon_email(author) or canon_email(user) in FLEET_ADMINS)
 
 
 def _norm(rec, user):
