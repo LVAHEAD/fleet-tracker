@@ -81,8 +81,13 @@ function openTrailerEditor(id, anchor) {
   document.body.appendChild(trlEd);
   const r = anchor.getBoundingClientRect();
   const z = uiZoom();
-  trlEd.style.top = Math.min(window.innerHeight - trlEd.offsetHeight * z - 8, r.bottom + 4) / z + "px";
-  trlEd.style.left = Math.max(8, r.right - trlEd.offsetWidth * z) / z + "px";
+  // v3.128: позицию пересчитываем и после появления «ближайших» / ошибки — иначе кнопки уезжают за низ экрана
+  const place = () => {
+    if (!trlEd) return;
+    trlEd.style.top = Math.max(8, Math.min(window.innerHeight - trlEd.offsetHeight * z - 8, r.bottom + 4)) / z + "px";
+    trlEd.style.left = Math.max(8, r.right - trlEd.offsetWidth * z) / z + "px";
+  };
+  place();
   const inp = trlEd.querySelector(".trl-ed-in");
   const err = trlEd.querySelector(".trl-ed-err");
   // v1.72: ближайший по GPS — сразу в поле, ещё два — кнопками под полем
@@ -96,7 +101,7 @@ function openTrailerEditor(id, anchor) {
     .then((d) => {
       if (trlEd !== edNow) return;
       const items = (d && d.items) || [];
-      if (!items.length) { near.textContent = d && d.error ? d.error : "рядом никого не нашёл"; return; }
+      if (!items.length) { near.textContent = d && d.error ? d.error : "рядом никого не нашёл"; place(); return; }
       if (!inp.value.trim() || inp.dataset.auto) {
         inp.value = items[0].number;
         inp.dataset.auto = "1";
@@ -110,6 +115,7 @@ function openTrailerEditor(id, anchor) {
         inp.dataset.auto = "";
         inp.focus();
       }));
+      place();
     })
     .catch(() => { if (trlEd === edNow) near.textContent = ""; });
   else near.textContent = "";
@@ -125,6 +131,7 @@ function openTrailerEditor(id, anchor) {
     if ((unitsCache || []).length && !hit) {
       err.textContent = forTrailer ? "Такого тягача нет в группе машин" : "Такого прицепа нет в Mapon";
       err.hidden = false;
+      place();
       return;
     }
     closeTrailerEditor();
