@@ -24,7 +24,7 @@ from fetat.utils.timefmt import ceil_15min, format_duration
 from fetat.utils.log import warn
 
 
-UNLOAD_STOP_SEC = 0         # v3.39: стоянка на точке не учитывается — чистые км / время (было 30 мин)
+UNLOAD_STOP_SEC = 30 * 60    # стоянка на каждой пройденной точке цепочки — 30 мин по умолчанию (15.10; в v3.39 было 0, до того 30 мин)
 
 
 def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
