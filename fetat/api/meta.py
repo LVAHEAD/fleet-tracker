@@ -26,6 +26,7 @@ def current_user_email():
 
 @bp.route("/")
 def index():
+    """Главная страница аппы (Флот, From → To, Локатор, Справка)."""
     email = current_user_email()
     # локальный запуск (без IAP) — видно всем; в проде — только NOTES_TAB_USERS
     show_notes = email is None or email.lower() in NOTES_TAB_USERS
@@ -35,11 +36,13 @@ def index():
 
 @bp.route("/api/me")
 def api_me():
+    """Под каким аккаунтом вошёл (e-mail из IAP)."""
     return jsonify({"email": current_user_email(), "iap": current_user_email() is not None})
 
 
 @bp.route("/api/google-usage")
 def api_google_usage():
+    """Счётчик запросов к Google Routes (JSON): сутки, месяц, прогноз."""
     import time
     now = time.time()
     if _gusage_cache["data"] and now - _gusage_cache["at"] < 600 and request.args.get("refresh") != "1":
@@ -102,6 +105,7 @@ _gseries_cache = {"at": 0.0, "data": None, "error": None}
 
 @bp.route("/gusage")
 def gusage_page():
+    """Страница «Лог запросов к Google по суткам и часам»."""
     return render_template("gusage.html", app_version=APP_VERSION, user_email=current_user_email())
 
 
@@ -183,6 +187,7 @@ _changelog_cache = {"mtime": None, "items": None}
 
 @bp.route("/api/changelog")
 def api_changelog():
+    """История версий из CHANGELOG.md (JSON, для вкладки [.])."""
     # v3.67: разбор CHANGELOG.md — один раз на изменение файла, а не на каждый запрос
     try:
         mtime = os.path.getmtime(CHANGELOG_PATH)
@@ -192,3 +197,75 @@ def api_changelog():
         _changelog_cache["items"] = parse_changelog(read_changelog())
         _changelog_cache["mtime"] = mtime
     return jsonify({"version": APP_VERSION, "items": _changelog_cache["items"]})
+
+
+# ---------- v3.126: статистика рефрешей и список эндпоинтов для Справки ----------
+_REFRESH_LOG = []          # последние проходы расчёта Флота (память воркера; постоянная история — только строки [refresh] в логе)
+_REFRESH_MAX = 200
+_REFRESH_KINDS = ("open", "auto", "manual")
+
+
+def _num(v, lo, hi, nd=1):
+    try:
+        return round(min(hi, max(lo, float(v))), nd)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+@bp.route("/api/refresh-stat", methods=["POST"])
+def api_refresh_stat_post():
+    """Страница сообщает, сколько заняло обновление Флота: тип (open / auto / manual), машин всего и видимых,
+    секунды видимого и полного прохода, самая медленная машина. Пишет строку [refresh] в лог."""
+    b = request.get_json(force=True, silent=True) or {}
+    kind = b.get("kind") if b.get("kind") in _REFRESH_KINDS else "manual"
+    rec = {"t": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"), "kind": kind,
+           "rows": int(_num(b.get("rows"), 0, 500, 0)), "vis": int(_num(b.get("rows_visible"), 0, 500, 0)),
+           "sec_vis": _num(b.get("sec_visible"), 0, 3600), "sec": _num(b.get("sec_full"), 0, 3600),
+           "slow": re.sub(r"[^\w .\-]", "", str(b.get("slowest_unit") or ""))[:20],
+           "slow_sec": _num(b.get("slowest_sec"), 0, 3600)}
+    _REFRESH_LOG.append(rec)
+    del _REFRESH_LOG[:-_REFRESH_MAX]
+    print(f"[refresh] kind={kind} rows={rec['rows']} vis={rec['vis']} sec_vis={rec['sec_vis']} sec={rec['sec']} "
+          f"slowest={rec['slow']}/{rec['slow_sec']}", flush=True)
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/refresh-stat")
+def api_refresh_stat():
+    """Статистика обновлений Флота: таблица последних 200 проходов и средние по типам (в памяти воркера;
+    сбрасывается при рестарте). ?json=1 — те же данные JSON."""
+    log = list(_REFRESH_LOG)
+    avg = {}
+    for k in _REFRESH_KINDS:
+        xs = [r for r in log if r["kind"] == k]
+        if xs:
+            avg[k] = {"n": len(xs), "rows": round(sum(r["rows"] for r in xs) / len(xs), 1),
+                      "sec_vis": round(sum(r["sec_vis"] for r in xs) / len(xs), 1),
+                      "sec": round(sum(r["sec"] for r in xs) / len(xs), 1)}
+    if request.args.get("json") == "1":
+        return jsonify({"ok": True, "avg": avg, "log": log})
+    th = "<tr>" + "".join(f"<th>{h}</th>" for h in ("Время (UTC)", "Тип", "Машин", "Видимых", "Видимые, с", "Полный, с", "Самая медленная")) + "</tr>"
+    body = "".join(f"<tr><td>{r['t']}</td><td>{r['kind']}</td><td>{r['rows']}</td><td>{r['vis']}</td><td>{r['sec_vis']}</td>"
+                   f"<td>{r['sec']}</td><td>{r['slow']} / {r['slow_sec']} с</td></tr>" for r in reversed(log))
+    av = "".join(f"<tr><td>{k}</td><td>{v['n']}</td><td>{v['rows']}</td><td>{v['sec_vis']}</td><td>{v['sec']}</td></tr>"
+                 for k, v in avg.items()) or "<tr><td colspan=5>пока нет данных</td></tr>"
+    html = ("<!doctype html><meta charset=utf-8><title>Обновления Флота</title>"
+            "<style>body{font:14px system-ui;margin:24px}table{border-collapse:collapse;margin-bottom:24px}"
+            "td,th{border:1px solid #c9d6ee;padding:4px 10px;text-align:left}th{background:#2f6fd6;color:#fff}</style>"
+            "<h3>Средние по типам</h3><table><tr><th>Тип</th><th>Проходов</th><th>Машин</th><th>Видимые, с</th><th>Полный, с</th></tr>"
+            f"{av}</table><h3>Последние проходы</h3><table>{th}{body}</table>")
+    return html
+
+
+@bp.route("/api/endpoints")
+def api_endpoints():
+    """Список эндпоинтов аппы с описанием (из докстрингов) — для вкладки [.] Справка."""
+    from flask import current_app
+    out = []
+    for r in current_app.url_map.iter_rules():
+        if r.endpoint == "static":
+            continue
+        doc = (current_app.view_functions[r.endpoint].__doc__ or "").strip().split("\n")[0]
+        out.append({"path": r.rule, "methods": sorted(r.methods - {"HEAD", "OPTIONS"}), "doc": doc})
+    out.sort(key=lambda x: (x["path"], x["methods"]))
+    return jsonify({"ok": True, "endpoints": out})

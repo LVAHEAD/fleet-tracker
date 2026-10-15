@@ -6,6 +6,7 @@
 /api/corridors POST
 /api/dispatchers GET
 /api/done-debug GET
+/api/endpoints GET
 /api/eta-plan POST
 /api/fleet GET
 /api/fleet/complete POST
@@ -34,6 +35,8 @@
 /api/notebook/<rid>/comments POST
 /api/notebook/<rid>/comments/<cid> DELETE
 /api/presence GET
+/api/refresh-stat GET
+/api/refresh-stat POST
 /api/region-codes GET
 /api/route POST
 /api/truck-info GET

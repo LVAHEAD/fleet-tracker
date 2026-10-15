@@ -120,4 +120,15 @@ Fleet ETA Tracker — вкладка [.] (блокнот)
     refreshBtn.disabled = false;
     refreshBtn.textContent = "↻ Обновить базу";
   });
+
+  // v3.126: список эндпоинтов с описанием — из докстрингов сервера (/api/endpoints), всегда актуальный
+  const epEl = document.getElementById("endpoints");
+  if (epEl) {
+    fetch("/api/endpoints").then((r) => r.json()).then((d) => {
+      const list = d.endpoints || [];
+      document.getElementById("endpointsCount").textContent = list.length + " шт.";
+      epEl.innerHTML = list.map((e) =>
+        `<div class="ep-row"><code>${esc(e.methods.join(","))} ${esc(e.path)}</code> — ${esc(e.doc)}</div>`).join("");
+    }).catch(() => { epEl.textContent = "Не загрузилось"; });
+  }
 })();

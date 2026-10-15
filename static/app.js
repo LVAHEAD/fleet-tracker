@@ -1440,6 +1440,7 @@ async function calcRow(id, why) {
     statusCell.textContent = "Ошибка запроса";
   } finally {
     tr.classList.remove("calc-busy");   // v3.124
+    rowCalcAt[id] = Date.now();         // v3.126: фон ↻ пропускает свежие строки
   }
 }
 
@@ -1567,24 +1568,59 @@ function updateAutoTip() {
   const t = lastCalcAt ? new Date(lastCalcAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : "";
   lbl.title = lbl.dataset.tipBase + (t ? "\nПоследнее обновление: " + t : "");
 }
+// v3.126: ↻ — сначала строки на экране (прошли фильтры), остальные в фоне по 2 за раз; свежие (< 2 мин) в фоне пропускаются
+const rowCalcAt = {};
+const BG_FRESH_MS = 2 * 60 * 1000;
+let bgToken = 0;
 function calcAllRows(opts) {
-  // v3.20: ход обновления на кнопке ↻ — «12/30»
+  const kind = (opts && opts.auto) ? "auto" : ((opts && opts.kind) || "manual");
   const todo = rows.filter((r) => r.unit);
+  const vis = todo.filter((r) => rowPassesFilter(r));
+  const rest = todo.filter((r) => !vis.includes(r));
+  const token = ++bgToken;   // новый проход отменяет фон предыдущего
   const btns = document.querySelectorAll(".bar-refresh");   // v3.43: верхняя и нижняя панель
-  let left = todo.length;
+  let left = vis.length;
   const show = () => {
     btns.forEach((btn) => {
-      btn.textContent = left > 0 ? `↻ ${todo.length - left}/${todo.length}` : "↻";
+      btn.textContent = left > 0 ? `↻ ${vis.length - left}/${vis.length}` : "↻";
       btn.classList.toggle("busy", left > 0);
     });
   };
   show();
-  const jobs = todo.map((r) => Promise.resolve(calcRow(r.id, opts && opts.auto ? "auto" : "all"))
-    .finally(() => { left -= 1; show(); }));
+  const t0 = performance.now();
+  let slow = { unit: "", sec: 0 };
+  const run = (r) => {
+    const t1 = performance.now();
+    return Promise.resolve(calcRow(r.id, kind === "auto" ? "auto" : "all")).finally(() => {
+      const sec = (performance.now() - t1) / 1000;
+      if (sec > slow.sec) slow = { unit: r.unit, sec };
+    });
+  };
+  const jobs = vis.map((r) => run(r).finally(() => { left -= 1; show(); }));
   // v1.53: после "Обновить всё" (и загрузки) — пересортировать по выбранному режиму;
   // v1.59: автообновление строки не переставляет
-  const resortAfter = !(opts && opts.auto);
-  return Promise.allSettled(jobs).then(() => { lastCalcAt = Date.now(); updateAutoTip(); if (resortAfter) resort(); });
+  const resortAfter = kind !== "auto";
+  return Promise.allSettled(jobs).then(() => {
+    const secVis = (performance.now() - t0) / 1000;
+    lastCalcAt = Date.now(); updateAutoTip(); if (resortAfter) resort();
+    // фон: невидимые строки, не свежие; при смене фильтра ставшие видимыми идут первыми
+    const queue = rest.filter((r) => Date.now() - (rowCalcAt[r.id] || 0) > BG_FRESH_MS);
+    const worker = async () => {
+      while (queue.length && token === bgToken) {
+        const i = queue.findIndex((r) => rowPassesFilter(r));
+        await run(queue.splice(i >= 0 ? i : 0, 1)[0]);
+      }
+    };
+    Promise.allSettled([worker(), worker()]).then(() => {
+      if (token !== bgToken) return;   // проход вытеснен новым — не считаем
+      const secFull = (performance.now() - t0) / 1000;
+      try {
+        fetch("/api/refresh-stat", { method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
+          body: JSON.stringify({ kind, rows: todo.length, rows_visible: vis.length, sec_visible: secVis, sec_full: secFull,
+                                 slowest_unit: slow.unit, slowest_sec: slow.sec }) }).catch(() => {});
+      } catch (e) { /* статистика не критична */ }
+    });
+  });
 }
 
 // ---------- v1.59: автообновление Флота; v1.64: период на выбор — выкл / 15 / 30 / 60 мин ----------
@@ -1797,7 +1833,7 @@ document.getElementById("add-row-btn").addEventListener("click", () => {
   renderRows();
 });
 
-document.getElementById("refresh-btn").addEventListener("click", calcAllRows);
+document.getElementById("refresh-btn").addEventListener("click", () => calcAllRows({ kind: "manual" }));
 
 // --- Переключение вкладок (Флот / Карты стран / From → To) ---
 let routeTabShown = false;
@@ -1836,7 +1872,7 @@ loadAddressList(false);
   if (top && main) top.addEventListener("click", () => main.click());
 })();
 // v2.00: общий Флот — сначала загрузка с сервера (там же calcAllRows), без сервера — как раньше
-if (window.fleetSync) window.fleetSync.start(); else calcAllRows();
+if (window.fleetSync) window.fleetSync.start(); else calcAllRows({ kind: "open" });
 
 // v3.11: диспетчеры из листа
 applyDispColors();

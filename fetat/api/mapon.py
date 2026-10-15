@@ -72,6 +72,7 @@ def _find_unit(q_raw):
 
 @bp.route("/api/truck-info")
 def api_truck_info():
+    """Truck Info: данные машины из Mapon (GET, по номеру)."""
     if not MAPON_API_KEY:
         return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
     try:

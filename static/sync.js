@@ -568,7 +568,7 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(rows)); } catch (e) { /* ignore */ }
     if (window.fleetMarkBar) window.fleetMarkBar();   // v2.01: кнопки "Мои / Все"
     renderRows();
-    calcAllRows();
+    calcAllRows({ kind: "open" });
   }
 
   S.start = async function () {
@@ -586,7 +586,7 @@
       S.mode = "local";
       rows = localRows;
       renderRows();
-      calcAllRows();
+      calcAllRows({ kind: "open" });
       setStatus("local", e.message);
       return;
     }

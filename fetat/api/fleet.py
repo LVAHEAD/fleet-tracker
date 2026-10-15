@@ -311,6 +311,7 @@ def api_fleet_trash():
 
 @bp.route("/api/fleet/restore", methods=["POST"])
 def api_fleet_restore():
+    """Восстановить строку Флота из корзины."""
     body = request.get_json(force=True, silent=True) or {}
     user, now = _fleet_user(), _now_ms()
     try:
