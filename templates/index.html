@@ -27,6 +27,7 @@
   <button class="main-tab-btn ref-tab" data-tab="ferries" data-wip>Паромы</button>
   <button class="main-tab-btn ref-tab" data-tab="truckinfo" data-wip>Truck Info</button>
   <button class="main-tab-btn ref-tab{% if not show_notes %} notes-hidden{% endif %}" data-tab="notes" title="Блокнот">[.]</button>
+  {% if show_notes %}<button id="fuel-btn" class="fuel-btn" type="button" title="АЗС: список из инструкции по заправкам и группа Mapon «Actual Petrol Station» (только чтение)">⛽</button>{% endif %}
   <a id="g-usage" class="g-usage" href="/gusage" target="_blank" rel="noopener" title="Запросы к Google Routes">G …</a>
 </nav>
 
@@ -367,6 +368,7 @@
 <script src="{{ url_for('static', filename='links-panel.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='truckinfo.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='gusage.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='fuel-btn.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='changelog.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='wip.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='mobile.js', v=app_version) }}"></script>

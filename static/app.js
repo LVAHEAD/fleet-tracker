@@ -651,6 +651,7 @@ function attachRowHandlers() {
         row.done = nd;
       }
       row.open = true;
+      shiftDoneFlags(id, k + 1, 1);   // v3.136: авто-✓ едут вместе с точками — строка не меняет L / O и не прячется фильтром
       delete lastCalcText[id];
       saveRows();
       renderRows();
@@ -965,6 +966,7 @@ function removeStop(id, k) {
   }
   if (!row.extra.length) delete row.extra;
   removeTargetMarker(id);
+  shiftDoneFlags(id, k, -1);   // v3.136: то же при удалении точки
   delete lastCalcText[id];
   saveRows();
   renderRows();
@@ -1364,6 +1366,7 @@ async function calcRow(id, why) {
                          ecSeed: data.calc_seed || null,
                          corridor: data.corridor || null,          // v3.32: плашка коридора ИТ ↔ Бенелюкс
                          nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };
+    lastDoneFlags[id] = lastCalcText[id].doneFlags;   // v3.136: запас для пересчёта после вставки / удаления точки
     applyDoneClasses(tr, row, lastCalcText[id]);
     // v3.81: трип стал «ждущим завершения» (или перестал) — поднять / опустить; не во время набора текста
     if (awaitsComplete(row) !== wasWait) {

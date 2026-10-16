@@ -20,7 +20,7 @@
   /* ---------- вкладки ---------- */
   .main-tabs { gap: 0; margin-bottom: 8px; align-items: stretch; }
   .main-tab-btn { padding: 10px 11px; font-size: 15px; white-space: nowrap; }
-  .main-tab-btn.ref-tab, .main-tab-btn[data-tab="gf"], .main-tabs .g-usage { display: none; }
+  .main-tab-btn.ref-tab, .main-tab-btn[data-tab="gf"], .main-tabs .g-usage, .main-tabs .fuel-btn { display: none; }
   .main-tab-btn.m-only { display: inline-block; }
   .tabs-more-wrap { display: flex; position: relative; margin-left: auto; }
   .tabs-more-btn { border: 0; background: transparent; font-size: 20px; line-height: 1; padding: 6px 14px; color: #666; border-bottom: 2px solid transparent; margin-bottom: -1px; border-radius: 0; }

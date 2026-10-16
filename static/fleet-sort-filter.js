@@ -119,11 +119,23 @@ function pointOf(row, k) {
   const x = row.extra && row.extra[k - 1];
   return x ? { lo: ptLo(x), delivery: x.delivery } : null;
 }
+// v3.136: последние известные авто-✓ строки. Пока lastCalcText сброшен (вставили / убрали точку, идёт пересчёт),
+// тип строки считается по ним — иначе пройденная ① на миг «открывалась», строка меняла L / O и пряталась фильтром.
+const lastDoneFlags = {};
+// после вставки (delta > 0) / удаления (delta < 0) точки с номером pos флаги сдвигаются вместе с точками
+function shiftDoneFlags(id, pos, delta) {
+  const c = lastCalcText[id];
+  const src = (c && c.doneFlags) || lastDoneFlags[id];
+  if (!Array.isArray(src)) return;
+  const fl = src.slice();
+  if (delta > 0) fl.splice(pos, 0, { done: false }); else fl.splice(pos, 1);
+  lastDoneFlags[id] = fl;
+}
 // индекс первой непройденной точки (ручные отметки row.done важнее авто), -1 — все пройдены
 function firstOpenIdx(row) {
   const n = 1 + (row.extra ? row.extra.length : 0);
   const c = lastCalcText[row.id];
-  const fl = c && c.doneFlags;
+  const fl = c ? c.doneFlags : lastDoneFlags[row.id];
   const man = row.done || {};
   for (let k = 0; k < n; k++) {
     const d = man[k] === true ? true : man[k] === false ? false : !!(fl && fl[k] && fl[k].done);
