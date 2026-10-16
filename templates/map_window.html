@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Карта Флота — F.ETA.T</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=app_version) }}">
+<style>
+html, body { margin: 0; height: 100%; overflow: hidden; background: #e8ecf3; }
+body.map-window #map { position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; }
+#mw-status { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 5; padding: 6px 14px; font: 13px/18px system-ui, sans-serif; color: #444; background: rgba(255,255,255,.95); border: 1px solid #d5dae3; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+#mw-status[hidden] { display: none; }
+</style>
+</head>
+<body class="map-window">
+<div id="map"></div>
+<div id="mw-status">Ждём основное окно Флота… Оно должно быть открыто в этом же браузере.</div>
+<script>window.IS_MAP_WINDOW = true; window.MAP_DISP_KEY = "fleet-map-disp-win"; window.APP_VER = "{{ app_version }}";</script>
+<script src="{{ url_for('static', filename='maps-common.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='zoom-badge.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='overlap-spider.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='map-disp-filter.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='map-core.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='map-window.js', v=app_version) }}"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_js_key }}&libraries=geometry&callback=initMap" async defer></script>
+</body>
+</html>

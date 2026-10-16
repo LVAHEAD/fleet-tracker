@@ -44,5 +44,6 @@
 /api/units GET
 /api/warm POST
 /gusage GET
+/map-window GET
 /notebook GET
 /static/<path:filename> GET

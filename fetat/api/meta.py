@@ -35,6 +35,13 @@ def index():
                            user_email=email, show_notes=show_notes)
 
 
+@bp.route("/map-window")
+def map_window():
+    """Карта Флота в отдельном окне (откреплённая, для второго монитора): данные приходят из основного окна через BroadcastChannel."""
+    return render_template("map_window.html", google_maps_js_key=GOOGLE_MAPS_JS_KEY, app_version=APP_VERSION,
+                           user_email=current_user_email())
+
+
 @bp.route("/api/me")
 def api_me():
     """Под каким аккаунтом вошёл (e-mail из IAP)."""

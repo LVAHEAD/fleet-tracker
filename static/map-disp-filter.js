@@ -6,7 +6,7 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
 Опирается на глобалы dispatchers.js (DISP_LIST, rowDisp, rowPassesOwn, fleetMe, escapeHtml, shadeHex) и map-core.js (fleetMapSync).
 */
 (function () {
-  const KEY = "fleet-map-disp";
+  const KEY = window.MAP_DISP_KEY || "fleet-map-disp";   // у откреплённого окна карты — свой ключ (map-window.js)
   let sel = "table";   // "table" | "all" | массив e-mail (канонических)
   try {
     const saved = localStorage.getItem(KEY);
@@ -66,7 +66,9 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
         return row(email, d.tag, on, `${d.tag}${email === me ? " (мои)" : ""} — включить / выключить на карте`,
           `--dc:${escapeHtml(c)}`);
       }).join("");
-    box.innerHTML = `<button type="button" class="mdf-btn" data-mdf-toggle="1" aria-expanded="${isOpen}" title="Чьи машины показывать на карте">Дисп.: ${escapeHtml(label())} ▾</button>`
+    const pop = (window.MapMirror && window.MapMirror.open && !window.IS_MAP_WINDOW && !window.matchMedia("(max-width: 767px)").matches)
+      ? `<button type="button" class="mdf-pop" data-mdf-pop="1" title="Открепить карту в отдельное окно (например, на второй монитор)">⧉</button>` : "";
+    box.innerHTML = `<span class="mdf-row"><button type="button" class="mdf-btn" data-mdf-toggle="1" aria-expanded="${isOpen}" title="Чьи машины показывать на карте">Дисп.: ${escapeHtml(label())} ▾</button>${pop}</span>`
       + `<div class="mdf-menu"${isOpen ? "" : " hidden"}>${items}</div>`;
   }
 
@@ -77,6 +79,7 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
 
   function onClick(e) {
     e.stopPropagation();
+    if (e.target.closest("[data-mdf-pop]")) { if (window.MapMirror) window.MapMirror.open(); return; }
     if (e.target.closest("[data-mdf-toggle]")) { setOpen(!isOpen); return; }
     const b = e.target.closest("button[data-mdf]");
     if (!b) return;
