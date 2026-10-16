@@ -148,7 +148,7 @@ function stripeRow(tr, row) {
   if (kind) tr.classList.add(`lo-row-${kind}`);
 }
 function rowPassesFilter(row) {
-  if (!row.unit) return true;
+  if (!row.unit) return rowPassesOwn(row);   // пустая строка — только у своего диспетчера (L / O и клиент к ней не относятся)
   if (!rowPassesOwn(row)) return false;   // v2.01 / v3.11
   if (awaitsComplete(row)) return true;   // v3.81: ждущие «✓ Завершён» видны при любом L/O и фильтре по клиентам, но не при чужом диспетчере
   if (!rowPassesClient(row)) return false;   // v3.114: фильтр по клиентам (client-filter.js)

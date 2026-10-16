@@ -1848,8 +1848,14 @@ function emptyOwnRow() {
 }
 
 document.getElementById("add-row-btn").addEventListener("click", () => {
-  rows.push(emptyRow());
+  const nr = emptyRow();
+  rows.push(nr);
   saveRows();
+  // пустая строка видна только своему диспетчеру: при чужом фильтре переключаемся на себя, иначе строка сразу пропадёт
+  if (!rowPassesOwn(nr)) {
+    const b = document.querySelector(`.own-flt button[data-own="${fleetMe()}"]`) || document.querySelector('.own-flt button[data-own="all"]');
+    if (b) b.click();
+  }
   renderRows();
 });
 
