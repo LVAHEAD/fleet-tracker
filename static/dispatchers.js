@@ -40,6 +40,11 @@ function rowDisp(row) {
   const m = window.fleetSync && window.fleetSync.meta[String(row.id)];
   return m && m.created_by && m.created_by !== "local" ? canonEmail(m.created_by) : "";
 }
+// v3.130: «своя» строка — хозяин я; нет хозяина / меня нет в листе / не вошёл — тоже своя (алерты как раньше)
+function rowIsMine(row) {
+  const d = rowDisp(row), me = fleetMe();
+  return !me || !meInSheet() || !d || d === me;
+}
 const dispShort = (u) => String(u || "").split("@")[0].split(".")[0].slice(0, 12);
 function knownDispatchers() {
   const set = new Set(DISP_LIST.map((d) => d.email));   // v3.11: все из листа, даже кто ещё не заходил

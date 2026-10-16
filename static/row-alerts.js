@@ -17,8 +17,15 @@ function fuelLowOf(data) {
   if (rf && rf.fuel_low) lines.push(`⛽ Реф: ${Math.round(rf.fuel_l)} л — мало (< 40 л)`);
   return lines.length ? lines : null;
 }
+// v3.130: чужая строка — без мигания (класс гасит анимацию), значок алерта в ячейке машины горит статично
+function quietSync(tr, id) {
+  if (!tr) return;
+  const row = typeof rows !== "undefined" ? rows.find((r) => r.id === id) : null;
+  tr.classList.toggle("row-quiet", !!row && typeof rowIsMine === "function" && !rowIsMine(row));
+}
 function applyFuelBlink(tr, id) {
   if (!tr) return;
+  quietSync(tr, id);
   const c = lastCalcText[id];
   if (!c) return;
   const low = c.fuelLow;
@@ -95,6 +102,7 @@ function reeferActive(id) {
 }
 function applyReeferBlink(tr, id) {
   if (!tr) return;
+  quietSync(tr, id);
   const c = lastCalcText[id];
   if (!c || !c.rfAlerts) return;
   const now = Date.now();

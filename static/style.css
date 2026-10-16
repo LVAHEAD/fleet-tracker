@@ -676,6 +676,8 @@ body.sort-manual .manual-only { display: block; }
 @media (prefers-reduced-motion: reduce) { #fleet-tbody tr.row-blink-done:not(.row-blink):not(.row-blink-fuel):not(.row-blink-rf) td { animation: none; background: #d4f0dc !important; } }
 #fleet-tbody tr.row-blink-rf:not(.row-blink) td { animation: rowBlinkRf 1.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { #fleet-tbody tr.row-blink-rf:not(.row-blink) td { animation: none; background: #dfe9fa !important; } }
+/* v3.130: чужие строки — без мигания; классы мигания остаются, поэтому значок алерта в ячейке машины виден */
+#fleet-tbody tr.row-quiet td { animation: none !important; }
 .tf-pill { margin-left: 4px; padding: 0 5px; border-radius: 8px; background: #fde2e1; color: #b42318; font-size: 11px; font-weight: 600; white-space: nowrap; }
 .ot-pill { margin-left: 6px; padding: 0 5px; border-radius: 8px; background: #e3f1e6; color: #2d6b3c; font-size: 11px; font-weight: 600; white-space: nowrap; }
 .delivery-input.del-suspect { background: #fff4c2; border-color: #e3b62e; }
@@ -1124,7 +1126,7 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 #fleet-tbody td.unit-cell .blink-ico, #fleet-tbody td.unit-cell > .row3 > .cmpl-btn {
   height: 20px; min-width: 22px; box-sizing: border-box; padding: 0 6px; margin: 0; border-radius: 6px;
   border: 0.5px solid #c9d6ee; background: #fff; color: #2f6fd6; font-size: 12px; font-weight: 500;
-  align-items: center; justify-content: center; line-height: 18px; }
+  align-items: center; justify-content: center; line-height: 1; }
 #fleet-tbody td.unit-cell .blink-ico { width: 22px; padding: 0; font-size: 13px; }
 #fleet-tbody td.unit-cell > .row3 > .cmpl-btn { display: inline-flex; gap: 4px; }
 #fleet-tbody td.unit-cell > .row3 > .cmpl-btn[hidden] { display: none !important; }
@@ -1135,7 +1137,7 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 #fleet-tbody .blink-ico { display: none; vertical-align: middle; margin-right: 3px; }
 #fleet-tbody tr.row-blink td.unit-cell .blink-ico[data-k="late"],
 #fleet-tbody tr.row-blink-rf:not(.row-blink) td.unit-cell .blink-ico[data-k="rf"],
-#fleet-tbody tr.row-blink-fuel:not(.row-blink):not(.row-blink-rf) td.unit-cell .blink-ico[data-k="fuel"] { display: inline-block; }
+#fleet-tbody tr.row-blink-fuel:not(.row-blink):not(.row-blink-rf) td.unit-cell .blink-ico[data-k="fuel"] { display: inline-flex; }   /* v3.130: inline-flex — иконка по центру плашки */
 .done-pop { width: 420px; }
 .done-pop .dp-q { display: block; width: calc(100% - 20px); margin: 6px 10px; padding: 4px 8px; font-size: 12px;
   border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }

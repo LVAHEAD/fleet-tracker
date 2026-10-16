@@ -119,7 +119,7 @@ window.whenGoogleMaps = function (fn) {
 // v3.31: открыт ⏱ калькулятор — клик по строке передаёт ему км до первой непройденной точки, линию маршрута
 // и данные тахографа (всё из последнего расчёта строки, без новых запросов)
 // v3.48: клик по значку страны — калькулятор открывается сам (force), расчёт — от точки k (если кликнули у точки Таргета)
-function ecFromRow(id, force, k) {
+function ecFromRow(id, force, k, zoom) {
   if (!window.etaCalc) return;
   if (!window.etaCalc.isOpen()) {
     if (!force) return;
@@ -159,8 +159,22 @@ function ecFromRow(id, force, k) {
     ? { unit: [pinPos.unitLat, pinPos.unitLng], target: [pinPos.targetLat, pinPos.targetLng] } : null;
   window.etaCalc.fromRow({
     unit: row.unit || "", point: ((STOP_NUM[at + 1] || "") + " " + String(pt || "").trim()).trim(),
-    km, seed: c.ecSeed || null, polyline: poly, pins,
+    km, seed: c.ecSeed || null, polyline: poly, pins, zoom: zoom || 0,   // v3.130: zoom — мини-карта ⏱ на машину
   });
+}
+
+// v3.130: клик по плашке «(N) на точке» — зум 17 на машине. Открыт ⏱ — остаётся, зум 17 на его мини-карте;
+// иначе выбираем строку и открываем Карту Флота (панели делят место — ⏱ при этом не закрываем лишний раз).
+function otPillClick(id) {
+  drawRoute(id);
+  if (window.etaCalc && window.etaCalc.isOpen()) { ecFromRow(id, false, null, 17); return; }
+  if (window.fleetMapPanel && !window.fleetMapPanel.isOpen()) window.fleetMapPanel.open();
+  const pos = rowPositions[id];
+  if (typeof map !== "undefined" && map && pos && pos.unitLat != null) {
+    map.setCenter({ lat: pos.unitLat, lng: pos.unitLng });
+    map.setZoom(17);
+    setTimeout(() => { map.setCenter({ lat: pos.unitLat, lng: pos.unitLng }); map.setZoom(17); }, 320);   // панель выехала — карта пересчитала размер
+  }
 }
 
 let rowIdCounter = 1;
@@ -753,6 +767,7 @@ function attachRowHandlers() {
         ecFromRow(id, true, w ? Number(w.dataset.k) : null);
         return;
       }
+      if (e.target.closest && e.target.closest(".ot-pill")) { otPillClick(id); return; }   // v3.130: плашка «на точке»
       drawRoute(id);
       ecFromRow(id);                                                  // v3.31: открыт ⏱ — данные машины в калькулятор
     });
