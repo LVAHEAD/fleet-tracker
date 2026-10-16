@@ -1,5 +1,5 @@
 """v3.136: отчёт «список АЗС ↔ группа Mapon «Actual Petrol Station»» — только чтение, ничего не пишем в Mapon."""
-from fetat.clients.fuel_sheet import fetch_fuel_csv
+from fetat.clients.fuel_sheet import fetch_fuel_csv, looks_like_html
 from fetat.clients.mapon import MAPON_BASE, mapon_get
 from fetat.config import MAPON_API_KEY
 from fetat.domain.fuel_stations import MATCH_M, match_to_mapon, parse_blocks, parse_meta
@@ -50,6 +50,13 @@ def fuel_report(force=False):
     meta = parse_meta(csvs["meta"])
     rep["loaded_at"] = ts_west(csvs["at"]).strftime("%d/%m %H:%M")
     rep["sheet_updated"] = meta["updated"]
+    if not blocks and not meta["stations"]:
+        # v3.137: ничего не разобрали — сказать, что пришло от Google (HTML-страница, пусто, другой лист)
+        det = "; ".join(f"{k}: {i.get('bytes', 0)} байт, {i.get('type') or 'тип неизвестен'}, начало «{i.get('head', '')}»"
+                        for k, i in (csvs.get("info") or {}).items())
+        html = any(looks_like_html(csvs.get(k, "")) for k in ("meta", "blocks"))
+        rep["error"] = ("Google вернул страницу вместо CSV. " if html else "Таблица прочитана, но станций в ней не найдено. ") + det
+        return rep
     group, objs = None, []
     if not MAPON_API_KEY:
         rep["mapon_error"] = "MAPON_API_KEY не настроен"

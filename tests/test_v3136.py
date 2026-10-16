@@ -113,6 +113,47 @@ class FuelReport(unittest.TestCase):
         self.assertNotIn("requests.post", src)
 
 
+class FuelFetch(unittest.TestCase):
+    """v3.137: что делаем, если от Google пришёл не CSV (на сервере было «в списке с GPS: 0»)."""
+
+    class _Resp:
+        def __init__(self, body, ctype="text/csv"):
+            self.content, self.status_code, self.headers = body, 200, {"Content-Type": ctype}
+
+        def raise_for_status(self):
+            pass
+
+    def _fetch(self, bodies):
+        from fetat.clients import fuel_sheet as fs
+        fs._cache.update(at=0.0, data=None)
+        it = iter(bodies)
+        with mock.patch.object(fs.requests, "get", side_effect=lambda *a, **k: self._Resp(next(it))):
+            return fs.fetch_fuel_csv(force=True)
+
+    def test_bom_stripped(self):
+        d = self._fetch(["﻿Цены обновлены,16.10.2026 10:40\n".encode("utf-8"), BLOCKS.encode("utf-8")])
+        self.assertTrue(d["meta"].startswith("Цены обновлены"))
+        self.assertEqual(d["info"]["meta"]["status"], 200)
+
+    def test_html_page_not_cached_and_reported(self):
+        from fetat.clients import fuel_sheet as fs
+        from fetat.services import fuel_report as fr
+        page = b"<!DOCTYPE html><html><body>Sorry, unable to open the file at this time.</body></html>"
+        d = self._fetch([page, page])
+        self.assertIsNone(fs._cache["data"])                    # HTML-страницу не запоминаем
+        with mock.patch.object(fr, "fetch_fuel_csv", return_value=d), mock.patch.object(fr, "MAPON_API_KEY", "k"):
+            rep = fr.fuel_report()
+        self.assertIn("вместо CSV", rep["error"])
+        self.assertIn("Sorry, unable", rep["error"])            # видно, что именно пришло
+
+    def test_unparsed_csv_reported(self):
+        from fetat.services import fuel_report as fr
+        d = {"meta": "a,b\n", "blocks": "x,y\n", "at": 1.0, "info": {"blocks": {"bytes": 4, "type": "text/csv", "head": "x,y"}}}
+        with mock.patch.object(fr, "fetch_fuel_csv", return_value=d), mock.patch.object(fr, "MAPON_API_KEY", "k"):
+            rep = fr.fuel_report()
+        self.assertIn("станций в ней не найдено", rep["error"])
+
+
 class FuelWiring(unittest.TestCase):
     def test_endpoint_and_button(self):
         from tests import A
