@@ -135,6 +135,16 @@ class FuelFetch(unittest.TestCase):
         self.assertTrue(d["meta"].startswith("Цены обновлены"))
         self.assertEqual(d["info"]["meta"]["status"], 200)
 
+    def test_gids_and_swapped_sheets(self):
+        """v3.138: на сервере листы пришли наоборот (meta — со станциями, blocks — с датой): список был 0."""
+        from fetat.clients import fuel_sheet as fs
+        self.assertEqual(fs.FUEL_GIDS, {"meta": "1707662453", "blocks": "772559255"})
+        blocks_txt = "Заголовок,Подзаголовок,Основная\n" + BLOCKS
+        d = self._fetch([blocks_txt.encode("utf-8"), META.encode("utf-8")])   # первым пришёл лист со станциями
+        self.assertTrue(d["meta"].startswith("Цены обновлены"))
+        self.assertTrue(d["blocks"].startswith("Заголовок"))
+        self.assertEqual(d["info"]["meta"]["bytes"], len(META.encode("utf-8")))
+
     def test_html_page_not_cached_and_reported(self):
         from fetat.clients import fuel_sheet as fs
         from fetat.services import fuel_report as fr
