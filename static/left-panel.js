@@ -13,7 +13,7 @@ Fleet ETA Tracker — левая выезжалка (v3.56): как правая
   const body = document.body;
   const KEY = "left-panel-open";
   const SEC_KEY = "left-panel-sec";
-  const TITLES = { bans: "Запреты", links: "Links", help: "Как работает" };
+  const TITLES = { bans: "Запреты", links: "Links", help: "Как работает", addr: "Адреса" };
   const isOpen = () => body.classList.contains("left-open");
   let section = "bans";
 
@@ -60,7 +60,7 @@ Fleet ETA Tracker — левая выезжалка (v3.56): как правая
     if (e.key === "Escape" && isOpen()) set(false);
   });
 
-  try { const s = localStorage.getItem(SEC_KEY); section = s === "links" || s === "help" ? s : "bans"; } catch (e) { /* ignore */ }
+  try { const s = localStorage.getItem(SEC_KEY); section = s === "links" || s === "help" || s === "addr" ? s : "bans"; } catch (e) { /* ignore */ }
   showSection(section);
   try { if (localStorage.getItem(KEY) === "1") set(true); } catch (e) { /* ignore */ }
 })();

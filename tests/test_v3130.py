@@ -56,3 +56,10 @@ class V3130(unittest.TestCase):
         self.assertIn("function ecFromRow(id, force, k)", app)
         self.assertIn("function focusMap(lat, lng, z)", read("static", "eta-calc.js"))
         self.assertIn("etaCalc.focusMap(pos0.unitLat, pos0.unitLng, 17)", app)
+
+    def test_addr_tab_placeholder(self):
+        html = read("templates", "index.html")
+        self.assertIn('id="left-tab-addr" data-lp="addr"', html)
+        self.assertIn('id="lp-addr" hidden>', html)
+        self.assertIn("Этот раздел в разработке", html.split('id="lp-addr"')[1].split("</section>")[0])
+        self.assertIn('addr: "Адреса"', read("static", "left-panel.js"))
