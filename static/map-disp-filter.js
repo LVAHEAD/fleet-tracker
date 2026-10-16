@@ -1,8 +1,8 @@
 /*
-map-disp-filter.js — свой фильтр диспетчеров у Карты Флота (после v3.132; хотелка «Выбор диспетчеров на Карте Флота»).
-Кнопки поверх карты вверху по центру (элемент управления самой карты Google — видны и в ⛶ на весь экран):
+map-disp-filter.js — свой фильтр диспетчеров у Карты Флота (v3.133, компактный вид с v3.134; хотелка «Выбор диспетчеров на Карте Флота»).
+Одна кнопка «Дисп.: … ▾» вверху по центру карты (элемент управления Google-карты — виден и в ⛶ на весь экран); по клику — список с галочками:
 «Таблица» (как раньше — карта следует фильтру диспетчера из таблицы), «Все» и диспетчеры из листа «Диспетчеры» (мультивыбор: клик включает / выключает;
-выключен последний — «Все»). Выбор помнится после F5 ("fleet-map-disp"). Фильтры L / O и по клиентам по-прежнему общие с таблицей.
+выключен последний — «Все»). Закрывается кликом мимо и по Esc. Выбор помнится после F5 ("fleet-map-disp"). Фильтры L / O и по клиентам — общие с таблицей.
 Опирается на глобалы dispatchers.js (DISP_LIST, rowDisp, rowPassesOwn, fleetMe, escapeHtml, shadeHex) и map-core.js (fleetMapSync).
 */
 (function () {
@@ -18,6 +18,7 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
   } catch (e) { sel = "table"; }
 
   let box = null;
+  let isOpen = false;
 
   // строка проходит фильтр диспетчера карты (для rowPassesFilterWith)
   function pass(row) {
@@ -37,29 +38,50 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
     if (typeof window.fleetMapSync === "function") window.fleetMapSync();
   }
 
+  function list() { return (typeof DISP_LIST !== "undefined" && DISP_LIST) || []; }
+
+  // подпись на кнопке: «Таблица», «Все», «VL, JZ» (больше трёх — «4 дисп.»)
+  function label() {
+    if (sel === "table") return "Таблица";
+    if (sel === "all") return "Все";
+    const tags = sel.map((e) => {
+      const d = list().find((x) => String(x.email).toLowerCase() === e);
+      return d ? d.tag : e.split("@")[0].slice(0, 3).toUpperCase();
+    });
+    return tags.length > 3 ? `${tags.length} дисп.` : tags.join(", ");
+  }
+
   function render() {
     if (!box) return;
-    const on = (v) => (sel === v ? " on" : "");
-    const list = (typeof DISP_LIST !== "undefined" && DISP_LIST) || [];
     const me = typeof fleetMe === "function" ? fleetMe() : "";
-    box.innerHTML = `<button type="button" class="mdf-b${on("table")}" data-mdf="table" title="Карта следует фильтру диспетчера из таблицы">Таблица</button>`
-      + `<button type="button" class="mdf-b${on("all")}" data-mdf="all" title="Все диспетчеры на карте">Все</button>`
-      + list.map((d) => {
+    const row = (v, text, on, title, style) =>
+      `<button type="button" class="mdf-i${on ? " on" : ""}" data-mdf="${escapeHtml(v)}"${style ? ` style="${style}"` : ""} title="${escapeHtml(title)}">`
+      + `<span class="mdf-ck">${on ? "✓" : ""}</span>${escapeHtml(text)}</button>`;
+    const items = row("table", "Таблица", sel === "table", "Карта следует фильтру диспетчера из таблицы")
+      + row("all", "Все", sel === "all", "Все диспетчеры на карте")
+      + list().map((d) => {
         const email = String(d.email).toLowerCase();
         const c = d.color || "#ffffff";
-        const isOn = Array.isArray(sel) && sel.includes(email) ? " on" : "";
-        return `<button type="button" class="mdf-b mdf-d${isOn}" data-mdf="${escapeHtml(email)}"`
-          + ` style="--dc:${escapeHtml(c)};--dcb:${escapeHtml((typeof shadeHex === "function" && shadeHex(c, 0.25)) || "#bbb")}"`
-          + ` title="${escapeHtml(d.tag)}${email === me ? " (мои)" : ""} — включить / выключить на карте">${escapeHtml(d.tag)}</button>`;
+        const on = Array.isArray(sel) && sel.includes(email);
+        return row(email, d.tag, on, `${d.tag}${email === me ? " (мои)" : ""} — включить / выключить на карте`,
+          `--dc:${escapeHtml(c)}`);
       }).join("");
+    box.innerHTML = `<button type="button" class="mdf-btn" data-mdf-toggle="1" aria-expanded="${isOpen}" title="Чьи машины показывать на карте">Дисп.: ${escapeHtml(label())} ▾</button>`
+      + `<div class="mdf-menu"${isOpen ? "" : " hidden"}>${items}</div>`;
+  }
+
+  function setOpen(v) {
+    isOpen = !!v;
+    render();
   }
 
   function onClick(e) {
+    e.stopPropagation();
+    if (e.target.closest("[data-mdf-toggle]")) { setOpen(!isOpen); return; }
     const b = e.target.closest("button[data-mdf]");
     if (!b) return;
-    e.stopPropagation();
     const v = b.dataset.mdf;
-    if (v === "table" || v === "all") sel = v;
+    if (v === "table" || v === "all") { sel = v; isOpen = false; }
     else {
       const cur = Array.isArray(sel) ? sel.slice() : [];
       const i = cur.indexOf(v);
@@ -69,7 +91,7 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
     apply();
   }
 
-  // кнопки — элемент управления карты (вверху по центру), чтобы работали и в ⛶
+  // кнопка — элемент управления карты (вверху по центру), чтобы работала и в ⛶
   function attach(map) {
     if (!map || !window.google) return;
     box = document.createElement("div");
@@ -78,6 +100,9 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
     box.addEventListener("mousedown", (e) => e.stopPropagation());
     render();
     map.controls[google.maps.ControlPosition.TOP_CENTER].push(box);
+    map.addListener("click", () => { if (isOpen) setOpen(false); });
+    document.addEventListener("click", (e) => { if (isOpen && box && !box.contains(e.target)) setOpen(false); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && isOpen) setOpen(false); });
   }
 
   window.MapDispFilter = { attach, pass, render, get: () => sel };

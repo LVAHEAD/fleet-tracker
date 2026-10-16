@@ -14,7 +14,7 @@ class MapDispFilterSourceTest(unittest.TestCase):
     def test_module_modes_and_storage(self):
         js = _read("static/map-disp-filter.js")
         for part in ('"fleet-map-disp"', 'sel === "table"', 'sel === "all"', 'sel = cur.length ? cur : "all"',
-                     "ControlPosition.TOP_CENTER", "window.MapDispFilter"):
+                     "ControlPosition.TOP_CENTER", "window.MapDispFilter", "data-mdf-toggle", "Дисп.: "):
             self.assertIn(part, js)
 
     def test_map_uses_own_filter(self):
@@ -30,7 +30,8 @@ class MapDispFilterSourceTest(unittest.TestCase):
 
     def test_styles(self):
         css = _read("static/style.css")
-        self.assertIn(".mdf .mdf-b.on", css)
+        self.assertIn(".mdf .mdf-btn", css)
+        self.assertIn(".mdf .mdf-menu", css)
 
 
 if __name__ == "__main__":
