@@ -236,7 +236,10 @@ def api_dispatchers():
 @bp.route("/api/presence")
 def api_presence():
     """v3.110: пинг «аппа открыта» + инициалы других онлайн-диспетчеров (себя не включаем)."""
-    return jsonify({"ok": True, "tags": presence_tags(current_user_email())})
+    from fetat import APP_VERSION   # v3.132: страница сравнивает со своей версией (тихое обновление)
+    if request.args.get("peek"):   # v3.132: скрытая вкладка спрашивает только версию — онлайн-статус не продлеваем
+        return jsonify({"ok": True, "tags": [], "version": APP_VERSION})
+    return jsonify({"ok": True, "tags": presence_tags(current_user_email()), "version": APP_VERSION})
 
 
 @bp.route("/api/warm", methods=["POST"])

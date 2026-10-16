@@ -527,6 +527,10 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 #fleet-tbody tr.lo-row-L td:first-child { box-shadow: inset 4px 0 0 #6FA6E0; }
 /* v3.110: онлайн-диспетчеры в шапке — ☁ (🎧 JZ, VL) */
 .online-tags { font-size: 12px; font-weight: 400; color: #6b7078; white-space: nowrap; }
+/* v3.132: плашка «Вышла vX.YY · обновить» — Синий Кальк, без мигания */
+.update-pill { margin-left: 8px; padding: 1px 9px; font-size: 12px; font-weight: 600; line-height: 18px; vertical-align: middle;
+  background: #2f6fd6; color: #fff; border: 1px solid #2f6fd6; border-radius: 10px; cursor: pointer; }
+.update-pill:hover { background: #fff; color: #2f6fd6; border-color: #c9d6ee; }
 /* статус ☁ меняет ширину (☁ / ☁… / ⚠☁) — резервируем место, чтобы инициалы не прыгали */
 .sync-status { display: inline-block; min-width: 2em; }
 .sync-status[data-st="local"] { min-width: 0; }
