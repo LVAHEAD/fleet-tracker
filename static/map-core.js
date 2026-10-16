@@ -18,6 +18,7 @@ function initMap() {
   map = MapsCommon.make(document.getElementById("map"), { cameraControl: false });
   if (window.ObjLayer) ObjLayer.attach(map);   // v3.55: объекты Mapon — 🏭 под ↻
   ensureOverlap();                              // v3.58: машины в одной точке — счётчик и веер
+  if (window.MapDispFilter) MapDispFilter.attach(map);   // после v3.132: свои кнопки диспетчеров на карте
 
   Object.keys(pendingPositions).forEach((rowId) => {
     const p = pendingPositions[rowId];
@@ -335,7 +336,10 @@ let clusteredIds = new Set();
 let clusterOverlays = [];
 function rowFilteredOut(rowId) {
   const row = rows.find((r) => String(r.id) === String(rowId));
-  return !!(row && typeof rowPassesFilter === "function" && !rowPassesFilter(row));
+  if (!row || typeof rowPassesFilter !== "function") return false;
+  // после v3.132: у карты свой фильтр диспетчеров (map-disp-filter.js); «Таблица» — как раньше
+  if (window.MapDispFilter && typeof rowPassesFilterWith === "function") return !rowPassesFilterWith(row, window.MapDispFilter.pass);
+  return !rowPassesFilter(row);
 }
 function isSelected(rowId) { return selectedRowId != null && String(rowId) === String(selectedRowId); }
 function truckHidden(rowId) {

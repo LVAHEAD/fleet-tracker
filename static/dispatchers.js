@@ -122,6 +122,7 @@ function fillDispSelects() {
     }).join("");
   });
   if (window.fleetMarkBar) window.fleetMarkBar();
+  if (window.MapDispFilter) window.MapDispFilter.render();   // кнопки диспетчеров на карте
 }
 // v3.25: старое значение фильтра «мои» → своя кнопка (нет в листе — «Все»), как только известно, кто вошёл
 function resolveMine() {
