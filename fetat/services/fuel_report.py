@@ -1,8 +1,8 @@
-"""v3.136: отчёт «список АЗС ↔ группа Mapon «Actual Petrol Station»» — только чтение, ничего не пишем в Mapon."""
+"""v3.136: отчёт «список АЗС ↔ группа Mapon «Actual Petrol Station»» — только чтение (запись — fuel_create.py)."""
 from fetat.clients.fuel_sheet import fetch_fuel_csv, looks_like_html
 from fetat.clients.mapon import MAPON_BASE, mapon_get
 from fetat.config import MAPON_API_KEY
-from fetat.domain.fuel_stations import MATCH_M, match_to_mapon, parse_blocks, parse_meta
+from fetat.domain.fuel_stations import MATCH_M, mapon_name, match_to_mapon, parse_blocks, parse_meta
 from fetat.utils.geo import _wkt_center
 from fetat.utils.timefmt import ts_west
 
@@ -28,13 +28,15 @@ def _group_objects(api_key):
         lat, lng, n = _wkt_center(o.get("wkt"))
         if lat is None:
             continue
-        items.append({"id": o.get("id"), "name": (o.get("name") or "").strip(), "lat": lat, "lng": lng})
+        items.append({"id": o.get("id"), "name": (o.get("name") or "").strip(), "lat": lat, "lng": lng,
+                      "wkt": o.get("wkt"), "private": o.get("private"), "pts": n})
     return group, items
 
 
 def _pub(st):
     return {"name": st["name"], "network": st.get("network", ""), "lat": round(st["lat"], 6), "lng": round(st["lng"], 6),
-            "gps": f"{st['lat']:.5f}, {st['lng']:.5f}"}
+            "gps": f"{st['lat']:.5f}, {st['lng']:.5f}", "country": st.get("country", ""), "role": st.get("role", "MAIN"),
+            "obj_name": mapon_name(st)}
 
 
 def fuel_report(force=False):
@@ -69,6 +71,9 @@ def fuel_report(force=False):
             if group is None:
                 rep["mapon_error"] = f"в Mapon нет группы «{GROUP_NAME}»"
     rep["group"] = {**group, "count": len(objs)} if group else None
+    # v3.139: образец формы — первый объект группы с многоугольником (read-only, показываем в карточке)
+    smp = next((o for o in objs if o.get("pts", 0) >= 3), None)
+    rep["sample"] = {"id": smp["id"], "name": smp["name"], "wkt": smp["wkt"], "private": smp.get("private")} if smp else None
     m = match_to_mapon(blocks, objs)
     if rep["mapon_error"]:        # Mapon недоступен — не выдаём «создать всё» за правду
         m = {"matched": [], "to_create": [], "not_working": [], "extra": []}

@@ -19,6 +19,7 @@
 /api/fleet/trash GET
 /api/freights GET
 /api/fuel-stations GET
+/api/fuel-stations/create POST
 /api/google-usage GET
 /api/google-usage/log GET
 /api/links GET

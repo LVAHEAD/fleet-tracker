@@ -607,6 +607,11 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 .fuel-status { line-height: 1.5; }
 .fuel-dim { color: #777; font-size: 11.5px; }
 .fuel-err { color: #a12622; }
+.fuel-act { margin-top: 8px; }
+.fuel-res { margin-top: 6px; line-height: 1.5; }
+.fuel-ok { color: #1e7a3c; }
+.fuel-conf { margin-top: 8px; padding: 8px; border: 1px solid #c9d6ee; border-radius: 6px; background: #f4f8ff; }
+.fuel-conf .fuel-foot { justify-content: flex-start; gap: 8px; margin-top: 6px; }
 .fuel-det { margin-top: 6px; }
 .fuel-det summary { cursor: pointer; font-weight: 600; }
 .fuel-det div { padding: 1px 0 1px 12px; font-size: 12px; color: #333; }

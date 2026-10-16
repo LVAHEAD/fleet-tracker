@@ -7,6 +7,7 @@ from fetat.utils.text import canon_email
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 MAPON_API_KEY = os.environ.get("MAPON_API_KEY", "")
+MAPON_WRITE_KEY = os.environ.get("MAPON_WRITE_KEY", "")   # v3.139: ключ с правом записи объектов (только для АЗС ⛽)
 
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 

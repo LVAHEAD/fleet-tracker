@@ -106,8 +106,9 @@ class FuelReport(unittest.TestCase):
         with mock.patch.object(fr, "fetch_fuel_csv", side_effect=RuntimeError("нет сети")):
             self.assertEqual(fr.fuel_report()["error"], "нет сети")
 
-    def test_never_writes_to_mapon(self):
-        src = read("fetat", "services", "fuel_report.py") + read("fetat", "clients", "fuel_sheet.py") + read("fetat", "api", "fuel.py")
+    def test_write_only_in_one_place(self):
+        """v3.139: запись в Mapon — только fuel_create.py через clients/mapon_write.py; отчёт и таблица только читают."""
+        src = read("fetat", "services", "fuel_report.py") + read("fetat", "clients", "fuel_sheet.py")
         self.assertNotIn("object/save", src)
         self.assertNotIn("MAPON_WRITE_KEY", src)
         self.assertNotIn("requests.post", src)

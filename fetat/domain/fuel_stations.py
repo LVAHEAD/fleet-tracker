@@ -23,6 +23,21 @@ NETWORKS = (("as24", "AS24"), ("eurowag", "EWAG"), ("ewag", "EWAG"), ("viada", "
             ("cirkle", "CIRCLEK"), ("circle", "CIRCLEK"), ("crosschem", "CROSSCHEM"), ("preem", "PREEM"))
 _NOT_WORKING = ("не работает", "ремонт", "временно")
 
+# v3.139: страна по тексту строки (русское название) и по коду региона (запасной путь — по координатам)
+_COUNTRY_RU = (("польш", "POLAND"), ("чех", "CZECHIA"), ("герман", "GERMANY"), ("франц", "FRANCE"), ("бельг", "BELGIUM"),
+               ("нидерл", "NETHERLANDS"), ("голланд", "NETHERLANDS"), ("литв", "LITHUANIA"), ("латв", "LATVIA"),
+               ("эстон", "ESTONIA"), ("швец", "SWEDEN"), ("норв", "NORWAY"), ("дани", "DENMARK"), ("финл", "FINLAND"),
+               ("австр", "AUSTRIA"), ("швейц", "SWITZERLAND"), ("итал", "ITALY"), ("испан", "SPAIN"),
+               ("португ", "PORTUGAL"), ("венгр", "HUNGARY"), ("словак", "SLOVAKIA"), ("словен", "SLOVENIA"),
+               ("хорват", "CROATIA"), ("румын", "ROMANIA"), ("болгар", "BULGARIA"), ("люксемб", "LUXEMBOURG"))
+_COUNTRY_ISO = {"PL": "POLAND", "CZ": "CZECHIA", "DE": "GERMANY", "FR": "FRANCE", "BE": "BELGIUM", "NL": "NETHERLANDS",
+                "LT": "LITHUANIA", "LV": "LATVIA", "EE": "ESTONIA", "SE": "SWEDEN", "NO": "NORWAY", "DK": "DENMARK",
+                "FI": "FINLAND", "AT": "AUSTRIA", "CH": "SWITZERLAND", "IT": "ITALY", "ES": "SPAIN", "PT": "PORTUGAL",
+                "HU": "HUNGARY", "SK": "SLOVAKIA", "SI": "SLOVENIA", "HR": "CROATIA", "RO": "ROMANIA", "BG": "BULGARIA",
+                "LU": "LUXEMBOURG"}
+_COUNTRY_LEAD = re.compile(r"^([А-Яа-яЁё]+)\s+(?:\(?[A-Z]{2}\)?\s+)?")
+_NET_LEAD = re.compile(r"^(?:as24|eurowag|ewag|viada|neste|cirkle|circle\s*k|crosschem|preem)\s*[-–]?\s*", re.I)
+
 _META_ROW = re.compile(r"^\s*(.+?)\s+/\s+(.+?)\s+-\s+(\S+)\s*$")
 
 
@@ -64,16 +79,64 @@ def _in_europe(lat, lng):
 
 def _cells(text):
     """Все ячейки CSV одним списком строк."""
+    return [c for c, _ in _cells_roles(text)]
+
+
+def _role_of(header):
+    h = (header or "").strip().lower()
+    return "RESERVE" if h.startswith("резерв") else ("MAIN" if h.startswith("основн") else "")
+
+
+def _cells_roles(text):
+    """Ячейки CSV с ролью колонки: «Основная» → MAIN, «Резервная» → RESERVE (по строке-заголовку), иначе MAIN."""
+    rows = list(csv.reader(io.StringIO(text or "")))
+    roles = {}
+    for row in rows[:3]:
+        found = {i: _role_of(c) for i, c in enumerate(row) if _role_of(c)}
+        if found:
+            roles = found
+            break
     out = []
-    for row in csv.reader(io.StringIO(text or "")):
-        out.extend(c for c in row if c and c.strip())
+    for row in rows:
+        for i, c in enumerate(row):
+            if c and c.strip():
+                out.append((c, roles.get(i, "MAIN")))
     return out
 
 
+def country_of_line(line, lat, lng):
+    """Страна станции: русское название в строке до координат, иначе по ближайшему коду региона."""
+    low = (line or "").lower()
+    for stem, name in _COUNTRY_RU:
+        if stem in low:
+            return name
+    try:
+        from fetat.domain.regions import _country_at
+        return _COUNTRY_ISO.get(_country_at(lat, lng) or "", "")
+    except Exception:
+        return ""
+
+
+def station_label(name):
+    """Название без страны и сети в начале: «Чехия CZ Eurowag - Rozvadov II» → «Rozvadov II»."""
+    s = (name or "").strip()
+    m = _COUNTRY_LEAD.match(s)
+    if m and any(m.group(1).lower().startswith(st) for st, _ in _COUNTRY_RU):
+        s = s[m.end():].lstrip(" /-–")
+    s = _NET_LEAD.sub("", s).strip(" -–")
+    return s or (name or "").strip()
+
+
+def mapon_name(st):
+    """Имя объекта Mapon по образцу: «BELGIUM - MAIN - AS24 - MEER GPS: (51.48302, 4.72959)»."""
+    parts = [st.get("country") or "", st.get("role") or "MAIN", st.get("network") or "", station_label(st.get("name"))]
+    return " - ".join(p for p in parts if p) + f" GPS: ({st['lat']:.5f}, {st['lng']:.5f})"
+
+
 def parse_blocks(text):
-    """Станции с GPS из CSV «Blocks»: [{name, network, lat, lng, not_working, mentions}], без дублей."""
+    """Станции с GPS из CSV «Blocks»: [{name, network, lat, lng, country, role, not_working, mentions}], без дублей."""
     found = []
-    for cell in _cells(text):
+    for cell, role in _cells_roles(text):
         for line in cell.splitlines():
             ms = list(_COORD.finditer(line))
             for i, m in enumerate(ms):
@@ -86,6 +149,7 @@ def parse_blocks(text):
                 seg = before + " " + after
                 name = _name_for(before, after)
                 found.append({"name": name, "network": network_of(seg) or network_of(line), "lat": lat, "lng": lng,
+                              "country": country_of_line(line[:ms[0].start()], lat, lng), "role": role,
                               "not_working": any(w in seg.lower() for w in _NOT_WORKING), "mentions": 1})
     return _dedup(found)
 
@@ -98,6 +162,8 @@ def _dedup(items):
             if same_net and haversine_km(o["lat"], o["lng"], it["lat"], it["lng"]) <= DUP_KM:
                 o["mentions"] += 1
                 o["not_working"] = o["not_working"] or it["not_working"]
+                if it.get("role") == "MAIN":
+                    o["role"] = "MAIN"                 # в основной колонке тоже есть — значит основная
                 if not o["network"]:
                     o["network"] = it["network"]
                 if len(it["name"]) > len(o["name"]):
