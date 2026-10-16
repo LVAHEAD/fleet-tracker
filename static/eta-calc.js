@@ -180,7 +180,6 @@ const EtaCalc = (() => {
     if (r.km === 0 && r.pins) {                 // v3.112: машина уже на точке — маршрута нет, на карте маркеры машины и точки
       st.srcShown = true;
       st.src = { unit: r.unit, point: r.point, km: 0, polyline: null, pins: r.pins, note: "машина уже на точке" };
-      if (r.zoom) { st.mapFit = true; st.mapZoom = r.zoom; }   // v3.130: плашка «на точке» — зум на машину
       srcUI(); drawMapSoon();
       return;
     }
@@ -667,7 +666,19 @@ const EtaCalc = (() => {
     out.push(pointAt(L, m1));
     return out;
   }
+  // v3.131: плашка «на точке» — после любой отрисовки (и с маркерами, и с короткой линией маршрута) центр по машине и свой зум
+  function focusMap(lat, lng, z) { st.focus = { lat, lng, z }; drawMapSoon(); }
   function drawMap() {
+    drawMapBody();
+    const f = st.focus;
+    if (!f) return;
+    st.focus = null;
+    if (gmap && isOpen() && !st.mapFolded) {
+      google.maps.event.trigger(gmap, "resize");
+      gmap.setCenter({ lat: f.lat, lng: f.lng }); gmap.setZoom(f.z);
+    }
+  }
+  function drawMapBody() {
     if (!panel || !isOpen() || st.mapFolded) return;
     const enc = st.src && st.src.polyline, pins = !enc && st.src && st.src.pins, box = $(".ec-mbox");
     if (enc && !S) return;
@@ -694,10 +705,7 @@ const EtaCalc = (() => {
       lays.push(new google.maps.Marker({ map: gmap, position: { lat: ptg[0], lng: ptg[1] }, title: "Точка", zIndex: 3,
         icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: "#2ea043", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
         label: { text: "уже на точке", className: "ul-lab ec-plate", fontSize: "11px", fontWeight: "600", color: "#1a1a1a" } }));
-      if (st.mapFit && st.mapZoom) {              // v3.130: зум на машину (плашка «на точке»)
-        gmap.setCenter({ lat: pu[0], lng: pu[1] }); gmap.setZoom(st.mapZoom);
-        st.mapFit = false; st.mapZoom = 0;
-      } else if (st.mapFit) {
+      if (st.mapFit) {
         const b = new google.maps.LatLngBounds();
         b.extend({ lat: pu[0], lng: pu[1] }); b.extend({ lat: ptg[0], lng: ptg[1] });
         gmap.fitBounds(b, 60);
@@ -787,6 +795,6 @@ const EtaCalc = (() => {
     if (isOpen()) fromRow(r);
   }
 
-  return { open, close, isOpen, fromRow, openWith };
+  return { open, close, isOpen, fromRow, openWith, focusMap };
 })();
 window.etaCalc = EtaCalc;

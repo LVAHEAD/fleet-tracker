@@ -119,7 +119,7 @@ window.whenGoogleMaps = function (fn) {
 // v3.31: открыт ⏱ калькулятор — клик по строке передаёт ему км до первой непройденной точки, линию маршрута
 // и данные тахографа (всё из последнего расчёта строки, без новых запросов)
 // v3.48: клик по значку страны — калькулятор открывается сам (force), расчёт — от точки k (если кликнули у точки Таргета)
-function ecFromRow(id, force, k, zoom) {
+function ecFromRow(id, force, k) {
   if (!window.etaCalc) return;
   if (!window.etaCalc.isOpen()) {
     if (!force) return;
@@ -159,7 +159,7 @@ function ecFromRow(id, force, k, zoom) {
     ? { unit: [pinPos.unitLat, pinPos.unitLng], target: [pinPos.targetLat, pinPos.targetLng] } : null;
   window.etaCalc.fromRow({
     unit: row.unit || "", point: ((STOP_NUM[at + 1] || "") + " " + String(pt || "").trim()).trim(),
-    km, seed: c.ecSeed || null, polyline: poly, pins, zoom: zoom || 0,   // v3.130: zoom — мини-карта ⏱ на машину
+    km, seed: c.ecSeed || null, polyline: poly, pins,
   });
 }
 
@@ -167,7 +167,12 @@ function ecFromRow(id, force, k, zoom) {
 // иначе выбираем строку и открываем Карту Флота (панели делят место — ⏱ при этом не закрываем лишний раз).
 function otPillClick(id) {
   drawRoute(id);
-  if (window.etaCalc && window.etaCalc.isOpen()) { ecFromRow(id, false, null, 17); return; }
+  const pos0 = rowPositions[id];
+  if (window.etaCalc && window.etaCalc.isOpen()) {
+    ecFromRow(id);
+    if (pos0 && pos0.unitLat != null) window.etaCalc.focusMap(pos0.unitLat, pos0.unitLng, 17);   // v3.131: зум 17 при любом км
+    return;
+  }
   if (window.fleetMapPanel && !window.fleetMapPanel.isOpen()) window.fleetMapPanel.open();
   const pos = rowPositions[id];
   if (typeof map !== "undefined" && map && pos && pos.unitLat != null) {
