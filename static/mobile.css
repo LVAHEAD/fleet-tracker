@@ -7,6 +7,8 @@
 
 /* элементы, которые есть только на телефоне */
 .m-only, .m-fab, .m-map-close, .tabs-more-wrap, .m-edit-btn { display: none; }
+/* v3.131: «✎ правка» — только телефон; без этого правило `.sort-bar button { display: inline-flex }` (style.css) показывало её и на десктопе */
+.sort-bar button.m-edit-btn { display: none; }
 
 @media (max-width: 767px) {
   html { -webkit-text-size-adjust: 100%; }
@@ -43,7 +45,7 @@
   .sort-bar button[data-sort="manual"] { display: none; }
   .sort-bar button[data-sort] { flex: 1; white-space: nowrap; padding: 6px 6px; }
   .sort-bar .auto-lbl { order: 5; flex: 1 1 auto; font-size: 12px; color: #888; }
-  .m-edit-btn { display: inline-block; order: 6; margin-left: auto; flex: 0 0 auto !important; }
+  .sort-bar button.m-edit-btn, .m-edit-btn { display: inline-block; order: 6; margin-left: auto; flex: 0 0 auto !important; }
   .m-edit-btn.on { background: #fff4c2; border-color: #e0b000; }
 
   /* ---------- Флот: карточки ---------- */
