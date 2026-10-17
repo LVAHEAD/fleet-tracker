@@ -363,6 +363,7 @@
    "calc_seed": {
     "left_h": 9.0,
     "nocard": true,
+    "rest_h": 11.11,
     "resting": false,
     "shift_h": 0.0,
     "shorts": 3,
@@ -557,6 +558,7 @@
    "calc_seed": {
     "left_h": 9.0,
     "nocard": true,
+    "rest_h": 11.11,
     "resting": false,
     "shift_h": 0.0,
     "shorts": 3,

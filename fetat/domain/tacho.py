@@ -539,6 +539,7 @@ def calc_seed(tacho, now_ts=None):
         day_left = float(today.get("driving_remaining") or 0)
     day_left, gfix = gps_adjust(tacho, day_left, day_max)    # v3.104: остаток по GPS, если тахограф отстаёт
     rest_now = float(nowd.get("rest") or 0) if d0.get("current_state") == "REST" else 0.0
+    rest_tacho = rest_now                            # v3.145: отдых по тахографу (резерв, если GPS не даёт стоянку)
     rest_gps = gps_rest_now(tacho, d0, rest_now)     # v3.125
     gstand, rest_now = rest_gps > rest_now, rest_gps
     need_rest = 9 * 3600 if (team or short_left > 0) else 11 * 3600
@@ -564,6 +565,8 @@ def calc_seed(tacho, now_ts=None):
     g0 = tacho.get("gps")
     if g0 and float(g0.get("stand") or 0) > 0 and d0.get("current_state") != "DRIVING":
         out["stand_h"] = round(float(g0["stand"]) / 3600, 2)   # v3.125: сколько уже стоит — калькулятор прибавляет к сдвигу выезда
+    if rest_tacho > 0:
+        out["rest_h"] = round(rest_tacho / 3600, 2)            # v3.145: сколько уже стоит по тахографу — «N:MM назад» в ⏱, если GPS молчит
     if shift <= 0 and rest_now < need_rest:      # v3.106: сколько окна смены уже съедено — калькулятору
         import time
         t = float(now_ts or time.time())
