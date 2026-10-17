@@ -358,6 +358,36 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .addr-status .err { color: #c0392b; }
 .addr-problems { margin-top: 8px; color: #a05a00; font-size: 12px; line-height: 1.5; }
 
+/* v3.152: вкладка «Адреса» — поиск, карточка, форма (Синий Кальк) */
+.addr-search-row { margin-bottom: 8px; }
+.addr-input { width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid #c9c9c9; border-radius: 6px; font: inherit; font-size: 14px; background: #fff; }
+.addr-input:focus { outline: none; border-color: #2f6fd6; box-shadow: 0 0 0 2px #dfe9fb; }
+.addr-results { display: flex; flex-direction: column; gap: 4px; }
+.addr-row { display: block; width: 100%; text-align: left; padding: 7px 9px; border: 1px solid #e3e3e3; border-radius: 6px; background: #fff; font: inherit; cursor: pointer; }
+.addr-row:hover { border-color: #c9d6ee; color: #2f6fd6; }
+.addr-row-name { font-size: 13px; font-weight: 500; }
+.addr-row-meta { font-size: 12px; color: #666; margin-top: 2px; }
+.addr-card { margin: 10px 0; padding: 10px 12px; border: 1px solid #c9d6ee; border-radius: 8px; background: #fff; font-size: 13px; }
+.addr-card[hidden], .addr-form[hidden], .addr-dup[hidden] { display: none; }
+.addr-card-name { font-weight: 500; font-size: 14px; margin-bottom: 6px; }
+.addr-card-row { display: flex; gap: 8px; padding: 3px 0; border-top: 1px solid #f0f0f0; }
+.addr-card-key { width: 88px; flex: 0 0 auto; color: #777; }
+.addr-card-val { word-break: break-word; }
+.addr-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.addr-btn, .addr-btn-primary { padding: 7px 12px; border-radius: 6px; font: inherit; font-size: 13px; cursor: pointer; border: 1px solid #c9d6ee; }
+.addr-btn { background: #fff; color: #2f6fd6; }
+.addr-btn:hover { background: #fff; color: #2f6fd6; border-color: #c9d6ee; }
+.addr-btn-primary { background: #2f6fd6; color: #fff; border-color: #2f6fd6; }
+.addr-btn-primary:hover { background: #fff; color: #2f6fd6; border-color: #c9d6ee; }
+.addr-form { margin-top: 10px; padding: 10px 12px; border: 1px solid #e3e3e3; border-radius: 8px; background: #fafafa; }
+.addr-form-title { font-weight: 500; font-size: 14px; margin-bottom: 8px; }
+.addr-field { display: block; font-size: 12px; color: #555; margin-top: 6px; }
+.addr-field > span { display: block; margin-bottom: 3px; }
+.addr-err { min-height: 0; font-size: 13px; color: #c0392b; }
+.addr-err:empty { display: none; }
+.addr-dup { margin: 8px 0; padding: 8px 10px; border: 1px solid #f0d9a8; border-radius: 6px; background: #fdf8ec; font-size: 13px; }
+.addr-dup-title { color: #854f0b; margin-bottom: 6px; }
+
 /* ---------- v1.29: похожие рейсы во From → To ---------- */
 .route-freights { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px 14px; margin: 0 0 14px; font-size: 13px; }
 .route-freights[hidden] { display: none; }

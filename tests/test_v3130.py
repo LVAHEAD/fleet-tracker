@@ -61,5 +61,5 @@ class V3130(unittest.TestCase):
         html = read("templates", "index.html")
         self.assertIn('id="left-tab-addr" data-lp="addr"', html)
         self.assertIn('id="lp-addr" hidden>', html)
-        self.assertIn("Этот раздел в разработке", html.split('id="lp-addr"')[1].split("</section>")[0])
+        self.assertIn('id="addrQuery"', html.split('id="lp-addr"')[1].split("</section>")[0])  # v3.152: заглушка заменена формой
         self.assertIn('addr: "Адреса"', read("static", "left-panel.js"))

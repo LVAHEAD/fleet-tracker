@@ -160,8 +160,29 @@
     </div>
   </section>
   <section class="left-pane" id="lp-addr" hidden>
-    <!-- v3.131: «Адреса» — добавление адресов в базу; пока пусто, только плашка (детали — BACKLOG.md) -->
-    <div class="wip-banner"><span class="wip-cone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 4h5L19 19H5z"/><path d="M8.3 9h7.4M6.9 14h10.2"/><path d="M3 20h18"/></svg></span><span>Этот раздел в разработке</span></div>
+    <!-- v3.152: «Адреса» — поиск по базе, карточка, проверка дубля и форма нового адреса (отправка на аппрув — позже, BACKLOG.md) -->
+    <div class="addr-search-row"><input type="search" id="addrQuery" class="addr-input" placeholder="Название, город или поставщик" autocomplete="off"></div>
+    <div id="addrSearchInfo" class="addr-status"></div>
+    <div id="addrResults" class="addr-results"></div>
+    <div id="addrCard" class="addr-card" hidden></div>
+    <div class="addr-actions"><button type="button" id="addrNewBtn" class="addr-btn-primary">Новый адрес</button></div>
+    <form id="addrForm" class="addr-form" hidden novalidate>
+      <div id="addrFormTitle" class="addr-form-title"></div>
+      <label class="addr-field"><span>Name *</span><input id="af-name" class="addr-input" maxlength="120" autocomplete="off"></label>
+      <div class="addr-err" data-for="af-name"></div>
+      <label class="addr-field"><span>Country * (две буквы)</span><input id="af-country" class="addr-input" maxlength="2" autocomplete="off"></label>
+      <div class="addr-err" data-for="af-country"></div>
+      <label class="addr-field"><span>GPS * (широта, долгота)</span><input id="af-gps" class="addr-input" autocomplete="off" placeholder="51.48302, 4.72959"></label>
+      <div class="addr-err" data-for="af-gps"></div>
+      <label class="addr-field"><span>Full address</span><textarea id="af-full" class="addr-input" rows="3"></textarea></label>
+      <label class="addr-field"><span>Type</span><select id="af-type" class="addr-input"><option value="">—</option><option value="load">погрузка</option><option value="unload">выгрузка</option><option value="port">порт</option><option value="customs">таможня</option><option value="misc">прочее</option></select></label>
+      <label class="addr-field"><span>Client</span><input id="af-client" class="addr-input" autocomplete="off"></label>
+      <label class="addr-field"><span>Supplier</span><input id="af-supplier" class="addr-input" autocomplete="off"></label>
+      <label class="addr-field"><span>Notes</span><input id="af-notes" class="addr-input" autocomplete="off"></label>
+      <div id="addrDup" class="addr-dup" hidden></div>
+      <div class="addr-actions"><button type="submit" id="addrSubmitBtn" class="addr-btn-primary">Отправить на аппрув</button><button type="button" id="addrCancelBtn" class="addr-btn">Отмена</button></div>
+      <div id="addrFormMsg" class="addr-status"></div>
+    </form>
   </section>
 </aside>
 <button type="button" class="left-tab" id="left-tab-bans" data-lp="bans" title="Запреты (Esc — закрыть)">🚫</button>
@@ -366,6 +387,7 @@
 <script src="{{ url_for('static', filename='notes.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='bans-tab.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='left-panel.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='addr-tab.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='links-panel.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='truckinfo.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='gusage.js', v=app_version) }}"></script>
