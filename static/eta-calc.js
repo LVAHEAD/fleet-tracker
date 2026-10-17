@@ -99,11 +99,11 @@ const EtaCalc = (() => {
           <div class="ec-ftg"><span class="ec-ftk">From</span><input type="text" id="ec-from" list="points-list" autocomplete="off" placeholder="машина, ГПС, город или код">
             <span class="ec-ftk">To</span><input type="text" id="ec-to" list="points-list" autocomplete="off" placeholder="ГПС, город или код"></div></div>
         <div class="ec-sec ec-three">
-          <div><div class="ec-lb"><span>Расстояние, км</span><span>70 … 5000</span></div>
+          <div><div class="ec-lb"><span>Расстояние, км</span></div>
             <div class="ec-ln"><input type="number" id="ec-km-n" min="70" step="10" value="1500"></div></div>
           <div><div class="ec-lb"><span title="Через сколько часов выезд. Если машина уже стоит на отдыхе — сколько ей осталось отдыхать: остаток вождения и смена начнутся заново">Сдвиг выезда / отдых, ч</span><span class="ec-now"></span></div>
             <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-sh-n" class="ec-hm" inputmode="numeric" value="00:00" title="ЧЧ:ММ · ↑ ↓ — шаг 30 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+30 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−30 мин">▾</button></span></span></div></div>
-          <div><div class="ec-lb"><span>Остаток вождения, ч</span><span class="ec-lmax"></span></div>
+          <div><div class="ec-lb"><span>Остаток вождения, ч</span></div>
             <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-lf-n" class="ec-hm" inputmode="numeric" value="18:00" title="ЧЧ:ММ · ↑ ↓ — шаг 15 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+15 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−15 мин">▾</button></span></span></div></div>
         </div>
         <div class="ec-sec ec-restnow">
@@ -529,7 +529,6 @@ const EtaCalc = (() => {
   function calc() {
     if (!panel) return;
     const m = lfMax();
-    $(".ec-lmax").textContent = "макс. " + m + " ч";
     $(".ec-now").textContent = "сейчас " + fdt(new Date());
     $(".ec-wk").hidden = st.team;
     request();
