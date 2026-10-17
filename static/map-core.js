@@ -97,6 +97,7 @@ function addTargetModeControl() {
 // --- v1.30: плашки на карте (как в Mapon) — HTML-слой поверх карты ---
 // Плашка ставится над точкой lat/lng: низ плашки (с указателем) — на offsetY px выше точки.
 let BadgeOverlayClass = null;
+const BADGE_TOP_Z = 1000;   // v3.144: слой плашек выбранного трипа
 // v3.121: onMap — другая карта (From → To); без него — карта Флота
 function makeBadge(lat, lng, html, className, offsetY, onClick, onMap) {
   if (!BadgeOverlayClass) {
@@ -112,6 +113,7 @@ function makeBadge(lat, lng, html, className, offsetY, onClick, onMap) {
         this.div.style.position = "absolute";
         if (this.border) this.div.style.borderColor = this.border;   // v1.75: цвет рамки после скрытия/показа
         this.applyLook();
+        if (this.top) this.div.style.zIndex = String(BADGE_TOP_Z);   // v3.144
         if (this.click) {
           this.div.style.cursor = "pointer";
           this.div.addEventListener("click", (e) => { e.stopPropagation(); this.click(); });
@@ -145,6 +147,8 @@ function makeBadge(lat, lng, html, className, offsetY, onClick, onMap) {
         d.style.boxShadow = k.bg ? `inset 5px 0 0 ${k.st}, 0 1px 3px rgba(0,0,0,0.3)` : "";
         d.style.setProperty("--mk-tip", k.bd || "");
       }
+      // v3.144: плашки выбранного трипа — выше всех остальных (по умолчанию слои плашек равны, сверху — созданная позже)
+      setTop(on) { this.top = !!on; if (this.div) this.div.style.zIndex = this.top ? String(BADGE_TOP_Z) : ""; }
       getPosition() { return this.pos; }
     };
   }
@@ -393,6 +397,12 @@ function recluster() {
     clusterOverlays.push(o);
   });
 }
+// v3.144: плашки выбранного трипа (машина и точки ①②③…; ключ точки — «id» или «id_k») — всегда выше остальных
+function applyBadgeTop() {
+  const top = (b, rid) => { if (b && typeof b.setTop === "function") b.setTop(isSelected(rid)); };
+  Object.keys(targetBadges).forEach((k) => top(targetBadges[k], String(k).split("_")[0]));
+  Object.keys(truckBadges).forEach((k) => top(truckBadges[k], k));
+}
 function syncMapVisibility() {
   if (!map) return;
   recluster();
@@ -407,6 +417,7 @@ function syncMapVisibility() {
   });
   syncTruckLabels();
   applyTargetVisibility();
+  applyBadgeTop();     // v3.144
   scheduleOverlap();   // v3.58: кластеры / фильтр поменялись — пересчёт счётчиков
 }
 window.fleetMapSync = syncMapVisibility;
@@ -568,6 +579,7 @@ function setTargetBadge(rowId, lat, lng, label, lo, n, km, tgt) {
   if (targetBadges[rowId]) targetBadges[rowId].update(new google.maps.LatLng(lat, lng), t.html, t.cls);
   else targetBadges[rowId] = makeBadge(lat, lng, t.html, t.cls, 34, null);
   const b = targetBadges[rowId];
+  b.setTop(isSelected(String(rowId).split("_")[0]));   // v3.144
   b.border = t.border;
   const applyBorder = () => { if (b.div) b.div.style.borderColor = t.border; };
   applyBorder();
