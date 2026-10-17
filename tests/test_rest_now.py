@@ -36,3 +36,15 @@ class RestNow(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TenthHourAfterShift(unittest.TestCase):
+    """«д1 +1 ч» не должен теряться, когда сдвиг выезда ≥ отдыха (свежий день): первый отдых позже на час."""
+
+    def test_ext_day1_with_shift(self):
+        base = dict(dist=1339, team=False, rest=9, shorts=2, wkLeft=48.25, nowMs=NOW * 1000, extras={}, shifts={}, shiftH=38)
+        a = calc_plan(dict(base, leftH=9, ext=[]))
+        b = calc_plan(dict(base, leftH=10, ext=[0]))
+        ra = next(e["t0"] for e in a["ev"] if e["k"] == "r")
+        rb = next(e["t0"] for e in b["ev"] if e["k"] == "r")
+        self.assertGreater(rb, ra + 0.9)   # 10-й час в первой смене: отдых позже ≈ на час
