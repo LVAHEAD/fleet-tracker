@@ -836,11 +836,13 @@ const EtaCalc = (() => {
       dot(L.path[0], "#1a1a1a", 5, "Старт · ETD " + fdt(new Date(S.etd)), "📍 " + fdt(new Date(S.etd)));
     }
     dot(L.path[L.path.length - 1], "#2f6fd6", 6, "ETA " + fdt(new Date(S.eta)) + " · " + km(S.dist), "🏁 " + fdt(new Date(S.eta)));
-    if (st.mapFit) {                            // v3.151: таргет (конец маршрута) в центре, зум 15
+    if (st.mapFit) {                            // v3.153: авто-зум — весь маршрут до таргета в кадре (зум не крупнее 15)
       st.mapFit = false;
-      const tp = L.path[L.path.length - 1];
       google.maps.event.trigger(gmap, "resize");
-      gmap.setCenter({ lat: tp.lat(), lng: tp.lng() }); gmap.setZoom(15);
+      const bounds = new google.maps.LatLngBounds();
+      L.path.forEach((p) => bounds.extend(p));
+      gmap.fitBounds(bounds, 40);
+      google.maps.event.addListenerOnce(gmap, "idle", () => { if (gmap.getZoom() > 15) gmap.setZoom(15); });
     }
   }
 
