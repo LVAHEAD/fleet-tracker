@@ -120,6 +120,7 @@
      "auto": false,
      "badge": "IT63",
      "badge_hint": "IT · около IT63",
+     "cc": "IT",
      "done": true,
      "manual": true
     }
@@ -177,7 +178,8 @@
    "direction": null,
    "dist_km": 1543.2,
    "duration_str": "0ч 20м",
-   "eta_local": "08/10 02:15",
+   "eta_local": "08/10 03:15",
+   "eta_tz": "LV",
    "is_trailer": false,
    "last_update": "2026-10-07T05:59:00Z",
    "number": "OI-1778",
@@ -187,6 +189,7 @@
      "auto": false,
      "badge": "LV10",
      "badge_hint": "LV · около LV10",
+     "cc": "LV",
      "done": false,
      "manual": null
     }
@@ -268,7 +271,8 @@
      ],
      "bans_times": "IT 08/10 02:32–04:23 · AT 08/10 04:23–05:48 · DE 08/10 05:48–06:39 · AT 08/10 06:39–07:22 · DE 08/10 07:22–08:30 · CZ 08/10 08:30–12:11 · PL 08/10 12:11–20:07 · LT 08/10 20:07–23:23 · LV 08/10 23:23–09/10 00:35",
      "dist_km": 3086.4,
-     "eta_local": "09/10 00:45",
+     "eta_local": "09/10 01:45",
+     "eta_tz": "LV",
      "lat": 57.00781,
      "leg_km": 1543.2,
      "lng": 24.10356,
@@ -297,6 +301,7 @@
      "auto": false,
      "badge": "IT31",
      "badge_hint": "IT · около IT31",
+     "cc": "IT",
      "done": false,
      "manual": null
     },
@@ -305,6 +310,7 @@
      "auto": false,
      "badge": "LV10",
      "badge_hint": "LV · около LV10",
+     "cc": "LV",
      "done": false,
      "manual": null
     },
@@ -313,6 +319,7 @@
      "auto": false,
      "badge": "SE25",
      "badge_hint": "SE · около SE25",
+     "cc": "SE",
      "done": false,
      "manual": null
     }
@@ -367,8 +374,9 @@
    "direction": null,
    "dist_km": 1543.2,
    "duration_str": "11ч 6м",
-   "eta_local": "08/10 02:15",
-   "eta_tacho": "08/10 21:45",
+   "eta_local": "08/10 03:15",
+   "eta_tacho": "08/10 22:45",
+   "eta_tz": "LV",
    "is_trailer": false,
    "last_update": "2026-10-07T05:59:00Z",
    "linked_trailer": {
@@ -387,6 +395,7 @@
      "auto": false,
      "badge": "LV10",
      "badge_hint": "LV · около LV10",
+     "cc": "LV",
      "done": false,
      "manual": null
     }
@@ -468,7 +477,8 @@
      "bans_route": [],
      "bans_times": "DE 08/10 02:32–09:31 · AT 08/10 09:31–10:41 · DE 08/10 10:41–11:19 · AT 08/10 11:19–11:51 · DE 08/10 11:51–12:42 · CZ 08/10 12:42–15:20 · PL 08/10 15:20–21:22 · LT 08/10 21:22–23:55 · LV 08/10 23:55–09/10 00:35",
      "dist_km": 3086.4,
-     "eta_local": "09/10 00:45",
+     "eta_local": "09/10 01:45",
+     "eta_tz": "LV",
      "lat": 56.9456,
      "leg_km": 1543.2,
      "lng": 24.1063,
@@ -484,6 +494,7 @@
      "auto": false,
      "badge": "IT63",
      "badge_hint": "IT · около IT63",
+     "cc": "IT",
      "done": true,
      "manual": true
     },
@@ -492,6 +503,7 @@
      "auto": false,
      "badge": "DE20",
      "badge_hint": "DE · около DE20",
+     "cc": "DE",
      "done": false,
      "manual": null
     },
@@ -500,6 +512,7 @@
      "auto": false,
      "badge": "LV10",
      "badge_hint": "LV · около LV10",
+     "cc": "LV",
      "done": false,
      "manual": false
     }
@@ -566,6 +579,7 @@
      "auto": false,
      "badge": "DE20",
      "badge_hint": "DE · около DE20",
+     "cc": "DE",
      "done": false,
      "manual": null
     }

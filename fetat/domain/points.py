@@ -8,7 +8,7 @@ from fetat.domain.addresses import (
     address_public, base_point, dovoz_country, find_address, is_base_word,
 )
 from fetat.domain.regions import (
-    get_region_country, nearest_region_code, OUR_COUNTRIES, REGION_CODES,
+    get_region_country, nearest_region_code, OUR_COUNTRIES, REGION_CODES, _country_at,
 )
 from fetat.utils.geo import haversine_km, parse_gps, poly_dist_km, _point_in_poly
 from fetat.utils.log import warn
@@ -444,6 +444,7 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None):
                 lat, lng = t.get("lat"), t.get("lng")
                 if lat is not None:       # v1.80: код региона и у пройденной точки
                     info["badge"], info["badge_hint"] = target_badge_info(tstr, lat, lng, t.get("target_address"))
+                    info["cc"] = _country_at(lat, lng)   # v3.143: страна точки — для местного времени ✓
             except Exception as e:
                 warn("points:resolve", e)   # v3.98: раньше молча — точка «не пройдена» без следа
                 t = None

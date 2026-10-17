@@ -1,6 +1,8 @@
 """Флот: расчёт строки — статус машины, прицеп/реф, точки (✓ пройдено), км/ETA, тахо-ETA,
 следующие точки цепочкой, страны, «на объекте», запреты, плашки кодов."""
 
+from fetat.domain.local_time import local_tz, to_local_str
+from fetat.domain.regions import _country_at
 from fetat.utils.timefmt import ts_west
 from fetat.clients.google_routes import road_distance_km_google
 from fetat.clients.mapon import (fetch_group_unit_ids, fetch_reefer_units, fetch_units, get_tacho, unit_driver_names,
@@ -577,6 +579,38 @@ def _add_extra(result, extras, units, unit, tacho, sim, payload):
         cor["to"] = act[cor["to"]]
 
 
+def _add_local_times(result):
+    """v3.143: ETA и ✓ точек — в местном времени страны точки (FI, PT, Балтия… — `COUNTRY_TZ`), метка eta_tz / tz.
+    Оригиналы ✓ (at / arr — по Берлину) не трогаем: они запоминаются в строке трипа; рядом кладём at_loc / arr_loc."""
+    def conv(d, keys, lat, lng):
+        cc = _country_at(lat, lng) if lat is not None and lng is not None else None
+        if not cc or not local_tz(cc):
+            return
+        for k in keys:
+            v = to_local_str(d.get(k), cc)
+            if v:
+                d[k] = v
+        d["eta_tz"] = cc
+    try:
+        conv(result, ("eta_tacho", "eta_local"), result.get("target_lat"), result.get("target_lng"))
+        ot = result.get("on_target")
+        if isinstance(ot, dict) and result.get("eta_tz"):
+            v = to_local_str(ot.get("arr"), result["eta_tz"])
+            if v:
+                ot["arr"] = v
+        for it in result.get("extra") or []:
+            if isinstance(it, dict) and it.get("lat") is not None:
+                conv(it, ("eta_tacho", "eta_local"), it.get("lat"), it.get("lng"))
+        for x in result.get("points_done") or []:
+            cc = x.get("cc")
+            if x.get("done") and cc and local_tz(cc):
+                a, b = to_local_str(x.get("at"), cc), to_local_str(x.get("arr"), cc)
+                if a or b:
+                    x["at_loc"], x["arr_loc"], x["tz"] = a, b, cc
+    except Exception as e:
+        warn("fleet_calc:local_times", e)
+
+
 def _calc_row(payload, tm):
     """Строка Флота. payload: {"unit", "target", "extra": [...], "done": [...], "trailer"}.
     target — "43.30726, -8.48246" | "Oslo" | "NO01" | "". Возвращает (ответ, HTTP-код)."""
@@ -629,6 +663,8 @@ def _calc_row(payload, tm):
 
         _add_code_badges(result, target_str)
         tm.mark("context")
+
+        _add_local_times(result)   # v3.143: ETA и ✓ — местное время страны точки
 
         return result, 200
 

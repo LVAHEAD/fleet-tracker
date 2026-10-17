@@ -41,6 +41,8 @@ function doneManualArray(row) {
   const d = row.done || {};
   return Array.from({ length: n }, (_, i) => (d[i] === true || d[i] === false ? d[i] : null));
 }
+// v3.143: серая метка «лок.» — время показано в местном поясе страны точки (FI, PT, Балтия…), не по Берлину
+function tzBadge(cc) { return cc ? ` <span class="tz-loc" title="Местное время страны ${cc} (не EU time / Берлин)">лок.</span>` : ""; }
 function doneEtaHtml(x) {
   const at = x.done_at || x.at;
   const auto = x.done_auto != null ? x.done_auto : x.auto;
@@ -54,20 +56,20 @@ function doneEtaHtml(x) {
   const where = zone ? `в зоне Mapon «${zone}»` : "на точке";
   const tip = auto ? (arr && at ? `Трак стоял ${where} с ${arr} до ${at} и уехал` : `Трак стоял ${where} и уехал`) : "Отмечено вручную";
   const label = auto && at ? at : "пройдена";   // v3.81: в ячейке только время отъезда, «приехал – уехал» — в подсказке
-  return `<span class="done-eta" title="${escapeHtml(tip)}">✓ ${escapeHtml(label)}</span>`;
+  return `<span class="done-eta" title="${escapeHtml(tip + (x.done_tz ? " · местное время " + x.done_tz : ""))}">✓ ${escapeHtml(label)}${auto && at ? tzBadge(x.done_tz) : ""}</span>`;
 }
 // ответ сервера (① и extra — только непройденные) -> по исходным номерам точек
 function remapDone(data) {
   const dn = data.points_done;
   if (!dn) return data;
   const act = data.active_idx || [];
-  const doneItem = (i) => ({ done: true, done_at: dn[i].at, done_arr: dn[i].arr || null, done_auto: dn[i].auto,
+  const doneItem = (i) => ({ done: true, done_at: dn[i].at_loc || dn[i].at, done_arr: dn[i].arr_loc || dn[i].arr || null, done_tz: dn[i].tz || null,   // v3.143: время — местное, если at_loc done_auto: dn[i].auto,
     done_by: dn[i].by != null ? dn[i].by : null, done_zone: dn[i].zone || null,
     done_leg_km: dn[i].leg_km != null ? dn[i].leg_km : null,   // v3.122: плечо пройденной точки ②③…
     badge: dn[i].badge || null, badge_hint: dn[i].badge_hint || null });
   const main = data.target_lat != null ? {
     dist_km: data.dist_km, leg_km: data.dist_km, eta_local: data.eta_local, eta_tacho: data.eta_tacho,
-    tacho_weeklimit: data.tacho_weeklimit, badge: data.target_badge, badge_hint: data.target_code_hint,
+    tacho_weeklimit: data.tacho_weeklimit, eta_tz: data.eta_tz || null, badge: data.target_badge, badge_hint: data.target_code_hint,
     lat: data.target_lat, lng: data.target_lng, polyline: null, bans_route: null, from_truck: true,
     target_address: data.target_address,
   } : { error: "нет координат" };

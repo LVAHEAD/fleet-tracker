@@ -926,7 +926,7 @@ function etaCellHtml(row, c, composed) {
       tip = ce.error;
     } else if (ce && (ce.eta_tacho || ce.eta_local)) {
       const wk = ce.tacho_weeklimit ? '<span class="wk-mark" title="Недельный лимит вождения кончится по пути">56</span>' : "";
-      inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}</span>`;
+      inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}${tzBadge(ce.eta_tz)}</span>`;
       tip = [`Точка ${STOP_NUM[i + 2]}: ${x.target}`,
              `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]}, всего ${ce.dist_km.toFixed(1)} км`,
              `+30 мин на каждой точке до неё`,
@@ -1000,7 +1000,7 @@ function onSiteArr(row, data, k) {
   const chk = slotCheck(pt.delivery, ot.arr);
   const tip = `📍 Приехал ${ot.arr}, стоит на объекте${data.duration_str ? " " + data.duration_str : ""}. Уедет — здесь будет время отъезда`;
   return { arr: ot.arr, late: chk.late, lines: chk.lines, tip,
-           html: `<span class="eta-x-t eta-arr${chk.late ? " eta-arr-late" : ""}" title="${escapeHtml(tip)}">📍 ${escapeHtml(ot.arr)}</span>` };
+           html: `<span class="eta-x-t eta-arr${chk.late ? " eta-arr-late" : ""}" title="${escapeHtml(tip)}">📍 ${escapeHtml(ot.arr)}${tzBadge(data.eta_tz)}</span>` };
 }
 function composeEta(row, c) {
   const bans = c.bansR || [];
@@ -1257,8 +1257,8 @@ async function calcRow(id, why) {
         .concat(data.route_countries && data.route_countries.length > 1 ? ["Страны: " + data.route_countries.join(" → ")] : []);
       // v1.43: одна строка — ⏱ по тахографу крупно, простой мелко серым
       etaText = data.eta_tacho
-        ? `<span class="eta-tacho">⏱ ${escapeHtml(data.eta_tacho)}</span>`   // v3.18: серое простое ETA — только в подсказке
-        : `<span class="eta-tacho eta-only">${escapeHtml(data.eta_local)}</span>`;
+        ? `<span class="eta-tacho">⏱ ${escapeHtml(data.eta_tacho)}${tzBadge(data.eta_tz)}</span>`   // v3.18: серое простое ETA — только в подсказке; v3.143: «лок.» — местное время страны точки
+        : `<span class="eta-tacho eta-only">${escapeHtml(data.eta_local)}${tzBadge(data.eta_tz)}</span>`;
       // v1.46: "56" — одиночка упирается в недельный лимит вождения, стоп до пн 00:00 UTC
       if (data.tacho_weeklimit) {
         etaText = `<span class="wk-mark" title="Недельный лимит вождения кончится по пути — стоп до пн 00:00 UTC (02:00 CEST), учтено в ⏱ ETA">56</span>` + etaText;
@@ -1305,7 +1305,7 @@ async function calcRow(id, why) {
         const wk = data.tacho_weeklimit ? '<span class="wk-mark" title="Недельный лимит вождения кончится по пути">56</span>' : "";
         const osa = onSiteArr(row, data, act0);
         if (osa) onArr = osa.arr;
-        etaCore = osa ? osa.html : `${wk}<span class="eta-x-t">⏱ ${escapeHtml(et || "—")}</span>`;
+        etaCore = osa ? osa.html : `${wk}<span class="eta-x-t">⏱ ${escapeHtml(et || "—")}${tzBadge(data.eta_tz)}</span>`;
         bansR = (data.bans_route || []).slice();
         (data.extra || []).forEach((x, i) => (x.bans_route || []).forEach((b) => bansR.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
         nearR = banNearLines(data);
@@ -1572,7 +1572,7 @@ function corStripAlign(el, tw) {
 function extraCalc(data) {
   return (data.extra || []).map((x) => ({
     error: x.error || null,
-    done: !!x.done, done_at: x.done_at || null, done_arr: x.done_arr || null, done_auto: !!x.done_auto, from_truck: !!x.from_truck,
+    done: !!x.done, done_at: x.done_at || null, done_arr: x.done_arr || null, done_tz: x.done_tz || null, eta_tz: x.eta_tz || null, done_auto: !!x.done_auto, from_truck: !!x.from_truck,
     done_by: x.done_by != null ? x.done_by : null, done_zone: x.done_zone || null,
     dist_km: x.dist_km, leg_km: x.leg_km,
     eta_tacho: x.eta_tacho || null, eta_local: x.eta_local || null,
