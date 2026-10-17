@@ -44,7 +44,7 @@ body.ec-resizing .ec-panel, body.ec-resizing .calc-tab, body.ec-resizing .nb-tab
 .ec-spin button { flex: 1; min-height: 0; padding: 0; border: 0; background: #f6f6f6; color: #666; font-size: 9px;
   line-height: 1; cursor: pointer; }
 .ec-spin button + button { border-top: 1px solid #e6e6e6; }
-.ec-spin button:hover { background: #e9e9e9; color: #1a1a1a; }
+.ec-spin button:hover { background: #2f6fd6; color: #fff; }   /* v3.147: наведение — синий фон, белый текст */
 .ec-panel input[type="number"]:focus, .ec-panel input.ec-hm:focus { outline: none; border-color: #888; }
 .ec-panel input[type="range"] { width: 100%; accent-color: #2f6fd6; }
 /* v3.51: From / To сверху; сдвиг и остаток — в одну строку */
@@ -72,7 +72,7 @@ body.ec-resizing .ec-panel, body.ec-resizing .calc-tab, body.ec-resizing .nb-tab
 .ec-seg button { border: 0; border-left: 1px solid #2f6fd6; border-radius: 0; background: #fff; color: #2f6fd6;
   padding: 0 10px; height: 24px; line-height: 24px; font-size: 12px; cursor: pointer; }
 .ec-seg button:first-child { border-left: 0; }
-.ec-seg button:hover { background: #eef3fd; }
+.ec-seg button:hover { background: #2f6fd6; color: #fff; }   /* v3.147 */
 .ec-seg button.on { background: #2f6fd6; color: #fff; font-weight: 600; }
 .ec-seg.ec-sm button { padding: 0 8px; height: 22px; line-height: 22px; font-size: 11px; }
 
@@ -172,6 +172,7 @@ body.ec-resizing .ec-panel, body.ec-resizing .calc-tab, body.ec-resizing .nb-tab
 .ec-ext { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 6px; }
 .ec-ext:empty { display: none; }
 .ec-ext button { border: 1px solid #c9d6ee; background: #fff; color: #2f6fd6; border-radius: 6px; padding: 1px 6px; font-size: 11px; cursor: pointer; }
+.ec-ext button:hover { background: #2f6fd6; border-color: #2f6fd6; color: #fff; }
 .ec-ext button.on { background: #2f6fd6; border-color: #2f6fd6; color: #fff; }
 
 /* v3.140: «🌙 Встал на отдых» — Синий Кальк */
@@ -179,7 +180,7 @@ body.ec-resizing .ec-panel, body.ec-resizing .calc-tab, body.ec-resizing .nb-tab
 .ec-rn-form { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
 .ec-rn-form[hidden] { display: none; }
 .ec-rn-form input.ec-rn-t { width: 64px; text-align: center; }
-.ec-rn-btn, .ec-rn-ok, .ec-rn-no { border: 1px solid #2f6fd6; border-radius: 6px; background: #2f6fd6; color: #fff; height: 26px; padding: 0 10px; font-size: 12px; cursor: pointer; }
-.ec-rn-btn:hover, .ec-rn-ok:hover, .ec-rn-no:hover { background: #fff; color: #2f6fd6; border-color: #c9d6ee; }
+.ec-rn-btn, .ec-rn-ok, .ec-rn-no { border: 1px solid #2f6fd6; border-radius: 6px; background: #fff; color: #2f6fd6; height: 26px; padding: 0 10px; font-size: 12px; cursor: pointer; }
+.ec-rn-btn:hover, .ec-rn-ok:hover, .ec-rn-no:hover { background: #2f6fd6; color: #fff; border-color: #2f6fd6; }   /* v3.147 */
 .ec-rn-form > .ec-hmw { display: inline-block; }
 .ec-rn-form .ec-rn-post { color: #666; }
