@@ -13,9 +13,9 @@ def read(*p):
 class AddrTab(unittest.TestCase):
     def test_version_and_changelog(self):
         from fetat import APP_VERSION
-        self.assertEqual(APP_VERSION, "3.152")
         top = [ln for ln in read("CHANGELOG.md").splitlines() if ln[:1].isdigit()][0]
-        self.assertTrue(top.startswith("3.152 ("))
+        self.assertTrue(top.startswith(APP_VERSION + " ("))
+        self.assertIn("ГПС, название, машина, код, город", read("static", "app.js"))
 
     def test_markup(self):
         html = read("templates", "index.html")

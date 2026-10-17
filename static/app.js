@@ -423,7 +423,7 @@ function renderRows() {
           <span class="lead">${!folded(row) || foldVisible(row)[0] === 0 ? foldBtnHtml(row, cached) : ""}</span><span class="stop-n">${multi ? numChip(1, ptLo(row)) : ""}</span>
           <button class="lo-btn ${ptBtnClass(row)}" title="${escapeHtml(ptBtnTitle(row))}">${ptBtnText(row)}</button>
           ${cached && cached.targetBadge ? cached.targetBadge : '<span class="cc-badge target-cc" hidden></span>'}
-          <input list="points-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" title="${escapeHtml(row.target)}" placeholder="ГПС, город, код или машина" />
+          <input list="points-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" title="${escapeHtml(row.target)}" placeholder="ГПС, название, машина, код, город" />
           ${multi ? '<button class="stop-x" data-k="0" title="Убрать эту точку">×</button>' + addStopHtml(row, 0) : '<span class="stop-x-sp"></span><button class="add-stop" data-k="0" title="Добавить ещё таргет (следующая выгрузка / погрузка)">+</button>'}
         </div>
         ${extraTargetsHtml(row, cached)}
