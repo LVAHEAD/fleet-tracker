@@ -182,7 +182,4 @@ body.ec-resizing .ec-panel, body.ec-resizing .calc-tab, body.ec-resizing .nb-tab
 .ec-rn-btn, .ec-rn-ok, .ec-rn-no { border: 1px solid #2f6fd6; border-radius: 6px; background: #2f6fd6; color: #fff; height: 26px; padding: 0 10px; font-size: 12px; cursor: pointer; }
 .ec-rn-btn:hover, .ec-rn-ok:hover, .ec-rn-no:hover { background: #fff; color: #2f6fd6; border-color: #c9d6ee; }
 .ec-rn-form > .ec-hmw { display: inline-block; }
-.ec-rn-form .ec-rn-pre, .ec-rn-form .ec-rn-post { color: #666; }
-.ec-rn-form .ec-rn-pre[hidden], .ec-rn-form .ec-rn-post[hidden] { display: none; }
-.ec-rn-mode { color: #2f6fd6; font-size: 12px; text-decoration: underline; white-space: nowrap; }
-.ec-rn-mode:hover { color: #1a4fa8; }
+.ec-rn-form .ec-rn-post { color: #666; }

@@ -106,12 +106,10 @@ const EtaCalc = (() => {
           <div><div class="ec-lb"><span>Остаток вождения, ч</span><span class="ec-lmax"></span></div>
           <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-lf-n" class="ec-hm" inputmode="numeric" value="18:00" title="ЧЧ:ММ · ↑ ↓ — шаг 15 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+15 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−15 мин">▾</button></span></span><input type="range" id="ec-lf-r" min="0" max="18" step="0.25" value="18"></div></div></div>
         <div class="ec-sec ec-restnow">
-          <button type="button" class="ec-rn-btn" title="Машина уже стоит на отдыхе: сколько стоит (тахо / GPS, можно поправить) и 9 или 11 ч — выезд посчитается после отдыха, день свежий">🌙 Встал на отдых</button>
+          <button type="button" class="ec-rn-btn" title="Машина уже стоит на отдыхе: сколько стоит (тахо / GPS, можно поправить) и 9 или 11 ч — выезд посчитается после отдыха, день свежий">🌙 отдых</button>
           <div class="ec-rn-form" hidden>
-            <span class="ec-rn-pre" hidden>встал в</span>
             <span class="ec-hmw"><input type="text" class="ec-hm ec-rn-t" inputmode="numeric" value="00:00" title="ЧЧ:ММ · ↑ ↓ — шаг 15 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+15 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−15 мин">▾</button></span></span>
             <span class="ec-rn-post">назад</span>
-            <a href="#" class="ec-rn-mode">показать во сколько</a>
             <span class="ec-seg ec-sm ec-rn-len"><button type="button" data-v="9" class="on">9 ч</button><button type="button" data-v="11">11 ч</button></span>
             <button type="button" class="ec-rn-ok">Применить</button><button type="button" class="ec-rn-no">Сбросить</button>
           </div>
@@ -412,15 +410,11 @@ const EtaCalc = (() => {
   }
   function restNowPair() {
     const btn = $(".ec-rn-btn"), form = $(".ec-rn-form"), t = $(".ec-rn-t");
-    const pre = $(".ec-rn-pre"), post = $(".ec-rn-post"), mode = $(".ec-rn-mode");
-    const clockMode = () => st.restAgo === false;
     const len = () => st.restLen || 9;
     const lenBtns = () => form.querySelectorAll(".ec-rn-len button").forEach((x) => x.classList.toggle("on", Number(x.dataset.v) === len()));
-    // показ поля: «N:MM» назад или «ЧЧ:ММ» во сколько
+    // поле: сколько уже стоит, «N:MM назад»
     const show = () => {
-      pre.hidden = !clockMode(); post.hidden = clockMode();
-      mode.textContent = clockMode() ? "показать, сколько назад" : "показать во сколько";
-      t.value = !st.restStartMs ? (clockMode() ? "" : "00:00") : clockMode() ? restHM(st.restStartMs) : fmtHM(restAgoH());
+      t.value = st.restStartMs ? fmtHM(restAgoH()) : "00:00";
       t.style.borderColor = "";
     };
     // тахо / GPS знают, сколько стоит — подставляем, пока не применено и не сброшено
@@ -431,27 +425,22 @@ const EtaCalc = (() => {
     };
     // что ввели — сразу становится началом отдыха (применяется кнопкой)
     const fromText = () => {
-      const v = String(t.value).trim();
-      if (clockMode()) {
-        const m = v.match(/^(\d{1,2})[:.](\d{2})$/);
-        if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return false;
-        const now = Date.now(), d = new Date(now);
-        d.setHours(Number(m[1]), Number(m[2]), 0, 0);
-        let start = d.getTime();
-        if (start > now) start -= 86400000;   // позже, чем сейчас — значит, вчера
-        st.restStartMs = start;
-      } else {
-        const h = parseHM(v);
-        if (h == null || h < 0) return false;
-        st.restStartMs = Date.now() - h * 3600000;
-      }
+      const h = parseHM(String(t.value).trim());
+      if (h == null || h < 0) return false;
+      st.restStartMs = Date.now() - h * 3600000;
       return true;
+    };
+    // шаг 15 мин: ▴ ▾ и ↑ ↓
+    const step = (d) => {
+      if (!st.restStartMs) st.restStartMs = Date.now();
+      st.restStartMs = Date.now() - Math.max(0, Math.round(restAgoH() * 4) + d) / 4 * 3600000;
+      show();
+      restNowInfo();
     };
     btn.addEventListener("click", () => {
       form.hidden = !form.hidden;
       if (!form.hidden) { prefill(); show(); lenBtns(); }
     });
-    mode.addEventListener("click", (e) => { e.preventDefault(); st.restAgo = clockMode(); show(); });
     t.addEventListener("input", () => { if (fromText()) restNowInfo(); });
     t.addEventListener("blur", () => show());
     t.addEventListener("focus", () => t.select());
@@ -461,14 +450,6 @@ const EtaCalc = (() => {
       e.preventDefault();
       step(e.key === "ArrowUp" ? 1 : -1);
     });
-    // шаг 15 мин: ▴ ▾ и ↑ ↓
-    const step = (d) => {
-      if (!st.restStartMs) st.restStartMs = Date.now();
-      if (clockMode()) st.restStartMs += d * 900000;
-      else st.restStartMs = Date.now() - Math.max(0, Math.round(restAgoH() * 4) + d) / 4 * 3600000;
-      show();
-      restNowInfo();
-    };
     form.querySelectorAll(".ec-spin button").forEach((b) => {
       b.addEventListener("mousedown", (e) => e.preventDefault());
       b.addEventListener("click", () => step(Number(b.dataset.d)));
