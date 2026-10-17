@@ -166,6 +166,7 @@ function rowPassesFilterWith(row, ownPass) {
   if (!ownPass(row)) return false;   // v2.01 / v3.11
   if (awaitsComplete(row)) return true;   // v3.81: ждущие «✓ Завершён» видны при любом L/O и фильтре по клиентам, но не при чужом диспетчере
   if (!rowPassesClient(row)) return false;   // v3.114: фильтр по клиентам (client-filter.js)
+  if (!rowPassesSlot(row)) return false;     // v3.144: фильтр-календарь по TimeSlot (slot-filter.js)
   if (loFilter === "all") return true;
   return rowLoKind(row) === loFilter;
 }

@@ -75,7 +75,7 @@
       <th>Машина</th>
       <th>Статус</th>
       <th class="th-center th-target"><button type="button" id="fold-all-btn" class="fold-all-th" title="Развернуть точки во всех строках">▸</button>Таргет</th>
-      <th class="th-center" title="Срок или окно «с–по» для точки: 03.10 15:00 · 03.10 09-15 · 03.10 22:00 – 04.10 06:00">TimeSlot</th>
+      <th class="th-center th-slot" id="slot-flt-th" title="Фильтр-календарь по TimeSlot — клик. Срок или окно «с–по» для точки: 03.10 15:00 · 03.10 09-15 · 03.10 22:00 – 04.10 06:00">TimeSlot</th>
       <th class="th-center" title="Дистанция, км">KM</th>
       <th class="th-eta">ETA</th>
       <th>Примечание</th>
@@ -347,6 +347,7 @@
 <script src="{{ url_for('static', filename='done-marks.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='fleet-sort-filter.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='client-filter.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='slot-filter.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='dispatchers.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='map-disp-filter.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='presence.js', v=app_version) }}"></script>

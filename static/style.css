@@ -1471,3 +1471,30 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 
 /* v3.143: «лок.» — время в ETA / ✓ показано в местном поясе страны точки */
 .tz-loc { font-size: 9px; font-weight: 400; color: #8a8f98; margin-left: 2px; letter-spacing: .2px; }
+
+/* v3.144: фильтр-календарь по TimeSlot (slot-filter.js) — Синий Кальк */
+#fleet-table thead th.th-slot { cursor: pointer; user-select: none; }
+#fleet-table thead th.th-slot::after { content: " ▾"; color: #aaa; font-size: 11px; }
+#fleet-table thead th.th-slot.slot-on { background: #2f6fd6; color: #fff; }
+#fleet-table thead th.th-slot.slot-on::after { color: #fff; }
+.slot-flt-pop { position: fixed; z-index: 1200; width: 268px; background: #fff; border: 1px solid #d5d8dd; border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.15); padding: 8px 10px; font-size: 12.5px; }
+.slot-flt-pop .sf-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.slot-flt-pop .sf-title { font-weight: 600; }
+.slot-flt-pop .sf-nav { width: 26px; height: 24px; padding: 0; border: 1px solid #d5d8dd; border-radius: 6px; background: #fff; cursor: pointer; }
+.slot-flt-pop .sf-nav:hover { background: #eef3fd; }
+.slot-flt-pop .sf-wd, .slot-flt-pop .sf-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.slot-flt-pop .sf-wd span { color: #999; font-size: 11px; padding: 2px 0; }
+.slot-flt-pop .sf-c { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 36px; padding: 0;
+  border: 1px solid transparent; border-radius: 6px; background: #fff; cursor: pointer; font: inherit; }
+.slot-flt-pop .sf-e { cursor: default; }
+.slot-flt-pop .sf-c b { font-weight: 500; line-height: 1.1; }
+.slot-flt-pop .sf-c i { font-style: normal; font-size: 10px; line-height: 1.1; color: #2f6fd6; min-height: 11px; }
+.slot-flt-pop button.sf-c:hover { background: #eef3fd; border-color: #c9d6ee; }
+.slot-flt-pop .sf-today { border-color: #c9d6ee; }
+.slot-flt-pop .sf-on, .slot-flt-pop button.sf-on:hover { background: #2f6fd6; color: #fff; border-color: #2f6fd6; }
+.slot-flt-pop .sf-on i { color: #fff; }
+.slot-flt-pop .sf-foot { display: flex; gap: 6px; border-top: 1px solid #eee; margin-top: 6px; padding-top: 6px; }
+.slot-flt-pop .sf-foot button { padding: 3px 10px; font-size: 12px; border-radius: 12px; border: 1px solid #2f6fd6; background: #2f6fd6; color: #fff; cursor: pointer; }
+.slot-flt-pop .sf-foot button:hover { background: #fff; color: #2f6fd6; border-color: #c9d6ee; }
+.slot-flt-pop .sf-foot .sf-reset { margin-left: auto; }
