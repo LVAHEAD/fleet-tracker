@@ -270,8 +270,8 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 /* ---------- v1.22: подсветка строк L/O во вкладке "Флот" (кроме ячейки Статус) ---------- */
 #fleet-tbody tr.lo-row-L td:not(.status-cell) { background: #F0F6FD; }
 #fleet-tbody tr.lo-row-O td:not(.status-cell) { background: #FFFBE6; }
-#fleet-tbody tr.lo-row-L:hover td:not(.status-cell) { background: #E4EFFB; }
-#fleet-tbody tr.lo-row-O:hover td:not(.status-cell) { background: #FFF6D1; }
+#fleet-tbody tr.lo-row-L:hover td:not(.status-cell), #fleet-tbody tr.lo-row-L.row-work td:not(.status-cell) { background: #C9DFF7; }   /* v3.148: наведение и «в работе» — темнее */
+#fleet-tbody tr.lo-row-O:hover td:not(.status-cell), #fleet-tbody tr.lo-row-O.row-work td:not(.status-cell) { background: #F7E7A0; }
 
 /* ---------- v1.22: From → To — несколько погрузок и выгрузок ---------- */
 .route-group-title { font-size: 12px; color: #777; margin: 0 0 6px 32px; }
@@ -521,8 +521,8 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 /* L/O — полоска слева + (v1.48) снова бледная заливка всей строки */
 #fleet-tbody tr.lo-row-L td { background: #F0F6FD; }
 #fleet-tbody tr.lo-row-O td { background: #FFFBE6; }
-#fleet-tbody tr.lo-row-L:hover td { background: #E4EFFB; }
-#fleet-tbody tr.lo-row-O:hover td { background: #FFF6D1; }
+#fleet-tbody tr.lo-row-L:hover td, #fleet-tbody tr.lo-row-L.row-work td { background: #C9DFF7; }
+#fleet-tbody tr.lo-row-O:hover td, #fleet-tbody tr.lo-row-O.row-work td { background: #F7E7A0; }
 #fleet-tbody tr td:first-child { box-shadow: inset 4px 0 0 transparent; }
 #fleet-tbody tr.lo-row-L td:first-child { box-shadow: inset 4px 0 0 #6FA6E0; }
 /* v3.110: онлайн-диспетчеры в шапке — ☁ (🎧 JZ, VL) */
@@ -535,7 +535,7 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 .sync-status { display: inline-block; min-width: 2em; }
 .sync-status[data-st="local"] { min-width: 0; }
 #fleet-tbody tr.lo-row-O td:first-child { box-shadow: inset 4px 0 0 #E3B62E; }
-#fleet-tbody tr:not(.lo-row-L):not(.lo-row-O):hover td { background: #f6f7fa; }
+#fleet-tbody tr:not(.lo-row-L):not(.lo-row-O):hover td, #fleet-tbody tr:not(.lo-row-L):not(.lo-row-O).row-work td { background: #E3E7EF; }
 /* статус — одна строка, без цветной заливки */
 #fleet-tbody tr:not(.lo-row-L):not(.lo-row-O) .status-cell.status-driving,
 #fleet-tbody tr:not(.lo-row-L):not(.lo-row-O) .status-cell.status-standing { background: transparent; }
@@ -585,7 +585,8 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 .eta-nb.nb-force { border-color: #d9534f; background: #f8d7d4; box-shadow: inset 0 0 0 1px #d9534f; }   /* v3.13: запрет вручную */
 .eta-nb.nb-on { border-color: #9fcdaa; background: #e3f1e6; color: #2d6b3c; font-size: 10px; font-weight: 700; }
 .eta-nb:hover { filter: brightness(0.96); }
-#fleet-tbody tr:not(.lo-row-L):not(.lo-row-O):hover td.status-cell { background: #f6f7fa; }
+#fleet-tbody tr:not(.lo-row-L):not(.lo-row-O):hover td.status-cell { background: #E3E7EF; }
+#fleet-tbody tr:not(.lo-row-L):not(.lo-row-O).row-work .status-cell { background: #E3E7EF; }
 
 /* ---------- v1.51: счётчик запросов к Google ---------- */
 .g-usage {

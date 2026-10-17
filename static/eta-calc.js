@@ -184,8 +184,14 @@ const EtaCalc = (() => {
   }
 
   // ---------- v3.31: данные машины из строки Флота ----------
+  // v3.148: машина, с которой работает ⏱ — её строка во Флоте подсвечивается как «в работе»
+  function setCalcUnit(u) {
+    window.etaCalcUnit = u || "";
+    if (typeof markSelectedRow === "function") markSelectedRow();
+  }
   function fromRow(r, fromFT) {
     if (!panel) return;
+    setCalcUnit(r.unit || "");
     if (!fromFT) { $("#ec-from").value = ""; $("#ec-to").value = ""; ftStatus(""); ftKey = ""; }   // v3.51: строка Флота / From → To — поля From / To чистые
     if (r.km === 0 && r.pins) {                 // v3.112: машина уже на точке — маршрута нет, на карте маркеры машины и точки
       st.srcShown = true;
@@ -317,6 +323,7 @@ const EtaCalc = (() => {
       if (!d.truck) { ftStatus(""); return; }
       st.srcShown = false;                           // подпись «из …» относилась к прежнему маршруту
       const notes = applySeed(d.calc_seed || null, "тахографа машины нет — состав и остаток прежние");
+      setCalcUnit(from);                               // v3.148
       ftStatus("🚛 " + d.unit + ": данные подтянуты" + (notes.length ? " · " + notes.join(" · ") : ""));
       restUI(); calc();
     } catch (e) {
@@ -866,6 +873,7 @@ const EtaCalc = (() => {
   }
   function close() {
     if (!isOpen()) return;
+    setCalcUnit("");                                  // v3.148: ⏱ закрыт — строка больше не «в работе»
     panel.classList.remove("open");
     panel.setAttribute("aria-hidden", "true");
     document.body.classList.remove("calc-open");

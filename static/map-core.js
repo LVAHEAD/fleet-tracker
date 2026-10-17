@@ -427,7 +427,19 @@ function scheduleMapSync() {
   mapSyncTimer = setTimeout(() => { mapSyncTimer = null; syncMapVisibility(); }, 50);
 }
 // v3.26: выбранная строка — отметка в таблице
+// v3.148: строка «в работе» — выбрана на карте или открыта в ⏱ (машина From): тёмная подсветка, как при наведении
+function markWorkRows() {
+  const norm = (s) => String(s || "").replace(/\s+/g, "").toUpperCase();
+  const cu = norm(window.etaCalcUnit);
+  document.querySelectorAll("#fleet-tbody tr.row-work").forEach((tr) => tr.classList.remove("row-work"));
+  document.querySelectorAll("#fleet-tbody tr[data-id]").forEach((tr) => {
+    const sel = selectedRowId != null && String(tr.dataset.id) === String(selectedRowId);
+    const calc = !!cu && norm((tr.querySelector(".unit-input") || {}).value) === cu;
+    if (sel || calc) tr.classList.add("row-work");
+  });
+}
 function markSelectedRow() {
+  markWorkRows();
   document.querySelectorAll("#fleet-tbody tr.row-sel").forEach((tr) => tr.classList.remove("row-sel"));
   if (selectedRowId == null) return;
   const tr = document.querySelector(`#fleet-tbody tr[data-id="${selectedRowId}"]`);
