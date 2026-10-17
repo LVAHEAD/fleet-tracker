@@ -58,12 +58,16 @@
    "countries": [
     "AT",
     "BE",
+    "BG",
+    "CZ",
     "DE",
     "DK",
     "EE",
     "ES",
     "FI",
     "FR",
+    "HR",
+    "HU",
     "IT",
     "LT",
     "LU",
@@ -72,7 +76,10 @@
     "NO",
     "PL",
     "PT",
-    "SE"
+    "RO",
+    "SE",
+    "SI",
+    "SK"
    ],
    "days": [],
    "error": null,

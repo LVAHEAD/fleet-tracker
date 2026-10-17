@@ -14,7 +14,8 @@ with open(os.path.join(DATA_DIR, "region_codes.json"), encoding="utf-8") as _f:
 # v1.37: страны, где мы реально ездим (погрузки/выгрузки + транзит) — для
 # фильтра "Запретов" и проверки подозрительного геокодинга
 OUR_COUNTRIES = {"ES", "PT", "FR", "BE", "LU", "NL", "DE", "DK", "SE", "NO",
-                 "FI", "EE", "LV", "LT", "PL", "IT", "AT"}
+                 "FI", "EE", "LV", "LT", "PL", "IT", "AT",
+                 "HU", "CZ", "SK", "SI", "HR", "RO", "BG"}   # 17.10: + транзит / Балканы (решено Владимиром)
 
 
 # v1.27: дополнительные коды из GeoNames (data/region_codes_geonames.json, строится
