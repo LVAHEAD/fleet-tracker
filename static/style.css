@@ -616,8 +616,8 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 .fuel-det summary { cursor: pointer; font-weight: 600; }
 .fuel-det div { padding: 1px 0 1px 12px; font-size: 12px; color: #333; }
 .fuel-foot { display: flex; justify-content: flex-end; margin-top: 10px; }
-.fuel-go { font-size: 12.5px; padding: 4px 11px; border-radius: 5px; border: 1px solid #2f6fd6; background: #2f6fd6; color: #fff; cursor: pointer; }   /* Синий Кальк */
-.fuel-go:hover { background: #fff; color: #2f6fd6; border-color: #c9d6ee; }
+.fuel-go { font-size: 12.5px; padding: 4px 11px; border-radius: 5px; border: 1px solid #2f6fd6; background: #fff; color: #2f6fd6; cursor: pointer; }   /* v3.147: обычная — белая, синий текст; наведение и активная — синие */
+.fuel-go:hover { background: #2f6fd6; color: #fff; border-color: #2f6fd6; }
 .fuel-go:disabled { opacity: .6; cursor: default; }
 
 /* ---------- v1.53: сортировка Флота ---------- */
@@ -665,8 +665,8 @@ body.sort-manual .manual-only { display: block; }
 .com-sp { flex: 1; }
 .com-hint { font-size: 11px; color: #999; }
 .com-del { color: #c0392b; }
-.com-ok { background: #2f6fd6; border-color: #2f6fd6; color: #fff; }
-.com-ok:hover { background: #2a62bf; }
+.com-ok { background: #fff; border-color: #2f6fd6; color: #2f6fd6; }   /* v3.147 */
+.com-ok:hover { background: #2f6fd6; border-color: #2f6fd6; color: #fff; }
 
 /* ---------- v1.57: км до таргета на плашке трака ---------- */
 .mk-badge .mk-km { margin-left: 5px; font-weight: 500; opacity: 0.9; white-space: nowrap; }
@@ -848,8 +848,8 @@ button.hitch-ic:hover { background: #e6dfcc; }
 .trl-ed-err { color: #a12622; font-size: 11.5px; margin-top: 4px; }
 .trl-ed-b { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
 .trl-ed-b button { font-size: 12px; padding: 3px 9px; border-radius: 5px; border: 1px solid #ccc; background: #f6f6f6; cursor: pointer; }
-.trl-ed-b .trl-ed-ok { background: #2f6fd6; border-color: #2f6fd6; color: #fff; }   /* Синий Кальк */
-.trl-ed-b .trl-ed-ok:hover { background: #fff; color: #2f6fd6; border-color: #c9d6ee; }
+.trl-ed-b .trl-ed-ok { background: #fff; border-color: #2f6fd6; color: #2f6fd6; }   /* v3.147: обычная — белая, синий текст */
+.trl-ed-b .trl-ed-ok:hover { background: #2f6fd6; color: #fff; border-color: #2f6fd6; }
 .status-cell .status-line2 { flex-wrap: wrap; row-gap: 2px; }
 .trl-ed-near { font-size: 11px; color: #777; margin-top: 5px; line-height: 20px; }
 .trl-ed-pick { font-size: 11px; padding: 0 5px; margin: 0 2px 2px 0; border: 1px solid #d8cfb8; background: #f1eee6; color: #5c4a1e; border-radius: 8px; cursor: pointer; }
@@ -1157,8 +1157,8 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 #fleet-tbody td.unit-cell > .row3 > .cmpl-btn { display: inline-flex; gap: 4px; }
 #fleet-tbody td.unit-cell > .row3 > .cmpl-btn[hidden] { display: none !important; }
 /* v3.111: «✓ Завершить» — синий фон, белый текст (стиль Синий Кальк); при наведении — как раньше (белый) */
-#fleet-tbody td.unit-cell > .row3 > .cmpl-btn { background: #2f6fd6; color: #fff; border-color: #2f6fd6; }
-#fleet-tbody td.unit-cell > .row3 > .cmpl-btn:hover { background: #fff; color: #2f6fd6; border-color: #c9d6ee; }
+#fleet-tbody td.unit-cell > .row3 > .cmpl-btn { background: #fff; color: #2f6fd6; border-color: #2f6fd6; }   /* v3.147: ✓ Завершить — белая, синий текст */
+#fleet-tbody td.unit-cell > .row3 > .cmpl-btn:hover { background: #2f6fd6; color: #fff; border-color: #2f6fd6; }
 /* v3.95: значки слева в ячейке машины — только у мигающей строки; красное важнее рефа, реф важнее топлива */
 #fleet-tbody .blink-ico { display: none; vertical-align: middle; margin-right: 3px; }
 #fleet-tbody tr.row-blink td.unit-cell .blink-ico[data-k="late"],
