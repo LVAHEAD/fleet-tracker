@@ -792,11 +792,8 @@ const EtaCalc = (() => {
       lays.push(new google.maps.Marker({ map: gmap, position: { lat: ptg[0], lng: ptg[1] }, title: "Точка", zIndex: 3,
         icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: "#2ea043", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
         label: { text: "уже на точке", className: "ul-lab ec-plate", fontSize: "11px", fontWeight: "600", color: "#1a1a1a" } }));
-      if (st.mapFit) {
-        const b = new google.maps.LatLngBounds();
-        b.extend({ lat: pu[0], lng: pu[1] }); b.extend({ lat: ptg[0], lng: ptg[1] });
-        gmap.fitBounds(b, 60);
-        google.maps.event.addListenerOnce(gmap, "idle", () => { if (gmap.getZoom() > 16) gmap.setZoom(16); });
+      if (st.mapFit) {                          // v3.151: таргет в центре, зум 15
+        gmap.setCenter({ lat: ptg[0], lng: ptg[1] }); gmap.setZoom(15);
         st.mapFit = false;
       }
       return;
@@ -839,12 +836,11 @@ const EtaCalc = (() => {
       dot(L.path[0], "#1a1a1a", 5, "Старт · ETD " + fdt(new Date(S.etd)), "📍 " + fdt(new Date(S.etd)));
     }
     dot(L.path[L.path.length - 1], "#2f6fd6", 6, "ETA " + fdt(new Date(S.eta)) + " · " + km(S.dist), "🏁 " + fdt(new Date(S.eta)));
-    if (st.mapFit) {
+    if (st.mapFit) {                            // v3.151: таргет (конец маршрута) в центре, зум 15
       st.mapFit = false;
-      const b = new google.maps.LatLngBounds();
-      L.path.forEach((p) => b.extend(p));
+      const tp = L.path[L.path.length - 1];
       google.maps.event.trigger(gmap, "resize");
-      gmap.fitBounds(b, 24);
+      gmap.setCenter({ lat: tp.lat(), lng: tp.lng() }); gmap.setZoom(15);
     }
   }
 
