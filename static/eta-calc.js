@@ -98,13 +98,14 @@ const EtaCalc = (() => {
         <div class="ec-sec ec-ft">
           <div class="ec-ftg"><span class="ec-ftk">From</span><input type="text" id="ec-from" list="points-list" autocomplete="off" placeholder="машина, ГПС, город или код">
             <span class="ec-ftk">To</span><input type="text" id="ec-to" list="points-list" autocomplete="off" placeholder="ГПС, город или код"></div></div>
-        <div class="ec-sec"><div class="ec-lb"><span>Расстояние, км</span><span>70 … 5000</span></div>
-          <div class="ec-ln"><input type="number" id="ec-km-n" min="70" step="10" value="1500"><input type="range" id="ec-km-r" min="70" max="5000" step="10" value="1500"></div></div>
-        <div class="ec-sec ec-two"><div>
-          <div class="ec-lb"><span title="Через сколько часов выезд. Если машина уже стоит на отдыхе — сколько ей осталось отдыхать: остаток вождения и смена начнутся заново">Сдвиг выезда / отдых, ч</span><span class="ec-now"></span></div>
-          <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-sh-n" class="ec-hm" inputmode="numeric" value="00:00" title="ЧЧ:ММ · ↑ ↓ — шаг 30 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+30 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−30 мин">▾</button></span></span><input type="range" id="ec-sh-r" min="0" max="72" step="0.5" value="0"></div></div>
+        <div class="ec-sec ec-three">
+          <div><div class="ec-lb"><span>Расстояние, км</span><span>70 … 5000</span></div>
+            <div class="ec-ln"><input type="number" id="ec-km-n" min="70" step="10" value="1500"></div></div>
+          <div><div class="ec-lb"><span title="Через сколько часов выезд. Если машина уже стоит на отдыхе — сколько ей осталось отдыхать: остаток вождения и смена начнутся заново">Сдвиг выезда / отдых, ч</span><span class="ec-now"></span></div>
+            <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-sh-n" class="ec-hm" inputmode="numeric" value="00:00" title="ЧЧ:ММ · ↑ ↓ — шаг 30 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+30 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−30 мин">▾</button></span></span></div></div>
           <div><div class="ec-lb"><span>Остаток вождения, ч</span><span class="ec-lmax"></span></div>
-          <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-lf-n" class="ec-hm" inputmode="numeric" value="18:00" title="ЧЧ:ММ · ↑ ↓ — шаг 15 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+15 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−15 мин">▾</button></span></span><input type="range" id="ec-lf-r" min="0" max="18" step="0.25" value="18"></div></div></div>
+            <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-lf-n" class="ec-hm" inputmode="numeric" value="18:00" title="ЧЧ:ММ · ↑ ↓ — шаг 15 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+15 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−15 мин">▾</button></span></span></div></div>
+        </div>
         <div class="ec-sec ec-restnow">
           <button type="button" class="ec-rn-btn" title="Машина уже стоит на отдыхе: сколько стоит (тахо / GPS, можно поправить) и 9 или 11 ч — выезд посчитается после отдыха, день свежий">🌙 отдых</button>
           <div class="ec-rn-form" hidden>
@@ -154,7 +155,7 @@ const EtaCalc = (() => {
     // v3.31: правка руками — подпись «из строки» пропадает; км поменяли — линия строки больше не та
     $(".ec-body").addEventListener("input", (e) => {
       if (!e.isTrusted || !e.target.closest(".ec-sec") || e.target.closest(".ec-msec, .ec-ft")) return;
-      manual(e.target.id === "ec-km-n" || e.target.id === "ec-km-r");
+      manual(e.target.id === "ec-km-n");
     }, true);
     $(".ec-body").addEventListener("click", (e) => { if (e.target.closest(".ec-team button, .ec-rest button")) manual(false); }, true);
     $(".ec-mtg").addEventListener("click", (e) => { e.preventDefault(); mapFold(!st.mapFolded); });
@@ -207,7 +208,7 @@ const EtaCalc = (() => {
       return;
     }
     const kmv = Math.round(r.km);
-    $("#ec-km-n").value = kmv; $("#ec-km-r").value = Math.min(kmv, 5000);
+    $("#ec-km-n").value = kmv;
     const notes = applySeed(r.seed, r.noSeedNote);
     st.src = { unit: r.unit, point: r.point, label: r.label || "", km: kmv, polyline: r.polyline || null, note: notes.join(" · ") };
     st.srcShown = true;
@@ -356,13 +357,8 @@ const EtaCalc = (() => {
 
   // поле ввода + ползунок одного значения
   function pair(key, clamp) {
-    const n = $("#ec-" + key + "-n"), r = $("#ec-" + key + "-r");
-    r.addEventListener("input", () => { n.value = r.value; calc(); });
-    n.addEventListener("input", () => {
-      if (clamp) clamp();
-      else { const v = Number(n.value); if (!isNaN(v)) r.value = Math.min(v, Number(r.max)); }
-      calc();
-    });
+    const n = $("#ec-" + key + "-n");   // v3.149: ползунков нет — только поле
+    n.addEventListener("input", () => { if (clamp) clamp(); calc(); });
   }
   // v3.33: сдвиг выезда — ЧЧ:ММ (01:00, 00:30, 25:30), шаг 30 мин; принимает и «1,5», «2», «130»
   const fmtHM = (h) => { const m = Math.round(Math.max(0, h) * 60); return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
@@ -378,11 +374,9 @@ const EtaCalc = (() => {
   function setSh(h, keepText) {
     st.shH = Math.max(0, h);
     if (!keepText) $("#ec-sh-n").value = fmtHM(st.shH);
-    $("#ec-sh-r").value = Math.min(st.shH, 72);
   }
   function shPair() {
-    const n = $("#ec-sh-n"), r = $("#ec-sh-r");
-    r.addEventListener("input", () => { setSh(Number(r.value)); calc(); });
+    const n = $("#ec-sh-n");
     n.addEventListener("input", () => { const v = parseHM(n.value); if (v != null) { setSh(v, true); calc(); } });
     n.addEventListener("blur", () => setSh(st.shH));
     n.addEventListener("focus", () => n.select());
@@ -485,11 +479,9 @@ const EtaCalc = (() => {
   function setLf(h, keepText) {
     st.lfH = Math.min(lfMax(), Math.max(0, Number(h) || 0));
     if (!keepText) $("#ec-lf-n").value = fmtHM(st.lfH);
-    $("#ec-lf-r").value = st.lfH;
   }
   function lfPair() {
-    const n = $("#ec-lf-n"), r = $("#ec-lf-r");
-    r.addEventListener("input", () => { setLf(Number(r.value)); calc(); });
+    const n = $("#ec-lf-n");
     n.addEventListener("input", () => { const v = parseHM(n.value); if (v != null) { setLf(v, v <= lfMax()); calc(); } });
     n.addEventListener("blur", () => setLf(st.lfH));
     n.addEventListener("focus", () => n.select());
@@ -537,7 +529,6 @@ const EtaCalc = (() => {
   function calc() {
     if (!panel) return;
     const m = lfMax();
-    $("#ec-lf-r").max = m;
     $(".ec-lmax").textContent = "макс. " + m + " ч";
     $(".ec-now").textContent = "сейчас " + fdt(new Date());
     $(".ec-wk").hidden = st.team;
