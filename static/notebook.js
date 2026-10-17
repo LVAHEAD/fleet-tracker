@@ -517,8 +517,23 @@ const Notebook = (() => {
       const ed = box.querySelector(".nb-edit");
       if (ed) ed.addEventListener("click", () => { editing = true; newShot = undefined; render(); });
       const del = box.querySelector(".nb-del");
-      if (del) del.addEventListener("click", async () => {
-        if (!confirm(`Удалить запись «${it.title}»?`)) return;
+      // v3.146: подтверждение — карточка у кнопки, не системное окно (своя карточка: в блокноте нет trailer-swap.js)
+      const nbAsk = (anchor, title, okText, fn) => {
+        document.querySelectorAll(".nb-ask").forEach((x) => x.remove());
+        const pop = document.createElement("div");
+        pop.className = "trl-ed swap-pop nb-ask";
+        pop.style.width = "250px";
+        pop.innerHTML = `<div class="trl-ed-t">${title}</div><div class="trl-ed-b"><button class="trl-ed-cancel">Отмена</button><button class="trl-ed-ok">${okText}</button></div>`;
+        document.body.appendChild(pop);
+        const r = anchor.getBoundingClientRect();
+        pop.style.top = Math.min(window.innerHeight - pop.offsetHeight - 8, r.bottom + 4) + "px";
+        pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pop.offsetWidth - 8)) + "px";
+        pop.querySelector(".trl-ed-cancel").addEventListener("click", () => pop.remove());
+        pop.querySelector(".trl-ed-ok").addEventListener("click", () => { pop.remove(); fn(); });
+        pop.addEventListener("mousedown", (e) => e.stopPropagation());
+        setTimeout(() => document.addEventListener("mousedown", () => pop.remove(), { once: true }), 0);
+      };
+      if (del) del.addEventListener("click", () => nbAsk(del, `Удалить запись «${it.title}»?`, "Удалить", async () => {
         del.disabled = true;
         try {
           await api("/api/notebook/" + encodeURIComponent(id), { method: "DELETE" });
@@ -526,7 +541,7 @@ const Notebook = (() => {
           if (panel && isOpen) loadList();
           changed();
         } catch (e) { alert(e.message); del.disabled = false; }
-      });
+      }));
       const input = box.querySelector(".nb-com-input");
       const send = async () => {
         const text = input.value.trim();
@@ -543,8 +558,7 @@ const Notebook = (() => {
       };
       box.querySelector(".nb-com-send").addEventListener("click", send);
       input.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); } });
-      box.querySelectorAll(".nb-com-del").forEach((b) => b.addEventListener("click", async () => {
-        if (!confirm("Удалить комментарий?")) return;
+      box.querySelectorAll(".nb-com-del").forEach((b) => b.addEventListener("click", () => nbAsk(b, "Удалить комментарий?", "Удалить", async () => {
         const cid = b.closest(".nb-com").dataset.cid;
         try {
           const js = await api(`/api/notebook/${encodeURIComponent(id)}/comments/${encodeURIComponent(cid)}`, { method: "DELETE" });
@@ -552,7 +566,7 @@ const Notebook = (() => {
           render();
           changed();
         } catch (e) { alert(e.message); }
-      }));
+      })));
     }
 
     function wireEdit() {

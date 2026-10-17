@@ -585,10 +585,13 @@ function attachRowHandlers() {
     tr.querySelector(".cmpl-btn").addEventListener("click", (e) => { e.stopPropagation(); completeTrip(id); });
     tr.querySelector(".cmpl-menu-btn").addEventListener("click", (e) => {
       e.stopPropagation();
-      closeRowMenus();
       const c = lastCalcText[id];
-      if (!(c && c.allDone) && !confirm("Не все точки трипа пройдены. Всё равно завершить?")) return;
-      completeTrip(id);
+      if (c && c.allDone) { closeRowMenus(); return completeTrip(id); }
+      // v3.146: подтверждение — карточка у пункта меню, не системное окно (позиция снята до закрытия меню)
+      const r0 = e.currentTarget.getBoundingClientRect();
+      closeRowMenus();
+      openSwapPop({ getBoundingClientRect: () => r0 }, "Не все точки трипа пройдены", "Всё равно завершить?",
+        [{ text: "Завершить", ok: true, fn: () => completeTrip(id) }, { text: "Отмена" }]);
     });
     tr.querySelector(".add-btn-w").addEventListener("click", (e) => { e.stopPropagation(); tr.querySelector(".add-btn").click(); });
     tr.querySelector(".refresh-row-btn-w").addEventListener("click", (e) => { e.stopPropagation(); tr.querySelector(".refresh-row-btn").click(); });   // v3.35
@@ -669,7 +672,7 @@ function attachRowHandlers() {
     }));
     tr.querySelectorAll(".stop-x").forEach((b) => b.addEventListener("click", (e) => {
       e.stopPropagation();
-      removeStop(id, Number(b.dataset.k));
+      removeStop(id, Number(b.dataset.k), b);
     }));
     tr.querySelectorAll(".xt-input").forEach((inp) => inp.addEventListener("change", (e) => {
       const row = rows.find((r) => r.id === id);
@@ -944,12 +947,16 @@ function etaCellHtml(row, c, composed) {
   return lines.join("");
 }
 
-function removeStop(id, k) {
+function removeStop(id, k, anchor, confirmed) {
   const row = rows.find((r) => r.id === id);
   if (!row || !row.extra || !row.extra.length) return;
-  // v3.11: у точки свой комментарий — спросить
+  // v3.11: у точки свой комментарий — спросить; v3.146: карточка у крестика, не системное окно
   const own = k > 0 ? row.extra[k - 1] : null;
-  if (own && own.com && !confirm(`У точки ${STOP_NUM[k + 1]} есть комментарий — удалить вместе с ним?`)) return;
+  if (own && own.com && !confirmed && anchor) {
+    openSwapPop(anchor, `У точки ${STOP_NUM[k + 1]} есть комментарий`, "Удалить вместе с ним?",
+      [{ text: "Удалить", ok: true, fn: () => removeStop(id, k, null, true) }, { text: "Отмена" }]);
+    return;
+  }
   delete row.done;   // v1.79: номера точек сдвигаются — ручные ✓ сбрасываем
   if (k === 0) {
     const nx = row.extra.shift();
