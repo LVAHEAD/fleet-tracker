@@ -105,6 +105,13 @@ const EtaCalc = (() => {
           <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-sh-n" class="ec-hm" inputmode="numeric" value="00:00" title="ЧЧ:ММ · ↑ ↓ — шаг 30 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+30 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−30 мин">▾</button></span></span><input type="range" id="ec-sh-r" min="0" max="72" step="0.5" value="0"></div></div>
           <div><div class="ec-lb"><span>Остаток вождения, ч</span><span class="ec-lmax"></span></div>
           <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-lf-n" class="ec-hm" inputmode="numeric" value="18:00" title="ЧЧ:ММ · ↑ ↓ — шаг 15 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+15 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−15 мин">▾</button></span></span><input type="range" id="ec-lf-r" min="0" max="18" step="0.25" value="18"></div></div></div>
+        <div class="ec-sec ec-restnow">
+          <button type="button" class="ec-rn-btn" title="Машина уже стоит на отдыхе: укажи, с какого времени и 9 или 11 ч — выезд посчитается после отдыха, день свежий">🌙 Встал на отдых</button>
+          <span class="ec-rn-form" hidden>с <input type="text" class="ec-hm ec-rn-t" inputmode="numeric" placeholder="ЧЧ:ММ" title="Во сколько встал (время браузера); если позже, чем сейчас — вчера">
+            <span class="ec-seg ec-sm ec-rn-len"><button type="button" data-v="9" class="on">9 ч</button><button type="button" data-v="11">11 ч</button></span>
+            <button type="button" class="ec-rn-ok">Применить</button><button type="button" class="ec-rn-no">Снять</button></span>
+          <span class="ec-mut2 ec-rn-info"></span>
+        </div>
         <div class="ec-sec ec-g2">
           <span class="ec-lb">Состав</span>
           <div class="ec-rl"><span class="ec-seg ec-team"><button type="button" data-v="1" class="on">Экипаж</button><button type="button" data-v="0">Соло</button></span>
@@ -159,7 +166,7 @@ const EtaCalc = (() => {
     });
     try { st.mapFolded = localStorage.getItem(MAP_KEY) === "0"; } catch (e) { /* ignore */ }
     mapFold(!!st.mapFolded, true);
-    pair("km"); shPair(); lfPair();
+    pair("km"); shPair(); lfPair(); restNowPair();
     $("#ec-wk-n").addEventListener("input", () => { const v = Number($("#ec-wk-n").value); if (v > 56) $("#ec-wk-n").value = 56; if (v < 0) $("#ec-wk-n").value = 0; calc(); });
     panel.querySelectorAll(".ec-team button").forEach((b) => b.addEventListener("click", () => {
       st.team = b.dataset.v === "1"; st.extras = {}; st.shifts = {};
@@ -247,6 +254,7 @@ const EtaCalc = (() => {
       if (nn) notes.push(nn);
     }
     st.extras = {}; st.shifts = {}; st.ext = new Set();
+    st.restEndMs = null; restNowInfo();   // v3.140: другая машина / новые данные — ручной «встал на отдых» снят
     return notes;
   }
   // ---------- v3.51: From / To — км, линия и (машина в From) тахограф через /api/route, как вкладка From → To ----------
@@ -384,6 +392,41 @@ const EtaCalc = (() => {
       b.addEventListener("click", () => step(Number(b.dataset.d)));
     });
   }
+  // v3.140: «🌙 Встал на отдых» — диспетчер говорит, с какого времени машина стоит на отдыхе 9 / 11 ч.
+  // Сдвиг выезда = сколько осталось отдыхать (вверх до 15 мин); сервер при выезде после конца отдыха ставит свежий день.
+  function restNowInfo() {
+    const el = $(".ec-rn-info");
+    if (!el) return;
+    el.textContent = st.restEndMs
+      ? "отдых до " + new Date(st.restEndMs).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) + " · выезд после него, день свежий"
+      : "";
+  }
+  function restNowPair() {
+    const btn = $(".ec-rn-btn"), form = $(".ec-rn-form"), t = $(".ec-rn-t");
+    let len = 9;
+    btn.addEventListener("click", () => {
+      form.hidden = !form.hidden;
+      if (!form.hidden) { t.value = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }); t.select(); }
+    });
+    form.querySelectorAll(".ec-rn-len button").forEach((b) => b.addEventListener("click", () => {
+      len = Number(b.dataset.v);
+      form.querySelectorAll(".ec-rn-len button").forEach((x) => x.classList.toggle("on", x === b));
+    }));
+    $(".ec-rn-ok").addEventListener("click", () => {
+      const m = String(t.value).trim().match(/^(\d{1,2})[:.](\d{2})$/);
+      if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) { t.style.borderColor = "#d33"; return; }
+      t.style.borderColor = "";
+      const now = Date.now(), d = new Date(now);
+      d.setHours(Number(m[1]), Number(m[2]), 0, 0);
+      let start = d.getTime();
+      if (start > now) start -= 86400000;   // время позже, чем сейчас — значит, вчера
+      st.restEndMs = start + len * 3600000;
+      setSh(Math.max(0, Math.ceil((st.restEndMs - now) / 900000) / 4));
+      st.rest = len === 11 ? 11 : st.rest;
+      restUI(); restNowInfo(); form.hidden = true; calc(); manual(false);
+    });
+    $(".ec-rn-no").addEventListener("click", () => { st.restEndMs = null; restNowInfo(); form.hidden = true; calc(); });
+  }
   // v3.37: остаток вождения — тоже ЧЧ:ММ, шаг 15 мин; предел — 18:00 экипаж / 9:00 соло
   const lfMax = () => (st.team ? 18 : st.ext.has(0) ? 10 : 9);   // v3.39: 10-й час в первый день — до 10:00
   function setLf(h, keepText) {
@@ -432,6 +475,7 @@ const EtaCalc = (() => {
       dist: Number($("#ec-km-n").value) || 0, shiftH: st.shH, leftH: st.lfH,
       team: st.team, rest: st.rest, shorts: st.shorts, wkLeft: Number($("#ec-wk-n").value),
       extras: st.extras, shifts: st.shifts, ext: st.team ? [] : Array.from(st.ext), nowMs: Date.now(), shiftStartMs: st.startMs || null, standH: st.standH || 0,
+      restEndMs: st.restEndMs && Date.now() - st.restEndMs < 12 * 3600000 ? st.restEndMs : null,
     };
   }
 

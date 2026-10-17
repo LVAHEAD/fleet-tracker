@@ -622,6 +622,9 @@ def calc_plan(p):
     shift_sec = max(0.0, float(p.get("shiftH") or 0)) * H
     if shift_sec > 0 and float(p.get("standH") or 0) * H + shift_sec >= int(p.get("rest") or 9) * H:
         day_left, shift_start = (TEAM_DAY_SEC if team else SOLO_DAY_SEC), etd   # v3.125: стоит + сдвиг = отдых отбыт — свежий день
+    rest_end = float(p.get("restEndMs") or 0) / 1000.0
+    if rest_end and etd >= rest_end:   # v3.140: диспетчер отметил «встал на отдых» — выезд после его конца = свежий день
+        day_left, shift_start = (TEAM_DAY_SEC if team else SOLO_DAY_SEC), etd
     r = plan(etd, float(p.get("dist") or 0), team=team, day_left=day_left,
              rest_pref=int(p.get("rest") or 9), shorts=int(p.get("shorts") or 0),
              ext_days=[int(x) for x in (p.get("ext") or [])], extras=hrs(p.get("extras")), shifts=hrs(p.get("shifts")),

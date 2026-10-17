@@ -173,3 +173,11 @@ body.ec-resizing .ec-panel, body.ec-resizing .calc-tab, body.ec-resizing .nb-tab
 .ec-ext:empty { display: none; }
 .ec-ext button { border: 1px solid #c9d6ee; background: #fff; color: #2f6fd6; border-radius: 6px; padding: 1px 6px; font-size: 11px; cursor: pointer; }
 .ec-ext button.on { background: #2f6fd6; border-color: #2f6fd6; color: #fff; }
+
+/* v3.140: «🌙 Встал на отдых» — Синий Кальк */
+.ec-restnow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ec-rn-form { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
+.ec-rn-form[hidden] { display: none; }
+.ec-rn-form input.ec-rn-t { width: 64px; text-align: center; }
+.ec-rn-btn, .ec-rn-ok, .ec-rn-no { border: 1px solid #2f6fd6; border-radius: 6px; background: #2f6fd6; color: #fff; height: 26px; padding: 0 10px; font-size: 12px; cursor: pointer; }
+.ec-rn-btn:hover, .ec-rn-ok:hover, .ec-rn-no:hover { background: #fff; color: #2f6fd6; border-color: #c9d6ee; }
