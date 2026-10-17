@@ -187,6 +187,7 @@ const EtaCalc = (() => {
   // v3.148: машина, с которой работает ⏱ — её строка во Флоте подсвечивается как «в работе»
   function setCalcUnit(u) {
     window.etaCalcUnit = u || "";
+    window.workSrc = u ? "calc" : "map";   // v3.149: последнее действие — ⏱ (или карта, если ⏱ закрыт)
     if (typeof markSelectedRow === "function") markSelectedRow();
   }
   function fromRow(r, fromFT) {

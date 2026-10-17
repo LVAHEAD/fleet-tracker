@@ -428,14 +428,19 @@ function scheduleMapSync() {
 }
 // v3.26: выбранная строка — отметка в таблице
 // v3.148: строка «в работе» — выбрана на карте или открыта в ⏱ (машина From): тёмная подсветка, как при наведении
+// v3.149: в работе — одна строка: последнее действие (новый выбор на карте или открытие ⏱ — window.workSrc)
 function markWorkRows() {
   const norm = (s) => String(s || "").replace(/\s+/g, "").toUpperCase();
+  const selKey = selectedRowId == null ? null : String(selectedRowId);
+  if (selKey !== window.workSelSeen) { window.workSelSeen = selKey; if (selKey != null) window.workSrc = "map"; }
   const cu = norm(window.etaCalcUnit);
+  const byCalc = window.workSrc === "calc" && !!cu;
   document.querySelectorAll("#fleet-tbody tr.row-work").forEach((tr) => tr.classList.remove("row-work"));
+  let done = false;
   document.querySelectorAll("#fleet-tbody tr[data-id]").forEach((tr) => {
-    const sel = selectedRowId != null && String(tr.dataset.id) === String(selectedRowId);
-    const calc = !!cu && norm((tr.querySelector(".unit-input") || {}).value) === cu;
-    if (sel || calc) tr.classList.add("row-work");
+    const on = byCalc ? !done && norm((tr.querySelector(".unit-input") || {}).value) === cu
+                      : selKey != null && String(tr.dataset.id) === selKey;
+    if (on) { tr.classList.add("row-work"); done = true; }
   });
 }
 function markSelectedRow() {
