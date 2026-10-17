@@ -291,6 +291,24 @@ function rebuildPointsList() {
   });
 }
 
+// v3.155: при наведении на любое поле таргета (points-list) — полный адрес из «Full address» и второй строкой type · client · supplier
+function addressTipFor(v) {
+  const q = String(v || "").trim().toLowerCase();
+  if (!q) return "";
+  const a = (window.addressList || []).find((x) =>
+    String(x.name || "").trim().toLowerCase() === q || String(x.alias || "").trim().toLowerCase() === q);
+  if (!a) return "";
+  const head = a.full || a.name;
+  const extra = [ADDR_TYPE_RU[a.type] || a.type, a.client, a.supplier].filter(Boolean).join(" · ");
+  return extra ? head + "\n" + extra : head;
+}
+document.addEventListener("mouseover", (e) => {
+  const inp = e.target.closest && e.target.closest('input[list="points-list"]');
+  if (!inp) return;
+  if (inp.dataset.tipOrig === undefined) inp.dataset.tipOrig = inp.title || "";
+  inp.title = addressTipFor(inp.value) || inp.dataset.tipOrig;
+});
+
 function addressTooltip(a) {
   if (!a) return "";
   return [a.name, a.open && `Open: ${a.open}`, a.notes && `Notes: ${a.notes}`].filter(Boolean).join("\n");
