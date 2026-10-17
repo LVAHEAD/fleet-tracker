@@ -758,6 +758,7 @@ function attachRowHandlers() {
 
     tr.addEventListener("click", (e) => {
       if (blinkRows.delete(id)) tr.classList.remove("row-blink");   // v1.59: клик — "увидел"
+      if (typeof setWorkRow === "function") setWorkRow(id);          // v3.149: любой клик в трипе — строка «в работе»
       fuelSeenClick(tr, id);                                          // v3.30: мало топлива — тоже
       reeferSeenClick(tr, id);                                        // v3.34: тревога рефа — тоже
       if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;

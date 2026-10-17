@@ -432,16 +432,25 @@ function scheduleMapSync() {
 function markWorkRows() {
   const norm = (s) => String(s || "").replace(/\s+/g, "").toUpperCase();
   const selKey = selectedRowId == null ? null : String(selectedRowId);
-  if (selKey !== window.workSelSeen) { window.workSelSeen = selKey; if (selKey != null) window.workSrc = "map"; }
+  if (selKey !== window.workSelSeen) { window.workSelSeen = selKey; if (selKey != null) { window.workSrc = "map"; window.workRowId = selKey; } }
   const cu = norm(window.etaCalcUnit);
-  const byCalc = window.workSrc === "calc" && !!cu;
+  const src = window.workSrc;
+  const wantRow = src === "row" && window.workRowId != null ? String(window.workRowId) : null;
+  const byCalc = src === "calc" && !!cu;
   document.querySelectorAll("#fleet-tbody tr.row-work").forEach((tr) => tr.classList.remove("row-work"));
   let done = false;
   document.querySelectorAll("#fleet-tbody tr[data-id]").forEach((tr) => {
-    const on = byCalc ? !done && norm((tr.querySelector(".unit-input") || {}).value) === cu
-                      : selKey != null && String(tr.dataset.id) === selKey;
-    if (on) { tr.classList.add("row-work"); done = true; }
+    const on = wantRow != null ? String(tr.dataset.id) === wantRow
+             : byCalc ? norm((tr.querySelector(".unit-input") || {}).value) === cu
+             : selKey != null && String(tr.dataset.id) === selKey;
+    if (on && !done) { tr.classList.add("row-work"); done = true; }
   });
+}
+// v3.149: любой клик в строке трипа (поля, кнопки, страна, точки) — «в работе» переходит на эту строку
+function setWorkRow(id) {
+  window.workRowId = String(id);
+  window.workSrc = "row";
+  markWorkRows();
 }
 function markSelectedRow() {
   markWorkRows();
