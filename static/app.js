@@ -1896,6 +1896,13 @@ document.getElementById("add-row-btn").addEventListener("click", () => {
     if (b) b.click();
   }
   renderRows();
+  // новая строка — в конце длинной таблицы: прокручиваем к ней и ставим курсор в поле машины
+  const added = document.querySelector(`#fleet-tbody tr[data-id="${nr.id}"]`);
+  if (added) {
+    added.scrollIntoView({ behavior: "smooth", block: "center" });
+    const inp = added.querySelector(".unit-input");
+    if (inp) inp.focus();
+  }
 });
 
 document.getElementById("refresh-btn").addEventListener("click", () => calcAllRows({ kind: "manual" }));
