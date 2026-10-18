@@ -124,8 +124,9 @@ def own_forecast(st, days_in_month, now_hour=None):
             "forecast": int(round(calls / len(hours) * 24 * days_in_month))}
 
 
-def _route_stat(kind, what=None):
-    """kind: "calls" (ушло в Google) | "cache_hits" (взято из кеша); what — truck / leg / multi."""
+def _route_stat(kind, what=None, miss=None):
+    """kind: "calls" (ушло в Google) | "cache_hits" (взято из кеша); what — truck / leg / multi;
+    miss — v3.157: почему кеш машины не подошёл (new / noline / old / off), только для calls."""
     import time
     day = _quota_day()
     if _route_stats["day"] != day:
@@ -141,6 +142,8 @@ def _route_stat(kind, what=None):
         keys.append(f"{short}_kind_{what}")
     if short == "c":
         keys.append(f"c_user_{user}")
+        if miss:
+            keys.append(f"c_miss_{miss}")
     keys.append(f"{short}_hr_{_riga_hour()}")      # v3.15: почасовой лог (час по Риге)
     with _route_cache_lock:
         if _stats_flush["day"] not in (None, day):
@@ -352,6 +355,21 @@ def _leg_route(lat1, lng1, lat2, lng2, api_key, waypoints):
     return res
 
 
+def _truck_miss_reason(tkey, had_entry, now):
+    """v3.157: почему для машины пришлось идти в Google (для /gusage; на расчёт не влияет).
+    new — кеша по этой цели / точкам по пути ещё не было; noline — ответ был без линии маршрута;
+    old — линия старше ALONG_ROUTE_TTL; off — машина ушла с линии дальше ALONG_ROUTE_MAX_OFF_KM
+    (или прошлый ответ устарел, а линия не подошла)."""
+    if not had_entry:
+        return "new"
+    c = _along_cache.get(tkey)
+    if not c:
+        return "noline"
+    if now - c["at"] > ALONG_ROUTE_TTL:
+        return "old"
+    return "off"
+
+
 def _truck_route(lat1, lng1, lat2, lng2, api_key, waypoints):
     import time
     tkey = ("truck", round(lat2, 4), round(lng2, 4), _wps_key(waypoints))
@@ -359,6 +377,7 @@ def _truck_route(lat1, lng1, lat2, lng2, api_key, waypoints):
     with _route_cache_lock:
         mem = _route_cache.get(tkey)
     res = _truck_from_entry(mem, tkey, lat1, lng1, now)
+    doc = None
     if res is None:
         doc = _shared_get(tkey)
         if doc and doc.get("dist") is not None and (not mem or float(doc.get("at") or 0) > mem["at"]):
@@ -371,7 +390,8 @@ def _truck_route(lat1, lng1, lat2, lng2, api_key, waypoints):
     if res is not None:
         _route_stat("cache_hits", "truck")
         return res
-    _route_stat("calls", "truck")
+    had_entry = bool(mem) or bool(doc and doc.get("dist") is not None)
+    _route_stat("calls", "truck", miss=_truck_miss_reason(tkey, had_entry, now))
     res = _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints)
     entry = {"at": now, "olat": lat1, "olng": lng1, "res": res}
     with _route_cache_lock:

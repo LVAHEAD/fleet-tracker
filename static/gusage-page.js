@@ -10,6 +10,7 @@ Fleet ETA Tracker — страница /gusage (v3.21): лог запросов 
   const WHY = { edit: "правка строки", all: "«Обновить всё» / загрузка", auto: "автообновление",
     sync: "чужие правки", route: "From → To", other: "прочее" };
   const KIND = { truck: "машина → точка", leg: "точка → точка", multi: "From → To", corridor: "выбор коридора" };
+  const MISS = { new: "новая цель или точки по пути", noline: "у ответа не было линии", old: "линия старше суток", off: "сход с линии > 2 км или кеш не подошёл" };   // v3.157
   let days = [];
   let sel = null;
   let texts = {};      // v3.26: тексты «Для Claude» по суткам — приходят вместе с данными страницы
@@ -44,7 +45,7 @@ Fleet ETA Tracker — страница /gusage (v3.21): лог запросов 
       return `<tr data-day="${d.day}" class="${d.day === sel ? "sel" : ""}${empty ? " empty" : ""}">
         <td>${d.label}${d.day === days[0].day ? " (сегодня)" : ""}</td>
         <td class="num">${fmt(d.g)}</td><td class="num">${fmt(d.c)}</td>${diffCell(d.g, d.c)}<td class="num">${fmt(d.h)}</td>
-        <td class="gu-break">${parts(d.why, WHY)}</td><td class="gu-break">${parts(d.kind, KIND)}</td>
+        <td class="gu-break">${parts(d.why, WHY)}</td><td class="gu-break">${parts(d.kind, KIND)}${d.miss && Object.keys(d.miss).length ? "<br><span class=\"gu-dim\">машина → точка, причина: " + parts(d.miss, MISS) + "</span>" : ""}</td>
         <td class="gu-break">${parts(d.user)}</td><td class="gu-break">${gBreak(d)}</td></tr>`;
     }).join("");
   }

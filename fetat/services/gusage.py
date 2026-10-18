@@ -13,6 +13,8 @@ LOG_DAYS = 14
 WHY = {"edit": "правка строки", "all": "«Обновить всё» / загрузка", "auto": "автообновление",
        "sync": "чужие правки", "route": "From → To", "other": "прочее"}
 KIND = {"truck": "машина → точка", "leg": "точка → точка", "multi": "From → To", "corridor": "выбор коридора"}
+MISS = {"new": "новая цель или точки по пути", "noline": "у ответа не было линии", "old": "линия старше суток",
+        "off": "сход с линии > 2 км или кеш не подошёл"}   # v3.157: почему «машина → точка» ушла в Google
 
 
 def day_start_utc(day):
@@ -102,6 +104,7 @@ def build_log(stats_days, series=None, today=None, days=LOG_DAYS, now=None, our_
             "c": st.get("c", 0), "h": st.get("h", 0),
             "g": g_day.get(day, 0) if series is not None else None,
             "why": _part(st, "c_why_"), "kind": _part(st, "c_kind_"), "user": _part(st, "c_user_"),
+            "miss": _part(st, "c_miss_"),
             "hours": hours,
         }
         if has_labels:
@@ -128,6 +131,8 @@ def log_text(days, sel=None):
         why, kind, user = _sorted_parts(d["why"], WHY), _sorted_parts(d["kind"], KIND), _sorted_parts(d["user"])
         line = (f"  {d['label']}: {n(d['g'])} / {d['c']} / {d['h']}"
                 + (f" — {why}" if why else "") + (f" · {kind}" if kind else "") + (f" · {user}" if user else ""))
+        if d.get("miss"):
+            line += f" · машина → точка, причина запроса: {_sorted_parts(d['miss'], MISS)}"
         g_extra = []      # v3.25: разбивка счёта Google
         if d.get("g_keys"):
             g_extra.append("по ключам: " + _sorted_parts(d["g_keys"]))
