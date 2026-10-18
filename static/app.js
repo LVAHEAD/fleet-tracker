@@ -501,6 +501,15 @@ function renderRows() {
     applyDoneClasses(tr, row, lastCalcText[row.id]);
   });
   attachRowHandlers();
+  updateFleetCount();
+}
+
+// v3.156: «Флот (N)» — все активные строки с машиной, фильтры на число не влияют
+function updateFleetCount() {
+  const el = document.getElementById("fleet-count");
+  if (!el) return;
+  const n = rows.filter((r) => r.unit).length;
+  el.textContent = n ? ` (${n})` : "";
 }
 
 // Есть ли машина с таким номером в таблице (для перецепа: тогда флажок не нужен)
@@ -1166,7 +1175,7 @@ function updateRowField(id, field, value) {
   if (row) {
     row[field] = value;
     if (field === "target" && row.done) delete row.done[0];   // v1.79
-    if (field === "unit") delete row.done;
+    if (field === "unit") { delete row.done; updateFleetCount(); }
     saveRows();
     calcRow(id);
   }
@@ -1653,7 +1662,8 @@ function calcAllRows(opts) {
     const secVis = (performance.now() - t0) / 1000;
     lastCalcAt = Date.now(); updateAutoTip(); if (resortAfter) resort();
     // фон: невидимые строки, не свежие; при смене фильтра ставшие видимыми идут первыми
-    const queue = rest.filter((r) => Date.now() - (rowCalcAt[r.id] || 0) > BG_FRESH_MS);
+    // v3.156: автообновление считает только строки на экране; скрытые фильтром (чужие) — при загрузке, по ↻ и когда стали видимыми
+    const queue = kind === "auto" ? [] : rest.filter((r) => Date.now() - (rowCalcAt[r.id] || 0) > BG_FRESH_MS);
     const worker = async () => {
       while (queue.length && token === bgToken) {
         const i = queue.findIndex((r) => rowPassesFilter(r));
