@@ -644,4 +644,5 @@ def calc_plan(p):
     dist = max(0.0, float(p.get("dist") or 0))
     return {"ev": ev, "etd": etd * 1000, "eta": eta * 1000, "dist": dist, "drive": dist / TACHO_SPEED_KMH,
             "wk": {"ms": r["wk"]["ts"] * 1000, "km": r["wk"]["km"]} if r["wk"] else None,
-            "wkLeft": (wk_left / H) if wk_left is not None else None}
+            "wkLeft": (wk_left / H) if wk_left is not None else None,
+            "win0": shift_window_end(float(shift_start if shift_start is not None else etd), team, TZ_DEFAULT) * 1000}   # конец окна смены дня 1 (подсказка у «д1 +1 ч»)

@@ -566,7 +566,13 @@ const EtaCalc = (() => {
     if (st.team) { box.innerHTML = ""; return; }
     const n = S.ev.filter((e) => e.k === "r").length + 1;
     box.innerHTML = '<span class="ec-mut2">10-й час</span>' + Array.from({ length: n }, (_, i) =>
-      `<button type="button" data-i="${i}" class="${st.ext.has(i) ? "on" : ""}" title="День ${i + 1}: вождение 10 ч вместо 9">д${i + 1} +1 ч</button>`).join("");
+      `<button type="button" data-i="${i}" class="${st.ext.has(i) ? "on" : ""}" title="День ${i + 1}: вождение 10 ч вместо 9">д${i + 1} +1 ч</button>`).join("") + extNote();
+  }
+  // подсказка: 10-й час первого дня упёрся в окно смены — отдых начинается ровно в его конце, прибавка меньше часа
+  function extNote() {
+    const r1 = S.ev.find((e) => e.k === "r");
+    if (!st.ext.has(0) || !S.win0 || !r1 || Math.abs(S.at(r1.t0) - S.win0) > 120000) return "";
+    return `<span class="ec-mut2 ec-ext-note">окно смены до ${ft(new Date(S.win0))}: 10-й час ограничен им, прибавка меньше часа</span>`;
   }
 
   // ---------- шкала рейса: полоса, кровати и км, полночь и даты, ручки отдыха ----------
