@@ -195,6 +195,12 @@ const EtaCalc = (() => {
     if (!panel) return;
     setCalcUnit(r.unit || "");
     if (!fromFT) { $("#ec-from").value = ""; $("#ec-to").value = ""; ftStatus(""); ftKey = ""; }   // v3.51: строка Флота / From → To — поля From / To чистые
+    if (r.unitOnly) {                           // v3.159: пройденная точка — только машина на карте, зум 5, маршрута нет
+      st.srcShown = true;
+      st.src = { unit: r.unit, point: r.point, km: null, polyline: null, pins: null, unitOnly: r.unitOnly, note: "точка пройдена — машина на карте" };
+      srcUI(); st.focus = { lat: r.unitOnly.lat, lng: r.unitOnly.lng, z: 5 }; drawMapSoon();
+      return;
+    }
     if (r.km === 0 && r.pins) {                 // v3.112: машина уже на точке — маршрута нет, на карте маркеры машины и точки
       st.srcShown = true;
       st.src = { unit: r.unit, point: r.point, km: 0, polyline: null, pins: r.pins, note: "машина уже на точке" };
@@ -777,6 +783,23 @@ const EtaCalc = (() => {
     if (enc && !S) return;
     box.classList.toggle("empty", !enc && !pins);
     $(".ec-mnote").textContent = enc ? "точки отдыха примерные: 70 км/ч, ±" + ZONE_KM + " км" : (pins ? "машина уже на точке — маршрута нет" : "");
+    if (st.src && st.src.unitOnly) {            // v3.159: только маркер машины (пройденная точка), без маршрута
+      box.classList.remove("empty");
+      $(".ec-mnote").textContent = "";
+      if (!window.googleMapsReady || !window.google) return;
+      if (!gmap) {
+        gmap = MapsCommon.make($(".ec-map"), { disableDefaultUI: true });
+        refBtn = MapsCommon.refreshBtn(gmap, () => loadUnit(true));
+        if (window.ObjLayer) ObjLayer.attach(gmap);
+      }
+      refBtn.hidden = true;
+      lays.forEach((o) => o.setMap(null));
+      const u = st.src.unitOnly;
+      lays = [new google.maps.Marker({ map: gmap, position: { lat: u.lat, lng: u.lng }, title: "Машина", zIndex: 5,
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: "#2f6fd6", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
+        label: st.src.unit ? { text: st.src.unit, className: "ul-lab ec-plate", fontSize: "11px", fontWeight: "600", color: "#1a1a1a" } : null })];
+      return;
+    }
     if (!enc && !pins) return;
     if (!window.googleMapsReady || !window.google || !google.maps.geometry) return;
     loadCodes();

@@ -157,6 +157,13 @@ function ecFromRow(id, force, k) {
   const pinPos = rowPositions[id];
   const pins = km === 0 && at === first && pinPos && pinPos.unitLat != null && pinPos.targetLat != null
     ? { unit: [pinPos.unitLat, pinPos.unitLng], target: [pinPos.targetLat, pinPos.targetLng] } : null;
+  // v3.159: пройденная точка — на карте ⏱ только маркер машины, центр на ней, зум 5 (маршрут не рисуем)
+  const passed = !!(c.doneFlags && c.doneFlags[at] && c.doneFlags[at].done);
+  if (k != null && passed && pinPos && pinPos.unitLat != null) {
+    window.etaCalc.fromRow({ unit: row.unit || "", point: ((STOP_NUM[at + 1] || "") + " " + String(pt || "").trim()).trim(),
+      unitOnly: { lat: pinPos.unitLat, lng: pinPos.unitLng } });
+    return;
+  }
   window.etaCalc.fromRow({
     unit: row.unit || "", point: ((STOP_NUM[at + 1] || "") + " " + String(pt || "").trim()).trim(),
     km, seed: c.ecSeed || null, polyline: poly, pins,
@@ -795,6 +802,7 @@ function attachRowHandlers() {
         const w = chip.closest(".target-wrap");
         const kk = w.classList.contains("x-stop") ? Number(w.dataset.k) : 0;
         if (swapChipClick(id, kk, chip)) return;   // v3.108: точка с траком в цели — вопрос про перецеп
+        if (armDoneClick(chip, id, kk)) return;    // v3.159: отметка ✓ — первый клик взводит, второй ставит / снимает
         toggleDone(id, kk);
         return;
       }

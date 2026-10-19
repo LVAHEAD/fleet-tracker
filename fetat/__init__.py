@@ -1,6 +1,6 @@
 """F.ETA.T — пакет приложения. Структура и правила — CLAUDE.md, история рефакторинга — REFACTOR.md."""
 
-APP_VERSION = "3.158"
+APP_VERSION = "3.159"
 
 
 def create_app():

@@ -115,12 +115,29 @@ function applyDoneClasses(tr, row, c) {
       chip.title = (f && f.done ? (f.by != null ? `Пройдена (по следующей точке ${STOP_NUM[f.by + 1]})`
         : f.auto ? `Пройдена (авто: стоял ${f.zone ? "в зоне «" + f.zone + "»" : "здесь"}, уехал ${f.at})` : "Пройдена (вручную)")
         : (m === false ? "Не пройдена (вручную)" : "Не пройдена"))
-        + "\nКлик — " + (m == null ? (f && f.done ? "отметить непройденной" : "отметить пройденной") : "вернуть автоопределение");
+        + "\nДва клика — " + (m == null ? (f && f.done ? "отметить непройденной" : "отметить пройденной") : "вернуть автоопределение");
       chip.classList.add("stop-n-click");
       chip.classList.toggle("stop-n-manual", m != null);
     }
   });
   applyCorStrip(tr, row, c);   // v3.45
+}
+
+// v3.159: отметка ✓ в два клика — первый взводит кружок с номером точки, второй ставит / снимает.
+// Уход мыши с кружка сбрасывает взвод. -> true, если это первый клик (ничего не переключаем).
+let doneArmKey = null;
+function armDoneClick(chip, id, k) {
+  const key = id + ":" + k;
+  const armedNow = doneArmKey === key && chip.classList.contains("armed");
+  document.querySelectorAll(".stop-n.armed").forEach((c) => c.classList.remove("armed"));
+  if (armedNow) { doneArmKey = null; return false; }
+  doneArmKey = key;
+  chip.classList.add("armed");
+  chip.addEventListener("mouseleave", () => {
+    chip.classList.remove("armed");
+    if (doneArmKey === key) doneArmKey = null;
+  }, { once: true });
+  return true;
 }
 
 function toggleDone(id, k) {
