@@ -54,6 +54,8 @@ RODBY = (54.6559, 11.3600)
 
 ROSTOCK_FERRY = (54.1766, 12.0894)   # Warnemünde, паромный терминал у Ростока
 
+ROSTOCK_EAST_LNG = 12.6   # v3.160: машина восточнее этой долготы (≈ 30 км восточнее Ростока) — паром через Росток
+
 
 GEDSER = (54.5730, 11.9250)
 
@@ -85,9 +87,8 @@ def _ferry_pair_for_country(other_country, other_lat, other_lng):
     if other_country in ES_PT or other_country in BENELUX_FR:
         return (PUTTGARDEN, RODBY)
     if other_country == "DE":
-        d_rostock = haversine_km(other_lat, other_lng, ROSTOCK_FERRY[0], ROSTOCK_FERRY[1])
-        d_puttgarden = haversine_km(other_lat, other_lng, PUTTGARDEN[0], PUTTGARDEN[1])
-        return (ROSTOCK_FERRY, GEDSER) if d_rostock < d_puttgarden else (PUTTGARDEN, RODBY)
+        # v3.160 (решено 19.10, Владимир): из Германии всегда Путтгарден, Росток — только если машина явно восточнее Ростока
+        return (ROSTOCK_FERRY, GEDSER) if other_lng is not None and other_lng >= ROSTOCK_EAST_LNG else (PUTTGARDEN, RODBY)
     return None
 
 
