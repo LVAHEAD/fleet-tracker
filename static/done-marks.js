@@ -125,13 +125,16 @@ function applyDoneClasses(tr, row, c) {
 
 // v3.159: отметка ✓ в два клика — первый взводит кружок с номером точки, второй ставит / снимает.
 // Уход мыши с кружка сбрасывает взвод. -> true, если это первый клик (ничего не переключаем).
-let doneArmKey = null;
+let doneArmKey = null, doneArmAt = 0;
+const DONE_ARM_PAUSE_MS = 500;   // второй клик засчитывается только через паузу: быстрый двойной клик ничего не ставит
 function armDoneClick(chip, id, k) {
   const key = id + ":" + k;
   const armedNow = doneArmKey === key && chip.classList.contains("armed");
+  if (armedNow && Date.now() - doneArmAt < DONE_ARM_PAUSE_MS) return true;   // двойной клик — взвод остаётся, отметка не меняется
   document.querySelectorAll(".stop-n.armed").forEach((c) => c.classList.remove("armed"));
   if (armedNow) { doneArmKey = null; return false; }
   doneArmKey = key;
+  doneArmAt = Date.now();
   chip.classList.add("armed");
   chip.addEventListener("mouseleave", () => {
     chip.classList.remove("armed");
