@@ -198,6 +198,18 @@
 
   $("addrNewBtn").addEventListener("click", () => openForm("new", null));
 
+  // v3.163: Ctrl+клик по полю таргета — вкладка «Адреса» с текстом поля и карточкой найденного адреса
+  window.addrOpenFor = (text) => {
+    if (window.leftPanelOpen) window.leftPanelOpen("addr");
+    const q = norm(text || "");
+    $("addrQuery").value = text || "";
+    runSearch();
+    if (!q) return;
+    const list = baseList();
+    const hit = list.find((a) => norm(a.name) === q) || list.find((a) => matches(a, q));
+    if (hit) showCard(hit);
+  };
+
   $("addrCancelBtn").addEventListener("click", () => {
     $("addrForm").hidden = true;
     editSource = null;

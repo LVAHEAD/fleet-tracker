@@ -795,6 +795,12 @@ function attachRowHandlers() {
       if (typeof setWorkRow === "function") setWorkRow(id);          // v3.149: любой клик в трипе — строка «в работе»
       fuelSeenClick(tr, id);                                          // v3.30: мало топлива — тоже
       reeferSeenClick(tr, id);                                        // v3.34: тревога рефа — тоже
+      // v3.163: Ctrl/Cmd+клик по полю таргета — вкладка «Адреса» с карточкой адреса из поля
+      if (e.target.tagName === "INPUT" && (e.ctrlKey || e.metaKey) && window.addrOpenFor
+          && (e.target.classList.contains("target-input") || e.target.classList.contains("xt-input"))) {
+        window.addrOpenFor(e.target.value);
+        return;
+      }
       if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
       if (e.target.closest && e.target.closest(".com-tri")) return;
       const chip = e.target.closest && e.target.closest(".stop-n");

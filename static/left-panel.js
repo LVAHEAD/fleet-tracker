@@ -60,6 +60,12 @@ Fleet ETA Tracker — левая выезжалка (v3.56): как правая
     if (e.key === "Escape" && isOpen()) set(false);
   });
 
+  // v3.163: открыть нужный раздел из кода (Ctrl+клик по полю таргета → Адреса)
+  window.leftPanelOpen = (name) => {
+    section = name;
+    if (!isOpen()) set(true); else showSection(name);
+  };
+
   try { const s = localStorage.getItem(SEC_KEY); section = s === "links" || s === "help" || s === "addr" ? s : "bans"; } catch (e) { /* ignore */ }
   showSection(section);
   try { if (localStorage.getItem(KEY) === "1") set(true); } catch (e) { /* ignore */ }
