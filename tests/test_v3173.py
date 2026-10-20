@@ -86,3 +86,22 @@ class V3174(unittest.TestCase):
         # битый / неполный порядок — исходный (логика load)
         js = read("static", "col-order.js")
         self.assertIn("a.length === N", js)
+
+
+class V3175(unittest.TestCase):
+    def test_changelog_disp_field(self):
+        from fetat.api.meta import parse_changelog
+        items = parse_changelog("3.9 (2026-10-21) — заголовок\n    техника\n    Для диспетчеров: просто и ясно.\n3.8 (2026-10-20) — без строки\n    текст\n")
+        self.assertEqual(items[0]["disp"], "просто и ясно.")
+        self.assertEqual(items[1]["disp"], "")
+        top = parse_changelog(read("CHANGELOG.md"))[0]
+        self.assertTrue(top["disp"], "в верхней записи нет строки «Для диспетчеров:»")
+
+    def test_wiring(self):
+        html = read("templates", "index.html")
+        self.assertLess(html.index("whats-new.js"), html.index("presence.js"))
+        self.assertIn("fleetWhatsNew", read("static", "presence.js"))
+        js = read("static", "whats-new.js")
+        self.assertNotIn("innerHTML", js)                      # текст — только через textContent
+        for s in ("fleet-seen-ver", "}, true);", "Escape"):
+            self.assertIn(s, js)

@@ -54,11 +54,15 @@
       b.type = "button";
       b.id = "update-pill";
       b.className = "update-pill";
-      b.addEventListener("click", () => location.reload());
+      // v3.175: клик — поп-ап «что нового» с кнопкой «Обновить»; нет поп-апа — обновляем сразу
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (window.fleetWhatsNew) window.fleetWhatsNew(newVer, b); else location.reload();
+      });
       h1.appendChild(b);
     }
     b.textContent = `Вышла v${ver} · обновить`;
-    b.title = "Нажмите, чтобы загрузить новую версию (страница перезагрузится)";
+    b.title = "Нажмите: что нового и кнопка «Обновить» (страница перезагрузится)";
   }
 
   // «несохранённые правки»: фокус в поле ввода строки, открытый ⏱ с введёнными км, открытое окно правки

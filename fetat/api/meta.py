@@ -167,7 +167,7 @@ def read_changelog():
 
 def parse_changelog(doc):
     """Записи вида "1.57 (2026-09-27) — текст" + строки с отступом. Старая нумерация
-    "4 (2026-09-23)" тоже понимается. Возвращает [{ver, date, title, text}] свежие первыми."""
+    "4 (2026-09-23)" тоже понимается. Возвращает [{ver, date, title, disp, text}] свежие первыми."""
     items, cur = [], None
     for line in (doc or "").splitlines():
         m = re.match(r"^(\d+(?:\.\d+)?) \((\d{4})-(\d{2})-(\d{2})\)\s*[—-]?\s*(.*)$", line)
@@ -185,7 +185,9 @@ def parse_changelog(doc):
             cur["lines"].append(line.strip())
     out = []
     for it in items:
-        out.append({"ver": it["ver"], "date": it["date"], "title": it["title"],
+        # v3.175: строка «Для диспетчеров: …» — для поп-апа «Что нового» (нет строки — поле пустое)
+        disp = next((ln.split(":", 1)[1].strip() for ln in it["lines"] if ln.startswith("Для диспетчеров:")), "")
+        out.append({"ver": it["ver"], "date": it["date"], "title": it["title"], "disp": disp,
                     "text": "\n".join(it["lines"])})
     return out
 
