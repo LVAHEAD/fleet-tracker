@@ -1859,7 +1859,16 @@ function moveManual(id, dir) {
   const anyOpen = () => rows.some((r) => foldable(r) && r.open);
   const mark = () => {
     bars.forEach((bar) => {
-      bar.querySelectorAll("button[data-sort]").forEach((b) => b.classList.toggle("on", b.dataset.sort === sortMode));
+      bar.querySelectorAll("button[data-sort]").forEach((b) => {
+        if (b.hasAttribute("data-sort-toggle")) {   // v3.173: одна кнопка направления — «L → O» ⇄ «O → L»
+          const d = sortDir();
+          b.dataset.sort = d;
+          b.textContent = d === "LO" ? "L → O" : "O → L";
+          b.title = d === "LO" ? "Сначала погрузки, потом выгрузки; клик — переключить на O → L"
+            : "Сначала выгрузки, потом погрузки; клик — переключить на L → O";
+        }
+        b.classList.toggle("on", b.dataset.sort === sortMode);
+      });
       bar.querySelectorAll("button[data-flt]").forEach((b) => b.classList.toggle("on", b.dataset.flt === loFilter));
       resolveMine();
       bar.querySelectorAll("button[data-own]").forEach((b) => b.classList.toggle("on",
@@ -1903,7 +1912,10 @@ function moveManual(id, dir) {
       // руками — стартуем с того порядка, что сейчас на экране
       manualOrder = orderedRows().map((r) => r.id);
     }
-    sortMode = b.dataset.sort;
+    if (b.hasAttribute("data-sort-toggle")) {
+      // уже сортируем по направлению — переключаем на обратное; были «руками» — возвращаем последнее направление
+      sortMode = sortMode === "LO" ? "OL" : sortMode === "OL" ? "LO" : sortDir();
+    } else sortMode = b.dataset.sort;
     saveSortState();
     mark();
     resort();

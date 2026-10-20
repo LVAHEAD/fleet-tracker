@@ -106,6 +106,7 @@ function rowPassesSlot(row) {
   }
   function open() {
     close();
+    document.dispatchEvent(new CustomEvent("fleet-popup-open", { detail: "slot" }));   // другое окно фильтра закрываем
     const now = new Date();
     const first = slotFilter.length ? new Date(slotFilter[0] + "T12:00:00") : now;
     view = { y: first.getFullYear(), m: first.getMonth() };
@@ -136,7 +137,9 @@ function rowPassesSlot(row) {
   }
 
   th.addEventListener("click", (e) => { e.stopPropagation(); if (pop) close(); else open(); });
-  document.addEventListener("click", (e) => { if (pop && !pop.contains(e.target) && !th.contains(e.target)) close(); });
+  // v3.173: слушаем в фазе перехвата — клик вне окна закрывает его, даже если ниже по дереву стоит stopPropagation
+  document.addEventListener("click", (e) => { if (pop && !pop.contains(e.target) && !th.contains(e.target)) close(); }, true);
+  document.addEventListener("fleet-popup-open", (e) => { if (e.detail !== "slot") close(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
   window.addEventListener("scroll", (e) => { if (pop && !pop.contains(e.target)) close(); }, true);
   mark();

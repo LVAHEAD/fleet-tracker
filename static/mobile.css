@@ -11,6 +11,8 @@
 .sort-bar button.m-edit-btn { display: none; }
 
 @media (max-width: 767px) {
+  :root { --stop-h: 28px; }   /* v3.173: на телефоне строка точки как раньше (22 px — только для компьютера) */
+  .xn-wrap { margin-top: 4px; }
   html { -webkit-text-size-adjust: 100%; }
   body { max-width: none; padding: 8px 8px 84px; }
   .topbar { margin-bottom: 6px; }

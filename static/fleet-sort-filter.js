@@ -26,8 +26,16 @@ try {
 } catch (e) { /* без localStorage — порядок по умолчанию */ }
 let displayOrder = null;   // зафиксированный порядок id между пересортировками
 
+// v3.173: последнее направление (LO / OL) для кнопки «L → O ⇄ O → L»; после «руками» кнопка показывает его же
+function sortDir() {
+  if (sortMode === "LO" || sortMode === "OL") return sortMode;
+  try { const d = localStorage.getItem("fleetSortDir"); if (d === "LO" || d === "OL") return d; } catch (e) { /* ignore */ }
+  return "LO";
+}
+
 function saveSortState() {
   try {
+    if (sortMode === "LO" || sortMode === "OL") localStorage.setItem("fleetSortDir", sortMode);
     localStorage.setItem("fleetSort", sortMode);
     localStorage.setItem("fleetManualOrder", JSON.stringify(manualOrder));
   } catch (e) { /* ignore */ }

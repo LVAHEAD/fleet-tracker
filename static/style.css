@@ -55,15 +55,23 @@ td {
 #fleet-tbody tr { cursor: pointer; }
 #fleet-tbody tr:hover { background: #f7f7fb; }
 
+/* v3.173: поля — «Читалка + линия»: в покое без рамки и фона, только нижняя линия; наведение — рамка; фокус — синий (Синий Кальк) */
 td input {
   width: 100%;
   min-width: 90px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  background: transparent;
+  color: #23303f;
+  border: 1px solid transparent;
+  border-bottom-color: #cdd7e6;
+  border-radius: 0;
   padding: 5px 6px;
   font-size: 13px;
 }
-td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
+#fleet-tbody td input { padding-top: 2px; padding-bottom: 2px; }   /* v3.173: «Микс» — поле ниже */
+#fleet-tbody tr.lo-row-O td input { border-bottom-color: #ddd2a4; }
+td input:hover { background: rgba(255, 255, 255, .75); border-color: #cdd7e6; border-radius: 4px; }
+td input:focus { background: #fff; outline: 2px solid #2f6fd6; border-color: transparent; border-radius: 4px; }
+td input::placeholder { color: #9aa5b5; }
 
 .muted { color: #999; }
 
@@ -251,7 +259,7 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .target-wrap .target-input { flex: 1; }
 .lo-btn {
   flex: 0 0 30px;
-  height: 28px;
+  height: var(--stop-h, 22px);
   padding: 0;
   font-size: 12px;
   font-weight: 600;
@@ -438,7 +446,7 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
 .cc-badge.cc-pt-flag::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--f); opacity: .04; z-index: -1; transition: opacity .15s; }
 .cc-badge.cc-pt-flag:hover::before { opacity: .10; }
 .cc-badge.cc-flag { color: #fff; text-shadow: 0 0 2px rgba(0, 0, 0, .7); border-color: transparent; box-shadow: inset 0 0 0 100vmax rgba(255, 255, 255, .4); }   /* v3.167: плашка страны — цвета флага; v3.168: белая вуаль — приглушить */
-.status-cell .cc-badge { margin-right: 6px; }
+.status-cell .cc-badge { margin-right: 4px; height: 18px; min-width: 20px; padding: 0 3px; font-size: 9px; }   /* v3.173: плашка страны машины −30 % (коды в Таргете не трогаем) */
 .target-wrap .cc-badge { flex: 0 0 auto; }
 .frt-contract { background: #EEE; color: #555; border-radius: 3px; padding: 0 4px; }
 .frt-row-contract td { color: #888; }
@@ -749,7 +757,7 @@ body.sort-manual .manual-only { display: block; }
 #fleet-tbody tr.row-quiet td { animation: none !important; }
 .tf-pill { margin-left: 4px; padding: 0 5px; border-radius: 8px; background: #fde2e1; color: #b42318; font-size: 11px; font-weight: 600; white-space: nowrap; }
 .ot-pill { margin-left: 6px; padding: 0 5px; border-radius: 8px; background: #e3f1e6; color: #2d6b3c; font-size: 11px; font-weight: 600; white-space: nowrap; }
-.delivery-input.del-suspect { background: #fff4c2; border-color: #e3b62e; }
+.delivery-input.del-suspect { background: #fff8dc; border-color: #e8d79a; }
 #fleet-table .col-status { width: 228px; }
 #fleet-table .col-target { width: 250px; }
 .ot-pill { font-size: 10.5px; padding: 0 4px; margin-left: 5px; }
@@ -800,7 +808,7 @@ body { max-width: 95vw; }
 .stop-n { flex: 0 0 auto; width: 16px; text-align: center; color: #2f6fd6; font-size: 14px; line-height: 1; }
 .x-stop { margin-top: 4px; }
 /* v3.81: единая высота подстроки во всех колонках (точка, Delivery, км, ETA, заметка) — без накопления сдвига */
-:root { --stop-h: 28px; }
+:root { --stop-h: 22px; }   /* v3.173: «Микс» — строка точки 22 px (было 28) */
 @media (min-width: 768px) {
   #fleet-tbody tr.multi .target-wrap, #fleet-tbody tr.multi .note-wrap { height: var(--stop-h); box-sizing: border-box; }
   #fleet-tbody tr.multi .delivery-input, #fleet-tbody tr.multi .xd-input { height: var(--stop-h); box-sizing: border-box; }
@@ -923,7 +931,7 @@ button.hitch-ic:hover { background: #e6dfcc; }
   #fleet-table .col-note { width: 22%; }
 }
 /* примечания следующих точек — на линии своих точек */
-.xn-wrap { margin-top: 4px; height: var(--stop-h, 28px); }
+.xn-wrap { margin-top: 1px; height: var(--stop-h, 28px); }
 .xn-input { flex: 1; min-width: 0; border-style: dashed; background: #fbfcfe; }
 .xn-input:focus, .xn-input:not(:placeholder-shown) { border-style: solid; background: #fff; }
 .com-sp { flex: 0 0 26px; }
@@ -974,6 +982,7 @@ button.hitch-ic:hover { background: #e6dfcc; }
 .client-flt-pop .cf-list { max-height: 280px; overflow-y: auto; margin: 6px 0; }
 .client-flt-pop .cf-item { display: flex; align-items: center; gap: 8px; padding: 4px 4px; border-radius: 4px; cursor: pointer; }
 .client-flt-pop .cf-item:hover { background: #f1f4f9; }
+.client-flt-pop .cf-item.cf-top-last { border-bottom: 1px solid #dde3ec; border-radius: 4px 4px 0 0; margin-bottom: 4px; padding-bottom: 6px; }   /* v3.173: линия под топ-3 */
 .client-flt-pop .cf-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .client-flt-pop .cf-n { color: #888; font-variant-numeric: tabular-nums; }
 .client-flt-pop .cf-empty { color: #999; padding: 6px 4px; }
@@ -1013,6 +1022,7 @@ button.hitch-ic:hover { background: #e6dfcc; }
 .dist-cell .sl { justify-content: center; }
 /* разделитель между машинами — заметнее */
 #fleet-tbody > tr > td { border-bottom: 2px solid #d3d9e0; }
+#fleet-tbody > tr > td { padding-top: 4px; padding-bottom: 4px; }   /* v3.173: «Микс» — между трипами компактнее */
 /* у пройденной точки код региона читается */
 .target-wrap.pt-done .cc-badge { opacity: .8; }
 

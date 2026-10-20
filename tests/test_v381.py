@@ -28,7 +28,7 @@ class FleetV381Test(unittest.TestCase):
 
     def test_css(self):
         css = _src("static", "style.css")
-        self.assertIn("--stop-h: 28px", css)
+        self.assertIn("--stop-h: 22px", css)
         self.assertRegex(css, r"\.delivery-input\.pt-done, \.xd-input\.pt-done \{[^}]*line-through")
         self.assertIn("rowBlinkDone", css)
         # жёлтое мигание не перебивает тревоги

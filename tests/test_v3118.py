@@ -16,7 +16,7 @@ class V3118(unittest.TestCase):
         self.assertTrue(os.path.getsize(os.path.join(ROOT, "static", "instrukciya-dispetchera.pdf")) > 1000)
 
     def test_client_list_by_dispatcher(self):
-        self.assertIn("clientList(rows.filter((r) => rowPassesOwn(r)), clientFilter)", read("static", "client-filter.js"))
+        self.assertIn("clientList(rows.filter((r) => rowPassesOwn(r)), clientFilter, tag)", read("static", "client-filter.js"))
 
     def test_first_open_default(self):
         self.assertIn('let ownFilter = "mine";', read("static", "dispatchers.js"))
