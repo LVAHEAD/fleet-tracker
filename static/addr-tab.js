@@ -248,6 +248,31 @@
     msg.textContent = "Поля заполнены верно. Отправка на аппрув ещё не подключена: данные пока никуда не сохраняются.";
   });
 
+  // v3.165: ГПС в поле точки → Name ближайшего адреса из базы в радиусе 150 м. Срабатывает при уходе из поля и по Enter.
+  function gpsSubstitute(inp) {
+    const g = parseGps(inp.value);
+    if (!g) return false;
+    let best = null;
+    baseList().forEach((a) => {
+      const ag = addrGps(a);
+      if (!ag || !a.name) return;
+      const d = distM(g, ag);
+      if (d <= DUP_RADIUS_M && (!best || d < best.d)) best = { a: a, d: d };
+    });
+    if (!best) return false;
+    inp.value = best.a.name;
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+    inp.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }
+  const isPointInput = (t) => t && t.matches && t.matches('input[list="points-list"]');
+  document.addEventListener("focusout", (e) => {
+    if (isPointInput(e.target)) gpsSubstitute(e.target);
+  }, true);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && isPointInput(e.target)) gpsSubstitute(e.target);
+  }, true);
+
   // v3.164: Ctrl/Cmd+клик по любому полю ввода точки (таргет, From / To, From → To, Локатор) — «Адреса».
   // Поля таргета во Флоте обрабатывает app.js (там же строка трипа); здесь — все остальные.
   document.addEventListener("click", (e) => {
