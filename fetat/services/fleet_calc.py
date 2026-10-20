@@ -211,7 +211,8 @@ def _apply_points_done(result, payload, target_str, unit, units, tm=None):
         try:
             seen = [(v if isinstance(v, str) else None) for v in (payload.get("done_seen") or [])]
             seen_arr = [(v if isinstance(v, str) else None) for v in (payload.get("done_arr") or [])]   # v3.57
-            dn = points_done(pts_all, manual, unit, units, seen, seen_arr)
+            click = [(v if isinstance(v, str) else None) for v in (payload.get("done_click") or [])]   # v3.172: время нажатия ручной ✓
+            dn = points_done(pts_all, manual, unit, units, seen, seen_arr, click)
         except Exception as e:
             warn("fleet:points_done", e)      # v3.98: раньше молча — вся строка без ✓
             dn = [{"done": False} for _ in pts_all]

@@ -422,7 +422,41 @@ def done_debug(tstr, unit, units):
     return rep
 
 
-def points_done(pts, manual, unit, units, seen=None, seen_arr=None):
+MANUAL_DONE_RADIUS_KM = 0.1   # v3.172: ручная ✓ — время берём из ближайшей стоянки Mapon не дальше 100 м от точки
+_CLICK_RE = None
+
+
+def _manual_done_stop(unit, stops_box, lat, lng):
+    """v3.172: стоянка Mapon (закончившаяся) ближайшая к точке в радиусе 100 м -> (конец, начало|None) или None.
+    При равном расстоянии — более поздняя. Стоянка «сейчас» (трак ещё стоит) не берётся: отъезда нет."""
+    if lat is None or lng is None or not unit.get("unit_id"):
+        return None
+    if stops_box[0] is None:
+        stops_box[0] = recent_stops(unit.get("unit_id")) or []
+    best = None
+    for st in stops_box[0]:
+        if st.get("now") or st.get("lat") is None or not st.get("end"):
+            continue
+        d = haversine_km(st["lat"], st["lng"], lat, lng)
+        if d > MANUAL_DONE_RADIUS_KM:
+            continue
+        key = (d, -float(st["end"]))
+        if best is None or key < best[0]:
+            best = (key, st)
+    return (best[1]["end"], best[1].get("start")) if best else None
+
+
+def _click_time(click, i):
+    """v3.172: время нажатия ✓ из строки трипа («dd/mm HH:MM», по Берлину, как остальные времена) или None."""
+    import re
+    global _CLICK_RE
+    if _CLICK_RE is None:
+        _CLICK_RE = re.compile(r"\d{2}/\d{2} \d{2}:\d{2}")
+    v = click[i] if click and i < len(click) else None
+    return v if isinstance(v, str) and _CLICK_RE.fullmatch(v) else None
+
+
+def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
     """pts — строки точек (① + следующие), manual — [True/False/None] ручные отметки,
     seen — [время|None] уже запомненные в строке авто-✓ (v3.17: не теряются, когда стоянка
     уходит из окна истории Mapon); seen_arr — [время приезда|None] к ним (v3.57).
@@ -459,6 +493,24 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None):
                 info["zone"] = zone
         if m is True:
             info["done"] = True
+            # v3.172: время ручной ✓ — отъезд с ближайшей стоянки Mapon в 100 м, иначе время нажатия (msrc: mapon / click).
+            # Это не авто-✓ (auto остаётся False): в «запомненные» авто-отметки строки не попадает
+            try:
+                stop = None
+                if t is not None and not t.get("target_is_truck"):
+                    stop = _manual_done_stop(unit, stops_box, lat, lng)
+                if stop:
+                    info.update(at=ts_west(stop[0]).strftime("%d/%m %H:%M"), msrc="mapon",
+                                arr=ts_west(stop[1]).strftime("%d/%m %H:%M") if stop[1] else None)
+                else:
+                    ct = _click_time(click, i)
+                    if ct:
+                        info.update(at=ct, msrc="click")
+            except Exception as e:
+                warn("points:manual_done", e)
+                ct = _click_time(click, i)
+                if ct:
+                    info.update(at=ct, msrc="click")
         elif m is None and seen_at:
             info.update(done=True, auto=True, at=seen_at, kept=True, arr=seen_arr_at)
         elif m is None and auto_at:

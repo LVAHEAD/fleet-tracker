@@ -54,16 +54,20 @@ function doneEtaHtml(x) {
   const zone = x.done_zone || x.zone;
   const arr = x.done_arr || x.arr;   // v3.57: приезд на точку (если трек его знает)
   const where = zone ? `в зоне Mapon «${zone}»` : "на точке";
-  const tip = auto ? (arr && at ? `Трак стоял ${where} с ${arr} до ${at} и уехал` : `Трак стоял ${where} и уехал`) : "Отмечено вручную";
-  const label = auto && at ? at : "пройдена";   // v3.81: в ячейке только время отъезда, «приехал – уехал» — в подсказке
-  return `<span class="done-eta" title="${escapeHtml(tip + (x.done_tz ? " · местное время " + x.done_tz : ""))}">✓ ${escapeHtml(label)}${auto && at ? tzBadge(x.done_tz) : ""}</span>`;
+  const msrc = x.done_msrc != null ? x.done_msrc : x.msrc;   // v3.172: ручная ✓ со временем: mapon — отъезд со стоянки, click — время нажатия
+  const manualTip = msrc === "mapon" ? `Отмечено вручную · время — отъезд со стоянки Mapon рядом с точкой (до 100 м)${arr && at ? `, стояла с ${arr}` : ""}`
+    : (msrc === "click" ? "Отмечено вручную · время — момент нажатия ✓ (стоянки Mapon в 100 м нет)" : "Отмечено вручную");
+  const tip = auto ? (arr && at ? `Трак стоял ${where} с ${arr} до ${at} и уехал` : `Трак стоял ${where} и уехал`) : manualTip;
+  const timed = at && (auto || msrc);
+  const label = timed ? at : "пройдена";   // v3.81: в ячейке только время отъезда, «приехал – уехал» — в подсказке
+  return `<span class="done-eta" title="${escapeHtml(tip + (x.done_tz ? " · местное время " + x.done_tz : ""))}">✓ ${escapeHtml(label)}${timed ? tzBadge(x.done_tz) : ""}</span>`;
 }
 // ответ сервера (① и extra — только непройденные) -> по исходным номерам точек
 function remapDone(data) {
   const dn = data.points_done;
   if (!dn) return data;
   const act = data.active_idx || [];
-  const doneItem = (i) => ({ done: true, done_at: dn[i].at_loc || dn[i].at, done_arr: dn[i].arr_loc || dn[i].arr || null, done_tz: dn[i].tz || null, done_auto: dn[i].auto,   // v3.143: время — местное, если at_loc
+  const doneItem = (i) => ({ done: true, done_at: dn[i].at_loc || dn[i].at, done_arr: dn[i].arr_loc || dn[i].arr || null, done_tz: dn[i].tz || null, done_auto: dn[i].auto, done_msrc: dn[i].msrc || null,   // v3.143: время — местное, если at_loc; v3.172: msrc — источник времени ручной ✓
     done_by: dn[i].by != null ? dn[i].by : null, done_zone: dn[i].zone || null,
     done_leg_km: dn[i].leg_km != null ? dn[i].leg_km : null,   // v3.122: плечо пройденной точки ②③…
     badge: dn[i].badge || null, badge_hint: dn[i].badge_hint || null });
@@ -150,6 +154,22 @@ function doneNowStr() {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+// v3.172: время нажатия по Берлину «dd/mm HH:MM» — как все времена сервера (потом он переводит в местное время страны точки)
+function nowEuStr() {
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
+    const g = (t) => (parts.find((p) => p.type === t) || {}).value || "";
+    return `${g("day")}/${g("month")} ${g("hour")}:${g("minute")}`;
+  } catch (e) { return ""; }
+}
+// v3.172: время нажатия у ручных ✓ (по индексам точек, только у «пройдена») — сервер берёт его, если рядом нет стоянки Mapon
+function doneClickArray(row) {
+  const n = 1 + (row.extra ? row.extra.length : 0);
+  const d = row.done || {}, by = row.doneBy || {};
+  return Array.from({ length: n }, (_, i) => (d[i] === true && by[i] && by[i].eu ? by[i].eu : null));
+}
+
 function toggleDone(id, k) {
   const row = rows.find((r) => r.id === id);
   if (!row) return;
@@ -161,7 +181,7 @@ function toggleDone(id, k) {
   else {
     row.done[k] = !(f && f.done);
     const me = fleetMe();
-    row.doneBy[k] = { who: (me && dispTag(me)) || me || "local", at: doneNowStr() };
+    row.doneBy[k] = { who: (me && dispTag(me)) || me || "local", at: doneNowStr(), eu: nowEuStr() };   // v3.172: eu — время нажатия для ✓
   }
   if (!Object.keys(row.doneBy).length) delete row.doneBy;
   saveRows();

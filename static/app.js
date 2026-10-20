@@ -1008,7 +1008,7 @@ function etaCellHtml(row, c, composed) {
       inner = doneEtaHtml(ce);
       tip = ce.done_by != null ? `Точка пройдена: пройдена следующая ${STOP_NUM[ce.done_by + 1]}`
         : ce.done_auto ? `Точка пройдена: трак стоял ${ce.done_zone ? "в зоне «" + ce.done_zone + "»" : "здесь"}${ce.done_arr ? " с " + ce.done_arr : ""}, уехал ${ce.done_at}`
-        : "Отмечена пройденной вручную";
+        : (ce.done_msrc && ce.done_at ? `Отмечена пройденной вручную, время ${ce.done_at} (${ce.done_msrc === "mapon" ? "отъезд со стоянки Mapon" : "момент нажатия"})` : "Отмечена пройденной вручную");
     } else if (ce && ce.error) {
       inner = `<span class="eta-x-err">${escapeHtml(ce.error)}</span>`;
       tip = ce.error;
@@ -1267,7 +1267,7 @@ async function calcRow(id, why) {
         row.crewSeen && row.crewSeen.u === row.unit ? { crew_seen: Math.floor(row.crewSeen.t / 1000) } : {},   // v3.105: память «экипаж»
         row.x10 ? { x10: true } : {},                                    // v3.39: 10-й час сегодня
         row.corridor ? { corridor: row.corridor } : {},                 // v3.32: коридор выбрал диспетчер
-        { done: doneManualArray(row), done_seen: doneSeenArray(row), done_arr: doneArrArray(row), why: why || "edit" })),
+        { done: doneManualArray(row), done_seen: doneSeenArray(row), done_arr: doneArrArray(row), done_click: doneClickArray(row), why: why || "edit" })),
     });
     const data = await res.json();
     if (!data.error) { keepDoneSeen(row, data); keepCrewSeen(row, data); remapDone(data); }
