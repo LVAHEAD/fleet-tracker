@@ -144,7 +144,8 @@
       return;
     }
     cardMapBox.hidden = false;
-    if (!cardMap) cardMap = MapsCommon.make(cardMapBox, { disableDefaultUI: true });
+    // «Map ▾» (карта / спутник) оставляем — на спутнике при большом зуме видно двор, въезд, ворота
+    if (!cardMap) cardMap = MapsCommon.make(cardMapBox, { disableDefaultUI: true, mapTypeControl: true });
     const pos = { lat: g.lat, lng: g.lng };
     if (!cardMarker) {
       cardMarker = new google.maps.Marker({ map: cardMap, position: pos, zIndex: 5,
