@@ -58,6 +58,7 @@ def parse_address_rows(values):
             if "," in line and not parse_gps(line):
                 city = line.split(",")[0].strip()
         items.append({
+            "row": n,   # v3.171: номер строки листа (для правки в таблице)
             "name": name,
             "alias": get(row, "alias"),
             "type": typ if typ in ADDRESS_TYPES else ("misc" if typ else ""),

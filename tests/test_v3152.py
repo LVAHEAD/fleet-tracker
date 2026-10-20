@@ -34,7 +34,9 @@ class AddrTab(unittest.TestCase):
 
     def test_submit_does_not_write(self):
         js = read("static", "addr-tab.js")
-        self.assertNotIn("fetch(", js)             # на этом шаге сети нет
+        # v3.171: сеть — только правка существующего адреса («Редактировать»); новый адрес по-прежнему никуда не пишется
+        self.assertEqual(js.count("fetch("), 1)
+        self.assertIn('fetch("/api/addresses/update"', js)
         self.assertIn("никуда не сохраняются", js)
 
 

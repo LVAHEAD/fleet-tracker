@@ -159,8 +159,9 @@
       </div>
     </div>
   </section>
-  <section class="left-pane" id="lp-addr" hidden>
-    <!-- v3.152: «Адреса» — поиск по базе, карточка, проверка дубля и форма нового адреса (отправка на аппрув — позже, BACKLOG.md) -->
+  <section class="left-pane" id="lp-addr" hidden data-can-edit="{{ 1 if can_edit_addr else 0 }}">
+    <!-- v3.152: «Адреса» — поиск по базе, карточка, проверка дубля и форма нового адреса (отправка на аппрув — позже, BACKLOG.md).
+         v3.171: «Редактировать» в карточке — только для тех, у кого data-can-edit=1 (правка сразу в лист «Адреса») -->
     <div class="addr-search-row"><input type="search" id="addrQuery" class="addr-input" placeholder="Название, город или поставщик" autocomplete="off"></div>
     <div id="addrSearchInfo" class="addr-status"></div>
     <div id="addrResults" class="addr-results"></div>
@@ -170,11 +171,13 @@
       <div id="addrFormTitle" class="addr-form-title"></div>
       <label class="addr-field"><span>Name *</span><input id="af-name" class="addr-input" maxlength="120" autocomplete="off"></label>
       <div class="addr-err" data-for="af-name"></div>
+      <label class="addr-field"><span>Alias</span><input id="af-alias" class="addr-input" autocomplete="off"></label>
       <label class="addr-field"><span>Country * (две буквы)</span><input id="af-country" class="addr-input" maxlength="2" autocomplete="off"></label>
       <div class="addr-err" data-for="af-country"></div>
       <label class="addr-field"><span>GPS * (широта, долгота)</span><input id="af-gps" class="addr-input" autocomplete="off" placeholder="51.48302, 4.72959"></label>
       <div class="addr-err" data-for="af-gps"></div>
       <label class="addr-field"><span>Full address</span><textarea id="af-full" class="addr-input" rows="3"></textarea></label>
+      <label class="addr-field"><span>Open</span><input id="af-open" class="addr-input" autocomplete="off"></label>
       <label class="addr-field"><span>Type</span><select id="af-type" class="addr-input"><option value="">—</option><option value="load">погрузка</option><option value="unload">выгрузка</option><option value="port">порт</option><option value="customs">таможня</option><option value="misc">прочее</option></select></label>
       <label class="addr-field"><span>Client</span><input id="af-client" class="addr-input" autocomplete="off"></label>
       <label class="addr-field"><span>Supplier</span><input id="af-supplier" class="addr-input" autocomplete="off"></label>

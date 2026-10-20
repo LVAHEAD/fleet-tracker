@@ -60,6 +60,6 @@ class V3130(unittest.TestCase):
     def test_addr_tab_placeholder(self):
         html = read("templates", "index.html")
         self.assertIn('id="left-tab-addr" data-lp="addr"', html)
-        self.assertIn('id="lp-addr" hidden>', html)
+        self.assertIn('id="lp-addr" hidden data-can-edit=', html)   # v3.171: флаг кнопки «Редактировать»
         self.assertIn('id="addrQuery"', html.split('id="lp-addr"')[1].split("</section>")[0])  # v3.152: заглушка заменена формой
         self.assertIn('addr: "Адреса"', read("static", "left-panel.js"))

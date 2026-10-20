@@ -11,6 +11,8 @@
   const TYPE_RU = { load: "погрузка", unload: "выгрузка", port: "порт", customs: "таможня", misc: "прочее" };
 
   const $ = (id) => document.getElementById(id);
+  // v3.171: правка адреса прямо в таблицу — только vladimirs.head и ladins (флаг с сервера; сервер проверяет сам)
+  const CAN_EDIT = !!($("lp-addr") && $("lp-addr").dataset.canEdit === "1");
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -159,16 +161,16 @@
       r.appendChild(val);
       card.appendChild(r);
     });
-    const bar = el("div", "addr-actions");
-    const fix = el("button", "addr-btn-primary", "Предложить правку");
-    fix.type = "button";
-    fix.addEventListener("click", () => openForm("edit", a));
-    const other = el("button", "addr-btn", "Это другая площадка");
-    other.type = "button";
-    other.addEventListener("click", () => openForm("new", null));
-    bar.appendChild(fix);
-    bar.appendChild(other);
-    card.appendChild(bar);
+    // v3.171: одна кнопка «Редактировать» — только у тех, кто правит сразу (data-can-edit); у остальных кнопок нет,
+    // пока не подключено хранилище предложений. «Предложить правку» и «Это другая площадка» убраны.
+    if (CAN_EDIT && a.row) {
+      const bar = el("div", "addr-actions");
+      const edit = el("button", "addr-btn-primary", "Редактировать");
+      edit.type = "button";
+      edit.addEventListener("click", () => openForm("edit", a));
+      bar.appendChild(edit);
+      card.appendChild(bar);
+    }
     card.hidden = false;
   }
 
@@ -182,7 +184,10 @@
   function openForm(mode, a) {
     editSource = mode === "edit" ? a : null;
     $("addrFormTitle").textContent = mode === "edit" ? "Правка: " + a.name : "Новый адрес";
+    $("addrSubmitBtn").textContent = mode === "edit" ? "Сохранить" : "Отправить на аппрув";
     setVal("af-name", a ? a.name : "");
+    setVal("af-alias", a ? a.alias : "");
+    setVal("af-open", a ? a.open : "");
     setVal("af-country", a ? a.country : "");
     setVal("af-gps", a ? gpsText(addrGps(a)) : "");
     setVal("af-full", a ? a.full : "");
@@ -301,9 +306,64 @@
     i.addEventListener("input", () => setErr(i.id, ""));
   });
 
+  // ---------- правка существующего адреса (v3.171) ----------
+  const EDIT_FIELDS = { name: "af-name", alias: "af-alias", country: "af-country", gps: "af-gps", full: "af-full",
+    open: "af-open", type: "af-type", client: "af-client", supplier: "af-supplier", notes: "af-notes" };
+
+  function origValues(a) {
+    return { name: a.name || "", alias: a.alias || "", country: a.country || "", gps: gpsText(addrGps(a)), full: a.full || "",
+      open: a.open || "", type: a.type || "", client: a.client || "", supplier: a.supplier || "", notes: a.notes || "" };
+  }
+
+  // только изменённые поля: у адресов с пустым Country или нестандартным Type остальное сохраняется без придирок
+  function changedFields(a) {
+    const orig = origValues(a), out = {};
+    Object.keys(EDIT_FIELDS).forEach((k) => {
+      let v = $(EDIT_FIELDS[k]).value.trim();
+      if (k === "country") v = v.toUpperCase();
+      if (v !== String(orig[k]).trim()) out[k] = v;
+    });
+    return out;
+  }
+
+  function validateChanges(ch) {
+    let ok = true;
+    setErr("af-name", ""); setErr("af-country", ""); setErr("af-gps", "");
+    if ("name" in ch && !ch.name) { setErr("af-name", "Введите Name"); ok = false; }
+    if ("country" in ch && !/^[A-Z]{2}$/.test(ch.country)) { setErr("af-country", "Две латинские буквы, например LV"); ok = false; }
+    if ("gps" in ch && !parseGps(ch.gps)) { setErr("af-gps", "Координаты вида 51.48302, 4.72959"); ok = false; }
+    return ok;
+  }
+
+  function saveEdit() {
+    const a = editSource, msg = $("addrFormMsg"), btn = $("addrSubmitBtn");
+    const ch = changedFields(a);
+    if (!Object.keys(ch).length) { msg.textContent = "Ничего не изменено."; return; }
+    if (!validateChanges(ch)) { msg.textContent = ""; return; }
+    msg.textContent = "Сохраняем…";
+    btn.disabled = true;
+    fetch("/api/addresses/update", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ row: a.row, orig_name: a.name, changes: ch }),
+    }).then((r) => r.json().then((j) => ({ ok: r.ok, j: j }))).then((res) => {
+      btn.disabled = false;
+      if (!res.ok) { msg.textContent = res.j && res.j.error ? res.j.error : "Не удалось сохранить"; return; }
+      if (res.j.address) Object.assign(a, res.j.address);
+      $("addrForm").hidden = true;
+      editSource = null;
+      runSearch();
+      $("addrSearchInfo").textContent = res.j.address ? "Сохранено в таблицу" : "Сохранено в таблицу, обновите список адресов";
+      if (res.j.address) showCard(a);
+    }).catch(() => {
+      btn.disabled = false;
+      msg.textContent = "Нет связи с сервером. Попробуйте ещё раз.";
+    });
+  }
+
   $("addrForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const msg = $("addrFormMsg");
+    if (editSource) { saveEdit(); return; }
     if (!validate(readForm())) { msg.textContent = ""; return; }
     msg.textContent = "Поля заполнены верно. Отправка на аппрув ещё не подключена: данные пока никуда не сохраняются.";
   });

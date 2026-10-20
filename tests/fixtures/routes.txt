@@ -1,5 +1,6 @@
 / GET
 /api/addresses GET
+/api/addresses/update POST
 /api/bans GET
 /api/calc POST
 /api/changelog GET

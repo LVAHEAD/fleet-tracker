@@ -2,6 +2,10 @@
 
 from flask import Blueprint, jsonify, request
 
+from fetat.api.meta import current_user_email
+from fetat.config import NOTES_TAB_USERS
+from fetat.services.address_edit import AddressEditError, edit_address
+from fetat.utils.text import canon_email
 from fetat.utils.timefmt import ts_west
 from fetat.clients.mapon import fetch_units
 from fetat.clients.nakordoni import _bans_cache, _bans_fetch_lock, _bans_lock
@@ -75,11 +79,31 @@ def api_addresses():
     import time
     items = get_addresses(force=request.args.get("refresh") == "1")
     return jsonify({
-        "addresses": [{**address_public(a), "lat": a["lat"], "lng": a["lng"]} for a in items],
+        "addresses": [{**address_public(a), "lat": a["lat"], "lng": a["lng"], "row": a.get("row")} for a in items],
         "problems": _addr_cache["problems"],
         "error": _addr_cache["error"],
         "loaded_at": ts_west(_addr_cache["loaded_at"]).strftime("%d/%m %H:%M") if _addr_cache["loaded_at"] else None,
     })
+
+
+@bp.route("/api/addresses/update", methods=["POST"])
+def api_addresses_update():
+    """v3.171: правка адреса в листе «Адреса». Тело: {row, orig_name, changes: {поле: значение}}. Только NOTES_TAB_USERS."""
+    email = current_user_email()
+    if email is not None and canon_email(email) not in NOTES_TAB_USERS:
+        return jsonify({"error": "нет доступа"}), 403
+    body = request.get_json(silent=True) or {}
+    try:
+        item = edit_address(body.get("row"), body.get("orig_name"), body.get("changes"))
+    except AddressEditError as e:
+        return jsonify({"error": str(e)}), e.code
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except Exception as e:
+        return jsonify({"error": f"Не удалось записать в таблицу: {e}"}), 502
+    if not item:
+        return jsonify({"saved": True, "address": None})
+    return jsonify({"saved": True, "address": {**address_public(item), "lat": item["lat"], "lng": item["lng"], "row": item.get("row")}})
 
 
 @bp.route("/api/freights")

@@ -32,7 +32,7 @@ def index():
     # локальный запуск (без IAP) — видно всем; в проде — только NOTES_TAB_USERS
     show_notes = email is None or canon_email(email) in NOTES_TAB_USERS
     return render_template("index.html", google_maps_js_key=GOOGLE_MAPS_JS_KEY, app_version=APP_VERSION,
-                           user_email=email, show_notes=show_notes)
+                           user_email=email, show_notes=show_notes, can_edit_addr=show_notes)   # v3.171: правка адресов — те же аккаунты
 
 
 @bp.route("/map-window")
