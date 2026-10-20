@@ -83,20 +83,80 @@
     return b;
   }
 
+  // ---------- копирование значения из карточки ----------
+  // значок «два листа» — SVG собирается через DOM
+  function copyIcon() {
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    const set = (n, o) => { Object.keys(o).forEach((k) => n.setAttribute(k, o[k])); return n; };
+    set(svg, { viewBox: "0 0 24 24", width: "14", height: "14", fill: "none", stroke: "currentColor",
+      "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" });
+    svg.appendChild(set(document.createElementNS(NS, "rect"), { x: "9", y: "9", width: "11", height: "11", rx: "2" }));
+    svg.appendChild(set(document.createElementNS(NS, "path"), { d: "M5 15V6a2 2 0 0 1 2-2h9" }));
+    return svg;
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+    return new Promise((resolve, reject) => {
+      const t = document.createElement("textarea");
+      t.value = text;
+      t.style.position = "fixed";
+      t.style.opacity = "0";
+      document.body.appendChild(t);
+      t.select();
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) {}
+      t.remove();
+      ok ? resolve() : reject(new Error("copy failed"));
+    });
+  }
+
+  function copyButton(label, text) {
+    const b = el("button", "addr-copy");
+    b.type = "button";
+    b.title = "Копировать: " + label;
+    b.setAttribute("aria-label", "Копировать: " + label);
+    b.appendChild(copyIcon());
+    b.addEventListener("click", () => {
+      copyText(text).then(() => {
+        b.classList.add("ok");
+        setTimeout(() => b.classList.remove("ok"), 1500);
+      }).catch(() => {});
+    });
+    return b;
+  }
+
   // ---------- карточка найденного адреса ----------
   function showCard(a) {
     const card = $("addrCard");
     card.textContent = "";
     card.appendChild(el("div", "addr-card-name", a.name));
+    // v3.170: порядок Адрес, GPS, Open, Тип, Alias, Client, Supplier (подписи как в листе); пустые поля скрыты.
+    // Страна (код + флаг) стоит под подписью «Адрес»; у «Адрес» и GPS справа внизу значок «копировать».
     const rows = [
-      ["Адрес", a.full], ["Страна", a.country], ["Тип", TYPE_RU[a.type] || a.type],
-      ["GPS", gpsText(addrGps(a))], ["Клиент", a.client], ["Поставщик", a.supplier], ["Заметка", a.notes],
+      ["Адрес", a.full, true], ["GPS", gpsText(addrGps(a)), true], ["Open", a.open], ["Тип", TYPE_RU[a.type] || a.type],
+      ["Alias", a.alias], ["Client", a.client], ["Supplier", a.supplier], ["Заметка", a.notes],
     ];
-    rows.forEach(([k, v]) => {
-      if (!v) return;
+    rows.forEach(([k, v, copy]) => {
+      const withCountry = k === "Адрес" && a.country;
+      if (!v && !withCountry) return;
       const r = el("div", "addr-card-row");
-      r.appendChild(el("span", "addr-card-key", k));
-      r.appendChild(el("span", "addr-card-val", v));
+      const key = el("span", "addr-card-key", k);
+      if (withCountry) {
+        key.classList.add("addr-card-key-col");
+        const flag = typeof FLAG_BG !== "undefined" ? FLAG_BG[a.country] : "";
+        const cc = el("span", "cc-badge" + (flag ? " cc-flag" : ""), a.country);
+        if (flag) cc.style.background = flag;
+        key.appendChild(cc);
+      }
+      r.appendChild(key);
+      const val = el("span", "addr-card-val", v || "");
+      if (copy && v) {
+        val.classList.add("has-copy");
+        val.appendChild(copyButton(k, v));
+      }
+      r.appendChild(val);
       card.appendChild(r);
     });
     const bar = el("div", "addr-actions");

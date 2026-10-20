@@ -1,5 +1,6 @@
 /* v3.114: фильтр по клиентам во Флоте. Клик по заголовку «Client» — окно со списком клиентов, которые сейчас есть
-во Флоте (по алфавиту, `КЛИЕНТ · число трипов`), галочки (несколько сразу), поиск сверху, «Сбросить» внизу.
+во Флоте (по алфавиту, `КЛИЕНТ · число трипов`), галочки (несколько сразу), поиск сверху.
+v3.170: «Сбросить» — вверху, справа от поля поиска.
 Пока фильтр включён, заголовок подсвечен синим. Складывается с «Мои / Все», диспетчером и L / O (rowPassesFilter в
 fleet-sort-filter.js); порядок строк не меняет; запоминается после F5 (localStorage, как остальные фильтры).
 Клиенты сравниваются без учёта регистра и пробелов; разные написания («STEF Italia spa» / «STEF Italia») — разные пункты.
@@ -69,8 +70,8 @@ function rowPassesClient(row) {
     pop = document.createElement("div");
     pop.id = "client-flt-pop";
     pop.className = "client-flt-pop";
-    pop.innerHTML = '<input type="search" class="cf-search" placeholder="Поиск клиента" autocomplete="off">'
-      + '<div class="cf-list"></div><div class="cf-foot"><button type="button" class="cf-reset">Сбросить</button></div>';
+    pop.innerHTML = '<div class="cf-top"><input type="search" class="cf-search" placeholder="Поиск клиента" autocomplete="off">'
+      + '<button type="button" class="cf-reset">Сбросить</button></div><div class="cf-list"></div>';
     document.body.appendChild(pop);
     const r = th.getBoundingClientRect();
     pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pop.offsetWidth - 8)) + "px";
