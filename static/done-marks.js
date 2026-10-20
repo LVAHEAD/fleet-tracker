@@ -115,6 +115,7 @@ function applyDoneClasses(tr, row, c) {
       chip.title = (f && f.done ? (f.by != null ? `Пройдена (по следующей точке ${STOP_NUM[f.by + 1]})`
         : f.auto ? `Пройдена (авто: стоял ${f.zone ? "в зоне «" + f.zone + "»" : "здесь"}, уехал ${f.at})` : "Пройдена (вручную)")
         : (m === false ? "Не пройдена (вручную)" : "Не пройдена"))
+        + (m != null && row.doneBy && row.doneBy[k] ? `\n${m === true ? "Пройдена" : "Не пройдена"} вручную · ${row.doneBy[k].who} · ${row.doneBy[k].at}` : "")
         + "\nДва клика — " + (m == null ? (f && f.done ? "отметить непройденной" : "отметить пройденной") : "вернуть автоопределение");
       chip.classList.add("stop-n-click");
       chip.classList.toggle("stop-n-manual", m != null);
@@ -143,14 +144,26 @@ function armDoneClick(chip, id, k) {
   return true;
 }
 
+// v3.164: время отметки для подсказки, «20/10 06:55»
+function doneNowStr() {
+  const d = new Date(), p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function toggleDone(id, k) {
   const row = rows.find((r) => r.id === id);
   if (!row) return;
   const c = lastCalcText[id];
   const f = c && c.doneFlags && c.doneFlags[k];
   row.done = row.done || {};
-  if (row.done[k] === true || row.done[k] === false) delete row.done[k];
-  else row.done[k] = !(f && f.done);
+  row.doneBy = row.doneBy || {};   // v3.164: кто и когда поставил ручную отметку
+  if (row.done[k] === true || row.done[k] === false) { delete row.done[k]; delete row.doneBy[k]; }
+  else {
+    row.done[k] = !(f && f.done);
+    const me = fleetMe();
+    row.doneBy[k] = { who: (me && dispTag(me)) || me || "local", at: doneNowStr() };
+  }
+  if (!Object.keys(row.doneBy).length) delete row.doneBy;
   saveRows();
   calcRow(id);
 }
