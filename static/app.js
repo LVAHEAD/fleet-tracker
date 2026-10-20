@@ -268,7 +268,7 @@ const FLAG_BG = {
   LU: "linear-gradient(#ED2939 0 33.3%,#fff 33.3% 66.6%,#00A1DE 66.6%)",
   DK: "#C8102E",
   SE: "linear-gradient(90deg,transparent 35%,#FECC00 35% 45%,transparent 45%),linear-gradient(transparent 40%,#FECC00 40% 50%,transparent 50%),#006AA7",
-  NO: "#BA0C2F",
+  NO: "linear-gradient(90deg,transparent 33%,#00205B 33% 39%,transparent 39%),linear-gradient(transparent 43%,#00205B 43% 49%,transparent 49%),linear-gradient(90deg,transparent 30%,#fff 30% 42%,transparent 42%),linear-gradient(transparent 40%,#fff 40% 52%,transparent 52%),#BA0C2F",
   FI: "linear-gradient(90deg,transparent 30%,#003580 30% 42%,transparent 42%),linear-gradient(transparent 40%,#003580 40% 52%,transparent 52%),#fff",
   PL: "linear-gradient(#fff 0 50%,#DC143C 50%)",
   CZ: "linear-gradient(#fff 0 50%,#D7141A 50%)",
