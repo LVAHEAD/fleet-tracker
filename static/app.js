@@ -293,6 +293,12 @@ const FLAG_BG = {
   RS: "linear-gradient(#C6363C 0 33.3%,#0C4076 33.3% 66.6%,#fff 66.6%)",
   BY: "linear-gradient(#CF101A 0 50%,#007C30 50%)",
 };
+// v3.169: плашка точки (ES04, NO17) — флаг страны под прозрачностью 4%, при наведении 10%
+const ptFlagCls = (code) => (FLAG_BG[String(code || "").slice(0, 2).toUpperCase()] ? " cc-pt-flag" : "");
+const ptFlagStyle = (code) => {
+  const bg = FLAG_BG[String(code || "").slice(0, 2).toUpperCase()];
+  return bg ? ` style="--f:${bg}"` : "";
+};
 
 // --- v1.28: адресная база (Google-таблица) и общий список подсказок points-list ---
 window.addressList = [];
@@ -876,7 +882,7 @@ function extraTargetsHtml(row, cached) {
     const k = i + 1;
     const ce = cached && cached.extra && cached.extra[i];
     const badge = ce && ce.badge
-      ? `<span class="cc-badge x-cc" title="${escapeHtml(ce.badgeHint || ce.badge)}">${escapeHtml(ce.badge)}</span>`
+      ? `<span class="cc-badge x-cc${ptFlagCls(ce.badge)}"${ptFlagStyle(ce.badge)} title="${escapeHtml(ce.badgeHint || ce.badge)}">${escapeHtml(ce.badge)}</span>`
       : '<span class="cc-badge x-cc" hidden></span>';   // v3.22: пустое место той же ширины — поля ровные
     const last = k === ex.length;
     const hide = hideK(row, k) ? " fold-hide" : "";
@@ -1433,7 +1439,7 @@ async function calcRow(id, why) {
       data.target_badge = data.first_done.badge; data.target_code_hint = data.first_done.badge_hint; data.target_dovoz = null;
     }
     const targetBadge = data.target_badge
-      ? `<span class="target-cc-wrap target-cc"><span class="cc-badge" title="${escapeHtml(data.target_code_hint || data.target_badge)}">${escapeHtml(data.target_badge)}</span>${dovoz}</span>`
+      ? `<span class="target-cc-wrap target-cc"><span class="cc-badge${ptFlagCls(data.target_badge)}"${ptFlagStyle(data.target_badge)} title="${escapeHtml(data.target_code_hint || data.target_badge)}">${escapeHtml(data.target_badge)}</span>${dovoz}</span>`
       : '<span class="cc-badge target-cc" hidden></span>';
     const oldTb = tr.querySelector(".target-cc");
     if (oldTb) oldTb.outerHTML = targetBadge;
@@ -1475,7 +1481,7 @@ async function calcRow(id, why) {
       const old = w.querySelector(".x-cc");
       if (old) old.remove();
       w.querySelector(".xlo-btn").insertAdjacentHTML("afterend", ce.badge
-        ? `<span class="cc-badge x-cc" title="${escapeHtml(ce.badgeHint || ce.badge)}">${escapeHtml(ce.badge)}</span>`
+        ? `<span class="cc-badge x-cc${ptFlagCls(ce.badge)}"${ptFlagStyle(ce.badge)} title="${escapeHtml(ce.badgeHint || ce.badge)}">${escapeHtml(ce.badge)}</span>`
         : '<span class="cc-badge x-cc" hidden></span>');   // v3.22: пустое место той же ширины
       const inp = w.querySelector(".xt-input");
       if (inp) inp.title = ce.error || (row.extra[i] && row.extra[i].target) || "";

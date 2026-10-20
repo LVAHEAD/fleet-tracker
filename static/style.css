@@ -426,6 +426,10 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
   color: #666; font-size: 12px; font-weight: 600; vertical-align: middle; cursor: default;
 }
 .cc-badge[hidden] { display: none; }
+/* v3.169: плашка точки — флаг страны под прозрачностью 4%, текст чёрный; наведение — 10% */
+.cc-badge.cc-pt-flag { position: relative; isolation: isolate; color: #000; }
+.cc-badge.cc-pt-flag::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--f); opacity: .04; z-index: -1; transition: opacity .15s; }
+.cc-badge.cc-pt-flag:hover::before { opacity: .10; }
 .cc-badge.cc-flag { color: #fff; text-shadow: 0 0 2px rgba(0, 0, 0, .7); border-color: transparent; box-shadow: inset 0 0 0 100vmax rgba(255, 255, 255, .4); }   /* v3.167: плашка страны — цвета флага; v3.168: белая вуаль — приглушить */
 .status-cell .cc-badge { margin-right: 6px; }
 .target-wrap .cc-badge { flex: 0 0 auto; }
