@@ -199,16 +199,36 @@
   $("addrNewBtn").addEventListener("click", () => openForm("new", null));
 
   // v3.163: Ctrl+клик по полю таргета — вкладка «Адреса» с текстом поля и карточкой найденного адреса
+  // v3.164: если в тексте ГПС — список адресов в радиусе 150 м (ближайшие сверху); иначе — поиск по названию
   window.addrOpenFor = (text) => {
     if (window.leftPanelOpen) window.leftPanelOpen("addr");
-    const q = norm(text || "");
-    $("addrQuery").value = text || "";
+    const raw = String(text || "").trim();
+    $("addrQuery").value = raw;
+    const g = parseGps(raw);
+    if (g) { nearbyByGps(g); return; }
     runSearch();
+    const q = norm(raw);
     if (!q) return;
     const list = baseList();
     const hit = list.find((a) => norm(a.name) === q) || list.find((a) => matches(a, q));
     if (hit) showCard(hit);
   };
+
+  function nearbyByGps(g) {
+    const res = $("addrResults"), info = $("addrSearchInfo");
+    res.textContent = "";
+    const near = baseList()
+      .map((a) => ({ a: a, d: addrGps(a) ? distM(g, addrGps(a)) : Infinity }))
+      .filter((x) => x.d <= DUP_RADIUS_M)
+      .sort((x, y) => x.d - y.d);
+    if (!near.length) { info.textContent = "В радиусе " + DUP_RADIUS_M + " м по ГПС адресов в базе нет."; return; }
+    info.textContent = "Рядом с ГПС (до " + DUP_RADIUS_M + " м): " + near.length;
+    near.slice(0, SHOW_MAX).forEach((x) => {
+      const r = addressRow(x.a);
+      r.querySelector(".addr-row-meta").textContent = Math.round(x.d) + " м · " + describe(x.a);
+      res.appendChild(r);
+    });
+  }
 
   $("addrCancelBtn").addEventListener("click", () => {
     $("addrForm").hidden = true;
@@ -227,4 +247,14 @@
     if (!validate(readForm())) { msg.textContent = ""; return; }
     msg.textContent = "Поля заполнены верно. Отправка на аппрув ещё не подключена: данные пока никуда не сохраняются.";
   });
+
+  // v3.164: Ctrl/Cmd+клик по любому полю ввода точки (таргет, From / To, From → To, Локатор) — «Адреса».
+  // Поля таргета во Флоте обрабатывает app.js (там же строка трипа); здесь — все остальные.
+  document.addEventListener("click", (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const inp = e.target && e.target.closest && e.target.closest('input[list="points-list"]');
+    if (!inp || inp.closest("#fleet-tbody")) return;
+    e.preventDefault();
+    window.addrOpenFor(inp.value);
+  }, true);
 })();
