@@ -68,3 +68,21 @@ class V3173(unittest.TestCase):
         self.assertIn("border-bottom-color: #cdd7e6;", css)
         self.assertIn("outline: 2px solid #2f6fd6", css)
         self.assertIn("--stop-h: 28px", read("static", "mobile.css"))
+
+
+class V3174(unittest.TestCase):
+    def test_col_order_wiring(self):
+        html = read("templates", "index.html")
+        self.assertLess(html.index("app.js"), html.index("col-order.js"))
+        js = read("static", "col-order.js")
+        for s in ("fleet-col-order", "data-ci", "MutationObserver", "col-reset-btn", "max-width: 767px"):
+            self.assertIn(s, js)
+        css = read("static", "style.css")
+        self.assertIn('#fleet-table td[data-ci="2"] { overflow: hidden; }', css)
+        self.assertIn('td[data-ci="0"] .drag-h', css)
+
+    @unittest.skipUnless(NODE, "нет node")
+    def test_col_order_validates_saved(self):
+        # битый / неполный порядок — исходный (логика load)
+        js = read("static", "col-order.js")
+        self.assertIn("a.length === N", js)
