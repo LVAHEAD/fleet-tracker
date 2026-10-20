@@ -249,22 +249,66 @@
   });
 
   // v3.165: ГПС в поле точки → Name ближайшего адреса из базы в радиусе 150 м. Срабатывает при уходе из поля и по Enter.
+  // v3.166: все адреса в радиусе, по имени без повторов, ближайшие сверху
+  function gpsCandidates(g) {
+    const seen = new Set(), out = [];
+    baseList().forEach((a) => {
+      const ag = addrGps(a);
+      if (!ag || !a.name || seen.has(a.name)) return;
+      const d = distM(g, ag);
+      if (d <= DUP_RADIUS_M) { seen.add(a.name); out.push({ a: a, d: d }); }
+    });
+    return out.sort((x, y) => x.d - y.d);
+  }
+
+  function applyPoint(inp, name) {
+    inp.value = name;
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+    inp.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  // один адрес — подставляем сразу; несколько — выбор у поля (v3.166)
   function gpsSubstitute(inp) {
     const g = parseGps(inp.value);
     if (!g) return false;
-    let best = null;
-    baseList().forEach((a) => {
-      const ag = addrGps(a);
-      if (!ag || !a.name) return;
-      const d = distM(g, ag);
-      if (d <= DUP_RADIUS_M && (!best || d < best.d)) best = { a: a, d: d };
-    });
-    if (!best) return false;
-    inp.value = best.a.name;
-    inp.dispatchEvent(new Event("input", { bubbles: true }));
-    inp.dispatchEvent(new Event("change", { bubbles: true }));
+    const list = gpsCandidates(g);
+    if (!list.length) return false;
+    if (list.length === 1) { applyPoint(inp, list[0].a.name); return true; }
+    showGpsPick(inp, list);
     return true;
   }
+
+  let gpsPickEl = null;
+  function closeGpsPick() {
+    if (gpsPickEl) { gpsPickEl.remove(); gpsPickEl = null; }
+  }
+
+  function showGpsPick(inp, list) {
+    closeGpsPick();
+    const box = el("div", "gps-pick");
+    box.appendChild(el("div", "gps-pick-head", "Рядом несколько адресов — выберите:"));
+    list.slice(0, 8).forEach((x) => {
+      const b = el("button", "gps-pick-row", null);
+      b.type = "button";
+      b.appendChild(el("span", "gps-pick-name", x.a.name));
+      b.appendChild(el("span", "gps-pick-d", Math.round(x.d) + " м"));
+      b.addEventListener("click", () => { closeGpsPick(); applyPoint(inp, x.a.name); });
+      box.appendChild(b);
+    });
+    const r = inp.getBoundingClientRect();
+    box.style.left = (r.left + window.scrollX) + "px";
+    box.style.top = (r.bottom + window.scrollY + 4) + "px";
+    box.style.minWidth = Math.max(r.width, 260) + "px";
+    document.body.appendChild(box);
+    gpsPickEl = box;
+  }
+
+  document.addEventListener("mousedown", (e) => {
+    if (gpsPickEl && !gpsPickEl.contains(e.target)) closeGpsPick();
+  }, true);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeGpsPick();
+  }, true);
   const isPointInput = (t) => t && t.matches && t.matches('input[list="points-list"]');
   document.addEventListener("focusout", (e) => {
     if (isPointInput(e.target)) gpsSubstitute(e.target);

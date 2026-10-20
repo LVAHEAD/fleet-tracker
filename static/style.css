@@ -1343,6 +1343,15 @@ body:not(.sort-manual) .acts-br { display: none; }
 /* v3.48: значок страны во Флоте кликабелен — открывает ⏱ калькулятор */
 #fleet-tbody .cc-badge:not([hidden]) { cursor: pointer; }
 
+/* v3.166: выбор адреса у поля ГПС, когда рядом несколько — Синий Кальк */
+.gps-pick { position: absolute; z-index: 9999; background: #fff; border: 1px solid #c9d6ee; border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .15); padding: 6px; font-size: 13px; max-height: 260px; overflow: auto; }
+.gps-pick-head { color: #666; font-size: 12px; padding: 2px 4px 6px; }
+.gps-pick-row { display: flex; justify-content: space-between; gap: 10px; width: 100%; text-align: left; background: #fff;
+  border: 1px solid transparent; padding: 6px 8px; border-radius: 4px; cursor: pointer; color: #1a1a1a; font: inherit; }
+.gps-pick-row:hover { border-color: #c9d6ee; color: #2f6fd6; }
+.gps-pick-d { color: #888; white-space: nowrap; }
+
 /* v3.159: кружок отметки ✓ взведён первым кликом — Синий Кальк */
 .stop-n.armed, .stop-n.armed .pn-chip { background: #e74c3c !important; border-color: #c0392b !important; color: #fff !important; }   /* красный, как взведённый 🗑 */
 
