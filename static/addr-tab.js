@@ -129,10 +129,39 @@
     return b;
   }
 
+  // ---------- карта в карточке (v3.171): объект в центре, зум 15; один экземпляр карты на все карточки ----------
+  const CARD_MAP_ZOOM = 15;
+  let cardMapBox = null, cardMap = null, cardMarker = null;
+
+  function placeCardMap(card, a, tries) {
+    const g = addrGps(a);
+    if (!g) return;
+    if (!cardMapBox) { cardMapBox = el("div", "addr-card-map"); }
+    card.appendChild(cardMapBox);
+    if (!window.googleMapsReady || !window.google || !window.MapsCommon) {   // Google Maps ещё грузится — повторим
+      cardMapBox.hidden = true;
+      if ((tries || 0) < 5) setTimeout(() => { if (cardMapBox.parentNode === card) placeCardMap(card, a, (tries || 0) + 1); }, 1500);
+      return;
+    }
+    cardMapBox.hidden = false;
+    if (!cardMap) cardMap = MapsCommon.make(cardMapBox, { disableDefaultUI: true });
+    const pos = { lat: g.lat, lng: g.lng };
+    if (!cardMarker) {
+      cardMarker = new google.maps.Marker({ map: cardMap, position: pos, zIndex: 5,
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: "#2f6fd6", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 } });
+    }
+    cardMarker.setPosition(pos);
+    cardMarker.setTitle(a.name || "");
+    const fit = () => { google.maps.event.trigger(cardMap, "resize"); cardMap.setCenter(pos); cardMap.setZoom(CARD_MAP_ZOOM); };
+    fit();
+    setTimeout(fit, 350);   // панель могла только выехать — карта пересчитывает размер
+  }
+
   // ---------- карточка найденного адреса ----------
   function showCard(a) {
     const card = $("addrCard");
     card.textContent = "";
+    card.hidden = false;   // v3.171: карта создаётся в видимом контейнере
     card.appendChild(el("div", "addr-card-name", a.name));
     // v3.170: порядок Адрес, GPS, Open, Тип, Alias, Client, Supplier (подписи как в листе); пустые поля скрыты.
     // Страна (код + флаг) стоит под подписью «Адрес»; у «Адрес» и GPS справа внизу значок «копировать».
@@ -161,6 +190,7 @@
       r.appendChild(val);
       card.appendChild(r);
     });
+    placeCardMap(card, a, 0);
     // v3.171: одна кнопка «Редактировать» — только у тех, кто правит сразу (data-can-edit); у остальных кнопок нет,
     // пока не подключено хранилище предложений. «Предложить правку» и «Это другая площадка» убраны.
     if (CAN_EDIT && a.row) {
