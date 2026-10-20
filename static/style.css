@@ -426,6 +426,7 @@ td input:focus { outline: 2px solid #7f77dd; border-color: transparent; }
   color: #666; font-size: 12px; font-weight: 600; vertical-align: middle; cursor: default;
 }
 .cc-badge[hidden] { display: none; }
+.cc-badge.cc-flag { color: #fff; text-shadow: 0 0 2px rgba(0, 0, 0, .7); border-color: transparent; }   /* v3.167: плашка страны — цвета флага */
 .status-cell .cc-badge { margin-right: 6px; }
 .target-wrap .cc-badge { flex: 0 0 auto; }
 .frt-contract { background: #EEE; color: #555; border-radius: 3px; padding: 0 4px; }

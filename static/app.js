@@ -257,6 +257,43 @@ async function loadUnitsList() {
   }
 }
 
+// v3.167: фон плашки страны у машины — цвета флага (приблизительно, для стран парка)
+const FLAG_BG = {
+  ES: "linear-gradient(#AA151B 0 25%,#F1BF00 25% 75%,#AA151B 75%)",
+  IT: "linear-gradient(to right,#009246 0 33.3%,#fff 33.3% 66.6%,#CE2B37 66.6%)",
+  DE: "linear-gradient(#000 0 33.3%,#DD0000 33.3% 66.6%,#FFCE00 66.6%)",
+  FR: "linear-gradient(to right,#002395 0 33.3%,#fff 33.3% 66.6%,#ED2939 66.6%)",
+  NL: "linear-gradient(#AE1C28 0 33.3%,#fff 33.3% 66.6%,#21468B 66.6%)",
+  BE: "linear-gradient(to right,#000 0 33.3%,#FAE042 33.3% 66.6%,#ED2939 66.6%)",
+  LU: "linear-gradient(#ED2939 0 33.3%,#fff 33.3% 66.6%,#00A1DE 66.6%)",
+  DK: "#C8102E",
+  SE: "linear-gradient(90deg,transparent 35%,#FECC00 35% 45%,transparent 45%),linear-gradient(transparent 40%,#FECC00 40% 50%,transparent 50%),#006AA7",
+  NO: "#BA0C2F",
+  FI: "linear-gradient(90deg,transparent 30%,#003580 30% 42%,transparent 42%),linear-gradient(transparent 40%,#003580 40% 52%,transparent 52%),#fff",
+  PL: "linear-gradient(#fff 0 50%,#DC143C 50%)",
+  CZ: "linear-gradient(#fff 0 50%,#D7141A 50%)",
+  SK: "linear-gradient(#fff 0 33.3%,#0B4EA2 33.3% 66.6%,#EE1C25 66.6%)",
+  HU: "linear-gradient(#CE2939 0 33.3%,#fff 33.3% 66.6%,#477050 66.6%)",
+  AT: "linear-gradient(#ED2939 0 33.3%,#fff 33.3% 66.6%,#ED2939 66.6%)",
+  CH: "#DA291C",
+  PT: "linear-gradient(to right,#006600 0 40%,#FF0000 40%)",
+  GB: "#012169",
+  IE: "linear-gradient(to right,#169B62 0 33.3%,#fff 33.3% 66.6%,#FF883E 66.6%)",
+  LT: "linear-gradient(#FDB913 0 33.3%,#006A44 33.3% 66.6%,#C1272D 66.6%)",
+  LV: "linear-gradient(#9E3039 0 40%,#fff 40% 60%,#9E3039 60%)",
+  EE: "linear-gradient(#0072CE 0 33.3%,#000 33.3% 66.6%,#fff 66.6%)",
+  RO: "linear-gradient(to right,#002B7F 0 33.3%,#FCD116 33.3% 66.6%,#CE1126 66.6%)",
+  BG: "linear-gradient(#fff 0 33.3%,#00966E 33.3% 66.6%,#D62612 66.6%)",
+  HR: "linear-gradient(#FF0000 0 33.3%,#fff 33.3% 66.6%,#171796 66.6%)",
+  SI: "linear-gradient(#fff 0 33.3%,#003DA5 33.3% 66.6%,#ED1C24 66.6%)",
+  GR: "linear-gradient(#0D5EAF 0 11.1%,#fff 11.1% 22.2%,#0D5EAF 22.2% 33.3%,#fff 33.3% 44.4%,#0D5EAF 44.4% 55.5%,#fff 55.5% 66.6%,#0D5EAF 66.6% 77.7%,#fff 77.7% 88.8%,#0D5EAF 88.8%)",
+  TR: "#E30A17",
+  UA: "linear-gradient(#005BBB 0 50%,#FFD500 50%)",
+  RU: "linear-gradient(#fff 0 33.3%,#0039A6 33.3% 66.6%,#D52B1E 66.6%)",
+  RS: "linear-gradient(#C6363C 0 33.3%,#0C4076 33.3% 66.6%,#fff 66.6%)",
+  BY: "linear-gradient(#CF101A 0 50%,#007C30 50%)",
+};
+
 // --- v1.28: адресная база (Google-таблица) и общий список подсказок points-list ---
 window.addressList = [];
 const ADDR_TYPE_RU = { load: "погрузка", unload: "выгрузка", port: "порт", customs: "таможня", misc: "прочее" };
@@ -1239,8 +1276,9 @@ async function calcRow(id, why) {
     }
 
     // v1.31: плашка страны, где машина сейчас
+    const flagBg = FLAG_BG[data.unit_country];   // v3.167: цвета флага страны
     const ccBadge = data.unit_country
-      ? `<span class="cc-badge" title="${escapeHtml(data.unit_code_hint || data.unit_country)}">${escapeHtml(data.unit_country)}</span>`
+      ? `<span class="cc-badge${flagBg ? " cc-flag" : ""}"${flagBg ? ` style="background:${flagBg}"` : ""} title="${escapeHtml(data.unit_code_hint || data.unit_country)}">${escapeHtml(data.unit_country)}</span>`
       : "";
     // v1.43: одна строка — страна, ■/▶, время, скорость, ⏸
     const icon = data.status === "driving"
