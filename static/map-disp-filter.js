@@ -36,6 +36,7 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
     save();
     render();
     if (typeof window.fleetMapSync === "function") window.fleetMapSync();
+    if (window.fleetMapUnits) window.fleetMapUnits.draw();   // v3.180: «Все» — показать все машины Mapon
   }
 
   function list() { return (typeof DISP_LIST !== "undefined" && DISP_LIST) || []; }

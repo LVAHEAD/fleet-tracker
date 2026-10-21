@@ -126,7 +126,8 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
       + '<button type="button" class="ul-gr" title="Группировать близкие машины в кружок с числом (ниже зума 9) — вкл / выкл">Группировать</button>';
     const tg = box.querySelector(".ul-tg"), nm = box.querySelector(".ul-nm"), gr = box.querySelector(".ul-gr");
     // v3.51: ↻ — общая кнопка карт справа сверху (MapsCommon.refreshBtn)
-    const rf = window.MapsCommon ? MapsCommon.refreshBtn(map, () => load(true)) : document.createElement("button");
+    // v3.180: opts.follow — слой включается снаружи (карта Флота: фильтр «Все»), своего ↻ и кнопки «🚚» нет; opts.skip(u) — машину не рисовать
+    const rf = window.MapsCommon && !opts.follow ? MapsCommon.refreshBtn(map, () => load(true)) : document.createElement("button");
     const ui = () => { tg.classList.toggle("on", L.on); rf.hidden = !L.on; nm.hidden = !L.on; gr.hidden = !L.on; nm.classList.toggle("on", L.nums); gr.classList.toggle("on", L.group); };
     tg.addEventListener("click", () => { L.on = !L.on; saveVisible(L.on); ui(); if (L.on && !units.length) load(true); else L.draw(); });
     gr.addEventListener("click", () => { L.group = !L.group; saveGroup(L.group); ui(); L.draw(); });
@@ -140,16 +141,22 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
     L.draw = () => {
       L.clear();
       const items = [];
-      if (!L.on || !units.length) { overlap.apply([]); return; }
+      if (opts.follow) {   // v3.180
+        const want = !!opts.follow();
+        if (want !== L.on) { L.on = want; ui(); }
+        if (L.on && !units.length && !L.tried) { L.tried = true; load(true); }   // одна попытка — без цикла при сбое Mapon
+      }
+      const list = opts.skip ? units.filter((u) => !opts.skip(u)) : units;
+      if (!L.on || !list.length) { overlap.apply([]); return; }
       const z = map.getZoom() || 0;
       const groups = [];
       if (L.group && z < CLUSTER_MAX_ZOOM) {
-        units.forEach((u) => {
+        list.forEach((u) => {
           const p = px(u.lat, u.lng, z);
           const g = groups.find((x) => Math.abs(x.p.x - p.x) < CLUSTER_PX && Math.abs(x.p.y - p.y) < CLUSTER_PX);
           if (g) g.items.push(u); else groups.push({ p, items: [u] });
         });
-      } else units.forEach((u) => groups.push({ items: [u] }));
+      } else list.forEach((u) => groups.push({ items: [u] }));
       groups.forEach((g) => {
         if (g.items.length === 1) {
           const u = g.items[0];
@@ -176,7 +183,8 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
     };
     map.addListener("zoom_changed", () => L.draw());
     layers.push(L);
-    if (L.on) load(true);
+    if (opts.follow) { tg.hidden = true; L.draw(); }
+    else if (L.on) load(true);
     return { refresh: () => load(true), draw: () => L.draw() };
   }
 

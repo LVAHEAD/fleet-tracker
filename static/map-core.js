@@ -13,14 +13,21 @@ let pendingPositions = {}; // rowId -> {lat, lng, label, status} — на слу
 let rowPositions = {}; // rowId -> {unitLat, unitLng, targetLat, targetLng, polyline}
 let routePolyline = null; // текущая нарисованная линия маршрута (одна за раз)
 
+function fleetUnitInRows(u) {
+  const nrm = (s) => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return rows.some((r) => r.unit && nrm(r.unit) === nrm(u.number));
+}
+
 function initMap() {
   // v1.66: + / − справа сверху под ⛶; v1.67: «джойстик» Google (cameraControl) убран; v3.50: общий конфиг — maps-common.js
   map = MapsCommon.make(document.getElementById("map"), { cameraControl: false });
-  MapsCommon.refreshBtn(map, refreshFleetPositions);   // ↻ на карте Флота — только позиции машин из Mapon, без пересчёта строк и Google
+  MapsCommon.refreshBtn(map, async () => { await refreshFleetPositions(); if (window.fleetMapUnits) await window.fleetMapUnits.refresh(); });   // ↻ на карте Флота — только позиции машин из Mapon (и все машины, если слой включён), без пересчёта строк и Google
   if (window.ObjLayer) ObjLayer.attach(map);   // v3.55: объекты Mapon — 🏭 под ↻
   if (window.PrepMap) PrepMap.sync();           // v3.178: трипы без машины с меткой VL
   ensureOverlap();                              // v3.58: машины в одной точке — счётчик и веер
   if (window.MapDispFilter) MapDispFilter.attach(map);   // после v3.132: свои кнопки диспетчеров на карте
+  // v3.180: фильтр карты «Дисп.: Все» — показываем все машины Mapon (слой как в Локаторе), кроме тех, что уже стоят плашками трипов
+  if (window.UnitsLayer) window.fleetMapUnits = UnitsLayer.attach(map, { follow: () => !!window.MapDispFilter && MapDispFilter.get() === "all", skip: fleetUnitInRows });
 
   Object.keys(pendingPositions).forEach((rowId) => {
     const p = pendingPositions[rowId];
