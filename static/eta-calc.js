@@ -242,6 +242,7 @@ const EtaCalc = (() => {
       const cn = crewSrcNote(s);
       if (cn) notes.push(cn);
       panel.querySelectorAll(".ec-team button").forEach((x) => x.classList.toggle("on", (x.dataset.v === "1") === st.team));
+      st.lfManual = false;   // v3.185: данные машины — остаток снова не ручной
       setLf(s.left_h || 0);
       setSh(s.shift_h || 0);
       st.startMs = s.used_h > 0 ? Date.now() - s.used_h * 3600000 : null;   // v3.106: окно смены уже идёт
@@ -488,17 +489,19 @@ const EtaCalc = (() => {
   }
   function lfPair() {
     const n = $("#ec-lf-n");
-    n.addEventListener("input", () => { const v = parseHM(n.value); if (v != null) { setLf(v, v <= lfMax()); calc(); } });
-    n.addEventListener("blur", () => setLf(st.lfH));
+    n.addEventListener("input", () => { const v = parseHM(n.value); if (v != null) { st.lfManual = true; st.lfAutoShown = false; setLf(v, v <= lfMax()); calc(); } });
+    n.addEventListener("blur", () => { if (!st.lfAutoShown) setLf(st.lfH); });
     n.addEventListener("focus", () => n.select());
     const step = (d) => {
+      if (!st.lfManual && st.lfAutoShown) setLf(st.team ? 18 : 9);   // шаг от показанного свежего значения
+      st.lfManual = true; st.lfAutoShown = false;
       const k = st.lfH * 4;
       setLf((d > 0 ? Math.floor(k + 1e-6) + 1 : Math.ceil(k - 1e-6) - 1) / 4);
       calc();
       manual(false);
     };
     n.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { setLf(st.lfH); return; }
+      if (e.key === "Enter") { if (!st.lfAutoShown) setLf(st.lfH); return; }
       if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
       e.preventDefault();
       step(e.key === "ArrowUp" ? 1 : -1);
@@ -524,7 +527,7 @@ const EtaCalc = (() => {
   function params() {
     return {
       dist: Number($("#ec-km-n").value) || 0, shiftH: st.shH, leftH: st.lfH,
-      team: st.team, rest: st.rest, shorts: st.shorts, wkLeft: Number($("#ec-wk-n").value),
+      leftManual: !!st.lfManual, team: st.team, rest: st.rest, shorts: st.shorts, wkLeft: Number($("#ec-wk-n").value),
       extras: st.extras, shifts: st.shifts, ext: st.team ? [] : Array.from(st.ext), nowMs: Date.now(), shiftStartMs: st.startMs || null, standH: st.standH || 0,
       restEndMs: st.restEndMs && Date.now() - st.restEndMs < 12 * 3600000 ? st.restEndMs : null,
     };
@@ -536,12 +539,16 @@ const EtaCalc = (() => {
     if (!panel) return;
     const m = lfMax();
     $(".ec-now").textContent = "сейчас " + fdt(new Date());
-    // v3.184: сдвиг выезда (+ сколько уже стоит) ≥ отдыха — сервер считает свежий день, остаток не влияет (calc_plan, v3.125) — поле серое
+    // v3.185: сдвиг выезда (+ сколько уже стоит) ≥ отдыха — по умолчанию свежий день (18 ч экипаж / 9 ч соло, как считает сервер);
+    // диспетчер может вписать свой остаток («холодный» расчёт с уменьшенной сменой) — тогда он учитывается (leftManual)
     const fresh = st.shH + (st.standH || 0) >= (st.rest || 9);
+    const auto = fresh && !st.lfManual;
     const lf = $("#ec-lf-n");
-    lf.parentElement.classList.toggle("ec-off", fresh);
-    $("#ec-lf-lb").textContent = fresh ? "Остаток вождения — свежий день" : "Остаток вождения, ч";
-    lf.title = fresh ? `Сдвиг выезда ≥ отдыха (${st.rest || 9} ч): отдых отбыт, день свежий — остаток не учитывается. Уменьши сдвиг, чтобы он заработал` : "ЧЧ:ММ · ↑ ↓ — шаг 15 мин";
+    if (auto) { if (document.activeElement !== lf) lf.value = fmtHM(st.team ? 18 : 9 + (st.ext.has(0) ? 1 : 0)); }
+    else if (st.lfAutoShown) lf.value = fmtHM(st.lfH);
+    st.lfAutoShown = auto;
+    $("#ec-lf-lb").textContent = auto ? "Остаток вождения — свежий день" : "Остаток вождения, ч";
+    lf.title = auto ? `Сдвиг выезда ≥ отдыха (${st.rest || 9} ч): день свежий. Впиши свой остаток, если смену нужно уменьшить` : "ЧЧ:ММ · ↑ ↓ — шаг 15 мин";
     $(".ec-wk").hidden = st.team;
     request();
   }

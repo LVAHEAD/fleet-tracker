@@ -623,13 +623,14 @@ def calc_plan(p):
     day_left = max(0.0, float(p.get("leftH") or 0)) * H
     shift_start = _calc_shift_start(p, etd, now)
     shift_sec = max(0.0, float(p.get("shiftH") or 0)) * H
+    manual_left = bool(p.get("leftManual"))   # v3.185: остаток вводил диспетчер — при сдвиге ≥ отдыха не сбрасываем на свежий день
     # свежий день: 9 ч (экипаж 18); 10-й час первого дня («д1 +1 ч») сохраняем — раньше он терялся при сдвиге выезда
     fresh_day = TEAM_DAY_SEC if team else SOLO_DAY_SEC + (EXT_SEC if 0 in {int(x) for x in (p.get("ext") or [])} else 0)
     if shift_sec > 0 and float(p.get("standH") or 0) * H + shift_sec >= int(p.get("rest") or 9) * H:
-        day_left, shift_start = fresh_day, etd   # v3.125: стоит + сдвиг = отдых отбыт — свежий день
+        day_left, shift_start = (day_left if manual_left else fresh_day), etd   # v3.125: стоит + сдвиг = отдых отбыт — свежий день (v3.185: остаток, введённый диспетчером руками, сохраняем — «холодный» расчёт с уменьшенной сменой)
     rest_end = float(p.get("restEndMs") or 0) / 1000.0
     if rest_end and etd >= rest_end:   # v3.140: диспетчер отметил «встал на отдых» — выезд после его конца = свежий день
-        day_left, shift_start = fresh_day, etd
+        day_left, shift_start = (day_left if manual_left else fresh_day), etd
     r = plan(etd, float(p.get("dist") or 0), team=team, day_left=day_left,
              rest_pref=int(p.get("rest") or 9), shorts=int(p.get("shorts") or 0),
              ext_days=[int(x) for x in (p.get("ext") or [])], extras=hrs(p.get("extras")), shifts=hrs(p.get("shifts")),
