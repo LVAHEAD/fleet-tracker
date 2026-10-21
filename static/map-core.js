@@ -688,6 +688,7 @@ function drawRoute(rowId, keepView) {   // v3.84: keepView — перерисо�
   }
   routeExtraLines.forEach((l) => l.setMap(null));
   routeExtraLines = [];
+  if (window.PrepMap && PrepMap.select(rowId, keepView)) return;   // v3.179: трип без машины — точки из адресной базы / GPS
 
   if (!pos || pos.targetLat == null || pos.targetLng == null) {
     if (!keepView) centerMapOn(rowId);

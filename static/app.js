@@ -565,6 +565,7 @@ function renderRows() {
     applyDoneClasses(tr, row, lastCalcText[row.id]);
   });
   attachRowHandlers();
+  if (window.PrepMap) window.PrepMap.sync();   // v3.179: плашки кодов у трипов без машины
   updateFleetCount();
 }
 
