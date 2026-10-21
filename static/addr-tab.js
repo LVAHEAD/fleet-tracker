@@ -230,7 +230,8 @@
     $("addrFormMsg").textContent = "";
     $("addrForm").hidden = false;
     checkDup();
-    $("addrForm").scrollIntoView({ block: "nearest" });
+    $("lp-addr").classList.add("addr-editing");   // форма — вместо поиска и карточки, вверху панели
+    $("lp-addr").scrollTop = 0;
   }
 
   function readForm() {
@@ -326,10 +327,14 @@
     });
   }
 
-  $("addrCancelBtn").addEventListener("click", () => {
+  // закрыть форму: вернуть поиск и карточку (карте после display:none нужен пересчёт размера)
+  function closeForm() {
     $("addrForm").hidden = true;
+    $("lp-addr").classList.remove("addr-editing");
     editSource = null;
-  });
+    if (cardMap) setTimeout(() => google.maps.event.trigger(cardMap, "resize"), 0);
+  }
+  $("addrCancelBtn").addEventListener("click", closeForm);
 
   ["af-name", "af-gps"].forEach((id) => $(id).addEventListener("input", checkDup));
 
@@ -380,8 +385,7 @@
       btn.disabled = false;
       if (!res.ok) { msg.textContent = res.j && res.j.error ? res.j.error : "Не удалось сохранить"; return; }
       if (res.j.address) Object.assign(a, res.j.address);
-      $("addrForm").hidden = true;
-      editSource = null;
+      closeForm();
       runSearch();
       $("addrSearchInfo").textContent = res.j.address ? "Сохранено в таблицу" : "Сохранено в таблицу, обновите список адресов";
       if (res.j.address) showCard(a);
