@@ -16,6 +16,7 @@ let routePolyline = null; // текущая нарисованная линия 
 function initMap() {
   // v1.66: + / − справа сверху под ⛶; v1.67: «джойстик» Google (cameraControl) убран; v3.50: общий конфиг — maps-common.js
   map = MapsCommon.make(document.getElementById("map"), { cameraControl: false });
+  MapsCommon.refreshBtn(map, () => calcAllRows({ kind: "manual" }));   // ↻ на карте Флота — то же, что «Обновить всё» над таблицей
   if (window.ObjLayer) ObjLayer.attach(map);   // v3.55: объекты Mapon — 🏭 под ↻
   ensureOverlap();                              // v3.58: машины в одной точке — счётчик и веер
   if (window.MapDispFilter) MapDispFilter.attach(map);   // после v3.132: свои кнопки диспетчеров на карте
