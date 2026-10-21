@@ -170,7 +170,8 @@ function stripeRow(tr, row) {
 function rowPassesFilter(row) { return rowPassesFilterWith(row, rowPassesOwn); }
 // ownPass — проверка «диспетчер»: таблица — rowPassesOwn, Карта Флота — свой фильтр (map-disp-filter.js); L / O и клиент общие
 function rowPassesFilterWith(row, ownPass) {
-  if (!row.unit) return ownPass(row);   // пустая строка — только у своего диспетчера (L / O и клиент к ней не относятся)
+  // пустая строка (трип в подготовке, без машины) — только у своего диспетчера; клиент и L не относятся; фильтр «O» её прячет
+  if (!row.unit) return loFilter === "O" ? false : ownPass(row);
   if (!ownPass(row)) return false;   // v2.01 / v3.11
   if (awaitsComplete(row)) return true;   // v3.81: ждущие «✓ Завершён» видны при любом L/O и фильтре по клиентам, но не при чужом диспетчере
   if (!rowPassesClient(row)) return false;   // v3.114: фильтр по клиентам (client-filter.js)
