@@ -27,7 +27,7 @@ function initMap() {
   ensureOverlap();                              // v3.58: машины в одной точке — счётчик и веер
   if (window.MapDispFilter) MapDispFilter.attach(map);   // после v3.132: свои кнопки диспетчеров на карте
   // v3.180: фильтр карты «Дисп.: Все» — показываем все машины Mapon (слой как в Локаторе), кроме тех, что уже стоят плашками трипов
-  if (window.UnitsLayer) window.fleetMapUnits = UnitsLayer.attach(map, { follow: () => !!window.MapDispFilter && MapDispFilter.get() === "all", skip: fleetUnitInRows });
+  if (window.UnitsLayer) window.fleetMapUnits = UnitsLayer.attach(map, { follow: () => !!window.MapDispFilter && MapDispFilter.get() === "mapon", skip: fleetUnitInRows });
 
   Object.keys(pendingPositions).forEach((rowId) => {
     const p = pendingPositions[rowId];

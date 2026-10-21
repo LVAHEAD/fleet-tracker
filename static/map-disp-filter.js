@@ -7,10 +7,10 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
 */
 (function () {
   const KEY = window.MAP_DISP_KEY || "fleet-map-disp";   // у откреплённого окна карты — свой ключ (map-window.js)
-  let sel = "table";   // "table" | "all" | массив e-mail (канонических)
+  let sel = "table";   // "table" | "mapon" (v3.180: все машины Mapon + трипы всех) | "all" (трипы всех диспетчеров) | массив e-mail (канонических)
   try {
     const saved = localStorage.getItem(KEY);
-    if (saved === "table" || saved === "all") sel = saved;
+    if (saved === "table" || saved === "all" || saved === "mapon") sel = saved;
     else if (saved) {
       const arr = JSON.parse(saved);
       if (Array.isArray(arr) && arr.length) sel = arr.map(String);
@@ -23,7 +23,7 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
   // строка проходит фильтр диспетчера карты (для rowPassesFilterWith)
   function pass(row) {
     if (sel === "table") return rowPassesOwn(row);
-    if (sel === "all") return true;
+    if (sel === "all" || sel === "mapon") return true;
     const d = rowDisp(row);
     return !!d && sel.includes(d);   // строки без диспетчера — только в «Все», как в таблице
   }
@@ -44,7 +44,8 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
   // подпись на кнопке: «Таблица», «Все», «VL, JZ» (больше трёх — «4 дисп.»)
   function label() {
     if (sel === "table") return "Таблица";
-    if (sel === "all") return "Все";
+    if (sel === "mapon") return "ВСЕ";
+    if (sel === "all") return "ВСЕ дисп";
     const tags = sel.map((e) => {
       const d = list().find((x) => String(x.email).toLowerCase() === e);
       return d ? d.tag : e.split("@")[0].slice(0, 3).toUpperCase();
@@ -59,7 +60,8 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
       `<button type="button" class="mdf-i${on ? " on" : ""}" data-mdf="${escapeHtml(v)}"${style ? ` style="${style}"` : ""} title="${escapeHtml(title)}">`
       + `<span class="mdf-ck">${on ? "✓" : ""}</span>${escapeHtml(text)}</button>`;
     const items = row("table", "Таблица", sel === "table", "Карта следует фильтру диспетчера из таблицы")
-      + row("all", "Все", sel === "all", "Все диспетчеры на карте")
+      + row("mapon", "ВСЕ", sel === "mapon", "Все машины Mapon и трипы всех диспетчеров")
+      + row("all", "ВСЕ дисп", sel === "all", "Трипы всех диспетчеров (без чужих машин)")
       + list().map((d) => {
         const email = String(d.email).toLowerCase();
         const c = d.color || "#ffffff";
@@ -85,7 +87,7 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
     const b = e.target.closest("button[data-mdf]");
     if (!b) return;
     const v = b.dataset.mdf;
-    if (v === "table" || v === "all") { sel = v; isOpen = false; }
+    if (v === "table" || v === "all" || v === "mapon") { sel = v; isOpen = false; }
     else {
       const cur = Array.isArray(sel) ? sel.slice() : [];
       const i = cur.indexOf(v);
