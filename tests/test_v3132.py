@@ -37,7 +37,8 @@ class PresenceVersionTest(unittest.TestCase):
 class FrontendSourceTest(unittest.TestCase):
     def test_empty_row_obeys_dispatcher_filter(self):
         src = _read("static/fleet-sort-filter.js")
-        self.assertIn("if (!row.unit) return ownPass(row);", src)
+        # v3.176: фильтр «O» прячет пустые строки, кроме только что добавленных; иначе — по диспетчеру
+        self.assertIn('if (!row.unit) return loFilter === "O" && !freshEmptyIds.has(row.id) ? false : ownPass(row);', src)
         self.assertIn("rowPassesFilterWith(row, rowPassesOwn)", src)
 
     def test_add_row_switches_filter_to_self(self):

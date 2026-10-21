@@ -25,7 +25,7 @@ onClick может вернуть Promise — пока он идёт, кнопк
         position: google.maps.ControlPosition.LEFT_TOP, mapTypeIds: ["roadmap", "satellite"] },
     }, opts || {}));
     zoomBtns(map);
-    trafficBtn(map);   // v3.95: «Пр» — слой пробок (вкл / выкл)
+    if (!(opts && opts.noTraffic)) trafficBtn(map);   // v3.95: «Пр» — слой пробок (вкл / выкл); v3.176: opts.noTraffic — без неё (карта в «Адресах»)
     if (window.ZoomBadge) window.ZoomBadge.attach(map);
     return map;
   }

@@ -145,7 +145,12 @@
     }
     cardMapBox.hidden = false;
     // «Map ▾» (карта / спутник) оставляем — на спутнике при большом зуме видно двор, въезд, ворота
-    if (!cardMap) cardMap = MapsCommon.make(cardMapBox, { disableDefaultUI: true, mapTypeControl: true });
+    if (!cardMap) {
+      // v3.176: без «Пр»; объекты Mapon (🏭) и все машины (🚚) — по кнопкам, клик по машине ничего не делает
+      cardMap = MapsCommon.make(cardMapBox, { disableDefaultUI: true, mapTypeControl: true, noTraffic: true });
+      if (window.ObjLayer) ObjLayer.attach(cardMap);
+      if (window.UnitsLayer) UnitsLayer.attach(cardMap);
+    }
     const pos = { lat: g.lat, lng: g.lng };
     if (!cardMarker) {
       cardMarker = new google.maps.Marker({ map: cardMap, position: pos, zIndex: 5,
@@ -161,6 +166,9 @@
   // ---------- карточка найденного адреса ----------
   function showCard(a) {
     const card = $("addrCard");
+    formToHome();   // v3.176: форма правки живёт в карточке — вернуть на место до очистки
+    if (card.classList.contains("addr-card-editing")) { $("addrForm").hidden = true; editSource = null; }   // выбрали другой адрес — правка закрыта
+    card.classList.remove("addr-card-editing");
     card.textContent = "";
     card.hidden = false;   // v3.171: карта создаётся в видимом контейнере
     card.appendChild(el("div", "addr-card-name", a.name));
@@ -212,6 +220,12 @@
     $(id).value = v == null ? "" : String(v);
   }
 
+  // форма правки на время правки лежит внутри карточки; здесь — её место в панели
+  function formToHome() {
+    const f = $("addrForm"), home = $("lp-addr");
+    if (f.parentNode !== home) home.appendChild(f);
+  }
+
   function openForm(mode, a) {
     editSource = mode === "edit" ? a : null;
     $("addrFormTitle").textContent = mode === "edit" ? "Правка: " + a.name : "Новый адрес";
@@ -230,8 +244,22 @@
     $("addrFormMsg").textContent = "";
     $("addrForm").hidden = false;
     checkDup();
-    $("lp-addr").classList.add("addr-editing");   // форма — вместо поиска и карточки, вверху панели
-    $("lp-addr").scrollTop = 0;
+    if (mode === "edit") {
+      // v3.176: правка прямо в карточке — заголовок, карта (видна точка при правке GPS), поля строками как в карточке
+      const card = $("addrCard");
+      formToHome();
+      card.textContent = "";
+      card.classList.add("addr-card-editing");
+      card.appendChild(el("div", "addr-card-name", "Правка: " + a.name));
+      card.hidden = false;
+      placeCardMap(card, a, 0);
+      card.appendChild($("addrForm"));
+    } else {
+      formToHome();
+      $("addrCard").classList.remove("addr-card-editing");
+      $("lp-addr").classList.add("addr-editing");   // новый адрес — форма вверху панели вместо поиска и карточки
+      $("lp-addr").scrollTop = 0;
+    }
   }
 
   function readForm() {
@@ -329,10 +357,12 @@
 
   // закрыть форму: вернуть поиск и карточку (карте после display:none нужен пересчёт размера)
   function closeForm() {
+    const src = editSource;
     $("addrForm").hidden = true;
     $("lp-addr").classList.remove("addr-editing");
     editSource = null;
-    if (cardMap) setTimeout(() => google.maps.event.trigger(cardMap, "resize"), 0);
+    if (src) showCard(src);   // v3.176: после правки в карточке — обычный вид карточки
+    else if (cardMap) setTimeout(() => google.maps.event.trigger(cardMap, "resize"), 0);
   }
   $("addrCancelBtn").addEventListener("click", closeForm);
 
@@ -388,7 +418,6 @@
       closeForm();
       runSearch();
       $("addrSearchInfo").textContent = res.j.address ? "Сохранено в таблицу" : "Сохранено в таблицу, обновите список адресов";
-      if (res.j.address) showCard(a);
     }).catch(() => {
       btn.disabled = false;
       msg.textContent = "Нет связи с сервером. Попробуйте ещё раз.";

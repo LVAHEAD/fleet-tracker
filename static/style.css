@@ -381,7 +381,7 @@ td input::placeholder { color: #9aa5b5; }
 .addr-card-row { display: flex; gap: 8px; padding: 3px 0; border-top: 1px solid #f0f0f0; }
 .addr-card-key { width: 88px; flex: 0 0 auto; color: #777; }
 .addr-card-val { word-break: break-word; }
-.addr-card-map { height: 200px; margin: 8px 0 4px; border: 1px solid #c9d6ee; border-radius: 6px; overflow: hidden; }   /* v3.171: карта в карточке адреса */
+.addr-card-map { height: 240px; margin: 8px 0 4px; border: 1px solid #c9d6ee; border-radius: 6px; overflow: hidden; }   /* v3.171: карта в карточке адреса */
 .addr-card-map[hidden] { display: none; }
 .addr-card-key-col { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }   /* v3.170: код страны и флаг под подписью «Адрес» */
 .addr-card-val.has-copy { position: relative; flex: 1; min-width: 0; padding-right: 24px; min-height: 22px; }
@@ -1584,3 +1584,11 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 
 /* Адреса: при правке / новом адресе форма занимает верх панели, поиск и карточка скрыты */
 #lp-addr.addr-editing > :not(#addrForm) { display: none; }
+/* v3.176: форма правки внутри карточки — строки «подпись слева, поле справа», как в карточке */
+.addr-card .addr-form { margin: 6px 0 0; padding: 0; border: 0; background: none; }
+.addr-card .addr-form-title { display: none; }
+.addr-card .addr-field { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.addr-card .addr-field > span { width: 88px; flex: 0 0 auto; margin: 0; }
+.addr-card .addr-field .addr-input { flex: 1; min-width: 0; }
+.addr-card .addr-field textarea { align-self: flex-start; }
+.addr-card .addr-err { margin-left: 96px; }
