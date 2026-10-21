@@ -103,7 +103,7 @@ const EtaCalc = (() => {
             <div class="ec-ln"><input type="number" id="ec-km-n" min="70" step="10" value="1500"></div></div>
           <div><div class="ec-lb"><span title="Через сколько часов выезд. Если машина уже стоит на отдыхе — сколько ей осталось отдыхать: остаток вождения и смена начнутся заново">Сдвиг выезда / отдых, ч</span><span class="ec-now"></span></div>
             <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-sh-n" class="ec-hm" inputmode="numeric" value="00:00" title="ЧЧ:ММ · ↑ ↓ — шаг 30 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+30 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−30 мин">▾</button></span></span></div></div>
-          <div><div class="ec-lb"><span>Остаток вождения, ч</span></div>
+          <div><div class="ec-lb"><span id="ec-lf-lb">Остаток вождения, ч</span></div>
             <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-lf-n" class="ec-hm" inputmode="numeric" value="18:00" title="ЧЧ:ММ · ↑ ↓ — шаг 15 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+15 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−15 мин">▾</button></span></span></div></div>
         </div>
         <div class="ec-sec ec-restnow">
@@ -536,6 +536,12 @@ const EtaCalc = (() => {
     if (!panel) return;
     const m = lfMax();
     $(".ec-now").textContent = "сейчас " + fdt(new Date());
+    // v3.184: сдвиг выезда (+ сколько уже стоит) ≥ отдыха — сервер считает свежий день, остаток не влияет (calc_plan, v3.125) — поле серое
+    const fresh = st.shH + (st.standH || 0) >= (st.rest || 9);
+    const lf = $("#ec-lf-n");
+    lf.parentElement.classList.toggle("ec-off", fresh);
+    $("#ec-lf-lb").textContent = fresh ? "Остаток вождения — свежий день" : "Остаток вождения, ч";
+    lf.title = fresh ? `Сдвиг выезда ≥ отдыха (${st.rest || 9} ч): отдых отбыт, день свежий — остаток не учитывается. Уменьши сдвиг, чтобы он заработал` : "ЧЧ:ММ · ↑ ↓ — шаг 15 мин";
     $(".ec-wk").hidden = st.team;
     request();
   }
