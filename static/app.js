@@ -566,6 +566,7 @@ function renderRows() {
   });
   attachRowHandlers();
   if (window.PrepMap) window.PrepMap.sync();   // v3.179: плашки кодов у трипов без машины
+  if (window.slotQuickUpdate) window.slotQuickUpdate();   // v3.180: быстрые кнопки T / +1 / +2 (только VL)
   updateFleetCount();
 }
 

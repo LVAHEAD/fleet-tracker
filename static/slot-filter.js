@@ -69,6 +69,7 @@ function rowPassesSlot(row) {
     th.classList.toggle("slot-on", slotFilter.length > 0);
     th.title = slotFilter.length ? `Фильтр по TimeSlot: выбрано дней — ${slotFilter.length}, клик — изменить`
       : "Фильтр-календарь по TimeSlot — клик";
+    if (window.slotQuickUpdate) window.slotQuickUpdate();
   };
   const rerender = () => { mark(); if (typeof renderRows === "function") renderRows(); };
 
@@ -135,6 +136,35 @@ function rowPassesSlot(row) {
       else if (t.classList.contains("sf-reset")) { slotFilter = []; save(); render(); rerender(); }
     });
   }
+
+  // v3.180: быстрые кнопки «T» / «+1» / «+2» справа от заголовка (пока только VL): фильтр на сегодня / завтра / послезавтра; повторный клик снимает
+  const quick = document.createElement("span");
+  quick.className = "sq-wrap";
+  quick.hidden = true;
+  [["T", 0, "Сегодня"], ["+1", 1, "Завтра"], ["+2", 2, "Послезавтра"]].forEach(([t, d, name]) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "sq-btn"; b.dataset.d = String(d); b.textContent = t;
+    b.title = name + " — фильтр по TimeSlot (повторный клик снимает)";
+    quick.appendChild(b);
+  });
+  th.appendChild(quick);
+  const dayKeyPlus = (d) => { const x = new Date(); x.setDate(x.getDate() + d); return slotDayKey(x); };
+  window.slotQuickUpdate = () => {
+    const vis = typeof markAllowed === "function" && markAllowed();
+    quick.hidden = !vis;
+    th.classList.toggle("sq-vl", !!vis);
+    [].forEach.call(quick.children, (b) => b.classList.toggle("on", slotFilter.length === 1 && slotFilter[0] === dayKeyPlus(Number(b.dataset.d))));
+  };
+  quick.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const b = e.target.closest(".sq-btn");
+    if (!b) return;
+    const k = dayKeyPlus(Number(b.dataset.d));
+    slotFilter = slotFilter.length === 1 && slotFilter[0] === k ? [] : [k];
+    save();
+    if (pop) render();
+    rerender();
+  });
 
   th.addEventListener("click", (e) => { e.stopPropagation(); if (pop) close(); else open(); });
   // v3.173: слушаем в фазе перехвата — клик вне окна закрывает его, даже если ниже по дереву стоит stopPropagation
