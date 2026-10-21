@@ -15,10 +15,10 @@ html = re.sub(r'<script[^>]*maps\.googleapis\.com[^>]*></script>', "", html)    
 html = re.sub(r'/static/([A-Za-z0-9_\-./]+?)(\?v=[\d.]+)?(?=["\'])', r"\1", html)       # относительные пути
 body = re.search(r"<body[^>]*>(.*)</body>", html, re.S).group(1)
 links = "\n".join(re.findall(r'<link rel="stylesheet"[^>]*>', html))
-shutil.copy(SCR + "/variants.css", D); shutil.copy(SCR + "/variants.js", D); shutil.copy(SCR + "/colorder.js", D); shutil.copy(SCR + "/sorttoggle.js", D)
+shutil.copy(SCR + "/variants.css", D); shutil.copy(SCR + "/variants.js", D)
 html = ('<title>Песочница Флота</title>\n<script src="stub.js"></script>\n'
         '<style>body{background:#fff}</style>\n' + links + '\n<link rel="stylesheet" href="variants.css">\n' + body +
-        '\n<script src="variants.js"></script>\n<script src="colorder.js"></script>\n<script src="sorttoggle.js"></script>')   # оболочку (doctype/head/body) дописывает публикация
+        '\n<script src="variants.js"></script>')   # оболочку (doctype/head/body) дописывает публикация
 assert "maps/api/js" not in html and "key=" not in html, "ключ Google в HTML"
 open(D + "/index.html", "w", encoding="utf-8").write(html)
 
@@ -28,6 +28,7 @@ dm = snap["gets"]["/api/dispatchers"]["json"]
 n = 2
 for x in dm["dispatchers"]:
     e = x["email"]
+    if e.endswith("@example.com"): continue   # уже обезличено (пересборка из опубликованной песочницы)
     if "vladimirs.head" in e: x["email"] = "dispatcher1@example.com"
     elif "jzemesarajs" in e: x["email"] = "dispatcher2@example.com"
     else:

@@ -1,10 +1,10 @@
-/* Переключатели варианта полей ввода и плотности строк (только для макета). */
+/* Переключатели вариантов шапки Флота (только для макета). По умолчанию — B + C. */
 (function () {
   "use strict";
   var G = [
-    { key: "fv-variant", title: "Поля ввода:", items: [["", "Как в аппе"], ["fv-soft", "Мягкие"], ["fv-read", "Читалка + линия"], ["fv-bare", "Читалка"]] },
-    { key: "fd-variant", title: "Плотность:", def: "fd-mix", items: [["", "Как в аппе"], ["fd-compact", "Компактно"], ["fd-dense", "Плотно"], ["fd-mix", "Микс"]] },
-    { key: "fb-variant", title: "Плашки стран:", def: "fb-80", items: [["", "Как в аппе"], ["fb-80", "−20%"], ["fb-70", "−30%"]] }
+    { key: "fh-bc", title: "Шапка:", def: "fh-bc", items: [["", "Как в аппе (v3.184)"], ["fh-bc", "B + C"]] },
+    { key: "fh-al", title: "Выравнивание (C):", def: "fh-left", items: [["fh-left", "Влево"], ["fh-center", "По центру"]] },
+    { key: "fh-name", title: "Название колонки:", def: "", items: [["", "Как в аппе"], ["fh-ts", "TimeSlot"], ["fh-dt", "Date"]] }
   ];
   function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function put(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -26,10 +26,10 @@
     box.addEventListener("click", function (e) {
       var b = e.target.closest("button"); if (!b) return;
       var grp = b.parentNode.getAttribute("data-g");
-      G.forEach(function (g) { if (g.key === grp) { var v = b.getAttribute("data-v"); put(g.key, v); apply(g, v); } });
+      G.forEach(function (g) { if (g.key === grp) { var v = b.getAttribute("data-v"); put("h-" + g.key, v); apply(g, v); } });
     });
     document.body.appendChild(box);
-    G.forEach(function (g) { var v = get(g.key); if (v === null) v = g.def || ""; apply(g, v); });
+    G.forEach(function (g) { var v = get("h-" + g.key); if (v === null) v = g.def || ""; apply(g, v); });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

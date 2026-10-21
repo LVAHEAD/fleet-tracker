@@ -37,7 +37,7 @@
       var g = snap.gets[p];
       if (g && method === "GET") return J(g.json || {}, g.status === 200 ? 200 : 200);
       if (p.indexOf("/api/fleet/") === 0) return J({ ok: true, now: Date.now(), user: USER });
-      if (p === "/api/warm" || p === "/api/presence") return J({ ok: true, tags: [], version: "3.172" });
+      if (p === "/api/warm" || p === "/api/presence") return J({ ok: true, tags: [], version: "3.184" });
       if (p === "/api/notebook" || p.indexOf("/api/notebook") === 0) return J({ ok: true, items: [], notes: [] });
       if (p === "/api/fuel-stations") return J({ ok: true, stations: [], items: [] });
       return J({ error: "в макете недоступно" });
