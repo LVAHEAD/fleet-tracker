@@ -218,6 +218,18 @@ function saveRows() {
   if (window.fleetSync) window.fleetSync.schedule();   // v2.00: общий Флот на сервере
 }
 
+// v3.177: цветная метка клиента — только у пользователя VL (vladimirs.head); остальным кнопки нет
+const MARK_NAMES = ["без цвета", "оранжевый", "cyan", "зелёный", "жёлтый"];
+function markAllowed() {
+  const me = fleetMe();
+  return !!me && (me === canonEmail("vladimirs.head@gmail.com") || dispTag(me) === "VL");
+}
+function markBtnHtml(row) {
+  if (!markAllowed()) return "";
+  const c = Number(row.mark) || 0;
+  return `<button type="button" class="cl-mark" data-c="${c}" title="Метка: ${MARK_NAMES[c]} — клик, следующий цвет"></button>`;
+}
+
 function emptyRow() {
   const r = { id: window.newRowId ? window.newRowId() : rowIdCounter++, unit: "", lo: "", target: "", delivery: "", note: "" };
   if (typeof fleetMe === "function" && fleetMe()) r.disp = fleetMe();   // v2.01: ответственный — кто создал
@@ -502,7 +514,7 @@ function renderRows() {
       <td class="eta-cell ${etaMuted}${cached && cached.late ? " eta-late" : ""}" title="${escapeHtml(composedEta ? composedEta.title : (cached && cached.etaTip ? cached.etaTip : ""))}">${etaHtml}</td>
       <td class="note-cell"><div class="note-wrap"><input class="note-input" name="note-${row.id}" autocomplete="off" value="${escapeHtml(row.note)}" title="${escapeHtml(row.note)}" placeholder="примечание" />${comBtnHtml(row.com, 0)}</div>${(row.extra || []).map((x, i) =>
         `<div class="note-wrap xn-wrap${hideNoteK(row, i + 1) ? " fold-hide" : ""}"><input class="xn-input" data-k="${i + 1}" name="note-${row.id}-${i + 1}" autocomplete="off" value="${escapeHtml(x.note || "")}" title="${escapeHtml(x.note || "")}" placeholder="примечание к ${i + 2}" />${comBtnHtml(x.com, i + 1)}</div>`).join("")}</td>
-      <td class="cl-cell"><input class="cl-input" name="client-${row.id}" autocomplete="off" value="${escapeHtml(row.client || "")}" title="${escapeHtml(row.client || "")}" placeholder="client" /></td>
+      <td class="cl-cell"><input class="cl-input" name="client-${row.id}" autocomplete="off" value="${escapeHtml(row.client || "")}" title="${escapeHtml(row.client || "")}" placeholder="client" />${markBtnHtml(row)}</td>
       <td class="ref-cell"><input class="ref-input" name="ref-${row.id}" autocomplete="off" value="${escapeHtml(row.ref || "")}" title="${escapeHtml(row.ref || "")}" placeholder="ref" /></td>
       <td class="row-actions">
         <button class="refresh-row-btn" title="Обновить строку">↻</button>
@@ -624,6 +636,18 @@ function attachRowHandlers() {
         e.target.title = e.target.value;
         setRowField(id, f, e.target.value.trim());
       });
+    });
+
+    // v3.177: цветная метка под клиентом — клик: прозрачная → оранж → cyan → зелёная → жёлтая; поле строки mark (0–4)
+    const markB = tr.querySelector(".cl-mark");
+    if (markB) markB.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const row = rows.find((r) => r.id === id);
+      if (!row) return;
+      const c = ((Number(row.mark) || 0) + 1) % MARK_NAMES.length;
+      setRowField(id, "mark", c || null);
+      markB.dataset.c = String(c);
+      markB.title = "Метка: " + MARK_NAMES[c] + " — клик, следующий цвет";
     });
 
     tr.querySelector(".lo-btn").addEventListener("click", (e) => {
