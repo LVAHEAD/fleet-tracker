@@ -153,8 +153,10 @@ function rowPassesSlot(row) {
     const vis = typeof markAllowed === "function" && markAllowed();
     quick.hidden = !vis;
     th.classList.toggle("sq-vl", !!vis);
+    th.classList.toggle("slot-narrow", !!vis && th.getBoundingClientRect().width < 175);   // v3.182: колонка узкая — «Date»
     [].forEach.call(quick.children, (b) => b.classList.toggle("on", slotFilter.length === 1 && slotFilter[0] === dayKeyPlus(Number(b.dataset.d))));
   };
+  if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => window.slotQuickUpdate()).observe(th);   // ширина колонки меняется (окно, сброс колонок)
   quick.addEventListener("click", (e) => {
     e.stopPropagation();
     const b = e.target.closest(".sq-btn");
