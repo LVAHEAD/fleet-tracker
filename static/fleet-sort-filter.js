@@ -118,6 +118,8 @@ function orderedRows() {
 // иначе только в "Все". Пустые строки (без машины) видны всегда. v3.26: и на карте — спрятанные строки без машинок и целей.
 // Тот же признак — полоска строки и сортировка L → O / O → L.
 let loFilter = "all";
+// только что добавленные пустые строки (до перезагрузки) видны и при «O» — иначе строка пропадает, не успев получить машину
+const freshEmptyIds = new Set();
 try { loFilter = localStorage.getItem("fleet-lo-filter") || "all"; } catch (e) {}
 if (!["all", "L", "O"].includes(loFilter)) loFilter = "all";
 // точка k: 0 — основная (row.lo / row.delivery), k ≥ 1 — row.extra[k - 1]
@@ -171,7 +173,7 @@ function rowPassesFilter(row) { return rowPassesFilterWith(row, rowPassesOwn); }
 // ownPass — проверка «диспетчер»: таблица — rowPassesOwn, Карта Флота — свой фильтр (map-disp-filter.js); L / O и клиент общие
 function rowPassesFilterWith(row, ownPass) {
   // пустая строка (трип в подготовке, без машины) — только у своего диспетчера; клиент и L не относятся; фильтр «O» её прячет
-  if (!row.unit) return loFilter === "O" ? false : ownPass(row);
+  if (!row.unit) return loFilter === "O" && !freshEmptyIds.has(row.id) ? false : ownPass(row);
   if (!ownPass(row)) return false;   // v2.01 / v3.11
   if (awaitsComplete(row)) return true;   // v3.81: ждущие «✓ Завершён» видны при любом L/O и фильтре по клиентам, но не при чужом диспетчере
   if (!rowPassesClient(row)) return false;   // v3.114: фильтр по клиентам (client-filter.js)

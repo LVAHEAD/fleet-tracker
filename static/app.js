@@ -694,6 +694,7 @@ function attachRowHandlers() {
       e.stopPropagation();
       const idx = rows.findIndex((r) => r.id === id);
       const nr = emptyRow();
+      freshEmptyIds.add(nr.id);
       rows.splice(idx + 1, 0, nr);
       if (displayOrder) {
         const di = displayOrder.indexOf(id);
@@ -1958,6 +1959,7 @@ function emptyOwnRow() {
 
 document.getElementById("add-row-btn").addEventListener("click", () => {
   const nr = emptyRow();
+  freshEmptyIds.add(nr.id);
   rows.push(nr);
   saveRows();
   // пустая строка видна только своему диспетчеру: при чужом фильтре переключаемся на себя, иначе строка сразу пропадёт
