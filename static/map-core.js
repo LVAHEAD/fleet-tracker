@@ -18,6 +18,7 @@ function initMap() {
   map = MapsCommon.make(document.getElementById("map"), { cameraControl: false });
   MapsCommon.refreshBtn(map, refreshFleetPositions);   // ↻ на карте Флота — только позиции машин из Mapon, без пересчёта строк и Google
   if (window.ObjLayer) ObjLayer.attach(map);   // v3.55: объекты Mapon — 🏭 под ↻
+  if (window.PrepMap) PrepMap.sync();           // v3.178: трипы без машины с меткой VL
   ensureOverlap();                              // v3.58: машины в одной точке — счётчик и веер
   if (window.MapDispFilter) MapDispFilter.attach(map);   // после v3.132: свои кнопки диспетчеров на карте
 

@@ -1602,3 +1602,6 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 .cl-mark[data-c="2"] { background: #00e5ff; border-color: #00b8cc; }
 .cl-mark[data-c="3"] { background: #34b36b; border-color: #278f55; }
 .cl-mark[data-c="4"] { background: #ffeb00; border-color: #d1bf00; }
+
+/* v3.178: плашка трипа без машины на карте — как плашка таргета, рамка в цвет метки (задаётся в prep-map.js), чуть бледнее */
+.mk-tbadge.mk-prep { opacity: .92; font-weight: 500; }

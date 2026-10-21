@@ -216,6 +216,7 @@ function saveRows() {
     // localStorage недоступен — молча продолжаем без сохранения
   }
   if (window.fleetSync) window.fleetSync.schedule();   // v2.00: общий Флот на сервере
+  if (window.PrepMap) window.PrepMap.sync();   // v3.178: флажки трипов без машины на карте
 }
 
 // v3.177: цветная метка клиента — только у пользователя VL (vladimirs.head); остальным кнопки нет
@@ -321,6 +322,7 @@ async function loadAddressList(refresh) {
     const res = await fetch("/api/addresses" + (refresh ? "?refresh=1" : ""));
     const data = await res.json();
     window.addressList = data.addresses || [];
+    if (window.PrepMap) window.PrepMap.sync();   // v3.178: адреса загрузились — можно ставить флажки
     window.addressStatus = data;
     rebuildPointsList();
     if (window.onAddressStatus) window.onAddressStatus(data);
