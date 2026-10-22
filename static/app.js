@@ -1046,7 +1046,8 @@ function etaCellHtml(row, c, composed) {
       inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}${tzBadge(ce.eta_tz)}</span>`;
       tip = [`Точка ${STOP_NUM[i + 2]}: ${x.target}`,
              `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]}, всего ${ce.dist_km.toFixed(1)} км`,
-             ce.ferry ? `⛴ ${ce.ferry.label}: ${ce.ferry.hours} ч + Gate-In ${ce.ferry.gate_in_h} ч, в порту назначения ~${ce.ferry.arrive}` : "",   // v3.191
+             ce.ferry ? `⛴ ${ce.ferry.label}: ${ce.ferry.hours} ч + Gate-In ${ce.ferry.gate_in_h} ч${ce.ferry.dep ? `, отход ${ce.ferry.dep}` : ""}, в порту назначения ~${ce.ferry.arrive}` : "",   // v3.191
+             ce.ferry && ce.ferry.late ? `⚠ Не успевает к Gate-In: в порту ~${ce.ferry.port_arr}, отход ${ce.ferry.dep} (минус ${ce.ferry.gate_in_h} ч) — считаем как без расписания` : "",   // v3.192
              `+30 мин на каждой точке до неё`,
              ce.eta_tacho ? `⏱ По тахографу: ${ce.eta_tacho}` : "",
              `Простой ETA: ${ce.eta_local}`].filter(Boolean).join("\n");
@@ -1292,6 +1293,7 @@ async function calcRow(id, why) {
       body: JSON.stringify(Object.assign(
         { unit: row.unit, target: row.target },
         row.extra && row.extra.length ? { extra: row.extra.map((x) => x.target || "") } : {},
+        ferryDeps(row),   // v3.192: отход парома из «Даты» точки-порта
         row.trailer ? { trailer: row.trailer } : {},
         row.crew ? { crew: row.crew } : {},
         row.crewSeen && row.crewSeen.u === row.unit ? { crew_seen: Math.floor(row.crewSeen.t / 1000) } : {},   // v3.105: память «экипаж»
@@ -1538,6 +1540,7 @@ async function calcRow(id, why) {
         targetLng: data.target_lng != null ? data.target_lng : null,
         polyline: data.route_polyline || null,
         extraPolys: (data.extra || []).map((x) => x.polyline || null),
+        ferries: (data.extra || []).filter((x) => x.ferry && x.ferry.from_ll).map((x) => [x.ferry.from_ll, x.ferry.to_ll]),   // v3.192: пунктир порт → порт
       };
 
       // v1.28: таргет из адресной базы — L/O из Type (только если отметка пустая),
@@ -1692,6 +1695,17 @@ function corStripAlign(el, tw) {
 }
 
 // v1.64: ответ сервера по следующим точкам -> то, что держим в lastCalcText
+// v3.192: {dep: {текст точки: начало окна «Даты» (сек)}} — для расчёта отхода парома; пусто — поле не шлём
+function ferryDeps(row) {
+  const dep = {};
+  [{ target: row.target, delivery: row.delivery }].concat(row.extra || []).forEach((p) => {
+    const t = String(p.target || "").trim();
+    const w = t && p.delivery ? parseDeliveryWindow(p.delivery) : null;
+    if (w && w.start) dep[t.toLowerCase()] = Math.floor(w.start.getTime() / 1000);
+  });
+  return Object.keys(dep).length ? { dep } : {};
+}
+
 function extraCalc(data) {
   return (data.extra || []).map((x) => ({
     error: x.error || null,
@@ -1702,6 +1716,7 @@ function extraCalc(data) {
     tacho_weeklimit: !!x.tacho_weeklimit,
     badge: x.badge || null, badgeHint: x.badge_hint || null,
     address: x.target_address || null,
+    ferry: x.ferry || null,   // v3.191/v3.192
   }));
 }
 

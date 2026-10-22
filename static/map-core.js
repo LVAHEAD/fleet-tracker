@@ -726,6 +726,13 @@ function drawRoute(rowId, keepView) {   // v3.84: keepView — перерисо�
     routeExtraLines.push(new google.maps.Polyline({ path: p2, strokeColor: "#4285F4", strokeOpacity: 0.55, strokeWeight: 4, map: map }));
     p2.forEach((p) => bounds.extend(p));
   });
+  // v3.192: паром — пунктир порт → порт
+  (pos.ferries || []).forEach((f) => {
+    const path2 = f.map((q) => ({ lat: q[0], lng: q[1] }));
+    routeExtraLines.push(new google.maps.Polyline({ path: path2, strokeOpacity: 0, map: map,
+      icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.8, strokeColor: "#4285F4", scale: 3 }, offset: "0", repeat: "14px" }] }));
+    path2.forEach((p) => bounds.extend(p));
+  });
   if (!keepView) map.fitBounds(bounds, 40);
 }
 
@@ -734,7 +741,7 @@ function drawRoute(rowId, keepView) {   // v3.84: keepView — перерисо�
 function dimRoute(rowId) {
   if (!map || !isSelected(rowId)) return;
   if (routePolyline) routePolyline.setOptions({ strokeOpacity: 0.3 });
-  routeExtraLines.forEach((l) => l.setOptions({ strokeOpacity: 0.2 }));
+  routeExtraLines.forEach((l) => { if (!l.get("icons")) l.setOptions({ strokeOpacity: 0.2 }); });   // пунктир парома (icons) не трогаем
 }
 function refreshRoute(rowId) {
   if (!map) return;

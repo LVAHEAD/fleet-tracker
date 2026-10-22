@@ -84,3 +84,35 @@ class FerryCalcTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FerryDepartureTest(unittest.TestCase):
+    def setUp(self):
+        self.fr = find_ferry(*TRAVEMUNDE, *KESKO)
+
+    def test_no_departure(self):
+        from fetat.domain.ferries import ferry_sec
+        self.assertEqual(ferry_sec(self.fr, 1000.0, None), (self.fr["sec"], False))
+
+    def test_waits_for_departure(self):
+        from fetat.domain.ferries import ferry_sec
+        arr = 10000.0
+        dep = arr + 5 * 3600                       # успеваем: ждём отхода
+        sec, late = ferry_sec(self.fr, arr, dep)
+        self.assertFalse(late)
+        self.assertEqual(arr + sec, dep + 31 * 3600)
+
+    def test_late_for_gate_in(self):
+        from fetat.domain.ferries import ferry_sec
+        arr = 10000.0
+        sec, late = ferry_sec(self.fr, arr, arr + 3600)   # отход через час < Gate-In 2 ч
+        self.assertTrue(late)
+        self.assertEqual(sec, self.fr["sec"])
+
+    def test_wiring(self):
+        import os
+        r = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        rd = lambda *p: open(os.path.join(r, *p), encoding="utf-8").read()
+        self.assertIn("ferry: x.ferry || null", rd("static", "app.js"))      # иначе ⛴ не дойдёт до подсказки
+        self.assertIn("ferryDeps(row)", rd("static", "app.js"))
+        self.assertIn("pos.ferries", rd("static", "map-core.js"))

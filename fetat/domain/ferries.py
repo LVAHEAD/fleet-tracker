@@ -66,3 +66,15 @@ def find_ferry(prev_lat, prev_lng, lat, lng):
         "from_name": a, "to_name": b, "from": (PORTS[a][0], PORTS[a][1]), "to": (PORTS[b][0], PORTS[b][1]),
         "hours": hours, "gate_in_h": GATE_IN_H, "sec": (hours + GATE_IN_H) * 3600.0, "to_fi": to_fi,
     }
+
+
+def ferry_sec(fr, arr_ts, dep_ts=None):
+    """v3.192: сколько секунд от прихода в порт (arr_ts) до схода с парома. Без отхода — Gate-In + рейс.
+    Отход (из «Даты» точки-порта) задан и успеваем к Gate-In — ждём отхода: сход = отход + рейс.
+    Не успеваем — (sec, True): считаем как раньше (следующий рейс неизвестен), диспетчеру — предупреждение."""
+    base = fr["sec"]
+    if not dep_ts:
+        return base, False
+    if arr_ts + fr["gate_in_h"] * 3600 <= dep_ts:
+        return dep_ts + fr["hours"] * 3600.0 - arr_ts, False
+    return base, True

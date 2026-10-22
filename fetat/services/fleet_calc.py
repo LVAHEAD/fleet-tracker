@@ -17,7 +17,7 @@ from fetat.domain.points import (
 from fetat.domain.regions import nearest_region_code
 from fetat.services.corridors import fleet_waypoints_resolved as fleet_waypoints   # v3.26: + выбор коридора
 from fetat.services.corridors import clean_corridor, corridor_info, fleet_corridor_cands   # v3.32: выбор диспетчера
-from fetat.domain.ferries import PORT_RADIUS_KM, find_ferry
+from fetat.domain.ferries import PORT_RADIUS_KM, find_ferry, ferry_sec
 from fetat.domain.tacho import (FRESH_SOLO_TACHO, TZ_DEFAULT, plan as tacho_plan, TACHO_SPEED_KMH, calc_eta, calc_seed, country_tz, crew_mode, gps_shift,
                                tacho_eta, tacho_no_subscription,
                                tacho_summary, week_left_info)
@@ -30,7 +30,7 @@ from fetat.utils.log import warn
 UNLOAD_STOP_SEC = 30 * 60    # стоянка на каждой пройденной точке цепочки — 30 мин по умолчанию (15.10; в v3.39 было 0, до того 30 мин)
 
 
-def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
+def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps=None, first_str=""):
     """v1.64: точки 2..N строки Флота. Для каждой: км от машины по цепочке, км плеча,
     ETA (простой и по тахографу) с учётом UNLOAD_STOP_SEC на каждой предыдущей точке,
     запреты на плече, плашка кода региона, координаты и линия плеча для карты."""
@@ -43,6 +43,9 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
     prev_arr = sim["eta_ts"] if sim else now + cum_km / 70 * 3600
     out = []
     n_stops = 0          # сколько точек уже пройдено (на каждой UNLOAD_STOP_SEC)
+    deps = deps or {}     # v3.192: {текст точки: отход (epoch, сек)} — из «Даты» точек
+    prev_str = str(first_str or "").strip().lower()
+    ferry_late = False
     ferry_extra = 0.0    # v3.191: сек. парома (рейс + Gate-In) сверх обычной стоянки — в простой ETA
     fb = None            # v3.191: точка отсчёта тахо-плана после парома (приход в порт + рейс)
     for xi, tstr in enumerate(extras):
@@ -77,8 +80,13 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
         cum_km += leg_km
         n_stops += 1
         dwell = n_stops * UNLOAD_STOP_SEC
+        fsec = fr["sec"] if fr else 0.0
         if fr:
-            ferry_extra += fr["sec"] - UNLOAD_STOP_SEC
+            dep_ts = deps.get(prev_str)
+            prev_simple = now + (cum_km - leg_km) / 70 * 3600 + (n_stops - 1) * UNLOAD_STOP_SEC + ferry_extra
+            fsec_s, _l = ferry_sec(fr, prev_simple, dep_ts)
+            ferry_extra += fsec_s - UNLOAD_STOP_SEC
+            fsec, ferry_late = ferry_sec(fr, prev_arr, dep_ts)
         simple_ts = now + cum_km / 70 * 3600 + dwell + ferry_extra
         item = dict(t)
         item.update({
@@ -91,12 +99,15 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
         if fr:
             item["ferry"] = {"label": fr["label"], "hours": fr["hours"], "gate_in_h": fr["gate_in_h"],
                              "from": fr["from_name"], "to": fr["to_name"],
-                             "arrive": ceil_15min(loc(prev_arr + fr["sec"])).strftime("%d/%m %H:%M")}
+                             "arrive": ceil_15min(loc(prev_arr + fsec)).strftime("%d/%m %H:%M"),
+                             "port_arr": ceil_15min(loc(prev_arr)).strftime("%d/%m %H:%M"), "late": ferry_late,
+                             "dep": ceil_15min(loc(deps[prev_str])).strftime("%d/%m %H:%M") if deps.get(prev_str) else None,
+                             "from_ll": list(fr["from"]), "to_ll": list(fr["to"])}
         arr = simple_ts
         if tacho and fr:
             try:
                 tm = bool(tacho_eta(tacho, max(cum_km - leg_km, 1.0)).get("team"))
-                fb = {"ts": prev_arr + fr["sec"], "km0": cum_km - leg_km, "n0": n_stops, "team": tm,
+                fb = {"ts": prev_arr + fsec, "km0": cum_km - leg_km, "n0": n_stops, "team": tm,
                       "tz": country_tz("FI") if fr["to_fi"] else TZ_DEFAULT}
             except Exception as _e:
                 warn("fleet_calc:ferry", _e)
@@ -135,6 +146,7 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
                 pass
         out.append(item)
         prev_lat, prev_lng, prev_arr = lat, lng, arr
+        prev_str = str(tstr or "").strip().lower()
     return out
 
 
@@ -597,13 +609,25 @@ def _add_route_to_target(result, unit, target_lat, target_lng, payload, tm=None)
     result["route_polyline"] = polyline
 
 
+def _deps(payload):
+    """v3.192: отходы из «Даты» точек: {текст точки (нижний регистр): epoch сек}; мусор отбрасываем."""
+    out = {}
+    d = payload.get("dep")
+    if isinstance(d, dict):
+        for k, v in list(d.items())[:12]:
+            if isinstance(v, (int, float)) and v > 0:
+                out[str(k).strip().lower()] = float(v)
+    return out
+
+
 def _add_extra(result, extras, units, unit, tacho, sim, payload):
     """v1.64: следующие точки той же машины (2-я, 3-я выгрузка...) — цепочкой от предыдущей точки,
     плюс UNLOAD_STOP_SEC на каждую предыдущую точку. v1.74: до 12 точек; v1.79: без пройденных."""
     if extras and result.get("target_lat") is not None:
         try:
             result["extra"] = calc_extra_stops(extras, units, unit, result, tacho, sim,
-                                               clean_corridor(payload.get("corridor")))
+                                               clean_corridor(payload.get("corridor")),
+                                               _deps(payload), payload.get("target"))
         except Exception as e:
             result["extra"] = [{"error": str(e)} for _ in extras]
 
