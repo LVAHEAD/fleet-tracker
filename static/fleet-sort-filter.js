@@ -173,7 +173,11 @@ function rowPassesFilter(row) { return rowPassesFilterWith(row, rowPassesOwn); }
 // ownPass — проверка «диспетчер»: таблица — rowPassesOwn, Карта Флота — свой фильтр (map-disp-filter.js); L / O и клиент общие
 function rowPassesFilterWith(row, ownPass) {
   // пустая строка (трип в подготовке, без машины) — только у своего диспетчера; клиент и L не относятся; фильтр «O» её прячет
-  if (!row.unit) return loFilter === "O" && !freshEmptyIds.has(row.id) ? false : ownPass(row);
+  // v3.188: дата (TimeSlot) относится и к ней; только что добавленную пустую строку не прячем, чтобы не пропала при вводе
+  if (!row.unit) {
+    if (loFilter === "O" && !freshEmptyIds.has(row.id)) return false;
+    return ownPass(row) && (freshEmptyIds.has(row.id) || rowPassesSlot(row));
+  }
   if (!ownPass(row)) return false;   // v2.01 / v3.11
   if (awaitsComplete(row)) return true;   // v3.81: ждущие «✓ Завершён» видны при любом L/O и фильтре по клиентам, но не при чужом диспетчере
   if (!rowPassesClient(row)) return false;   // v3.114: фильтр по клиентам (client-filter.js)

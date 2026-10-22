@@ -54,7 +54,9 @@ class SlotFilterTest(unittest.TestCase):
         self.assertLess(html.index("slot-filter.js"), html.index("app.js"))
         sf = _read("static", "fleet-sort-filter.js")
         self.assertIn("rowPassesSlot(row)", sf)
-        self.assertLess(sf.index("rowPassesClient(row)"), sf.index("rowPassesSlot(row)"))
+        self.assertLess(sf.index("rowPassesClient(row)"), sf.rindex("rowPassesSlot(row)"))   # у строк с машиной — после клиента
+        # v3.188: строки без машины тоже проходят фильтр даты (ранний возврат в rowPassesFilterWith не должен его обходить)
+        self.assertIn("freshEmptyIds.has(row.id) || rowPassesSlot(row)", sf)
 
     def test_logic_on_node(self):
         try:
