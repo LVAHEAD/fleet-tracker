@@ -1643,3 +1643,4 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 .fer-b:hover, .fer-b:active, .fer-b.fer-man { background: #2f6fd6; color: #fff; }
 .fer-b.fer-late { border-color: #d6452f; color: #d6452f; }
 .fer-b.fer-late:hover { background: #d6452f; color: #fff; }
+.ferries-tbl tr.ferries-grp td { border-top: 2px solid #2f6fd6; }
