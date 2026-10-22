@@ -8,7 +8,7 @@ ZoomBadge.attach(map) — для карт Флота, From → To, Локато�
     if (!map || map.__zoomBadge) return;
     map.__zoomBadge = true;
     // колесо мыши зумит карту без Ctrl; на сенсорных экранах (телефон) — как было
-    if (!window.matchMedia("(pointer: coarse)").matches) map.setOptions({ gestureHandling: "greedy" });
+    if (window.matchMedia("(any-pointer: fine)").matches) map.setOptions({ gestureHandling: "greedy", scrollwheel: true });   // v3.186: есть мышь / тачпад — колесо без Ctrl (раньше смотрели только основной указатель)
     const el = document.createElement("div");
     el.style.cssText = "margin:0 0 22px 8px;padding:2px 7px;background:rgba(255,255,255,.9);border-radius:4px;" +
       "font:600 12px/16px system-ui,sans-serif;color:#444;box-shadow:0 1px 3px rgba(0,0,0,.3);pointer-events:none";

@@ -12,8 +12,13 @@ onClick может вернуть Promise — пока он идёт, кнопк
   const STYLES = [
     { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] },
   ];
+  // v3.186: колесо мыши зумит карту без Ctrl, если есть мышь / тачпад (any-pointer: fine) — раньше смотрели только основной указатель
+  // (pointer: coarse), и на ноутбуках с сенсорным экраном Google просил Ctrl; на чисто сенсорных экранах (телефон) — как было
+  const WHEEL = typeof matchMedia === "function" && matchMedia("(any-pointer: fine)").matches;
   function make(el, opts) {
     const map = new google.maps.Map(el, Object.assign({
+      gestureHandling: WHEEL ? "greedy" : "auto",
+      scrollwheel: WHEEL,
       center: { lat: 50.5, lng: 10.0 },   // примерно центр Европы
       zoom: 4,
       clickableIcons: false,
