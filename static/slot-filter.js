@@ -2,7 +2,7 @@
 (несколько сразу), под числом — сколько трипов с TimeSlot на этот день, «Сегодня» / «Завтра» / «Сбросить».
 Трип виден, если TimeSlot ЛЮБОЙ непройденной точки (① … последняя) попадает на выбранный день; окно «с–по» занимает все свои дни
 (22:00 – 06:00 через полночь — оба дня); пустой или неразобранный TimeSlot точки («tba», «окно выгрузки») пропускаем и смотрим следующие точки;
-если даты нет ни у одной непройденной точки — трип виден всегда (чтобы не пропал из таблицы). Пустые строки без машины видны всегда.
+если даты нет ни у одной непройденной точки — трип виден всегда (чтобы не пропал из таблицы). Строки без машины (v3.187) фильтруются по дате так же.
 Пока фильтр включён, заголовок подсвечен синим. Складывается с диспетчером, L / O и клиентом (rowPassesFilterWith в fleet-sort-filter.js,
 после клиента); общий с Картой Флота, как клиент; после F5 помнится (localStorage), дни старше вчерашнего при загрузке отбрасываются.
 Чистые функции — slotDayKey, slotWindowDays, rowSlotDays, rowPassesSlot (тест на node: tests/test_slot_filter.py).
@@ -51,7 +51,7 @@ function rowSlotDays(row) {
 
 function rowPassesSlot(row) {
   if (!slotFilter.length) return true;
-  if (!row || !row.unit) return true;     // пустые строки видны всегда, как у остальных фильтров
+  if (!row) return true;                  // v3.187: строки без машины фильтруются по дате, как остальные
   const s = rowSlotDays(row);
   if (!s) return true;                    // даты нет — не прячем
   return slotFilter.some((k) => s.has(k));
@@ -73,10 +73,10 @@ function rowPassesSlot(row) {
   };
   const rerender = () => { mark(); if (typeof renderRows === "function") renderRows(); };
 
-  // сколько трипов (с машиной, видимых по диспетчеру) имеют TimeSlot на каждый день
+  // сколько трипов (видимых по диспетчеру, в т.ч. без машины — v3.187) имеют TimeSlot на каждый день
   function counts() {
     const c = {};
-    rows.filter((r) => r && r.unit && rowPassesOwn(r)).forEach((r) => {
+    rows.filter((r) => r && rowPassesOwn(r)).forEach((r) => {
       const s = rowSlotDays(r);
       if (s) s.forEach((k) => { c[k] = (c[k] || 0) + 1; });
     });
@@ -153,10 +153,8 @@ function rowPassesSlot(row) {
     const vis = typeof markAllowed === "function" && markAllowed();
     quick.hidden = !vis;
     th.classList.toggle("sq-vl", !!vis);
-    th.classList.toggle("slot-narrow", !!vis && th.getBoundingClientRect().width < 175);   // v3.182: колонка узкая — «Date»
     [].forEach.call(quick.children, (b) => b.classList.toggle("on", slotFilter.length === 1 && slotFilter[0] === dayKeyPlus(Number(b.dataset.d))));
   };
-  if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => window.slotQuickUpdate()).observe(th);   // ширина колонки меняется (окно, сброс колонок)
   quick.addEventListener("click", (e) => {
     e.stopPropagation();
     const b = e.target.closest(".sq-btn");

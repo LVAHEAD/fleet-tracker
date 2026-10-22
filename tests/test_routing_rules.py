@@ -39,6 +39,12 @@ class RoutingRulesTest(unittest.TestCase):
         self.assertEqual(wp("DE", HAMBURG, "SE", (59.3, 18.0))[:2], [A.PUTTGARDEN, A.RODBY])
         self.assertEqual(wp("DE", BERLIN, "SE", (59.3, 18.0))[:2], [A.ROSTOCK_FERRY, A.GEDSER])
 
+    def test_germany_rostock_border_v3187(self):
+        # v3.187: граница 11.8° в.д.; точка «Rostock Port» (терминал Варнемюнде) — Росток, Висмар / Шверин — Путтгарден
+        self.assertEqual(wp("DE", (54.1766, 12.0894), "SE", (59.3, 18.0))[:2], [A.ROSTOCK_FERRY, A.GEDSER])
+        self.assertEqual(wp("DE", (54.32, 11.47), "SE", (59.3, 18.0))[:2], [A.PUTTGARDEN, A.RODBY])
+        self.assertEqual(wp("DE", (53.63, 11.41), "SE", (59.3, 18.0))[:2], [A.PUTTGARDEN, A.RODBY])
+
     def test_truck_already_in_denmark(self):
         self.assertEqual(wp("DK", (55.4, 10.4), "SE", (59.3, 18.0)), [A.HELSINGOR, A.HELSINGBORG])
 

@@ -41,7 +41,8 @@ class ZealandFerryTest(unittest.TestCase):
     def test_germany_nearest_pair(self):
         self.assertEqual(pick_waypoints_by_country("DE", *HAMBURG, "DK", *KORSOR), [PUTTGARDEN, RODBY])
         # v3.160: из Германии всегда Путтгарден; Росток — только машина явно восточнее (Нойбранденбург)
-        self.assertEqual(pick_waypoints_by_country("DE", *ROSTOCK, "DK", *KORSOR), [PUTTGARDEN, RODBY])
+        # v3.187: граница 11.8° в.д. — сам Росток (12.14) теперь тоже Росток – Гедсер
+        self.assertEqual(pick_waypoints_by_country("DE", *ROSTOCK, "DK", *KORSOR), [ROSTOCK_FERRY, GEDSER])
         self.assertEqual(pick_waypoints_by_country("DE", 53.56, 13.26, "DK", *KORSOR), [ROSTOCK_FERRY, GEDSER])
 
     def test_jutland_and_funen_by_land(self):

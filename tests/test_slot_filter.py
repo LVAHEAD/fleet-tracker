@@ -32,7 +32,8 @@ const rows = [
   { unit: 'B', delivery: '', extra: [{ delivery: 'tba' }, { delivery: '20/10' }] },  // смотрим дальше: 20
   { unit: 'C', delivery: 'tba', extra: [] },                                          // даты нет — виден всегда
   { unit: 'D', delivery: '17/10', extra: [{ delivery: '21/10' }], done: { 0: true } }, // ① пройдена: только 21
-  { unit: '', delivery: '25/10' },                                                    // пустая строка — всегда
+  { unit: '', delivery: '25/10' },                                                    // v3.187: без машины — фильтруется по дате, как остальные
+  { unit: '', delivery: '' },                                                         // без машины и без даты — виден всегда
 ];
 a.set([]);
 out.none = rows.map((r) => a.rowPassesSlot(r));
@@ -67,10 +68,10 @@ class SlotFilterTest(unittest.TestCase):
         self.assertEqual(len(o["single"]), 1)
         self.assertEqual(len(o["range"]), 2)                      # окно через полночь — оба дня
         self.assertEqual(o["nodate"], [[], [], []])
-        self.assertEqual(o["none"], [True] * 5)
-        self.assertEqual(o["d17"], [True, False, True, False, True])     # A (17), C без даты, пустая строка
-        self.assertEqual(o["d20"], [False, True, True, False, True])     # B смотрит дальше пустой ① и «tba»
-        self.assertEqual(o["d19_21"], [True, False, True, True, True])   # A (19), D (21 — ① пройдена)
+        self.assertEqual(o["none"], [True] * 6)
+        self.assertEqual(o["d17"], [True, False, True, False, False, True])     # A (17), C без даты, строка без машины и даты
+        self.assertEqual(o["d20"], [False, True, True, False, False, True])     # B смотрит дальше пустой ① и «tba»; без машины 25/10 скрыта
+        self.assertEqual(o["d19_21"], [True, False, True, True, False, True])   # A (19), D (21 — ① пройдена)
 
 
 if __name__ == "__main__":
