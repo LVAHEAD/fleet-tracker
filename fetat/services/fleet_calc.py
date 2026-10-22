@@ -17,7 +17,7 @@ from fetat.domain.points import (
 from fetat.domain.regions import nearest_region_code
 from fetat.services.corridors import fleet_waypoints_resolved as fleet_waypoints   # v3.26: + выбор коридора
 from fetat.services.corridors import clean_corridor, corridor_info, fleet_corridor_cands   # v3.32: выбор диспетчера
-from fetat.domain.ferries import PORT_RADIUS_KM, find_ferry, ferry_sec
+from fetat.domain.ferries import PORT_RADIUS_KM, clean_line_id, ferry_options, ferry_sec, find_ferry
 from fetat.domain.tacho import (FRESH_SOLO_TACHO, TZ_DEFAULT, plan as tacho_plan, TACHO_SPEED_KMH, calc_eta, calc_seed, country_tz, crew_mode, gps_shift,
                                tacho_eta, tacho_no_subscription,
                                tacho_summary, week_left_info)
@@ -30,7 +30,7 @@ from fetat.utils.log import warn
 UNLOAD_STOP_SEC = 30 * 60    # стоянка на каждой пройденной точке цепочки — 30 мин по умолчанию (15.10; в v3.39 было 0, до того 30 мин)
 
 
-def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps=None, first_str=""):
+def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps=None, first_str="", ferry_id=None):
     """v1.64: точки 2..N строки Флота. Для каждой: км от машины по цепочке, км плеча,
     ETA (простой и по тахографу) с учётом UNLOAD_STOP_SEC на каждой предыдущей точке,
     запреты на плече, плашка кода региона, координаты и линия плеча для карты."""
@@ -61,7 +61,7 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
         if lat is None:
             out.append({"error": f"Не удалось распознать: {tstr}"})
             break
-        fr = find_ferry(prev_lat, prev_lng, lat, lng)   # v3.191: предыдущая точка — порт, таргет за морем
+        fr = find_ferry(prev_lat, prev_lng, lat, lng, ferry_id)   # v3.191: предыдущая точка — порт, таргет за морем
         if fr and haversine_km(lat, lng, fr["to"][0], fr["to"][1]) <= PORT_RADIUS_KM:
             leg_wps, leg_km, leg_poly = None, 0.0, None   # таргет — сам порт назначения
         elif fr:
@@ -102,7 +102,8 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
                              "arrive": ceil_15min(loc(prev_arr + fsec)).strftime("%d/%m %H:%M"),
                              "port_arr": ceil_15min(loc(prev_arr)).strftime("%d/%m %H:%M"), "late": ferry_late,
                              "dep": ceil_15min(loc(deps[prev_str])).strftime("%d/%m %H:%M") if deps.get(prev_str) else None,
-                             "from_ll": list(fr["from"]), "to_ll": list(fr["to"])}
+                             "from_ll": list(fr["from"]), "to_ll": list(fr["to"]),
+                             "id": fr["id"], "manual": fr["manual"], "options": ferry_options(prev_lat, prev_lng, lat, lng)}
         arr = simple_ts
         if tacho and fr:
             try:
@@ -627,7 +628,7 @@ def _add_extra(result, extras, units, unit, tacho, sim, payload):
         try:
             result["extra"] = calc_extra_stops(extras, units, unit, result, tacho, sim,
                                                clean_corridor(payload.get("corridor")),
-                                               _deps(payload), payload.get("target"))
+                                               _deps(payload), payload.get("target"), clean_line_id(payload.get("ferry")))
         except Exception as e:
             result["extra"] = [{"error": str(e)} for _ in extras]
 

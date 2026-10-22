@@ -116,3 +116,24 @@ class FerryDepartureTest(unittest.TestCase):
         self.assertIn("ferry: x.ferry || null", rd("static", "app.js"))      # иначе ⛴ не дойдёт до подсказки
         self.assertIn("ferryDeps(row)", rd("static", "app.js"))
         self.assertIn("pos.ferries", rd("static", "map-core.js"))
+
+
+class FerryMenuTest(unittest.TestCase):
+    def test_manual_line_and_options(self):
+        from fetat.domain.ferries import ferry_options, clean_line_id
+        f = find_ferry(*ROSTOCK, 59.85, 23.0, "tf-ros-han")
+        self.assertEqual((f["id"], f["hours"], f["manual"]), ("tf-ros-han", 43, True))
+        self.assertFalse(find_ferry(*ROSTOCK, 59.85, 23.0)["manual"])
+        self.assertEqual([o["id"] for o in ferry_options(*ROSTOCK, *KESKO)], ["fin-ros-han", "fin-ros-tku", "tf-ros-han"])
+        self.assertEqual(find_ferry(*TRAVEMUNDE, *KESKO, "fin-ros-tku")["id"], "fin-trv-hel")   # линия не из этого порта — игнор
+        self.assertIsNone(clean_line_id("evil"))
+        self.assertEqual(clean_line_id("fin-trv-hel"), "fin-trv-hel")
+
+    def test_wiring(self):
+        import os
+        r = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        rd = lambda *p: open(os.path.join(r, *p), encoding="utf-8").read()
+        html = rd("templates", "index.html")
+        self.assertLess(html.index("ferry-menu.js"), html.index("filename='app.js'"))
+        self.assertIn("ferryMenu(b,", rd("static", "app.js"))
+        self.assertIn("row.ferry ? { ferry: row.ferry }", rd("static", "app.js"))

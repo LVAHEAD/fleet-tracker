@@ -41,7 +41,7 @@ def _pick(cands, lat, lng, far_port_key):
     return min(cands, key=lambda ln: (haversine_km(lat, lng, PORTS[ln[far_port_key]][0], PORTS[ln[far_port_key]][1]), ln["hours"]))
 
 
-def find_ferry(prev_lat, prev_lng, lat, lng):
+def find_ferry(prev_lat, prev_lng, lat, lng, line_id=None):
     """Паром для отрезка prev → target или None. Вперёд: prev у немецкого порта, таргет в FI; назад: prev у финского
     порта, таргет в DE. Возвращает {id, operator, label, from_name, to_name, from, to, hours, gate_in_h, sec, to_fi}."""
     if None in (prev_lat, prev_lng, lat, lng):
@@ -55,6 +55,9 @@ def find_ferry(prev_lat, prev_lng, lat, lng):
         key, to_fi = "de", False
     else:
         return None
+    if line_id:                                    # v3.193: ручной выбор диспетчера — любая линия направления, в т.ч. не-auto
+        man = [ln for ln in LINES if ln["id"] == line_id and _near(prev_lat, prev_lng, ln["de" if to_fi else "fi"])]
+        cands = man or cands
     if not cands:
         return None
     ln = _pick(cands, lat, lng, key)
@@ -65,6 +68,7 @@ def find_ferry(prev_lat, prev_lng, lat, lng):
         "id": ln["id"], "operator": ln["operator"], "label": f"{ln['operator']} {ru_a} → {ru_b}",
         "from_name": a, "to_name": b, "from": (PORTS[a][0], PORTS[a][1]), "to": (PORTS[b][0], PORTS[b][1]),
         "hours": hours, "gate_in_h": GATE_IN_H, "sec": (hours + GATE_IN_H) * 3600.0, "to_fi": to_fi,
+        "manual": bool(line_id and ln["id"] == line_id),
     }
 
 
@@ -78,3 +82,24 @@ def ferry_sec(fr, arr_ts, dep_ts=None):
     if arr_ts + fr["gate_in_h"] * 3600 <= dep_ts:
         return dep_ts + fr["hours"] * 3600.0 - arr_ts, False
     return base, True
+
+
+def ferry_options(prev_lat, prev_lng, lat, lng):
+    """v3.193: все линии направления для меню выбора: [{id, label, hours, auto}] (от порта prev); пусто — не паромный отрезок."""
+    cc = _country_at(lat, lng)
+    if cc not in ("FI", "DE"):
+        return []
+    to_fi = cc == "FI"
+    out = []
+    for ln in LINES:
+        if not _near(prev_lat, prev_lng, ln["de" if to_fi else "fi"]):
+            continue
+        a, b = (ln["de"], ln["fi"]) if to_fi else (ln["fi"], ln["de"])
+        out.append({"id": ln["id"], "label": f"{ln['operator']} {PORTS[a][3]} → {PORTS[b][3]}", "hours": ln["hours"], "auto": ln["auto"]})
+    return out
+
+
+def clean_line_id(v):
+    """Ручной выбор линии из запроса — только известные id."""
+    v = str(v or "")
+    return v if any(ln["id"] == v for ln in LINES) else None

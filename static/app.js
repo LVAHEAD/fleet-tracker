@@ -1043,7 +1043,8 @@ function etaCellHtml(row, c, composed) {
       tip = ce.error;
     } else if (ce && (ce.eta_tacho || ce.eta_local)) {
       const wk = ce.tacho_weeklimit ? '<span class="wk-mark" title="Недельный лимит вождения кончится по пути">56</span>' : "";
-      inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}${tzBadge(ce.eta_tz)}</span>`;
+      const fb = ce.ferry ? `<button type="button" class="fer-b${ce.ferry.manual ? " fer-man" : ""}${ce.ferry.late ? " fer-late" : ""}" data-i="${i}" title="Паром: ${escapeHtml(ce.ferry.label)}${ce.ferry.manual ? " (выбран вручную)" : " (авто)"}. Клик — выбрать другую линию">⛴${ce.ferry.late ? "⚠" : ""}</button>` : "";   // v3.193
+      inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}${tzBadge(ce.eta_tz)}</span>${fb}`;
       tip = [`Точка ${STOP_NUM[i + 2]}: ${x.target}`,
              `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]}, всего ${ce.dist_km.toFixed(1)} км`,
              ce.ferry ? `⛴ ${ce.ferry.label}: ${ce.ferry.hours} ч + Gate-In ${ce.ferry.gate_in_h} ч${ce.ferry.dep ? `, отход ${ce.ferry.dep}` : ""}, в порту назначения ~${ce.ferry.arrive}` : "",   // v3.191
@@ -1293,6 +1294,7 @@ async function calcRow(id, why) {
       body: JSON.stringify(Object.assign(
         { unit: row.unit, target: row.target },
         row.extra && row.extra.length ? { extra: row.extra.map((x) => x.target || "") } : {},
+        row.ferry ? { ferry: row.ferry } : {},   // v3.193: линию парома выбрал диспетчер
         ferryDeps(row),   // v3.192: отход парома из «Даты» точки-порта
         row.trailer ? { trailer: row.trailer } : {},
         row.crew ? { crew: row.crew } : {},
@@ -2080,6 +2082,23 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
     saveRows();
     dimRoute(id);                                                  // v3.84: старая линия бледнее, пока считаем
     Promise.resolve(calcRow(id, "edit")).finally(() => refreshRoute(id));   // v3.84: новая линия — сразу, без сдвига карты
+  });
+});
+
+// v3.193: ⛴ у ETA точки после порта — меню выбора линии парома; выбор хранится в трипе, строка пересчитывается
+document.getElementById("fleet-tbody").addEventListener("click", (e) => {
+  const b = e.target.closest(".fer-b");
+  if (!b) return;
+  e.stopPropagation();
+  const id = Number(b.closest("tr").dataset.id);
+  const row = rows.find((r) => r.id === id);
+  const ce = row && lastCalcText[id] && (lastCalcText[id].extra || [])[Number(b.dataset.i)];
+  if (!ce || !ce.ferry) return;
+  ferryMenu(b, ce.ferry, row.ferry || null, (lineId) => {
+    if (lineId) row.ferry = lineId; else delete row.ferry;
+    saveRows();
+    dimRoute(id);
+    Promise.resolve(calcRow(id, "edit")).finally(() => refreshRoute(id));
   });
 });
 
