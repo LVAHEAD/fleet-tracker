@@ -1046,6 +1046,7 @@ function etaCellHtml(row, c, composed) {
       inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}${tzBadge(ce.eta_tz)}</span>`;
       tip = [`Точка ${STOP_NUM[i + 2]}: ${x.target}`,
              `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]}, всего ${ce.dist_km.toFixed(1)} км`,
+             ce.ferry ? `⛴ ${ce.ferry.label}: ${ce.ferry.hours} ч + Gate-In ${ce.ferry.gate_in_h} ч, в порту назначения ~${ce.ferry.arrive}` : "",   // v3.191
              `+30 мин на каждой точке до неё`,
              ce.eta_tacho ? `⏱ По тахографу: ${ce.eta_tacho}` : "",
              `Простой ETA: ${ce.eta_local}`].filter(Boolean).join("\n");

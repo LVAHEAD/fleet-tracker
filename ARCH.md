@@ -20,6 +20,7 @@
 | `fetat/clients/nakordoni.py` | фид запретов движения: запросы, кеш, блокировки |
 | `fetat/clients/monitoring.py` | счётчик запросов к Routes API (Cloud Monitoring), ряд по 5 мин для `/gusage` с разбивкой по ключу, методу и коду ответа |
 | `fetat/domain/tacho.py` | простой ETA, движок `plan` (v3.39 — один на Флот, From → To и калькулятор), `tacho_eta`, `calc_plan`, окно смены / ночь (`shift_window_end`, `country_tz`), недельный отдых, лимиты 56/90 ч, `FRESH_SOLO_TACHO` |
+| `fetat/domain/ferries.py` | v3.191: паромы Германия ↔ Финляндия — порты, линии (часы + Gate-In), `find_ferry`; используется в `calc_extra_stops` |
 | `fetat/domain/routing_rules.py` | паромы, Инсбрук, обход Швейцарии (кандидаты коридоров, «впритык»), waypoints |
 | `fetat/domain/bans.py` | сборка фида запретов, запреты по пути, ночь Австрии для MAN, бренд по VIN, страны по маршруту |
 | `fetat/domain/regions.py` | коды регионов (ESxx, NO01…), ближайший код, страна |

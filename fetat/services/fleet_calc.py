@@ -17,7 +17,8 @@ from fetat.domain.points import (
 from fetat.domain.regions import nearest_region_code
 from fetat.services.corridors import fleet_waypoints_resolved as fleet_waypoints   # v3.26: + выбор коридора
 from fetat.services.corridors import clean_corridor, corridor_info, fleet_corridor_cands   # v3.32: выбор диспетчера
-from fetat.domain.tacho import (FRESH_SOLO_TACHO, TACHO_SPEED_KMH, calc_eta, calc_seed, country_tz, crew_mode, gps_shift,
+from fetat.domain.ferries import PORT_RADIUS_KM, find_ferry
+from fetat.domain.tacho import (FRESH_SOLO_TACHO, TZ_DEFAULT, plan as tacho_plan, TACHO_SPEED_KMH, calc_eta, calc_seed, country_tz, crew_mode, gps_shift,
                                tacho_eta, tacho_no_subscription,
                                tacho_summary, week_left_info)
 from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM, truck_fuel, truck_weight
@@ -42,6 +43,8 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
     prev_arr = sim["eta_ts"] if sim else now + cum_km / 70 * 3600
     out = []
     n_stops = 0          # сколько точек уже пройдено (на каждой UNLOAD_STOP_SEC)
+    ferry_extra = 0.0    # v3.191: сек. парома (рейс + Gate-In) сверх обычной стоянки — в простой ETA
+    fb = None            # v3.191: точка отсчёта тахо-плана после парома (приход в порт + рейс)
     for xi, tstr in enumerate(extras):
         if not tstr:
             out.append({"empty": True})
@@ -55,10 +58,17 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
         if lat is None:
             out.append({"error": f"Не удалось распознать: {tstr}"})
             break
-        leg_wps = fleet_waypoints(prev_lat, prev_lng, lat, lng, corridor)   # v2.03; v3.32: + выбор коридора
-        leg_km, leg_poly = road_distance_km_google(prev_lat, prev_lng, lat, lng, GOOGLE_API_KEY, leg_wps,
-                                                   kind="leg")   # v3.13: плечо — долгий общий кеш
-        if "corridor" not in first:                       # v3.32: плашка коридора — по первому такому плечу
+        fr = find_ferry(prev_lat, prev_lng, lat, lng)   # v3.191: предыдущая точка — порт, таргет за морем
+        if fr and haversine_km(lat, lng, fr["to"][0], fr["to"][1]) <= PORT_RADIUS_KM:
+            leg_wps, leg_km, leg_poly = None, 0.0, None   # таргет — сам порт назначения
+        elif fr:
+            leg_wps = None
+            leg_km, leg_poly = road_distance_km_google(fr["to"][0], fr["to"][1], lat, lng, GOOGLE_API_KEY, None, kind="leg")
+        else:
+            leg_wps = fleet_waypoints(prev_lat, prev_lng, lat, lng, corridor)   # v2.03; v3.32: + выбор коридора
+            leg_km, leg_poly = road_distance_km_google(prev_lat, prev_lng, lat, lng, GOOGLE_API_KEY, leg_wps,
+                                                       kind="leg")   # v3.13: плечо — долгий общий кеш
+        if not fr and "corridor" not in first:                       # v3.32: плашка коридора — по первому такому плечу
             cc = fleet_corridor_cands(prev_lat, prev_lng, lat, lng)
             if cc:
                 first["corridor"] = corridor_info(cc, leg_wps, corridor, (prev_lat, prev_lng, lat, lng), to=xi + 1)   # v3.45: плечо к точке xi + 2
@@ -67,7 +77,9 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
         cum_km += leg_km
         n_stops += 1
         dwell = n_stops * UNLOAD_STOP_SEC
-        simple_ts = now + cum_km / 70 * 3600 + dwell
+        if fr:
+            ferry_extra += fr["sec"] - UNLOAD_STOP_SEC
+        simple_ts = now + cum_km / 70 * 3600 + dwell + ferry_extra
         item = dict(t)
         item.update({
             "lat": lat, "lng": lng,
@@ -76,8 +88,29 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
             "polyline": leg_poly,
             "eta_local": ceil_15min(loc(simple_ts)).strftime("%d/%m %H:%M"),
         })
+        if fr:
+            item["ferry"] = {"label": fr["label"], "hours": fr["hours"], "gate_in_h": fr["gate_in_h"],
+                             "from": fr["from_name"], "to": fr["to_name"],
+                             "arrive": ceil_15min(loc(prev_arr + fr["sec"])).strftime("%d/%m %H:%M")}
         arr = simple_ts
-        if tacho:
+        if tacho and fr:
+            try:
+                tm = bool(tacho_eta(tacho, max(cum_km - leg_km, 1.0)).get("team"))
+                fb = {"ts": prev_arr + fr["sec"], "km0": cum_km - leg_km, "n0": n_stops, "team": tm,
+                      "tz": country_tz("FI") if fr["to_fi"] else TZ_DEFAULT}
+            except Exception as _e:
+                warn("fleet_calc:ferry", _e)
+                fb = None
+        if tacho and fb:
+            try:
+                pl = tacho_plan(fb["ts"], max(cum_km - fb["km0"], 0.0), team=fb["team"], tz=fb["tz"])
+                arr = pl["eta_ts"] + (n_stops - fb["n0"]) * UNLOAD_STOP_SEC
+                item["eta_tacho"] = ceil_15min(loc(arr)).strftime("%d/%m %H:%M")
+                item["tacho_rest_ahead"] = any(e["k"] == "r" for e in pl["ev"])
+                item["tacho_weeklimit"] = False
+            except Exception as _e:
+                warn("fleet_calc:ferry-plan", _e)
+        elif tacho:
             try:
                 sk = tacho_eta(tacho, cum_km)   # v3.39: неделя — только отметка, и на ②③
                 arr = sk["eta_ts"] + dwell
@@ -91,7 +124,7 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None):
         if leg_poly and leg_km >= 5:
             try:
                 det = {}
-                hits, _bst = bans_on_route(leg_poly, leg_km, None, prev_arr + UNLOAD_STOP_SEC,
+                hits, _bst = bans_on_route(leg_poly, leg_km, None, (fb["ts"] if fr and fb else prev_arr + UNLOAD_STOP_SEC),
                                            at_night=needs_at_night_ban(unit), detail=det)
                 fmt = lambda ts: loc(ts).strftime("%d/%m %H:%M")
                 item["bans_route"] = bans_hits_text(hits, fmt)
