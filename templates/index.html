@@ -288,49 +288,17 @@
 
 <!-- ==================== Вкладка: Паромы (справочная) ==================== -->
 <div id="tab-ferries" class="tab-panel" hidden>
+  <!-- v3.197: карта-схема и таблица линий — static/ferries.js (Shadow DOM), данные — static/ferries-data.js -->
+  <div id="ferries-root"></div>
+  <p class="ferries-note"><b>Регистрация (check-in).</b> Тягач с водителем — не позднее 60–90 мин до отхода; несопровождаемые прицепы — за 2–3 ч; ADR — декларация подана и подтверждена минимум за 24 ч до рейса.</p>
+  <p class="ferries-note"><b>Правила заезда на терминалы.</b> Gate-In: тягач с водителем — регистрация и заезд строго за 1,5–2 ч до отхода (Дания: 60–90 мин); несопровождаемые прицепы — минимум за 3–4 ч (Дания: 2–3 ч). ADR: декларация минимум за 24 ч до рейса (согласование размещения на палубе).</p>
+  <p class="ferries-note"><b>Норвегия.</b> Не в ЕС: грузовики в Норвегию (через Хиртсхальс или Копенгаген) проходят экспорт / транзит (T1 / T2 / Carnet TIR) и таможенную очистку до посадки; в Хиртсхальсе у терминала Color Line круглосуточный таможенный пункт.</p>
+  <p class="ferries-note"><b>Ключевые грузовые терминалы в Швеции.</b> Trelleborg (главный хаб на Германию, Польшу и Литву); Ystad (Unity Line, Polferries на Свиноуйсьце); Karlskrona (Stena Line на Гдыню); Karlshamn (DFDS Seaways на Клайпеду); Nynäshamn (Stena Line на Вентспилс, Polferries на Гданьск).</p>
+  <h3 class="ferries-h">Расписания</h3>
   <p class="ferries-note">Расписания паромов. Клик по картинке — открыть в полный размер. Пометки терминалов: vuos — Vuosaari, Lansi — Länsisatama (West Harbour), TermA — Terminal A, muuga — Muuga.</p>
   <a href="{{ url_for('static', filename='ferries/ferries.jpg') }}" target="_blank" rel="noopener" class="ferries-link">
     <img src="{{ url_for('static', filename='ferries/ferries.jpg') }}" alt="Расписания паромов: Helsinki–Tallinn, Rostock–Gedser" class="ferries-img">
   </a>
-  <h3 class="ferries-h">Грузовые паромные линии: сводная таблица</h3>
-  <p class="ferries-note">Регулярные Ro-Ro и Ro-Pax линии (тягачи с водителями, несопровождаемые полуприцепы, контейнеры, ADR, негабарит): Германия ↔ Финляндия, Швеция, Дания. Справочно — время и условия сверяйте с оператором.</p>
-  <div class="ferries-tbl-wrap">
-  <table class="ferries-tbl">
-    <thead><tr><th>Направление</th><th>Оператор</th><th>Маршрут</th><th>Порты</th><th>Частота, сервис и время</th><th>Условия и особенности</th><th>Контакты</th></tr></thead>
-    <tbody>
-      <tr class="ferries-grp"><td>Германия ↔ Финляндия</td><td><b>Finnlines</b></td><td><b>Травемюнде ↔ Хельсинки</b></td><td>DE: Travemünde (Skandinavienkai)<br>FI: Helsinki (Vuosaari Terminal)</td><td><b>Прямой</b> (Ro-Pax), ежедневно, ≈ 29–31 ч</td><td>Идеально для тягачей с водителями (каюта и питание включены); принимает ADR и негабарит</td><td>Tel: +49 4502 805 20<br>cargo.germany@finnlines.com</td></tr>
-      <tr><td>Германия ↔ Финляндия</td><td><b>Transfennica</b></td><td><b>Любек ↔ Ханко</b></td><td>DE: Lübeck (Seelandkai / Lehmannkai)<br>FI: Hanko (Western Harbour)</td><td><b>Прямой</b> (Ro-Ro), несколько раз в неделю, ≈ 30–36 ч</td><td>Специализация на несопровождаемых полуприцепах (unaccompanied); мест для водителей мало</td><td>Tel: +49 451 47020<br>sales.germany@transfennica.com</td></tr>
-      <tr><td>Германия ↔ Финляндия</td><td><b>Finnlines</b></td><td><b>Росток ↔ Ханко</b></td><td>DE: Rostock (Überseehafen)<br>FI: Hanko (Western Harbour)</td><td><b>Прямой</b> (Ro-Ro), 2–3 раза в неделю, ≈ 29–33 ч</td><td>Грузовой Ro-Ro фрахт и несопровождаемые прицепы; для ADR нужен предварительный запрос</td><td>Tel: +49 381 458 40<br>cargo.germany@finnlines.com</td></tr>
-      <tr><td>Германия ↔ Финляндия</td><td><b>Finnlines</b></td><td><b>Росток ↔ Турку</b></td><td>DE: Rostock (Überseehafen)<br>FI: Turku (Pansio / Port of Turku)</td><td><b>С заходом</b> в Травемюнде, 1 раз в неделю, ≈ 34–38 ч</td><td>Прямая доставка в регион Варсинайс-Суоми, без перегрузки полуприцепа на другое судно</td><td>Tel: +49 381 458 40<br>cargo.germany@finnlines.com</td></tr>
-      <tr><td>Германия ↔ Финляндия</td><td><b>Transfennica</b></td><td><b>Росток ↔ Ханко</b></td><td>DE: Rostock (Überseehafen)<br>FI: Hanko (Western Harbour)</td><td><b>Транзитный</b> (смена судна в Любеке), стыковочный рейс, ≈ 43 ч</td><td>Перегрузка полуприцепа с m/v Genca на m/v Pulpca в Любеке; только unaccompanied</td><td>Tel: +49 451 47020<br>sales.germany@transfennica.com</td></tr>
-      <tr class="ferries-grp"><td>Швеция ↔ Польша</td><td><b>Stena Line</b></td><td><b>Карлскруна ↔ Гдыня</b></td><td>Karlskrona (Verkö) — Gdynia</td><td>до 3 раз в день, ≈ 10,5–12 ч</td><td>Тягачи с водителями, unaccompanied полуприцепы, ADR</td><td></td></tr>
-      <tr><td>Швеция ↔ Польша</td><td><b>Unity Line</b></td><td><b>Истад ↔ Свиноуйсьце</b></td><td>Ystad — Świnoujście</td><td>до 2–3 раз в день, ≈ 6,5–7,5 ч</td><td>Основной экспресс-маршрут для автопоездов</td><td></td></tr>
-      <tr><td>Швеция ↔ Польша</td><td><b>Polferries</b></td><td><b>Истад ↔ Свиноуйсьце</b></td><td>Ystad — Świnoujście</td><td>до 2–3 раз в день, ≈ 6,5–7,5 ч</td><td>Тягачи, прицепы, тяжёлая техника</td><td></td></tr>
-      <tr><td>Швеция ↔ Польша</td><td><b>Polferries</b></td><td><b>Нюнесхамн ↔ Гданьск</b></td><td>Nynäshamn — Gdańsk</td><td>ежедневно, ≈ 18 ч</td><td>Удобно для грузов из Центральной / Северной Швеции</td><td></td></tr>
-      <tr><td>Швеция ↔ Польша</td><td><b>TT-Line</b></td><td><b>Треллеборг ↔ Свиноуйсьце</b></td><td>Trelleborg — Świnoujście</td><td>до 2 раз в день, ≈ 6–7 ч</td><td>Ro-Ro фрахт, контейнеры, несопровождаемые прицепы</td><td></td></tr>
-      <tr class="ferries-grp"><td>Швеция ↔ Латвия</td><td><b>Stena Line</b></td><td><b>Нюнесхамн ↔ Вентспилс</b></td><td>Nynäshamn — Ventspils</td><td>до 2–3 раз в день, ≈ 8,5–10 ч</td><td>Крупнейший грузовой коридор в Латвию</td><td></td></tr>
-      <tr><td>Швеция ↔ Латвия</td><td><b>Tallink Silja</b></td><td><b>Стокгольм ↔ Рига</b></td><td>Stockholm (Värtahamnen) — Riga</td><td>по расписанию, ≈ 16–17 ч</td><td>Комбинированные Ro-Pax перевозки</td><td></td></tr>
-      <tr class="ferries-grp"><td>Швеция ↔ Литва</td><td><b>DFDS Seaways</b></td><td><b>Карлсхамн ↔ Клайпеда</b></td><td>Karlshamn — Klaipėda</td><td>ежедневно (до 2 раз), ≈ 13–14 ч</td><td>Основной автотранспортный мост Швеция–Литва</td><td></td></tr>
-      <tr><td>Швеция ↔ Литва</td><td><b>TT-Line</b></td><td><b>Треллеборг ↔ Клайпеда</b></td><td>Trelleborg — Klaipėda</td><td>4–6 раз в неделю, ≈ 16–19 ч</td><td>Ro-Ro транзит, полуприцепы и тягачи</td><td></td></tr>
-      <tr class="ferries-grp"><td>Швеция ↔ Германия</td><td><b>Stena Line</b></td><td><b>Треллеборг ↔ Росток</b></td><td>Trelleborg — Rostock</td><td>до 3 раз в день, ≈ 6–7 ч</td><td>Крупнейший южный коридор для водителей и прицепов</td><td></td></tr>
-      <tr><td>Швеция ↔ Германия</td><td><b>TT-Line</b></td><td><b>Треллеборг ↔ Росток</b></td><td>Trelleborg — Rostock</td><td>до 4 раз в день, ≈ 6–7,5 ч</td><td>Высокая частота, каюты для водителей, ADR</td><td></td></tr>
-      <tr><td>Швеция ↔ Германия</td><td><b>TT-Line</b></td><td><b>Треллеборг ↔ Травемюнде</b></td><td>Trelleborg — Travemünde</td><td>до 3–4 раз в день, ≈ 8–10 ч</td><td>Экспресс-связь с портом Любека / Травемюнде</td><td></td></tr>
-      <tr><td>Швеция ↔ Германия</td><td><b>Stena Line</b></td><td><b>Гётеборг ↔ Киль</b></td><td>Göteborg — Kiel</td><td>ежедневно (ночные), ≈ 14,5 ч</td><td>Прямой заезд из Западной Швеции в Северную Германию</td><td></td></tr>
-      <tr><td>Швеция ↔ Германия</td><td><b>Finnlines</b></td><td><b>Мальмё ↔ Травемюнде</b></td><td>Malmö — Travemünde</td><td>до 3 раз в день, ≈ 9 ч</td><td>Преимущественно грузовой Ro-Ro / Ro-Pax сервис</td><td></td></tr>
-      <tr class="ferries-grp"><td>Дания ↔ Швеция</td><td>Stena Line</td><td>Фредериксхавн ↔ Гётеборг</td><td>Frederikshavn — Göteborg (Majnabbe / Tysklandsterminalen)</td><td>до 6–8 рейсов в день, ≈ 3 ч 30 мин</td><td>Тягачи с водителями и unaccompanied; питание на борту, ADR, негабарит</td><td>Tel: +45 96 20 02 00<br>cargo.dk@stenaline.com</td></tr>
-      <tr><td>Дания ↔ Швеция</td><td>Öresundslinjen (ранее ForSea)</td><td>Хельсингёр ↔ Хельсингборг</td><td>Helsingør — Helsingborg</td><td>каждые 15–20 мин, круглосуточно, ≈ 20 мин</td><td>Только тягачи с водителями (accompanied)</td><td>Tel: +45 88 71 19 11<br>cargo@oresundslinjen.dk</td></tr>
-      <tr><td>Дания ↔ Швеция</td><td>Stena Line</td><td>Грена ↔ Хальмстад</td><td>Grenaa — Halmstad</td><td>2 рейса в день, ≈ 4 ч 35 мин</td><td>Тягачи с водителями и unaccompanied; каюты / зона отдыха для водителей</td><td>Tel: +45 96 20 02 00<br>cargo.dk@stenaline.com</td></tr>
-      <tr class="ferries-grp"><td>Дания ↔ Норвегия</td><td>Color Line</td><td>Хиртсхальс ↔ Кристиансанн</td><td>Hirtshals — Kristiansand</td><td>2–4 рейса в день, ≈ 2 ч 15 мин (SuperSpeed 1) / 3 ч 15 мин</td><td>Тягачи и unaccompanied; Drivers Lounge (питание включено)</td><td>Tel: +45 99 56 19 00<br>cargo.hirtshals@colorline.com</td></tr>
-      <tr><td>Дания ↔ Норвегия</td><td>Color Line</td><td>Хиртсхальс ↔ Ларвик</td><td>Hirtshals — Larvik</td><td>2 рейса в день, ≈ 3 ч 45 мин (SuperSpeed 2)</td><td>Выход к региону Осло-фьорда (E18); тягачи, прицепы, ADR, негабарит</td><td>Tel: +45 99 56 19 00<br>cargo.hirtshals@colorline.com</td></tr>
-      <tr><td>Дания ↔ Норвегия</td><td>Fjord Line</td><td>Хиртсхальс ↔ Кристиансанн</td><td>Hirtshals — Kristiansand</td><td>до 3–4 рейсов в день (сезонно), ≈ 2 ч 15 мин (Fjord FSTR) / 3 ч 55 мин</td><td>Скоростное судно и катамараны / Ro-Pax; тягачи с водителями и прицепы</td><td>Tel: +45 97 96 30 00<br>cargo@fjordline.com</td></tr>
-      <tr><td>Дания ↔ Норвегия</td><td>Fjord Line</td><td>Хиртсхальс ↔ Ставангер ↔ Берген</td><td>Hirtshals — Stavanger (Risavika) / Bergen</td><td>ежедневно, ≈ 5 ч 30 мин (Ставангер) / 16 ч 30 мин (Берген)</td><td>Суда на LNG / электротяге; спальные каюты для водителей, полный сервис для unaccompanied</td><td>Tel: +45 97 96 30 00<br>cargo@fjordline.com</td></tr>
-      <tr><td>Дания ↔ Норвегия</td><td>DFDS Seaways</td><td>Копенгаген ↔ Осло</td><td>Copenhagen — Oslo</td><td>ежедневно, ≈ 17 ч 30 мин (ночной)</td><td>Ночной Ro-Pax, въезд в центр Осло; каюты для водителей, шведский стол</td><td>Tel: +45 33 42 30 00<br>freight.dk@dfds.com</td></tr>
-    </tbody>
-  </table>
-  </div>
-  <p class="ferries-note"><b>Правила заезда на терминалы.</b> Gate-In: тягач с водителем — регистрация и заезд строго за 1,5–2 ч до отхода (Дания: 60–90 мин); несопровождаемые прицепы — минимум за 3–4 ч (Дания: 2–3 ч). ADR: декларация минимум за 24 ч до рейса (согласование размещения на палубе).</p>
-  <p class="ferries-note"><b>Норвегия.</b> Не в ЕС: грузовики в Норвегию (через Хиртсхальс или Копенгаген) проходят экспорт / транзит (T1 / T2 / Carnet TIR) и таможенную очистку до посадки; в Хиртсхальсе у терминала Color Line круглосуточный таможенный пункт.</p>
-  <p class="ferries-note"><b>Ключевые грузовые терминалы в Швеции.</b> Trelleborg (главный хаб на Германию, Польшу и Литву); Ystad (Unity Line, Polferries на Свиноуйсьце); Karlskrona (Stena Line на Гдыню); Karlshamn (DFDS Seaways на Клайпеду); Nynäshamn (Stena Line на Вентспилс, Polferries на Гданьск).</p>
 </div>
 
 <!-- ==================== Вкладка: GF построитель (заглушка, v1.49) ==================== -->
@@ -405,6 +373,8 @@
 <script src="{{ url_for('static', filename='trailer-link.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='trailer-swap.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='point-kind.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='ferries-data.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='ferries.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='row-comments.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='foreign-edits.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='corridor-menu.js', v=app_version) }}"></script>
