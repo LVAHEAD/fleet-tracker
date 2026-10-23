@@ -45,12 +45,24 @@ function applyTransfer(row, k, toNo, nowMs, pair) {
   return true;
 }
 // отмена: вернуть прежний тягач, снять след и ✓ точки
+// v3.198: запомненные авто-✓ (doneSeen / doneArr, по тексту точки) у точек ПОСЛЕ k — их набрал другой тягач после перецепа;
+// при отмене строка возвращается прежнему тягачу, и эти ✓ не должны остаться «пройденными» (точки, чей текст есть и до k, не трогаем)
+function dropSeenAfter(row, k) {
+  const pts = [row.target || ""].concat((row.extra || []).map((x) => x.target || ""));
+  const keep = new Set(pts.slice(0, k + 1));
+  ["doneSeen", "doneArr"].forEach((key) => {
+    if (!row[key]) return;
+    pts.slice(k + 1).forEach((t) => { if (t && !keep.has(t)) delete row[key][t]; });
+    if (!Object.keys(row[key]).length) delete row[key];
+  });
+}
 function undoTransfer(row, k) {
   const p = swapPoint(row, k);
   if (!p || !p.swap) return false;
   row.unit = p.swap.from;
   delete p.swap;
   if (row.done) delete row.done[k];
+  dropSeenAfter(row, k);
   return true;
 }
 // v3.109: обмен тягачами. Место встречной точки в чужой строке: перед первой непройденной (openIdx ≥ 1),
@@ -80,6 +92,7 @@ function undoExchange(other, p, at) {
   const pt = ex[p - 1];
   if (!pt || !pt.swap || pt.swap.at !== at) return false;
   const yNo = pt.swap.from;
+  dropSeenAfter(other, p);   // v3.198: ✓ после встречи набрал другой тягач
   ex.splice(p - 1, 1);
   const nd = {};
   Object.keys(other.done || {}).forEach((j) => { const n = Number(j); if (n !== p) nd[n > p ? n - 1 : n] = other.done[j]; });
