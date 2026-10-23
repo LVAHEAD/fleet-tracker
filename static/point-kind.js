@@ -1,15 +1,16 @@
 /*
 Fleet ETA Tracker — именные плашки (v3.195): значок вместо букв L/O у особых точек. Только вид, клик по плашке не меняется.
   «B» — граница / проездная точка (слова из TRANSIT_WORDS сервера), домик — База (Baza Parking),
-  якорь — порт (Type = port), печать — брокерский таможенный офис (Type = customs).
+  якорь — порт (Type = port), печать — брокерский таможенный офис (Type = customs), тягач сбоку — цель точки машина (v3.196).
   Рисует CSS по атрибуту data-ptk на кнопке .lo-btn (style.css).
 */
 const PTK_TRANSIT = /border|grense|grenze|tull|zoll|customs|граница/i;
 const PTK_BASE = ["bazaparking", "baza", "база"];
 function ptkNorm(s) { return String(s || "").toLowerCase().replace(/[\s\-]/g, ""); }
 
-// name — текст точки в таблице, address — запись адресной базы (из расчёта), если есть
-function pointKind(name, address) {
+// name — текст точки в таблице, address — запись адресной базы (из расчёта), если есть, isTruck — цель точки — трак из Флота
+function pointKind(name, address, isTruck) {
+  if (isTruck) return "truck";   // таргет — машина (встреча с траком / перецеп)
   const names = [name, address && address.name];
   if (names.some((n) => PTK_TRANSIT.test(String(n || "")))) return "B";
   if (names.some((n) => PTK_BASE.includes(ptkNorm(n)))) return "home";

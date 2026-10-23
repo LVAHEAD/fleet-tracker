@@ -22,6 +22,8 @@ console.log(JSON.stringify({
   broker_noaddr: a.pointKind('DESFRU Valencia', null),
   plain: a.pointKind('KESKO KV2', { name: 'KESKO KV2', type: 'unload' }),
   empty: a.pointKind('', null),
+  truck: a.pointKind('NP-7544', null, true),
+  truck_first: a.pointKind('Baza Parking', null, true),
   attr: a.ptkAttr('home'), attr_empty: a.ptkAttr(''),
 }));
 """
@@ -42,6 +44,8 @@ class PointKindTest(unittest.TestCase):
         self.assertEqual(r["broker_noaddr"], "")        # без записи адресной базы типа нет
         self.assertEqual(r["plain"], "")
         self.assertEqual(r["empty"], "")
+        self.assertEqual(r["truck"], "truck")           # v3.196: цель — машина
+        self.assertEqual(r["truck_first"], "truck")
         self.assertEqual(r["attr"], ' data-ptk="home"')
         self.assertEqual(r["attr_empty"], "")
 

@@ -1659,3 +1659,4 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 /* v3.195: строка «Адресная база» в панели «Адреса» (та же, что в Справке) */
 .addr-base-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; color: #444; font-size: 12px; }
 .addr-base-line button { font-size: 12px; }
+.lo-btn[data-ptk="truck"] { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill-rule='evenodd' d='M2 14h20v2H2zM12 6h6l4 5v3H12zM14 8h3.2l2 3H14z'/><path d='M3 12h8v2H3z'/><path d='M4.5 18a2.5 2.5 0 1 0 5 0 2.5 2.5 0 0 0-5 0z'/><path d='M14.5 18a2.5 2.5 0 1 0 5 0 2.5 2.5 0 0 0-5 0z'/></svg>"); }   /* v3.196: тягач сбоку — таргет машина */

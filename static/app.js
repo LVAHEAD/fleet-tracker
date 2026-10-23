@@ -503,7 +503,7 @@ function renderRows() {
       <td>
         <div class="target-wrap${hideK(row, 0) ? " fold-hide" : ""}">
           <span class="lead">${!folded(row) || foldVisible(row)[0] === 0 ? foldBtnHtml(row, cached) : ""}</span><span class="stop-n">${multi ? numChip(1, ptLo(row)) : ""}</span>
-          <button class="lo-btn ${ptBtnClass(row)}"${ptkAttr(pointKind(row.target, cached && cached.targetAddress))} title="${escapeHtml(ptBtnTitle(row))}">${ptBtnText(row)}</button>
+          <button class="lo-btn ${ptBtnClass(row)}"${ptkAttr(pointKind(row.target, cached && cached.targetAddress, ptTruckNo(row)))} title="${escapeHtml(ptBtnTitle(row))}">${ptBtnText(row)}</button>
           ${cached && cached.targetBadge ? cached.targetBadge : '<span class="cc-badge target-cc" hidden></span>'}
           <input list="points-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" title="${escapeHtml(row.target) || 'ГПС, название, машина, код, город'}" placeholder="ГПС, название, машина, код, город" />
           ${multi ? '<button class="stop-x" data-k="0" title="Убрать эту точку">×</button>' + addStopHtml(row, 0) : '<span class="stop-x-sp"></span><button class="add-stop" data-k="0" title="Добавить ещё таргет (следующая выгрузка / погрузка)">+</button>'}
@@ -918,7 +918,7 @@ function extraTargetsHtml(row, cached) {
     const fv = folded(row) ? foldVisible(row) : null;
     return `<div class="target-wrap x-stop${hide}" data-k="${k}">
       <span class="lead">${fv && fv[0] === k ? foldBtnHtml(row, cached) : ""}</span><span class="stop-n">${numChip(k + 1, ptLo(x))}</span>
-      <button class="lo-btn xlo-btn ${ptBtnClass(x)}"${ptkAttr(pointKind(x.target, ce && ce.address))} data-k="${k}" title="${escapeHtml(ptBtnTitle(x))}">${ptBtnText(x)}</button>
+      <button class="lo-btn xlo-btn ${ptBtnClass(x)}"${ptkAttr(pointKind(x.target, ce && ce.address, ptTruckNo(x)))} data-k="${k}" title="${escapeHtml(ptBtnTitle(x))}">${ptBtnText(x)}</button>
       ${badge}
       <input list="points-list" class="xt-input" data-k="${k}" name="target-${row.id}-${k}" autocomplete="off" value="${escapeHtml(x.target)}" title="${escapeHtml(ce && ce.error ? ce.error : x.target)}" placeholder="следующая точка" />
       <button class="stop-x" data-k="${k}" title="Убрать эту точку">×</button>
@@ -1514,7 +1514,7 @@ async function calcRow(id, why) {
       if (!w) return;
       const old = w.querySelector(".x-cc");
       if (old) old.remove();
-      setPtk(w.querySelector(".xlo-btn"), pointKind(row.extra[i] && row.extra[i].target, ce.address));   // v3.195: именная плашка
+      setPtk(w.querySelector(".xlo-btn"), pointKind(row.extra[i] && row.extra[i].target, ce.address, ptTruckNo(row.extra[i])));   // v3.195: именная плашка
       w.querySelector(".xlo-btn").insertAdjacentHTML("afterend", ce.badge
         ? `<span class="cc-badge x-cc${ptFlagCls(ce.badge)}"${ptFlagStyle(ce.badge)} title="${escapeHtml(ce.badgeHint || ce.badge)}">${escapeHtml(ce.badge)}</span>`
         : '<span class="cc-badge x-cc" hidden></span>');   // v3.22: пустое место той же ширины
@@ -1562,7 +1562,7 @@ async function calcRow(id, why) {
         delete targetTypeByRow[id];
         if (tInput) tInput.title = row.target || "";
       }
-      if (tr) setPtk(tr.querySelector(".lo-btn"), pointKind(row.target, data.target_address));   // v3.195: именная плашка
+      if (tr) setPtk(tr.querySelector(".lo-btn"), pointKind(row.target, data.target_address, ptTruckNo(row)));   // v3.195: именная плашка
 
       if (data.first_done) {
         removeTargetMarker(id);            // v1.79: ① пройдена — флажка нет
