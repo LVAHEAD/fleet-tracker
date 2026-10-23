@@ -163,6 +163,7 @@
          v3.171: «Редактировать» в карточке — только для тех, у кого data-can-edit=1 (правка сразу в лист «Адреса») -->
     <div class="addr-search-row"><input type="search" id="addrQuery" class="addr-input" placeholder="Название, город или поставщик" autocomplete="off"></div>
     <div id="addrSearchInfo" class="addr-status"></div>
+    <div class="addr-base-line"><span id="addrBaseTxt">Адресная база…</span><button type="button" id="addrBaseRefresh" title="Перечитать лист «Адреса» (то же, что в Справке [.])">↻ Обновить базу</button></div>
     <div id="addrResults" class="addr-results"></div>
     <div id="addrCard" class="addr-card" hidden></div>
     <div class="addr-actions"><button type="button" id="addrNewBtn" class="addr-btn-primary">Новый адрес</button></div>
@@ -403,6 +404,7 @@
 <script src="{{ url_for('static', filename='row-alerts.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='trailer-link.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='trailer-swap.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='point-kind.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='row-comments.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='foreign-edits.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='corridor-menu.js', v=app_version) }}"></script>

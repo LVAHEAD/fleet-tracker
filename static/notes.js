@@ -60,11 +60,16 @@ Fleet ETA Tracker — вкладка [.] (блокнот)
     if (d.loaded_at) html += `<br>Обновлено: ${esc(d.loaded_at)}`;
     if (d.error) html += `<br><span class="err">${esc(d.error)}</span>`;
     statusEl.innerHTML = html;
+    const baseTxt = document.getElementById("addrBaseTxt"), baseBtn = document.getElementById("addrBaseRefresh");   // v3.195: та же строка в панели «Адреса»
+    if (baseTxt) baseTxt.textContent = `Точек: ${n}` + (d.loaded_at ? ` · Обновлено ${d.loaded_at}` : "") + (d.error ? " · ошибка" : "");
+    if (baseBtn) baseBtn.disabled = false;
     const pr = d.problems || [];
     problemsEl.innerHTML = pr.length
       ? `Пропущены (${pr.length}):<br>` + pr.map(esc).join("<br>")
       : "";
   }
+  const baseBtn0 = document.getElementById("addrBaseRefresh");
+  if (baseBtn0) baseBtn0.addEventListener("click", () => { baseBtn0.disabled = true; refreshBtn.click(); });
   window.onAddressStatus = showStatus;
   if (window.addressStatus) showStatus(window.addressStatus);
 
