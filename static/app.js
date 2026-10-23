@@ -1480,7 +1480,8 @@ async function calcRow(id, why) {
 
     const wasWait = awaitsComplete(row);   // v3.81
     const fv0 = folded(row) ? foldVisible(row).join() : "";   // v3.11: окно свёрнутых точек до расчёта
-    lastCalcText[id] = { targetAddress: data.target_address || null, status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo, onArr,
+    lastCalcText[id] = { targetAddress: data.first_done ? null : (data.target_address || null),   // v3.199: при пройденной ① адрес в ответе — первой активной точки, не ①
+                          status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo, onArr,
                          etaStr: onArr || data.eta_tacho || data.eta_local, extra: extraCalc(data),
                          crew: crewOf(data),
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual,
@@ -1562,7 +1563,7 @@ async function calcRow(id, why) {
         delete targetTypeByRow[id];
         if (tInput) tInput.title = row.target || "";
       }
-      if (tr) setPtk(tr.querySelector(".lo-btn"), pointKind(row.target, data.target_address, ptTruckNo(row)));   // v3.195: именная плашка
+      if (tr) setPtk(tr.querySelector(".lo-btn"), pointKind(row.target, data.first_done ? null : data.target_address, ptTruckNo(row)));   // v3.195: именная плашка
 
       if (data.first_done) {
         removeTargetMarker(id);            // v1.79: ① пройдена — флажка нет
