@@ -14,10 +14,10 @@ function chgSel(key) {
   }
   return { unit: ".unit-input", target: ".target-input", lo: ".target-wrap:not(.x-stop) .lo-btn:not(.xlo-btn)",
            delivery: ".delivery-input", note: ".note-input", com: '.com-ic[data-k="0"]', disp: ".disp-sel, .disp-lbl",
-           client: ".cl-input", ref: ".ref-input",
+           client: ".cl-input", ref: ".ref-input", chain: ".chain-cb",
            crew: ".crew-b", noTemp: ".rf-pill" }[key] || null;
 }
-const CHG_NAMES = { unit: "машина", target: "таргет ①", lo: "L/O ①", delivery: "TimeSlot ①", note: "примечание", client: "Client", ref: "Reference",
+const CHG_NAMES = { unit: "машина", target: "таргет ①", lo: "L/O ①", delivery: "TimeSlot ①", note: "примечание", client: "Client", ref: "Reference", chain: "Цепи",
   com: "комментарий", trailer: "прицеп", crew: "соло/экипаж", noTemp: "Temp / NoTemp", disp: "диспетчер", done: "✓ пройдено",
   fban: "запрет вручную", noban: "запреты", extra: "точки" };
 function chgName(key) {

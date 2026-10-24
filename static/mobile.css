@@ -73,13 +73,13 @@
   #fleet-tbody tr.lo-row-O { border-left: 4px solid #E0B000; }
   #fleet-tbody tr > td { display: block; border: 0; padding: 3px 0; min-width: 0; background: transparent !important; }
   #fleet-tbody tr > td:nth-child(1) { grid-area: unit; display: flex; align-items: center; box-shadow: none !important; }
-  #fleet-tbody tr > td:nth-child(2) { grid-area: status; }
-  #fleet-tbody tr > td:nth-child(3) { grid-area: target; }
-  #fleet-tbody tr > td:nth-child(4) { grid-area: deliv; }
-  #fleet-tbody tr > td:nth-child(5) { grid-area: dist; text-align: right !important; }
-  #fleet-tbody tr > td:nth-child(6) { grid-area: eta; }
-  #fleet-tbody tr > td:nth-child(7) { grid-area: note; }
-  #fleet-tbody tr > td.cl-cell, #fleet-tbody tr > td.ref-cell { display: none; }   /* v3.35: на телефоне не показываем */
+  #fleet-tbody tr > td:nth-child(3) { grid-area: status; }
+  #fleet-tbody tr > td:nth-child(4) { grid-area: target; }
+  #fleet-tbody tr > td:nth-child(5) { grid-area: deliv; }
+  #fleet-tbody tr > td:nth-child(6) { grid-area: dist; text-align: right !important; }
+  #fleet-tbody tr > td:nth-child(7) { grid-area: eta; }
+  #fleet-tbody tr > td:nth-child(8) { grid-area: note; }
+  #fleet-tbody tr > td.cl-cell, #fleet-tbody tr > td.ref-cell, #fleet-tbody tr > td.chain-cell { display: none; }   /* v3.35: на телефоне не показываем */
   #fleet-tbody tr > td.row-actions { grid-area: acts; display: flex; align-items: center; gap: 4px; }
 
   /* подписи полей */

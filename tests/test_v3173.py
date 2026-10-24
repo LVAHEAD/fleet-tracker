@@ -78,7 +78,7 @@ class V3174(unittest.TestCase):
         for s in ("fleet-col-order", "data-ci", "MutationObserver", "col-reset-btn", "max-width: 767px"):
             self.assertIn(s, js)
         css = read("static", "style.css")
-        self.assertIn('#fleet-table td[data-ci="2"] { overflow: hidden; }', css)
+        self.assertIn('#fleet-table td[data-ci="3"] { overflow: hidden; }', css)
         self.assertIn('td[data-ci="0"] .drag-h', css)
 
     @unittest.skipUnless(NODE, "нет node")

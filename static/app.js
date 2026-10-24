@@ -499,6 +499,7 @@ function renderRows() {
     const etaMuted = cached ? "" : "muted";
     tr.innerHTML = `
       <td class="unit-cell"${dispTag(rowDisp(row)) ? ` data-dc="${dispTag(rowDisp(row))}"` : ""}><span class="drag-h" draggable="true" title="Перетащить строку">⠿</span><input list="units-list" class="unit-input" name="unit-${row.id}" autocomplete="off" value="${escapeHtml(row.unit)}" title="${escapeHtml(window.fleetMetaTitle ? window.fleetMetaTitle(row.id) : "")}" placeholder="номер" />${dispHtml(row)}<div class="row3">${blinkIcoHtml()}<button class="cmpl-btn" hidden title="Все точки пройдены — завершить трип (уйдёт в «Завершённые», оттуда можно вернуть)">✓ Завершить</button></div></td>
+      <td class="chain-cell"><input type="checkbox" class="chain-cb" name="chain-${row.id}"${row.chain ? " checked" : ""} title="Цепи: есть / нет" /></td>
       <td class="status-cell ${statusClass}">${statusHtml}</td>
       <td>
         <div class="target-wrap${hideK(row, 0) ? " fold-hide" : ""}">
@@ -633,6 +634,10 @@ function attachRowHandlers() {
     tr.querySelector(".note-input").addEventListener("change", (e) => {
       e.target.title = e.target.value;
       setRowField(id, "note", e.target.value);
+    });
+    // Цепи — галочка есть / нет (поле строки chain)
+    tr.querySelector(".chain-cb").addEventListener("change", (e) => {
+      setRowField(id, "chain", e.target.checked ? true : null);
     });
     // v3.35: Client / Reference — простые текстовые поля трипа (задел под v5)
     [["cl-input", "client"], ["ref-input", "ref"]].forEach(([cls, f]) => {
