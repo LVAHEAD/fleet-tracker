@@ -680,7 +680,7 @@ function attachRowHandlers() {
     const markW = tr.querySelector(".cl-mark-wrap");
     if (markW) {
       let tm = null;
-      markW.addEventListener("mouseenter", () => { clearTimeout(tm); tm = setTimeout(() => markW.classList.add("seg-open"), Number(window.MARK_SEG_DELAY) >= 0 ? Number(window.MARK_SEG_DELAY) : 150); });   // MARK_SEG_DELAY — только для песочницы
+      markW.addEventListener("mouseenter", () => { clearTimeout(tm); tm = setTimeout(() => markW.classList.add("seg-open"), 1000); });   // v3.203: 1 сек (выбрано в песочнице)
       markW.addEventListener("mouseleave", () => { clearTimeout(tm); markW.classList.remove("seg-open"); });
       markW.querySelectorAll(".cl-seg-b").forEach((sb) => sb.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -2160,3 +2160,29 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
   b.outerHTML = crewHtml(row, lastCalcText[id]);
   calcRow(id, "edit");
 });
+
+// v3.203: «C» розовым — у трипа есть НЕ пройденная точка в Швеции (SE) или Норвегии (NO) (закон Норвегии о зимней езде).
+// Страна — по коду значка точки (NO17, SE25); транзит по линии маршрута не считаем. Класс chain-need ставим на ячейку «C»,
+// розовым она становится только пока цепи не отмечены (правило в style.css по :not(:checked)). Всем диспетчерам.
+(function () {
+  const tb = document.getElementById("fleet-tbody");
+  if (!tb) return;
+  function pass() {
+    tb.querySelectorAll(":scope > tr").forEach((tr) => {
+      const cell = tr.querySelector(".chain-cell");
+      if (!cell) return;
+      let need = false;
+      tr.querySelectorAll(".cc-badge.cc-pt-flag").forEach((b) => {
+        if (b.closest(".status-cell")) return;
+        const w = b.closest(".target-wrap");
+        if (w && w.classList.contains("pt-done")) return;
+        if (/^(NO|SE)/i.test(b.textContent.trim())) need = true;
+      });
+      if (cell.classList.contains("chain-need") !== need) cell.classList.toggle("chain-need", need);
+    });
+  }
+  let q = null;
+  new MutationObserver(() => { clearTimeout(q); q = setTimeout(pass, 50); })
+    .observe(tb, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+  pass();
+})();
