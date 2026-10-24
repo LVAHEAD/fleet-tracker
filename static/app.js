@@ -1960,6 +1960,7 @@ function moveManual(id, dir) {
         b.classList.toggle("on", b.dataset.sort === sortMode);
       });
       bar.querySelectorAll("button[data-flt]").forEach((b) => b.classList.toggle("on", b.dataset.flt === loFilter));
+      if (typeof unitFilterMark === "function") unitFilterMark();   // v3.205: у L / O свой набор машин
       resolveMine();
       bar.querySelectorAll("button[data-own]").forEach((b) => b.classList.toggle("on",
         b.dataset.own === ownFilter || (ownFilter === "mine" && b.dataset.own === fleetMe())));

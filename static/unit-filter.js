@@ -6,14 +6,19 @@
 Трипы, ждущие «✓ Завершён», видны при любом фильтре по машинам (awaitsComplete раньше rowPassesUnit).
 Список в окне считает только трипы выбранного диспетчера («Все» — весь Флот).
 Клик по заголовку отличается от перетаскивания колонки (col-order.js): drag не даёт click.
-Чистые функции — unitKey, unitList, rowPassesUnit (тест на node: tests/test_v3204.py).
+Чистые функции — unitKey, unitList, rowPassesUnit, unitSlot (тест на node: tests/test_v3204.py).
 Опирается на глобалы app.js (rows, renderRows) — во время работы. Грузится ДО app.js. */
 
-let unitFilter = [];   // ключи выбранных машин (unitKey)
+// v3.205: у каждого режима L / O свой набор машин («все», L, O): переключился на L, выбрал своё, вернулся на O — набор O прежний
+let unitFilters = { all: [], L: [], O: [] };
 try {
-  const v = JSON.parse(localStorage.getItem("fleet-unit-filter") || "[]");
-  if (Array.isArray(v)) unitFilter = v.filter((x) => typeof x === "string" && x);
+  const v = JSON.parse(localStorage.getItem("fleet-unit-filter") || "null");
+  const clean = (x) => (Array.isArray(x) ? x.filter((k) => typeof k === "string" && k) : []);
+  if (Array.isArray(v)) unitFilters = { all: clean(v), L: clean(v), O: clean(v) };   // v3.204: был один общий набор — переносим во все режимы
+  else if (v && typeof v === "object") unitFilters = { all: clean(v.all), L: clean(v.L), O: clean(v.O) };
 } catch (e) {}
+function unitSlot() { return (typeof loFilter !== "undefined" && (loFilter === "L" || loFilter === "O")) ? loFilter : "all"; }
+function curUnits() { return unitFilters[unitSlot()]; }
 
 function unitKey(unit) { return String(unit || "").toUpperCase().replace(/\s+/g, ""); }
 
@@ -36,9 +41,20 @@ function unitList(rowsArr, selected) {
 }
 
 function rowPassesUnit(row) {
-  if (!unitFilter.length) return true;
+  const f = curUnits();
+  if (!f.length) return true;
   if (!row || !row.unit) return true;     // пустые строки видны всегда, как у остальных фильтров
-  return unitFilter.includes(unitKey(row.unit));
+  return f.includes(unitKey(row.unit));
+}
+
+// заголовок «Машина»: синий, пока в текущем режиме (все / L / O) выбраны машины; зовётся и при смене L / O (app.js)
+function unitFilterMark() {
+  if (typeof document === "undefined") return;
+  const th = document.getElementById("unit-flt-th");
+  if (!th) return;
+  const n = curUnits().length, sl = unitSlot();
+  th.classList.toggle("unit-on", n > 0);
+  th.title = n ? `Фильтр по машинам${sl === "all" ? "" : " (" + sl + ")"}: выбрано ${n} — клик, чтобы изменить` : "Фильтр по машинам — клик";
 }
 
 (function () {
@@ -47,17 +63,13 @@ function rowPassesUnit(row) {
   if (!th) return;
   let pop = null;
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const save = () => { try { localStorage.setItem("fleet-unit-filter", JSON.stringify(unitFilter)); } catch (e) {} };
-  const mark = () => {
-    th.classList.toggle("unit-on", unitFilter.length > 0);
-    th.title = unitFilter.length ? `Фильтр по машинам: выбрано ${unitFilter.length} — клик, чтобы изменить`
-      : "Фильтр по машинам — клик";
-  };
+  const save = () => { try { localStorage.setItem("fleet-unit-filter", JSON.stringify(unitFilters)); } catch (e) {} };
+  const mark = unitFilterMark;
   const rerender = () => { mark(); if (typeof renderRows === "function") renderRows(); };
 
   function fillList() {
     const q = unitKey(pop.querySelector(".cf-search").value);
-    const items = unitList(rows.filter((r) => rowPassesOwn(r)), unitFilter).filter((it) => !q || it.key.includes(q));
+    const items = unitList(rows.filter((r) => rowPassesOwn(r)), curUnits()).filter((it) => !q || it.key.includes(q));
     pop.querySelector(".cf-list").innerHTML = items.length
       ? items.map((it) => `<label class="cf-item"><input type="checkbox" data-k="${esc(it.key)}"${it.on ? " checked" : ""}>`
         + `<span class="cf-name">${esc(it.name)}</span><span class="cf-n">${it.count}</span></label>`).join("")
@@ -81,12 +93,13 @@ function rowPassesUnit(row) {
     pop.querySelector(".cf-list").addEventListener("change", (e) => {
       const k = e.target && e.target.dataset && e.target.dataset.k;
       if (!k) return;
-      unitFilter = e.target.checked ? [...new Set([...unitFilter, k])] : unitFilter.filter((x) => x !== k);
+      const sl = unitSlot();
+      unitFilters[sl] = e.target.checked ? [...new Set([...unitFilters[sl], k])] : unitFilters[sl].filter((x) => x !== k);
       save();
       rerender();
     });
     pop.querySelector(".cf-reset").addEventListener("click", () => {
-      unitFilter = [];
+      unitFilters[unitSlot()] = [];
       save();
       fillList();
       rerender();

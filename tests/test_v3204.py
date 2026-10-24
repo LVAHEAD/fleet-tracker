@@ -19,7 +19,7 @@ def _read(*p):
 DRIVER = r"""
 const fs = require('fs'), vm = require('vm');
 const code = fs.readFileSync(process.argv[1], 'utf8');
-vm.runInThisContext(code + "\n;globalThis.__api = { unitKey, unitList, rowPassesUnit, set: (a) => { unitFilter = a; } };");
+vm.runInThisContext(code + "\n;globalThis.__api = { unitKey, unitList, rowPassesUnit, unitSlot, curUnits, set: (a) => { unitFilters.all = a; }, sets: (all, L, O) => { unitFilters.all = all; unitFilters.L = L; unitFilters.O = O; } };");
 const a = globalThis.__api;
 const rows = [
   { unit: "NP-7209" }, { unit: "np-7209 " }, { unit: "OI-7251" }, { unit: "OB-2697" }, { unit: "" }, { unit: "OB-10" }, { unit: "OB-9" },
@@ -34,6 +34,13 @@ a.set(["NP-7209"]);
 out.one = rows.map((r) => a.rowPassesUnit(r));
 a.set(["NP-7209", "OI-7251"]);
 out.two = rows.map((r) => a.rowPassesUnit(r));
+// v3.205: у режимов все / L / O свои наборы машин
+a.sets([], ["NP-7209"], ["OI-7251"]);
+const pass = () => rows.map((r) => a.rowPassesUnit(r));
+globalThis.loFilter = "all"; out.slotAll = [a.unitSlot(), pass().every(Boolean)];
+globalThis.loFilter = "L"; out.slotL = [a.unitSlot(), pass()];
+globalThis.loFilter = "O"; out.slotO = [a.unitSlot(), pass()];
+globalThis.loFilter = "L"; out.backL = pass();
 console.log(JSON.stringify(out));
 """
 
@@ -69,6 +76,14 @@ class UnitFilterTest(unittest.TestCase):
         self.assertEqual(self.r["two"], [True, True, True, False, True, False, False])
 
 
+class UnitFilterSlotsTest(UnitFilterTest):
+    def test_separate_sets_per_lo_mode(self):
+        self.assertEqual(self.r["slotAll"], ["all", True])
+        self.assertEqual(self.r["slotL"], ["L", [True, True, False, False, True, False, False]])
+        self.assertEqual(self.r["slotO"], ["O", [False, False, True, False, True, False, False]])
+        self.assertEqual(self.r["backL"], self.r["slotL"][1])   # вернулись на L — набор L прежний
+
+
 class WiringTest(unittest.TestCase):
     def test_unit_filter_wiring(self):
         html = _read("templates", "index.html")
@@ -79,6 +94,7 @@ class WiringTest(unittest.TestCase):
         self.assertLess(sf.index("rowPassesClient(row)"), sf.index("rowPassesUnit(row)"))
         css = _read("static", "style.css")
         self.assertIn("th.th-unit.unit-on", css)
+        self.assertIn("unitFilterMark()", _read("static", "app.js"))   # заголовок обновляется при смене L / O
 
     def test_chain_column(self):
         html = _read("templates", "index.html")
