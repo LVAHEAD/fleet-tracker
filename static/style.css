@@ -1599,16 +1599,31 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 .addr-card .addr-field textarea { align-self: flex-start; }
 .addr-card .addr-err { margin-left: 96px; }
 
-/* v3.177: цветная метка под клиентом (только VL): полоска на всю ширину ячейки, 11 px, таблетка; клик — следующий цвет */
-.cl-mark { display: block; box-sizing: border-box; width: 100%; height: 11px; margin: 3px 0 0; padding: 0; cursor: pointer;
-  border: 1px solid #b9c4d6; border-radius: 999px; background: transparent; }
+/* v3.177: цветная метка под клиентом (только VL): полоска на всю ширину ячейки, таблетка; клик — следующий цвет.
+   v3.202: 18 px, внутри дата точки ① (ДД.ММ); при наведении — 6 сегментов (без цвета + 5 цветов), клик по сегменту ставит цвет */
+.cl-mark-wrap { position: relative; display: block; margin: 3px 0 0; }
+.cl-mark { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; height: 18px; margin: 0; padding: 0; cursor: pointer;
+  border: 1px solid #b9c4d6; border-radius: 999px; background: transparent; overflow: hidden; white-space: nowrap;
+  font: 700 11px/1 -apple-system, "Segoe UI", Roboto, sans-serif; letter-spacing: .2px; color: #1d2b3d; font-variant-numeric: tabular-nums; }
 .cl-mark:hover { border-color: #2f6fd6; }
-.cl-mark[data-c="0"] { border-style: dashed; }
+.cl-mark[data-c="0"] { border-style: dashed; color: #5b6b80; }
 .cl-mark[data-c="1"] { background: #ff9800; border-color: #e08600; }
 .cl-mark[data-c="2"] { background: #00e5ff; border-color: #00b8cc; }
 .cl-mark[data-c="3"] { background: #34b36b; border-color: #278f55; }
 .cl-mark[data-c="4"] { background: #ffeb00; border-color: #d1bf00; }
-.cl-mark[data-c="5"] { background: #e5383b; border-color: #b92b2e; }
+.cl-mark[data-c="5"] { background: #e5383b; border-color: #b92b2e; color: #fff; }
+.cl-seg { display: none; position: absolute; inset: 0; z-index: 3; border: 1px solid #2f6fd6; border-radius: 999px; overflow: hidden; background: #fff; }
+.cl-mark-wrap.seg-open .cl-seg { display: flex; }
+.cl-seg .cl-seg-b { flex: 1 1 0; min-width: 0; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; cursor: pointer; background: #fff; }
+.cl-seg .cl-seg-b + .cl-seg-b { border-left: 1px solid rgba(255, 255, 255, .7); }
+.cl-seg .cl-seg-b[data-c="0"] { background: repeating-linear-gradient(135deg, #fff 0 3px, #dfe6f0 3px 4px); }
+.cl-seg .cl-seg-b[data-c="1"] { background: #ff9800; }
+.cl-seg .cl-seg-b[data-c="2"] { background: #00e5ff; }
+.cl-seg .cl-seg-b[data-c="3"] { background: #34b36b; }
+.cl-seg .cl-seg-b[data-c="4"] { background: #ffeb00; }
+.cl-seg .cl-seg-b[data-c="5"] { background: #e5383b; }
+.cl-seg .cl-seg-b:hover { filter: brightness(.92); }
+.cl-seg .cl-seg-b.on { box-shadow: inset 0 0 0 2px #1d2b3d; }
 
 /* v3.178: плашка трипа без машины на карте — как плашка таргета, рамка в цвет метки (задаётся в prep-map.js), чуть бледнее */
 .mk-tbadge.mk-prep { opacity: .92; font-weight: 500; }
@@ -1665,4 +1680,11 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 /* Столбец «C» — цепи есть / нет */
 #fleet-table .col-chain { width: 34px; }
 #fleet-tbody td.chain-cell { text-align: center; vertical-align: top; padding: 6px 2px 0; }   /* у верха, на одной линии с номером машины */
-.chain-cb { display: block; width: 16px; height: 16px; margin: 0 auto; cursor: pointer; accent-color: #2f6fd6; }
+/* Цепи: снято — пустой квадрат с синим контуром; отмечено — синий квадрат с буквой C (Синий Кальк: включённое состояние) */
+.chain-cb { appearance: none; -webkit-appearance: none; display: flex; align-items: center; justify-content: center; box-sizing: border-box;
+  width: 16px; height: 16px; margin: 0 auto; padding: 0; cursor: pointer; background: #fff; border: 1px solid #2f6fd6; border-radius: 3px;
+  font: 700 11px/1 -apple-system, "Segoe UI", Roboto, sans-serif; color: #fff; }
+.chain-cb:hover { background: #e8f0fc; }
+.chain-cb:checked { background: #2f6fd6; }
+.chain-cb:checked::before { content: "C"; }
+.chain-cb:focus-visible { outline: 2px solid #2f6fd6; outline-offset: 2px; }

@@ -225,10 +225,25 @@ function markAllowed() {
   const me = fleetMe();
   return !!me && (me === canonEmail("vladimirs.head@gmail.com") || dispTag(me) === "VL");
 }
+// v3.202: в плашке — дата точки ① (Delivery первой строки), ДД.ММ; по ней же сортировка «загрузка»
+function markDateText(row) {
+  const v = String((row && row.delivery) || "").trim();
+  if (!v) return "";
+  let w = null;
+  try { w = parseDeliveryWindow(v); } catch (e) { /* дата не разобралась — плашка без текста */ }
+  const t = w && (w.start || w.end);
+  return t ? String(t.getDate()).padStart(2, "0") + "." + String(t.getMonth() + 1).padStart(2, "0") : "";
+}
+// v3.202: при наведении плашка делится на 6 сегментов (без цвета + 5 цветов), клик по сегменту ставит цвет сразу
 function markBtnHtml(row) {
   if (!markAllowed()) return "";
   const c = Number(row.mark) || 0;
-  return `<button type="button" class="cl-mark" data-c="${c}" title="Метка: ${MARK_NAMES[c]} — клик, следующий цвет"></button>`;
+  const seg = MARK_NAMES.map((n, i) => `<button type="button" class="cl-seg-b${i === c ? " on" : ""}" data-c="${i}" title="${n}"></button>`).join("");
+  return `<span class="cl-mark-wrap"><button type="button" class="cl-mark" data-c="${c}" title="Метка: ${MARK_NAMES[c]} — клик, следующий цвет">${markDateText(row)}</button><span class="cl-seg">${seg}</span></span>`;
+}
+
+function markSegSync(tr, c) {
+  tr.querySelectorAll(".cl-seg-b").forEach((b) => b.classList.toggle("on", Number(b.dataset.c) === c));
 }
 
 function emptyRow() {
@@ -628,6 +643,8 @@ function attachRowHandlers() {
     tr.querySelector(".delivery-input").addEventListener("change", (e) => {
       e.target.title = e.target.value;
       setRowField(id, "delivery", e.target.value);
+      const mdb = tr.querySelector(".cl-mark");
+      if (mdb) mdb.textContent = markDateText(rows.find((r) => r.id === id));   // v3.202: дата в плашке
       recheckLate(id);
       markDeliveryInput(tr, rows.find((r) => r.id === id));
     });
@@ -657,7 +674,25 @@ function attachRowHandlers() {
       setRowField(id, "mark", c || null);
       markB.dataset.c = String(c);
       markB.title = "Метка: " + MARK_NAMES[c] + " — клик, следующий цвет";
+      markSegSync(tr, c);
     });
+    // v3.202: наведение на плашку (с задержкой ~150 мс) раскрывает 6 сегментов; клик по сегменту — цвет сразу
+    const markW = tr.querySelector(".cl-mark-wrap");
+    if (markW) {
+      let tm = null;
+      markW.addEventListener("mouseenter", () => { clearTimeout(tm); tm = setTimeout(() => markW.classList.add("seg-open"), 150); });
+      markW.addEventListener("mouseleave", () => { clearTimeout(tm); markW.classList.remove("seg-open"); });
+      markW.querySelectorAll(".cl-seg-b").forEach((sb) => sb.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const c = Number(sb.dataset.c) || 0;
+        setRowField(id, "mark", c || null);
+        const mb = markW.querySelector(".cl-mark");
+        mb.dataset.c = String(c);
+        mb.title = "Метка: " + MARK_NAMES[c] + " — клик, следующий цвет";
+        markSegSync(tr, c);
+        markW.classList.remove("seg-open");
+      }));
+    }
 
     tr.querySelector(".lo-btn").addEventListener("click", (e) => {
       e.stopPropagation();
