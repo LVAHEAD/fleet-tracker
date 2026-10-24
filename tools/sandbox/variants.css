@@ -1,2 +1,9 @@
-/* Песочница Флота, v3.187: варианты шапки (B + C) стали настоящими — склеенный T / +1 / +2, кнопка ▸ с рамкой, ▾ без рамок,
-   одна линия, «Дата» / «Клиент» / «Референс» выкачены в v3.187 и берутся из style.css аппы. Сюда — только новые варианты. */
+/* Песочница Флота, v3.201 + «C» + «загрузка»: дата точки ① в цветной плашке под клиентом (ДД.ММ), плашка выше.
+   Только вид; в аппе плашка пока пустая. Варианты высоты — переключатель внизу (body.mk-1 / mk-2). */
+.cl-mark{display:flex;align-items:center;justify-content:center;font:700 11px/1 -apple-system,"Segoe UI",Roboto,sans-serif;
+  letter-spacing:.2px;color:#1d2b3d;font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap}
+body:not(.mk-0) .cl-mark{height:18px}
+body.mk-2 .cl-mark{height:22px;font-size:12px}
+.cl-mark[data-c="0"]{color:#5b6b80}
+#mk-bar{position:fixed;left:8px;bottom:8px;z-index:99999;background:#fff;border:1px solid #2f6fd6;border-radius:6px;padding:4px 8px;font:12px sans-serif;display:flex;gap:10px}
+#mk-bar label{cursor:pointer;white-space:nowrap}

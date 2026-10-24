@@ -57,12 +57,14 @@ function slotKey(row) {
   return t ? t.getTime() : null;
 }
 
-// Сортировка «загрузка»: по дате Delivery первой точки ① (начало окна, иначе срок); раньше — выше.
+// Сортировка «загрузка»: по дате Delivery первой точки ① (день, ДД.ММ — как в плашке под клиентом), ранняя выше;
+// внутри одной даты — по клиенту (алфавит, регистр не важен), затем по времени, затем по порядку добавления.
 // Пройдена точка ① или нет — не важно (дата загрузки трипа); без даты — в конец, в порядке добавления.
 function loadKey(row) {
   const w = String(row.delivery || "").trim() ? parseDeliveryWindow(row.delivery) : null;
   const t = w ? (w.start || w.end) : null;
-  return t ? t.getTime() : null;
+  if (!t) return null;
+  return { day: new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime(), t: t.getTime() };
 }
 
 // v3.81: трип ждёт «✓ Завершён» — все точки пройдены и этот человек может его завершить
@@ -105,10 +107,14 @@ function computeBaseOrder() {
   if (sortMode === "load") {
     const idx = new Map(rows.map((r, i) => [r.id, i]));
     const key = new Map(rows.map((r) => [r.id, loadKey(r)]));
+    const cl = (r) => String(r.client || "").trim();
     return rows.slice().sort((x, y) => {
       const kx = key.get(x.id), ky = key.get(y.id);
-      if (kx != null && ky != null && kx !== ky) return kx - ky;
       if ((kx == null) !== (ky == null)) return kx == null ? 1 : -1;
+      if (kx && kx.day !== ky.day) return kx.day - ky.day;
+      const c = cl(x).localeCompare(cl(y), "ru", { sensitivity: "base" });   // пустой клиент — раньше имён
+      if (c) return c;
+      if (kx && kx.t !== ky.t) return kx.t - ky.t;
       return idx.get(x.id) - idx.get(y.id);
     }).map((r) => r.id);
   }
