@@ -680,7 +680,7 @@ function attachRowHandlers() {
     const markW = tr.querySelector(".cl-mark-wrap");
     if (markW) {
       let tm = null;
-      markW.addEventListener("mouseenter", () => { clearTimeout(tm); tm = setTimeout(() => markW.classList.add("seg-open"), 150); });
+      markW.addEventListener("mouseenter", () => { clearTimeout(tm); tm = setTimeout(() => markW.classList.add("seg-open"), Number(window.MARK_SEG_DELAY) >= 0 ? Number(window.MARK_SEG_DELAY) : 150); });   // MARK_SEG_DELAY — только для песочницы
       markW.addEventListener("mouseleave", () => { clearTimeout(tm); markW.classList.remove("seg-open"); });
       markW.querySelectorAll(".cl-seg-b").forEach((sb) => sb.addEventListener("click", (e) => {
         e.stopPropagation();
