@@ -220,7 +220,7 @@ function saveRows() {
 }
 
 // v3.177: цветная метка клиента — только у пользователя VL (vladimirs.head); остальным кнопки нет
-const MARK_NAMES = ["без цвета", "оранжевый", "cyan", "зелёный", "жёлтый"];
+const MARK_NAMES = ["без цвета", "оранжевый", "cyan", "зелёный", "жёлтый", "красный"];
 function markAllowed() {
   const me = fleetMe();
   return !!me && (me === canonEmail("vladimirs.head@gmail.com") || dispTag(me) === "VL");

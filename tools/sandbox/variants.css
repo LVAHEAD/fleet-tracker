@@ -5,5 +5,6 @@
 body:not(.mk-0) .cl-mark{height:18px}
 body.mk-2 .cl-mark{height:22px;font-size:12px}
 .cl-mark[data-c="0"]{color:#5b6b80}
+.cl-mark[data-c="5"]{color:#fff}
 #mk-bar{position:fixed;left:8px;bottom:8px;z-index:99999;background:#fff;border:1px solid #2f6fd6;border-radius:6px;padding:4px 8px;font:12px sans-serif;display:flex;gap:10px}
 #mk-bar label{cursor:pointer;white-space:nowrap}

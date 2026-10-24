@@ -9,7 +9,7 @@ markAllowed, escapeHtml). PrepMap.sync() — из saveRows, renderRows, initMap 
 */
 (function () {
   "use strict";
-  const MARK_COLORS = { 1: ["#ff9800", "#e08600"], 2: ["#00e5ff", "#00b8cc"], 3: ["#34b36b", "#278f55"], 4: ["#ffeb00", "#d1bf00"] };
+  const MARK_COLORS = { 1: ["#ff9800", "#e08600"], 2: ["#00e5ff", "#00b8cc"], 3: ["#34b36b", "#278f55"], 4: ["#ffeb00", "#d1bf00"], 5: ["#e5383b", "#b92b2e"] };
   const codes = {};   // ключ точки -> { code, place } | "wait" | "none"
   let sel = null;     // { id, items: [{ marker, badge }] } — выбранный трип без машины
   let timer = null;
