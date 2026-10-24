@@ -937,7 +937,7 @@ button.hitch-ic:hover { background: #e6dfcc; }
   #fleet-table .col-note { width: 22%; }
 }
 /* примечания следующих точек — на линии своих точек */
-.xn-wrap { margin-top: 1px; height: var(--stop-h, 28px); }
+.xn-wrap { margin-top: 4px; height: var(--stop-h, 28px); }
 .xn-input { flex: 1; min-width: 0; border-style: dashed; background: #fbfcfe; }
 .xn-input:focus, .xn-input:not(:placeholder-shown) { border-style: solid; background: #fff; }
 .com-sp { flex: 0 0 26px; }
