@@ -10,7 +10,7 @@ pointOf, firstOpenIdx, rowLoKind, stripeRow, rowPassesFilter. Переменны
 // manual — руками (перетаскивание ⠿, на телефоне ↑/↓ в меню ⋯; новые строки — в конец). Строки без L/O — в конце.
 // v3.29: режима «как добавляли» больше нет — сохранённый (и умолчание) стал «руками» с порядком добавления.
 // Пересортировка только при загрузке, "Обновить всё" и смене режима — не при автообновлении.
-const SORT_MODES = ["LO", "OL", "manual"];
+const SORT_MODES = ["LO", "OL", "manual", "load"];
 let sortMode = "manual";
 let manualOrder = [];
 try {
@@ -57,6 +57,14 @@ function slotKey(row) {
   return t ? t.getTime() : null;
 }
 
+// Сортировка «загрузка»: по дате Delivery первой точки ① (начало окна, иначе срок); раньше — выше.
+// Пройдена точка ① или нет — не важно (дата загрузки трипа); без даты — в конец, в порядке добавления.
+function loadKey(row) {
+  const w = String(row.delivery || "").trim() ? parseDeliveryWindow(row.delivery) : null;
+  const t = w ? (w.start || w.end) : null;
+  return t ? t.getTime() : null;
+}
+
 // v3.81: трип ждёт «✓ Завершён» — все точки пройдены и этот человек может его завершить
 function awaitsComplete(row) {
   const c = lastCalcText[row.id];
@@ -92,6 +100,16 @@ function computeBaseOrder() {
       if (ka != null && kb != null && ka !== kb) return ka - kb;
       if ((ka == null) !== (kb == null)) return ka == null ? 1 : -1;
       return idx.get(a.id) - idx.get(b.id);
+    }).map((r) => r.id);
+  }
+  if (sortMode === "load") {
+    const idx = new Map(rows.map((r, i) => [r.id, i]));
+    const key = new Map(rows.map((r) => [r.id, loadKey(r)]));
+    return rows.slice().sort((x, y) => {
+      const kx = key.get(x.id), ky = key.get(y.id);
+      if (kx != null && ky != null && kx !== ky) return kx - ky;
+      if ((kx == null) !== (ky == null)) return kx == null ? 1 : -1;
+      return idx.get(x.id) - idx.get(y.id);
     }).map((r) => r.id);
   }
   return rows.map((r) => r.id);
