@@ -1,3 +1,8 @@
-/* Песочница Флота, v3.202 + вариант: через сколько секунд при наведении плашка раскрывается на 6 цветов. */
-#mkd-bar{position:fixed;left:8px;bottom:8px;z-index:99999;background:#fff;border:1px solid #2f6fd6;border-radius:6px;padding:4px 8px;font:12px sans-serif;display:flex;gap:10px;align-items:center}
-#mkd-bar label{cursor:pointer;white-space:nowrap}
+/* Песочница Флота, v3.202: подсветка «C», если трип идёт в Швецию (SE) или Норвегию (NO), а цепи не отмечены.
+   Класс chain-need на ячейке ставит variants.js; режим — класс cn-1 / cn-2 на body. */
+body.cn-1 .chain-cell.chain-need .chain-cb:not(:checked){background:#ffc2dc;border-color:#e0457b}
+body.cn-1 .chain-cell.chain-need .chain-cb:not(:checked):hover{background:#ffa6cd}
+body.cn-2 .chain-cell.chain-need{background:#ffd3e6}
+body.cn-2 .chain-cell.chain-need .chain-cb:not(:checked){border-color:#e0457b}
+#cn-bar{position:fixed;left:8px;bottom:8px;z-index:99999;background:#fff;border:1px solid #2f6fd6;border-radius:6px;padding:4px 8px;font:12px sans-serif;display:flex;gap:10px;align-items:center}
+#cn-bar label{cursor:pointer;white-space:nowrap}
