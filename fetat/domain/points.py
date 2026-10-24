@@ -312,10 +312,12 @@ def _near_point(a, b, lat, lng, obj):
     return haversine_km(a, b, lat, lng) <= DONE_RADIUS_KM
 
 
-def _auto_done(tstr, t, lat, lng, unit, stops_box):
+def _auto_done(tstr, t, lat, lng, unit, stops_box, since=None):
     """Автоматическое ✓ по истории Mapon. -> (отъезд ts | None, приезд ts | None, имя зоны | None).
-    Ошибка посреди проверки не теряет уже найденное (как и раньше)."""
+    Ошибка посреди проверки не теряет уже найденное (как и раньше).
+    v3.200: since — нижняя граница (ts отъезда с предыдущей пройденной точки): стоянки и проезды, закончившиеся раньше, — прошлый груз, не считаем."""
     auto_at = auto_arr = zone = None
+    since = since or 0
     try:
         # точка-машина (перецеп) двигается — по истории не проверяем
         if lat is not None and not t.get("target_is_truck"):
@@ -329,7 +331,7 @@ def _auto_done(tstr, t, lat, lng, unit, stops_box):
             if left and is_transit(tstr):          # v3.49: проезд — трек / короткие стоянки в зоне
                 for p in recent_passes(unit.get("unit_id")) or []:
                     if any(haversine_km(a, b, lat, lng) <= TRANSIT_NEAR_KM and near(a, b) for a, b in p["pts"]):
-                        if p["end"] > (auto_at or 0):
+                        if p["end"] >= since and p["end"] > (auto_at or 0):
                             auto_at, auto_arr = p["end"], None   # проезд: приезда по треку нет
             if left and not auto_at:
                 if stops_box[0] is None:
@@ -337,7 +339,7 @@ def _auto_done(tstr, t, lat, lng, unit, stops_box):
                 for st in stops_box[0]:
                     if st.get("now") or st.get("lat") is None:
                         continue
-                    if near(st["lat"], st["lng"]) and st["end"] > (auto_at or 0):
+                    if near(st["lat"], st["lng"]) and st["end"] >= since and st["end"] > (auto_at or 0):
                         auto_at, auto_arr = st["end"], st.get("start")
             if left and obj and auto_at:
                 zone = obj["name"]
@@ -456,6 +458,25 @@ def _click_time(click, i):
     return v if isinstance(v, str) and _CLICK_RE.fullmatch(v) else None
 
 
+def _parse_west_ts(v):
+    """v3.200: «dd/mm HH:MM» (местное время ts_west) -> ts или None. Год — текущий (если дата далеко в будущем — прошлый)."""
+    import time, calendar
+    from datetime import datetime
+    try:
+        d = datetime.strptime(str(v), "%d/%m %H:%M")
+        now = time.time()
+        y0 = datetime.utcfromtimestamp(now).year
+        for y in (y0, y0 - 1):
+            naive = calendar.timegm(d.replace(year=y).timetuple())
+            off = (ts_west(naive).replace(tzinfo=None) - datetime.utcfromtimestamp(naive)).total_seconds()
+            ts = naive - off
+            if ts <= now + 86400:
+                return ts
+    except Exception:
+        pass
+    return None
+
+
 def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
     """pts — строки точек (① + следующие), manual — [True/False/None] ручные отметки,
     seen — [время|None] уже запомненные в строке авто-✓ (v3.17: не теряются, когда стоянка
@@ -467,6 +488,7 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
     seen = seen or []
     out = []
     stops_box = [None]    # стоянки из Mapon — один раз на вызов, лениво
+    floor = None          # v3.200: ts отъезда с последней пройденной точки — раньше этого стоянки не считаем
     for i, tstr in enumerate(pts):
         m = manual[i] if i < len(manual) else None
         info = {"done": False, "auto": False, "at": None, "manual": m}
@@ -488,7 +510,7 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
             seen_arr_at = seen_arr[i]
         auto_arr = None      # v3.57: приезд на точку — начало стоянки, которая дала ✓
         if t is not None and m is None and seen_at is None and unit.get("lat") is not None:
-            auto_at, auto_arr, zone = _auto_done(tstr, t, lat, lng, unit, stops_box)
+            auto_at, auto_arr, zone = _auto_done(tstr, t, lat, lng, unit, stops_box, floor)
             if zone:
                 info["zone"] = zone
         if m is True:
@@ -517,6 +539,10 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
             info.update(done=True, auto=True,
                         at=ts_west(auto_at).strftime("%d/%m %H:%M"),
                         arr=ts_west(auto_arr).strftime("%d/%m %H:%M") if auto_arr else None)
+        if info["done"]:      # v3.200: граница для следующих точек
+            f = auto_at or _parse_west_ts(info.get("at"))
+            if f and (floor is None or f > floor):
+                floor = f
         out.append(info)
     # v3.29: пройдена следующая точка — значит, пройдены и предыдущие (ручное «не пройдена» не трогаем)
     last = max((i for i, x in enumerate(out) if x["done"]), default=-1)
