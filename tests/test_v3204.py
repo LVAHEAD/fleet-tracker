@@ -19,7 +19,7 @@ def _read(*p):
 DRIVER = r"""
 const fs = require('fs'), vm = require('vm');
 const code = fs.readFileSync(process.argv[1], 'utf8');
-vm.runInThisContext(code + "\n;globalThis.__api = { unitKey, unitList, rowPassesUnit, unitSlot, curUnits, set: (a) => { unitFilters.all = a; }, sets: (all, L, O) => { unitFilters.all = all; unitFilters.L = L; unitFilters.O = O; } };");
+vm.runInThisContext(code + "\n;globalThis.__api = { unitKey, unitList, rowPassesUnit, unitSlot, curUnits, set: (a) => { unitFilters['all|all'] = a; }, sets: (all, L, O, who) => { const w = who || 'all'; unitFilters[w + '|all'] = all; unitFilters[w + '|L'] = L; unitFilters[w + '|O'] = O; } };");
 const a = globalThis.__api;
 const rows = [
   { unit: "NP-7209" }, { unit: "np-7209 " }, { unit: "OI-7251" }, { unit: "OB-2697" }, { unit: "" }, { unit: "OB-10" }, { unit: "OB-9" },
@@ -41,6 +41,11 @@ globalThis.loFilter = "all"; out.slotAll = [a.unitSlot(), pass().every(Boolean)]
 globalThis.loFilter = "L"; out.slotL = [a.unitSlot(), pass()];
 globalThis.loFilter = "O"; out.slotO = [a.unitSlot(), pass()];
 globalThis.loFilter = "L"; out.backL = pass();
+// и у каждого диспетчера свой набор: другой диспетчер — свои наборы, возврат — прежние
+a.sets([], ["OB-2697"], [], "vl@x.com");
+globalThis.ownFilter = "vl@x.com"; out.vlL = [a.unitSlot(), pass()];
+globalThis.ownFilter = "all"; out.allAgain = [a.unitSlot(), pass()];
+globalThis.fleetMe = () => "vl@x.com"; globalThis.ownFilter = "mine"; out.mine = a.unitSlot();
 console.log(JSON.stringify(out));
 """
 
@@ -78,10 +83,15 @@ class UnitFilterTest(unittest.TestCase):
 
 class UnitFilterSlotsTest(UnitFilterTest):
     def test_separate_sets_per_lo_mode(self):
-        self.assertEqual(self.r["slotAll"], ["all", True])
-        self.assertEqual(self.r["slotL"], ["L", [True, True, False, False, True, False, False]])
-        self.assertEqual(self.r["slotO"], ["O", [False, False, True, False, True, False, False]])
+        self.assertEqual(self.r["slotAll"], ["all|all", True])
+        self.assertEqual(self.r["slotL"], ["all|L", [True, True, False, False, True, False, False]])
+        self.assertEqual(self.r["slotO"], ["all|O", [False, False, True, False, True, False, False]])
         self.assertEqual(self.r["backL"], self.r["slotL"][1])   # вернулись на L — набор L прежний
+
+    def test_separate_sets_per_dispatcher(self):
+        self.assertEqual(self.r["vlL"], ["vl@x.com|L", [False, False, False, True, True, False, False]])
+        self.assertEqual(self.r["allAgain"], ["all|L", self.r["slotL"][1]])   # вернулись к «Все» — набор «Все / L» прежний
+        self.assertEqual(self.r["mine"], "vl@x.com|L")   # «Мои» = набор своего диспетчера
 
 
 class WiringTest(unittest.TestCase):

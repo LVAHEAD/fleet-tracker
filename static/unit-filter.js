@@ -9,16 +9,25 @@
 Чистые функции — unitKey, unitList, rowPassesUnit, unitSlot (тест на node: tests/test_v3204.py).
 Опирается на глобалы app.js (rows, renderRows) — во время работы. Грузится ДО app.js. */
 
-// v3.205: у каждого режима L / O свой набор машин («все», L, O): переключился на L, выбрал своё, вернулся на O — набор O прежний
-let unitFilters = { all: [], L: [], O: [] };
+// v3.205: свой набор машин у каждой пары «диспетчер × режим»: ключ «кто|режим» (кто: all или e-mail диспетчера, режим: all / L / O).
+// Переключился на другого диспетчера или на L / O, выбрал своё, вернулся — прежний набор на месте.
+let unitFilters = {};
 try {
   const v = JSON.parse(localStorage.getItem("fleet-unit-filter") || "null");
   const clean = (x) => (Array.isArray(x) ? x.filter((k) => typeof k === "string" && k) : []);
-  if (Array.isArray(v)) unitFilters = { all: clean(v), L: clean(v), O: clean(v) };   // v3.204: был один общий набор — переносим во все режимы
-  else if (v && typeof v === "object") unitFilters = { all: clean(v.all), L: clean(v.L), O: clean(v.O) };
+  if (Array.isArray(v)) ["all", "L", "O"].forEach((m) => { unitFilters["all|" + m] = clean(v); });   // v3.204: был один общий набор — переносим во все режимы «Все»
+  else if (v && typeof v === "object") Object.keys(v).forEach((k) => {
+    if (k.includes("|")) unitFilters[k] = clean(v[k]);
+    else if (["all", "L", "O"].includes(k)) unitFilters["all|" + k] = clean(v[k]);   // набор по режимам без диспетчера
+  });
 } catch (e) {}
-function unitSlot() { return (typeof loFilter !== "undefined" && (loFilter === "L" || loFilter === "O")) ? loFilter : "all"; }
-function curUnits() { return unitFilters[unitSlot()]; }
+function unitSlot() {
+  let who = "all", lo = "all";
+  try { who = ownFilter === "mine" ? fleetMe() : ownFilter; } catch (e) { /* dispatchers.js ещё не загружен */ }
+  try { if (loFilter === "L" || loFilter === "O") lo = loFilter; } catch (e) { /* fleet-sort-filter.js ещё не загружен */ }
+  return String(who || "all").toLowerCase() + "|" + lo;
+}
+function curUnits() { return unitFilters[unitSlot()] || []; }
 
 function unitKey(unit) { return String(unit || "").toUpperCase().replace(/\s+/g, ""); }
 
@@ -52,9 +61,9 @@ function unitFilterMark() {
   if (typeof document === "undefined") return;
   const th = document.getElementById("unit-flt-th");
   if (!th) return;
-  const n = curUnits().length, sl = unitSlot();
+  const n = curUnits().length;
   th.classList.toggle("unit-on", n > 0);
-  th.title = n ? `Фильтр по машинам${sl === "all" ? "" : " (" + sl + ")"}: выбрано ${n} — клик, чтобы изменить` : "Фильтр по машинам — клик";
+  th.title = n ? `Фильтр по машинам: выбрано ${n} — клик, чтобы изменить` : "Фильтр по машинам — клик";
 }
 
 (function () {
@@ -63,7 +72,10 @@ function unitFilterMark() {
   if (!th) return;
   let pop = null;
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const save = () => { try { localStorage.setItem("fleet-unit-filter", JSON.stringify(unitFilters)); } catch (e) {} };
+  const save = () => {
+    Object.keys(unitFilters).forEach((k) => { if (!unitFilters[k].length) delete unitFilters[k]; });   // пустые наборы не храним
+    try { localStorage.setItem("fleet-unit-filter", JSON.stringify(unitFilters)); } catch (e) {}
+  };
   const mark = unitFilterMark;
   const rerender = () => { mark(); if (typeof renderRows === "function") renderRows(); };
 
@@ -94,7 +106,7 @@ function unitFilterMark() {
       const k = e.target && e.target.dataset && e.target.dataset.k;
       if (!k) return;
       const sl = unitSlot();
-      unitFilters[sl] = e.target.checked ? [...new Set([...unitFilters[sl], k])] : unitFilters[sl].filter((x) => x !== k);
+      unitFilters[sl] = e.target.checked ? [...new Set([...curUnits(), k])] : curUnits().filter((x) => x !== k);
       save();
       rerender();
     });
