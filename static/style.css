@@ -1646,12 +1646,12 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 .ferries-tbl tr.ferries-grp td { border-top: 2px solid #2f6fd6; }
 
 /* ---------- v3.195: именные плашки — значок вместо букв L/O (data-ptk на .lo-btn); клик по плашке прежний ---------- */
-.lo-btn[data-ptk] { font-size: 0; color: #2f6fd6; }
-.lo-btn[data-ptk].lo-L { color: #0f3f7a; }
-.lo-btn[data-ptk].lo-O { color: #6b4800; }
-.lo-btn[data-ptk]::before { content: ""; display: inline-block; width: 16px; height: 16px; vertical-align: -3px; pointer-events: none;
+.lo-btn[data-ptk] { font-size: 0; color: #8a8f98; }   /* v3.201: тихий вид «как буквы L / O», значок приглушён */
+.lo-btn[data-ptk].lo-L { color: #1F5A99; }
+.lo-btn[data-ptk].lo-O { color: #7A5C00; }
+.lo-btn[data-ptk]::before { content: ""; display: inline-block; width: 14px; height: 14px; vertical-align: -2px; pointer-events: none; opacity: .6;
   background: currentColor; -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
-.lo-btn[data-ptk="B"]::before { content: "B"; width: auto; height: auto; font-size: 16px; font-weight: 900; vertical-align: baseline; background: none; -webkit-mask: none; mask: none; }
+.lo-btn[data-ptk="B"]::before { content: "B"; width: auto; height: auto; font-size: 14px; font-weight: 700; vertical-align: baseline; background: none; -webkit-mask: none; mask: none; }
 .lo-btn[data-ptk="home"] { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 3 2 12h3v8h5v-6h4v6h5v-8h3z'/></svg>"); }
 .lo-btn[data-ptk="port"] { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2a3 3 0 0 0-1 5.8V10H8v2h3v7.9A7 7 0 0 1 5 13H3a9 9 0 0 0 18 0h-2a7 7 0 0 1-6 6.9V12h3v-2h-3V7.8A3 3 0 0 0 12 2zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></svg>"); }
 .lo-btn[data-ptk="cust"] { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill-rule='evenodd' d='M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 3a7 7 0 1 1 0 14 7 7 0 0 1 0-14zM12 8l1.2 2.6 2.8.3-2.1 1.9.6 2.8-2.5-1.4-2.5 1.4.6-2.8L8 10.9l2.8-.3z'/></svg>"); }
