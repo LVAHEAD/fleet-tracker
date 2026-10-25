@@ -54,12 +54,46 @@
     ".mord a{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-top:1px solid #dde3ec;color:#1b2230;text-decoration:none;font-size:14px}" +
     ".mord a span{color:#5a6578;font-size:12px;overflow-wrap:anywhere;text-align:right}.mord:not(.open) a{display:none}";
   var LINKS = [["ScandiLines", "cargoweb.scandlines.com"], ["Eckero Portal", "cargo.eckeroline.com"], ["Eckero mail", "cargo@eckeroline.fi"], ["Tallink mail", "booking.cargo@tallink.ee"], ["Kreiss mail", "booking@kreiss.lv"]];
+
+  /* ---- фильтры по странам (решено 25.10): «Все» + страна; страна показывает линии «из» и «в» неё; одна за раз; по числу линий ---- */
+  var cSel = "Все", cOrig = null, cObs = null;
+  function countries() {
+    var n = {};
+    FERRY_DATA.forEach(function (d) { d.dir.split("↔").forEach(function (c) { c = c.trim(); n[c] = (n[c] || 0) + 1; }); });
+    return Object.keys(n).sort(function (a, b) { return n[b] - n[a] || a.localeCompare(b); }).map(function (c) { return [c, n[c]]; });
+  }
+  function cApply() {
+    var r = sh(); if (!r) return;
+    [].forEach.call(r.querySelectorAll(".line"), function (l) {
+      var d = FERRY_DATA[+l.dataset.i].dir;
+      l.style.display = (cSel === "Все" || d.split("↔").some(function (c) { return c.trim() === cSel; })) ? "" : "none";
+    });
+    [].forEach.call(r.querySelectorAll(".grp"), function (g) {
+      var vis = [].some.call(g.querySelectorAll(".line"), function (l) { return l.style.display !== "none"; });
+      g.style.display = vis ? "" : "none";
+    });
+    [].forEach.call(r.querySelectorAll("#flt .btn"), function (b) { b.setAttribute("aria-pressed", b.dataset.c === cSel); });
+  }
+  function countryChips(on) {
+    var r = sh(); if (!r) return; var f = r.getElementById("flt");
+    if (on) {
+      if (cOrig === null) cOrig = f.innerHTML;
+      f.innerHTML = '<button type="button" class="btn" data-c="Все">Все</button>' + countries().map(function (c) { return '<button type="button" class="btn" data-c="' + c[0] + '">' + c[0] + " " + c[1] + "</button>"; }).join("");
+      if (!f._cl) { f._cl = 1; f.addEventListener("click", function (e) { var b = e.target.closest("[data-c]"); if (!b) return; e.stopPropagation(); cSel = b.dataset.c; cApply(); }, true); }
+      cSel = "Все"; cApply();
+      if (!cObs) { cObs = new MutationObserver(cApply); cObs.observe(r.getElementById("list"), { childList: true }); }
+    } else {
+      if (cObs) { cObs.disconnect(); cObs = null; }
+      cSel = "Все"; cApply();
+      if (cOrig !== null) { f.innerHTML = cOrig; cOrig = null; }
+    }
+  }
   var mst, mbtn, mord, mon = false, inM = false;
   function mobile(on) {
     var r = sh(); if (!r) return; if (on) { inM = true; apply(0); inM = false; } mon = on;
     var host = document.getElementById("ferries-root"), w = r.getElementById("mapwrap"), a = r.querySelector("aside.side");
     if (!mst) { mst = document.createElement("style"); r.appendChild(mst); }
-    mst.textContent = on ? MCSS : "";
+    mst.textContent = on ? MCSS : ""; countryChips(on);
     host.classList.toggle("m", on); r.querySelector(".wrap").classList.toggle("m-on", on);
     if (on && !mbtn) {
       mbtn = document.createElement("button"); mbtn.type = "button"; mbtn.className = "mbtn"; mbtn.textContent = "▾ Развернуть карту";
