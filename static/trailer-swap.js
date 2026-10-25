@@ -154,7 +154,7 @@ function openSwapPop(anchor, title, note, buttons, chk) {
   swapPop = document.createElement("div");
   swapPop.className = "trl-ed swap-pop";
   swapPop.innerHTML = `<div class="trl-ed-t">${title}</div>${note ? `<div class="trl-ed-err swap-note">${note}</div>` : ""}
-    ${chk ? `<label class="swap-chk"><input type="checkbox" class="swap-chk-in"> ${chk.text}</label>` : ""}
+    ${chk ? `<label class="swap-chk"><input type="checkbox" class="swap-chk-in" checked> ${chk.text}</label>` : ""}
     <div class="trl-ed-b">${buttons.map((b, i) => `<button data-i="${i}" class="${b.ok ? "trl-ed-ok" : "trl-ed-cancel"}">${b.text}</button>`).join("")}</div>`;
   document.body.appendChild(swapPop);
   const r = anchor.getBoundingClientRect();

@@ -160,7 +160,7 @@
     clearTimeout(hideT);
     if (anchor === el && tip && !tip.hidden) return;
     clearTimeout(showT);
-    showT = setTimeout(() => open(el), 180);
+    showT = setTimeout(() => open(el), 450);
   });
   document.addEventListener("mouseout", (e) => {
     const el = host(e);
