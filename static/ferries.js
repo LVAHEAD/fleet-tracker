@@ -54,8 +54,7 @@ h1 small{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
 .copy:hover{background:var(--accent);color:#fff}
 
 .mapwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
-#mapbox{min-width:700px}
-#mapbox svg{display:block;width:100%;height:auto}
+#mapbox svg{display:block;width:100%;height:auto;max-height:340px}
 .sea{fill:var(--water)}
 .land{fill:var(--land);stroke:var(--coast);stroke-width:1.2;stroke-linejoin:round}
 .cn{font:600 13px -apple-system,Segoe UI,sans-serif;letter-spacing:.18em;fill:var(--muted);opacity:.55;text-anchor:middle}
