@@ -45,11 +45,18 @@
     const driving = d.state === "DRIVING";
     const restIn = num(t.rest_start) && t.rest_start > 1e9 ? Math.max(0, t.rest_start - at) : null;
     const wkIn = num(w.rest_start) && w.rest_start > 1e9 ? Math.max(0, w.rest_start - at) : null;
-    return tile("Now", "clock", mh(n.driving), nowRem != null && driving ? mh(nowRem) : "", nowRem != null && driving ? (n.driving || 0) / ((n.driving || 0) + nowRem || NOW_CAP) : null) +
-      tile("Today", "clock", mh(t.driving), tRem != null ? mh(tRem) : "", tRem != null ? (t.driving || 0) / ((t.driving || 0) + tRem || DAY_CAP) : null) +
-      tile("10h Driving", "clock", ext[0] != null && ext[1] != null ? ext[0] + "/" + (ext[0] + ext[1]) : "—", "", null) +
-      tile("9h rest", "bed", sh[0] != null && sh[1] != null ? sh[0] + "/" + (sh[0] + sh[1]) : "—", "", sh[0] != null && sh[1] != null && sh[0] + sh[1] ? sh[0] / (sh[0] + sh[1]) : null) +
-      tile("Daily rest start", "bed", riga(t.rest_start), restIn != null ? mh(restIn) : "", null) +
+    const noDay = restIn == null;                              // Mapon: нет начала суточного отдыха — «NO DATA»
+    const resting = !driving && num(n.rest) > 0;               // не за рулём — «Now» это идущий отдых (значок кровати)
+    const nowTile = resting
+      ? tile("Now", "bed", mh(n.rest), nowRem != null ? mh(nowRem) : "", nowRem != null ? 1 - nowRem / NOW_CAP : null)
+      : tile("Now", "clock", mh(n.driving), nowRem != null ? mh(nowRem) : "", nowRem != null ? (n.driving || 0) / ((n.driving || 0) + nowRem || NOW_CAP) : null);
+    return nowTile +
+      (noDay ? tile("Today", "", '<span class="mp-nd">NO DATA</span>', "", null)
+        : tile("Today", "clock", mh(t.driving), tRem != null ? mh(tRem) : "", tRem != null ? (t.driving || 0) / ((t.driving || 0) + tRem || DAY_CAP) : null)) +
+      tile("10h Driving", "clock", ext[0] != null && ext[1] != null ? ext[0] + "/" + ext[1] : "—", "", null) +     // «доступно» = лимит (2 / 3), как в Mapon
+      tile("9h rest", "bed", sh[0] != null && sh[1] != null ? sh[0] + "/" + sh[1] : "—", "", sh[0] != null && sh[1] ? sh[0] / sh[1] : null) +
+      (noDay ? tile("Daily rest start", "", '<span class="mp-nd">NO DATA</span>', "", null)
+        : tile("Daily rest start", "bed", riga(t.rest_start), mh(restIn), null)) +
       tile("This week", "clock", mh(w.driving), wRem != null ? mh(wRem) : "", wRem != null ? (w.driving || 0) / ((w.driving || 0) + wRem || WEEK_CAP) : null) +
       tile("Next week", "clock", num(w.next) != null ? mh(w.next) : "—", "", null) +
       tile("Weekly rest start", "bed", riga(w.rest_start, true), wkIn != null ? mh(wkIn) : "", null);
@@ -63,7 +70,7 @@
         : "Тахограф отстаёт от GPS: по тахографу " + hm(f.tacho) + ", по GPS ≈ " + hm(f.driven) + " — остаток по GPS";
       return '<div class="tp-gps warn"><b>⚠</b><span>' + txt + "</span></div>";
     }
-    if (p.gps && p.gps.driven != null && p.tacho_driven != null) {
+    if (p.gps && p.gps.driven != null && p.tacho_driven != null && Math.abs(p.gps.driven - p.tacho_driven) <= 3600) {
       return '<div class="tp-gps ok"><b>✓</b><span>Тахограф ' + hm(p.tacho_driven) + " · GPS ≈ " + hm(p.gps.driven) + " — сходится</span></div>";
     }
     return "";
