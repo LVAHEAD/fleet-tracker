@@ -132,6 +132,7 @@ const PORTS = {
   hirt:["Хиртсхальс",9.96,57.59,-9,-6,"end"], gren:["Грена",10.92,56.41,-9,4,"end"], cph:["Копенгаген",12.6,55.7,-9,14,"end"],
   oslo:["Осло",10.75,59.9,9,4,"start"], larv:["Ларвик",10.03,59.05,-9,4,"end"], kris:["Кристиансанн",8,58.15,0,20,"middle"],
   kapel:["Капелльшер",19.07,59.72,9,4,"start"], pald:["Палдиски",24.05,59.35,-9,14,"end"], tall:["Таллин",24.75,59.45,9,16,"start"],
+  putt:["Путтгарден",11.22,54.5,-9,8,"end"], rody:["Рёдбю",11.35,54.66,9,-4,"start"], gedser:["Гедсер",11.93,54.57,9,12,"start"],
   stav:["Ставангер",5.7,58.97,-9,4,"end"], berg:["Берген",5.3,60.4,-9,4,"end"],
 };
 // [номер строки таблицы, от, до, промежуточные точки]
@@ -143,6 +144,7 @@ const SEG = [
   [18,"malm","trav",[[12.8,54.95],[11.5,54.2]]],[19,"fred","gote"],[20,"hsg","hsb"],[21,"gren","halm"],
   [22,"hirt","kris"],[23,"hirt","larv"],[24,"hirt","kris"],[25,"hirt","stav"],[25,"stav","berg"],
   [27,"hels","tall"],[28,"hels","tall"],[29,"hels","tall"],[30,"kapel","pald"],[31,"sto","tall",[[19.4,59.45],[22.5,59.55]]],
+  [32,"putt","rody"],[33,"rost","gedser",[[12.0,54.4]]],
   [26,"cph","oslo",[[12.67,56],[12.2,56.5],[11.4,57.5],[10.7,58.6],[10.6,59.2]]],
 ];
 function buildMap() {
@@ -176,7 +178,7 @@ function hours(t) {
   return h + m / 60;
 }
 function hue(s) { let x = 0; for (const c of s) x = (x * 31 + c.charCodeAt(0)) % 360; return x; }
-function region(d) { return d.includes("Эстония") ? "Эстония" : d.startsWith("Германия") ? "Германия ↔ Финляндия" : d.startsWith("Швеция") ? "Швеция" : "Дания"; }
+function region(d) { return d.includes("Эстония") ? "Эстония" : d.startsWith("Германия") && d.includes("Финляндия") ? "Германия ↔ Финляндия" : d.startsWith("Швеция") ? "Швеция" : "Дания"; }
 const rows = FERRY_DATA.map((d, i) => {
   const m = d.freq.match(/≈\s*([\d.,–\- ]+(?:ч|мин)(?:\s*\d+\s*мин)?)/);
   let rest = d.freq.replace(m ? m[0] : "", "");
