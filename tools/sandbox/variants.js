@@ -53,3 +53,98 @@
     bar.style.display = vis ? "block" : "none";
   }, 400);
 })();
+
+/* Песочница Флота, 25.10 (обс, Владимир): цепочка перецепа у пройденной точки-машины («OM-8211 ↔ ON-3917»).
+   Только вид: текст в поле таргета не меняется (по нему считаются позиция, ✓ и код точки), цепочка рисуется поверх пустой части поля
+   и дублируется в подсказке. В цепочку идут пройденные (✓) точки-машины этой строки, последней — исходная машина строки.
+   Переключатели внизу страницы на вкладке Флота; «Пример на строке» — превращает ③ и ⑤ первой подходящей строки в точки-машины. */
+(function () {
+  var mode = "tail", demo = true, narrow = false, saved = new WeakMap(), hid = new WeakMap();
+  var ARROW = " ↔ ";
+  function wraps(tr) { return Array.prototype.slice.call(tr.querySelectorAll(".target-wrap")); }
+  function inp(w) { return w.querySelector(".target-input, .xt-input"); }
+  function plaque(w) { return w.querySelector(".lo-btn"); }
+  function textW(el, s) {
+    var c = textW.c || (textW.c = document.createElement("canvas").getContext("2d"));
+    c.font = getComputedStyle(el).font; return c.measureText(s).width;
+  }
+  function chainFor(tr) {
+    var unit = (tr.querySelector(".unit-input") || {}).value || "";
+    var out = [], prev = [];
+    wraps(tr).forEach(function (w, i) {
+      var b = plaque(w), name = (inp(w).value || "").trim();
+      if (b && b.dataset.ptk === "truck" && w.classList.contains("pt-done") && name) {
+        var list = [name].concat(prev.slice().reverse()); if (unit) list.push(unit.trim());
+        out[i] = list; prev.push(name);
+      }
+    });
+    return out;
+  }
+  function applyDemo(tr) {
+    var ws = wraps(tr), on = demo;
+    ws.slice(0, 5).forEach(function (w) {      // свёрнутые точки показываем только в примере
+      if (on) { if (w.classList.contains("fold-hide")) { hid.set(w, 1); w.classList.remove("fold-hide"); } }
+      else if (hid.has(w)) { w.classList.add("fold-hide"); hid.delete(w); }
+    });
+    [[2, "OM-8211"], [4, "XX-YYYY"]].forEach(function (p) {
+      var w = ws[p[0]]; if (!w) return;
+      var i = inp(w), b = plaque(w);
+      if (on) {
+        if (!saved.has(w)) saved.set(w, { v: i.value, k: b.dataset.ptk, d: w.classList.contains("pt-done") });
+        i.value = p[1]; b.dataset.ptk = "truck"; w.classList.add("pt-done");
+      } else if (saved.has(w)) {
+        var s0 = saved.get(w); i.value = s0.v; if (s0.k) b.dataset.ptk = s0.k; else delete b.dataset.ptk;
+        w.classList.toggle("pt-done", s0.d); saved.delete(w); clear(w);
+      }
+    });
+  }
+  function clear(w) {
+    var t = w.querySelector(".chain-tail"); if (t) t.remove();
+    delete w.dataset.chain;
+  }
+  function draw(w, list) {
+    var i = inp(w), full = list.join(ARROW);
+    if (mode === "off") { clear(w); return; }
+    i.title = full;
+    if (mode !== "tail") { clear(w); return; }
+    var rest = list.slice(1), orig = rest[rest.length - 1];
+    var tail = "↔ " + rest.join(ARROW);
+    var left = i.offsetLeft + parseFloat(getComputedStyle(i).paddingLeft) + textW(i, i.value) + 10;
+    var room = i.offsetLeft + i.offsetWidth - 6 - left;
+    if (textW(i, tail) > room) tail = rest.length > 1 ? "↔ … ↔ " + orig : tail;
+    if (textW(i, tail) > room) { clear(w); return; }
+    var key = tail + "|" + Math.round(left) + "|" + Math.round(room);
+    if (w.dataset.chain === key) return;
+    var t = w.querySelector(".chain-tail");
+    if (!t) { t = document.createElement("span"); t.className = "chain-tail"; w.appendChild(t); }
+    t.textContent = tail; t.style.left = left + "px"; t.style.maxWidth = room + "px"; t.style.font = getComputedStyle(i).font;
+    t.title = full; w.dataset.chain = key;
+  }
+  function pass() {
+    var body = document.getElementById("fleet-tbody"); if (!body || body.offsetParent === null) return;
+    document.body.classList.toggle("ch-narrow", narrow);
+    var rows = Array.prototype.slice.call(body.querySelectorAll("tr")).filter(function (tr) { return tr.querySelector(".unit-input"); });
+    var demoRow = rows.filter(function (tr) { return wraps(tr).length >= 3; }).sort(function (a, b) { return wraps(b).length - wraps(a).length; })[0];
+    if (demoRow) applyDemo(demoRow);
+    rows.forEach(function (tr) {
+      var ch = chainFor(tr);
+      wraps(tr).forEach(function (w, i) { if (ch[i]) draw(w, ch[i]); else if (w.querySelector(".chain-tail")) clear(w); });
+    });
+  }
+  var bar = document.createElement("div"); bar.className = "vbar";
+  bar.style.cssText = "position:fixed;left:50%;bottom:8px;transform:translateX(-50%);z-index:99999;display:none;gap:6px;padding:6px 8px;background:#fff;border:1px solid #2f6fd6;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.2);font:12px sans-serif;align-items:center";
+  function btn(txt, fn) { var b = document.createElement("button"); b.type = "button"; b.textContent = txt; b.onclick = function () { fn(b); pass(); sync(); }; bar.appendChild(b); return b; }
+  var lab = document.createElement("span"); lab.textContent = "Цепочка перецепа:"; bar.appendChild(lab);
+  var bOff = btn("Выкл", function () { mode = "off"; }), bTail = btn("Хвост в поле", function () { mode = "tail"; }), bTip = btn("Только подсказка", function () { mode = "tip"; });
+  var bDemo = btn("Пример на строке", function () { demo = !demo; }), bNar = btn("Узкая колонка", function () { narrow = !narrow; });
+  function sync() {
+    bOff.classList.toggle("on", mode === "off"); bTail.classList.toggle("on", mode === "tail"); bTip.classList.toggle("on", mode === "tip");
+    bDemo.classList.toggle("on", demo); bNar.classList.toggle("on", narrow);
+  }
+  document.body.appendChild(bar); sync();
+  setInterval(function () {
+    var b = document.getElementById("fleet-tbody"), vis = b && b.offsetParent !== null;
+    bar.style.display = vis ? "flex" : "none";
+    if (vis) pass();
+  }, 400);
+})();

@@ -1,1 +1,6 @@
 /* Песочница Флота, v3.203: розовое «C» (SE / NO без цепей) и задержка цветов метки 1 сек выкачены и берутся из style.css / app.js аппы. Сюда — только новые варианты. */
+
+/* Цепочка перецепа (25.10): серый хвост поверх пустой части поля пройденной точки-машины; текст поля не меняется */
+.target-wrap { position: relative; }
+.chain-tail { position: absolute; top: 50%; transform: translateY(-50%); color: #5b6472; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; line-height: 1; }
+body.ch-narrow #fleet-tbody .target-wrap { max-width: 175px; }
