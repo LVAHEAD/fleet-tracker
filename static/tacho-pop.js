@@ -34,6 +34,8 @@
       (frac == null ? "" : '<div class="mp-b"><i style="width:' + (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + '%"></i></div>') + "</div>";
   }
 
+  const validTs = (v) => num(v) && v > 1e9;
+  const cardOk = (d) => { const t = d.today || {}; return validTs(t.rest_start) || validTs(t.shift_start); };   // нет данных суток — Mapon показывает NO CARD
   function tiles(d, at) {
     if (!d) {
       return ["Now", "Today", "10h Driving", "9h rest", "Daily rest start", "This week", "Next week", "Weekly rest start"]
@@ -48,7 +50,7 @@
     const noDay = restIn == null;                              // Mapon: нет начала суточного отдыха — «NO DATA»
     const resting = !driving && num(n.rest) > 0;               // не за рулём — «Now» это идущий отдых (значок кровати)
     const nowTile = resting
-      ? tile("Now", "bed", mh(n.rest), nowRem != null ? mh(nowRem) : "", nowRem != null ? 1 - nowRem / NOW_CAP : null)
+      ? tile("Now", "bed", mh(n.rest), mh(Math.min(NOW_CAP, !noDay && tRem != null ? tRem : NOW_CAP)), null)
       : tile("Now", "clock", mh(n.driving), nowRem != null ? mh(nowRem) : "", nowRem != null ? (n.driving || 0) / ((n.driving || 0) + nowRem || NOW_CAP) : null);
     return nowTile +
       (noDay ? tile("Today", "", '<span class="mp-nd">NO DATA</span>', "", null)
@@ -79,7 +81,7 @@
   function render(c) {
     const p = c.p, ds = p.drivers || [];
     const tabs = [0, 1].slice(0, p.team ? 2 : Math.max(1, ds.length)).map((i) => {
-      const ok = !!ds[i];
+      const ok = !!ds[i] && cardOk(ds[i]);
       const nm = ok && ds[i].name ? ds[i].name : "Driver " + (i + 1);
       return '<button type="button" class="mp-tab' + (i === tab ? " on" : "") + '" data-tab="' + i + '"><span class="mp-n">' + esc(nm) +
         '</span><span class="mp-c' + (ok ? "" : " no") + '">' + (ok ? "CARD INSERTED" : "NO CARD") + "</span></button>";

@@ -193,11 +193,15 @@ def tacho_driven(tacho):
     drivers = (tacho or {}).get("drivers") or []
     if not drivers:
         return None
+    def drv(d):                      # смена не начата (shift_start <= 0, как у OI-3576 после недельного отдыха) — вчерашнее не считаем
+        t = (d or {}).get("today") or {}
+        ss = t.get("shift_start")
+        return 0 if ss is not None and float(ss) <= 0 and t.get("driving") is not None else t.get("driving")
     if _team(tacho):
-        vals = [(d.get("today") or {}).get("driving") for d in drivers]
+        vals = [drv(d) for d in drivers]
     else:
         d0 = next((d for d in drivers if d.get("current_state") == "DRIVING"), drivers[0])
-        vals = [(d0.get("today") or {}).get("driving")]
+        vals = [drv(d0)]
     vals = [float(v) for v in vals if v is not None]
     return sum(vals) if vals else None
 
