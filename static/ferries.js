@@ -188,7 +188,17 @@ const rows = FERRY_DATA.map((d, i) => {
   return { ...d, i, time: m ? m[1].trim() : "", h: m ? hours(m[1]) : null, tag: tg ? tg[1] : "", rest, region: region(d.dir) };
 });
 let reg = "Все", q = "", sel = null, selName = "";
-const regions = ["Все", "Германия ↔ Финляндия", "Швеция", "Дания", "Эстония"];
+// v3.207: фильтр по странам — «Все» и страна, которая есть в данных (по числу линий); страна показывает линии «из» и «в» неё.
+const dirParts = (d) => d.split("↔").map((x) => x.trim());
+const regions = (() => { const n = {}; rows.forEach((r) => dirParts(r.dir).forEach((c) => { n[c] = (n[c] || 0) + 1; }));
+  return ["Все"].concat(Object.keys(n).sort((a, b) => n[b] - n[a] || a.localeCompare(b, "ru"))); })();
+// Развернуть текст под выбранную страну: она первой («Эстония» → «Эстония ↔ Финляндия», «Финляндия» → «Финляндия ↔ Эстония»).
+const flipped = (r) => reg !== "Все" && dirParts(r.dir)[1] === reg;
+const flipDir = (r) => flipped(r) ? dirParts(r.dir).reverse().join(" ↔ ") : r.dir;
+const flipRoute = (r) => flipped(r) ? r.route.split("↔").map((x) => x.trim()).reverse().join(" ↔ ") : r.route;
+const flipPorts = (r) => { if (!flipped(r)) return r.ports;
+  const sep = r.ports.includes(" · ") ? " · " : r.ports.includes(" — ") ? " — " : null;
+  return sep ? r.ports.split(sep).reverse().join(sep) : r.ports; };
 function pair(dir) {
   const [a, b] = dir.split("↔").map((x) => CC[x.trim()] || x.trim());
   return `<span class="pair"><span class="cc">${esc(a)}</span>↔<span class="cc">${esc(b)}</span></span>`;
@@ -206,7 +216,7 @@ function lineHtml(r) {
   return `<div class="line" data-i="${r.i}">
     <button type="button" class="row" aria-expanded="false">
       <span><span class="op" style="--h:${hue(r.op)}">${esc(r.op)}</span></span>
-      <span class="rt"><div class="route">${esc(r.route)}</div><div class="ports">${esc(r.ports)}</div></span>
+      <span class="rt"><div class="route">${esc(flipRoute(r))}</div><div class="ports">${esc(flipPorts(r))}</div></span>
       <span class="time">${r.time ? `<span class="hrs"><i>≈</i>${hrsHtml(r.time)}</span><span class="bar"><b style="width:${pct}%"></b></span>` : ""}
         <span class="freq">${tag}${esc(r.rest)}</span></span>
       <span class="chev" aria-hidden="true">▸</span>
@@ -216,14 +226,14 @@ function lineHtml(r) {
 }
 function render() {
   const t = q.trim().toLowerCase();
-  const vis = rows.filter((r) => (reg === "Все" || r.region === reg) && (!sel || sel.has(r.i)) && (!t || (r.op + r.route + r.ports + r.dir + r.cond).toLowerCase().includes(t)));
+  const vis = rows.filter((r) => (reg === "Все" || dirParts(r.dir).includes(reg)) && (!sel || sel.has(r.i)) && (!t || (r.op + r.route + r.ports + r.dir + r.cond).toLowerCase().includes(t)));
   markMap();
   root.getElementById("cnt").textContent = vis.length + " из " + rows.length + " линий";
   const groups = [];
   vis.forEach((r) => { let g = groups.find((x) => x.dir === r.dir); if (!g) groups.push((g = { dir: r.dir, rows: [] })); g.rows.push(r); });
   const open = new Set([...root.querySelectorAll(".line.open")].map((e) => e.dataset.i));
   root.getElementById("list").innerHTML = groups.length ? groups.map((g) =>
-    `<section class="grp"><div class="grp-h">${pair(g.dir)}<span>${esc(g.dir)}</span><span class="n">${g.rows.length} лин.</span></div>${g.rows.map(lineHtml).join("")}</section>`).join("")
+    `<section class="grp"><div class="grp-h">${pair(flipDir(g.rows[0]))}<span>${esc(flipDir(g.rows[0]))}</span><span class="n">${g.rows.length} лин.</span></div>${g.rows.map(lineHtml).join("")}</section>`).join("")
     : '<div class="grp"><div class="empty">Ничего не найдено. Сбросьте поиск или фильтр.</div></div>';
   root.querySelectorAll(".line").forEach((e) => { if (open.has(e.dataset.i)) { e.classList.add("open"); e.querySelector(".row").setAttribute("aria-expanded", "true"); } });
 }
