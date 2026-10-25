@@ -54,7 +54,14 @@ h1 small{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
 .copy:hover{background:var(--accent);color:#fff}
 
 .mapwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
-#mapbox svg{display:block;width:100%;height:auto;max-height:340px}
+#mapbox svg{display:block;width:100%;height:auto}
+.wrap{display:grid;grid-template-columns:700px minmax(0,1fr);gap:10px 18px;align-items:start}
+.wrap>.top{grid-column:1/-1}
+.wrap>aside.side{grid-column:1;grid-row:2/span 8;position:sticky;top:8px}
+.wrap>*:not(.top):not(aside.side){grid-column:2}
+aside.side .mapwrap{margin-bottom:10px}aside.side .filters{margin-bottom:6px}
+.legend span:last-child{flex-basis:100%}
+@media (max-width:1150px){.wrap{display:block}.wrap>aside.side{position:static}.wrap>*{margin-bottom:10px}}
 .sea{fill:var(--water)}
 .land{fill:var(--land);stroke:var(--coast);stroke-width:1.2;stroke-linejoin:round}
 .cn{font:600 13px -apple-system,Segoe UI,sans-serif;letter-spacing:.18em;fill:var(--muted);opacity:.55;text-anchor:middle}
@@ -86,10 +93,12 @@ h1 small{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
     <h1>Паромы<small id="cnt"></small></h1>
     <input id="q" class="search" type="search" placeholder="Порт, оператор, город" autocomplete="off">
   </div>
+  <aside class="side">
   <div class="mapwrap" id="mapwrap"><div id="mapbox"></div>
     <div class="legend"><span><i style="background:var(--c-fi)"></i>Германия ↔ Финляндия</span><span><i style="background:var(--c-se)"></i>Швеция</span><span><i style="background:var(--c-dk)"></i>Дания</span><span><i style="background:var(--c-ee)"></i>Эстония</span><span>Клик по линии или порту — показать в таблице. Схема, береговая линия упрощена.</span></div></div>
   <div class="filters" id="flt"></div>
   <div class="selbar" id="selbar"></div>
+  </aside>
   <p class="note">Справочно: время и условия сверяйте с оператором. Полоска — длительность рейса от 0 до 43 ч (самый долгий, Росток – Ханко, Transfennica). Клик по линии — условия и контакты.</p>
   <div id="list" style="display:flex;flex-direction:column;gap:14px"></div>
   <p class="note"><b>Регистрация (check-in).</b> Тягач с водителем — не позднее 60–90 мин до отхода; несопровождаемые прицепы — за 2–3 ч; ADR — декларация подана и подтверждена минимум за 24 ч до рейса.</p>
