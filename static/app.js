@@ -219,11 +219,11 @@ function saveRows() {
   if (window.PrepMap) window.PrepMap.sync();   // v3.178: флажки трипов без машины на карте
 }
 
-// v3.177: цветная метка клиента — только у пользователя VL (vladimirs.head); остальным кнопки нет
+// v3.177: цветная метка клиента (до v3.205 — только у VL, теперь у всех)
 const MARK_NAMES = ["без цвета", "оранжевый", "cyan", "зелёный", "жёлтый", "красный"];
+// v3.205: метка клиента (с датой и шестью цветами), быстрые кнопки T / +1 / +2 и цвет флажков на карте — для всех диспетчеров (решение Владимира 25.10)
 function markAllowed() {
-  const me = fleetMe();
-  return !!me && (me === canonEmail("vladimirs.head@gmail.com") || dispTag(me) === "VL");
+  return true;
 }
 // v3.202: в плашке — дата точки ① (Delivery первой строки), ДД.ММ; по ней же сортировка «загрузка»
 function markDateText(row) {
@@ -582,7 +582,7 @@ function renderRows() {
   });
   attachRowHandlers();
   if (window.PrepMap) window.PrepMap.sync();   // v3.179: плашки кодов у трипов без машины
-  if (window.slotQuickUpdate) window.slotQuickUpdate();   // v3.180: быстрые кнопки T / +1 / +2 (только VL)
+  if (window.slotQuickUpdate) window.slotQuickUpdate();   // v3.180: быстрые кнопки T / +1 / +2 (v3.205 — у всех)
   updateFleetCount();
 }
 

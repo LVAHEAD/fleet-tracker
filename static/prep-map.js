@@ -3,7 +3,7 @@ Fleet ETA Tracker — трипы без машины (v3.178, переделан
 1) Плашки кодов точек в таблице (ES46 и т. п.) — как у трипов с машиной; код считает сервер по координатам (/api/locate, без Google).
 2) Клик по трипу без машины — на карте Флота флажки всех его точек с номерами, масштаб под них (вызывается из drawRoute, map-core.js).
 Координаты точки — только из адресной базы (точное совпадение таргета с названием или alias) или вписанный GPS; иначе точка молчит.
-Цвет флажков по цветной метке (row.mark) — только у VL (markAllowed); у остальных — обычный цвет L / O.
+Цвет флажков по цветной метке (row.mark) (markAllowed, с v3.205 у всех диспетчеров).
 Опирается на глобалы app.js / map-core.js (rows, map, makeBadge, flagIcon, targetColors, numChip, pointOf, ptFlagCls, ptFlagStyle,
 markAllowed, escapeHtml). PrepMap.sync() — из saveRows, renderRows, initMap и после загрузки адресов; PrepMap.select(rowId, keepView) — из drawRoute.
 */

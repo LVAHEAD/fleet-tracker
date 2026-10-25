@@ -1604,7 +1604,7 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 .addr-card .addr-field textarea { align-self: flex-start; }
 .addr-card .addr-err { margin-left: 96px; }
 
-/* v3.177: цветная метка под клиентом (только VL): полоска на всю ширину ячейки, таблетка; клик — следующий цвет.
+/* v3.177: цветная метка под клиентом (до v3.205 только VL, теперь все): полоска на всю ширину ячейки, таблетка; клик — следующий цвет.
    v3.202: 18 px, внутри дата точки ① (ДД.ММ); при наведении — 6 сегментов (без цвета + 5 цветов), клик по сегменту ставит цвет */
 .cl-mark-wrap { position: relative; display: block; margin: 3px 0 0; }
 .cl-mark { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; height: 18px; margin: 0; padding: 0; cursor: pointer;
@@ -1633,7 +1633,7 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 /* v3.178: плашка трипа без машины на карте — как плашка таргета, рамка в цвет метки (задаётся в prep-map.js), чуть бледнее */
 .mk-tbadge.mk-prep { opacity: .92; font-weight: 500; }
 
-/* v3.180: быстрые кнопки «T» / «+1» / «+2» в заголовке TimeSlot (только VL), схема «Синий Кальк»; при них текст заголовка — влево */
+/* v3.180: быстрые кнопки «T» / «+1» / «+2» в заголовке TimeSlot (до v3.205 только VL, теперь все), схема «Синий Кальк»; при них текст заголовка — влево */
 /* v3.183: position: sticky у шапки (строка 781) уже даёт контейнер для .sq-wrap; «relative» здесь отключал прилипание и сдвигал заголовок вниз */
 #fleet-table thead th.th-slot.sq-vl { text-align: left; padding-left: 8px; }
 .sq-wrap { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: inline-flex; gap: 2px; }
