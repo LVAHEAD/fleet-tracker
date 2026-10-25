@@ -113,8 +113,8 @@ function unitFilterMark() {
     pop.querySelector(".cf-reset").addEventListener("click", () => {
       unitFilters[unitSlot()] = [];
       save();
-      fillList();
       rerender();
+      close();   // v3.205: «Сбросить» закрывает окно
     });
     pop.querySelector(".cf-search").focus();
   }

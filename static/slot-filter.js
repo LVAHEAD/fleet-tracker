@@ -133,7 +133,7 @@ function rowPassesSlot(row) {
         render();
       } else if (t.classList.contains("sf-today-btn")) pick(0);
       else if (t.classList.contains("sf-tom-btn")) pick(1);
-      else if (t.classList.contains("sf-reset")) { slotFilter = []; save(); render(); rerender(); }
+      else if (t.classList.contains("sf-reset")) { slotFilter = []; save(); rerender(); close(); }   // v3.205: «Сбросить» закрывает окно
     });
   }
 

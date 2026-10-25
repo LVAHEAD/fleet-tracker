@@ -103,8 +103,8 @@ function rowPassesClient(row) {
     pop.querySelector(".cf-reset").addEventListener("click", () => {
       clientFilter = [];
       save();
-      fillList();
       rerender();
+      close();   // v3.205: «Сбросить» закрывает окно
     });
     pop.querySelector(".cf-search").focus();
   }
