@@ -231,7 +231,7 @@ function swapChipClick(id, k, anchor) {
     if (inf.ex && inf.slot == null) note += " В её трипе нет пройденных точек — обмен там автоматически не сделать.";
   }
   const chk = inf.ex && inf.slot != null
-    ? { text: `Обмен: в строке ${escapeHtml(to)}${inf.lab(inf.ex)} поставить ${escapeHtml(row.unit)} и вставить встречу ${escapeHtml(exchangeWhere(inf.ex, inf.slot))}` } : null;
+    ? { text: `Обмен: в строке ${escapeHtml(to)}${inf.lab(inf.ex)} поставить ${escapeHtml(row.unit)} и вставить встречу` } : null;
   openSwapPop(anchor, `Передать ${row.trailer ? "прицеп " + escapeHtml(row.trailer) : "рейс"} → ${escapeHtml(to)}?`, note,
     [{ text: "Да, перецеп", ok: true, fn: (on) => doTransfer(id, k, on) },
      { text: "Нет, просто встреча", fn: () => toggleDone(id, k) }], chk);
