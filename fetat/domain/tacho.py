@@ -187,17 +187,50 @@ def gps_shift(segs, now_ts):
     return {"start": start, "driven": sum(e - max(s, start) for s, e in drive if e > start), "stand": stand}
 
 
+def tacho_driven(tacho):
+    """v3.217: вождение за сегодня по тахографу, секунды: экипаж — сумма today.driving по картам, соло — у водителя
+    за рулём (иначе у первого). None — у карт нет поля driving (старые данные и тестовые заготовки)."""
+    drivers = (tacho or {}).get("drivers") or []
+    if not drivers:
+        return None
+    if _team(tacho):
+        vals = [(d.get("today") or {}).get("driving") for d in drivers]
+    else:
+        d0 = next((d for d in drivers if d.get("current_state") == "DRIVING"), drivers[0])
+        vals = [(d0.get("today") or {}).get("driving")]
+    vals = [float(v) for v in vals if v is not None]
+    return sum(vals) if vals else None
+
+
+def team_day_left(drivers):
+    """v3.217: остаток дня экипажа — не больше 18 ч минус вождение обоих. Остаток каждого водителя Mapon считает
+    от 10 ч (расширения 10 ч не использованы), и сумма остатков давала 20 ч вместо потолка 18 ч — два часа
+    «лишних». Нет второй карты — за второго свежие 9 ч (v3.15). Поля driving нет — как раньше, по остаткам."""
+    rem = sum(float((d.get("today") or {}).get("driving_remaining") or 0) for d in drivers) \
+        + (9 * 3600 if len(drivers) < 2 else 0)
+    drv = [(d.get("today") or {}).get("driving") for d in drivers]
+    if drv and all(v is not None for v in drv):
+        rem = min(rem, TEAM_DAY_SEC - sum(float(v) for v in drv))
+    return max(0.0, min(TEAM_DAY_SEC, rem))
+
+
 def gps_adjust(tacho, day_left, day_max):
     """v3.104: остаток дня по тахографу против GPS-смены (tacho["gps"] из gps_shift). Если у Mapon нет вождения
     (карты не считаны, ddd не скачан — счётчики «чистые»), а по GPS в смене езды больше на GPS_BLIND_SEC, остаток —
-    day_max минус вождение по GPS. Возвращает (day_left, fix | None); fix {start, driven, tacho} — поправка применена."""
+    day_max минус вождение по GPS. Возвращает (day_left, fix | None); fix {start, driven, tacho, kind} — поправка
+    применена; kind: "nocard" — экипаж, а карта одна (вторая не считана), "lag" — тахограф отстаёт.
+    v3.217: сравниваем вождение (tacho_driven), а не остаток: у экипажа с двумя картами «18 ч − остаток» занижало
+    вождение на 2 ч, и тревога «тахограф отстаёт» срабатывала у каждого такого экипажа."""
     g = (tacho or {}).get("gps")
     if not g or g.get("start") is None or day_left is None:
         return day_left, None
-    implied = max(0.0, day_max - float(day_left))
+    implied = tacho_driven(tacho)
+    if implied is None:
+        implied = max(0.0, day_max - float(day_left))
     if float(g["driven"]) - implied <= GPS_BLIND_SEC:
         return day_left, None
-    return max(0.0, day_max - float(g["driven"])), dict(g, tacho=implied)
+    kind = "nocard" if (_team(tacho) and len(tacho.get("drivers") or []) < 2) else "lag"
+    return max(0.0, day_max - float(g["driven"])), dict(g, tacho=implied, kind=kind)
 
 
 def gps_rest_now(tacho, d0, rest_now):
@@ -413,8 +446,7 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None, no_week=False, ext_days=
     short_left = int(week.get("9h_rest_shortening_remaining") or 0)
     pre = []
     if team:
-        day_left = min(TEAM_DAY_SEC, sum(float((d.get("today") or {}).get("driving_remaining") or 0) for d in drivers)
-                       + (9 * 3600 if len(drivers) < 2 else 0))   # v3.15: карта второго не вставлена — свежий
+        day_left = team_day_left(drivers)   # v3.15: карта второго не вставлена — свежий; v3.217: потолок 18 ч минус вождение
         since = 0.0
     else:
         day_left = float(today.get("driving_remaining") or 0)
@@ -467,11 +499,19 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None, no_week=False, ext_days=
 def tacho_summary(tacho, sim=None, weekly=None):
     """Короткие строки для подсказки: "сегодня осталось 3:24", "отдых 26/09 01:15–11:15",
     недельный лимит вождения (одиночка)."""
+    p = tacho_summary_parts(tacho, sim, weekly)
+    return [x for x in p["head"] + p["stop"] + p["day"] + p["plan"] if x]
+
+
+def tacho_summary_parts(tacho, sim=None, weekly=None):
+    """v3.217: те же строки, но по частям: head — «экипаж», состояние; stop — «до остановки»; day — остаток дня
+    (или «суточный отдых выполнен»); plan — неделя и отдыхи по плану. Всплывашке нужны plan / stop и день отдельно."""
     d0 = next((d for d in tacho["drivers"] if d.get("current_state") == "DRIVING"), tacho["drivers"][0])
     nowd, today = d0.get("now", {}) or {}, d0.get("today", {}) or {}
     loc = lambda ts: ts_west(ts).strftime("%d/%m %H:%M")
-    parts = []
-    state = {"DRIVING": "едет", "REST": "отдыхает", "AVAILABLE": "готовность", "WORK": "работа"}.get(d0.get("current_state"), d0.get("current_state") or "")
+    head, stop, day, plan = [], [], [], []
+    parts = head
+    state ={"DRIVING": "едет", "REST": "отдыхает", "AVAILABLE": "готовность", "WORK": "работа"}.get(d0.get("current_state"), d0.get("current_state") or "")
     team = _team(tacho)
     if team:
         parts.append({"manual": "экипаж (вручную)", "hist": "экипаж (по истории: ехал > 10 ч за сутки)",
@@ -480,8 +520,10 @@ def tacho_summary(tacho, sim=None, weekly=None):
     if state:
         rest_now = float(nowd.get("rest") or 0)
         parts.append(state + (f" {_hm(rest_now)}" if d0.get("current_state") == "REST" and rest_now >= 3600 else ""))
+    parts = stop
     if d0.get("current_state") == "DRIVING" and nowd.get("driving_remaining") is not None:
         parts.append(f"до остановки {_hm(nowd.get('driving_remaining'))}")
+    parts = day
     rest_now = float(nowd.get("rest") or 0) if d0.get("current_state") == "REST" else 0.0
     short_left = int((d0.get("week") or {}).get("9h_rest_shortening_remaining") or 0)
     gf = sim.get("gps_fix") if sim else None
@@ -490,10 +532,15 @@ def tacho_summary(tacho, sim=None, weekly=None):
     elif gf:        # v3.104: тахограф отстаёт от GPS — остаток по GPS
         day_max = TEAM_DAY_SEC if team else SOLO_DAY_SEC
         parts.append(f"сегодня осталось {_hm(max(0.0, day_max - gf['driven']))} (по GPS)")
-        parts.append(f"⚠ тахограф отстаёт от GPS: в смене с {loc(gf['start'])} по GPS {_hm(gf['driven'])} вождения, "
-                     f"по тахографу {_hm(gf['tacho'])} — считаем по GPS")
+        if gf.get("kind") == "nocard":      # v3.217: экипаж, а карта одна — это не «отстаёт»
+            parts.append(f"⚠ вторая карта не считана: тахограф видит одного водителя ({_hm(gf['tacho'])}), в смене с "
+                         f"{loc(gf['start'])} по GPS {_hm(gf['driven'])} вождения — считаем по GPS")
+        else:
+            parts.append(f"⚠ тахограф отстаёт от GPS: в смене с {loc(gf['start'])} по GPS {_hm(gf['driven'])} вождения, "
+                         f"по тахографу {_hm(gf['tacho'])} — считаем по GPS")
     else:
         parts.append(f"сегодня осталось {_hm(today.get('driving_remaining'))}")
+    parts = plan
     if sim and not team and sim.get("week"):
         w = sim["week"]
         if w.get("left") is not None:
@@ -508,7 +555,63 @@ def tacho_summary(tacho, sim=None, weekly=None):
             same_day = s_txt[:5] == e_txt[:5]
             span = f"{s_txt}–{e_txt[-5:] if same_day else e_txt}"
             parts.append(f"отдых {span}" if st["kind"] == "daily" else f"стоп {span}: исчерпан лимит недели")
-    return [p for p in parts if p]
+    return {"head": head, "stop": stop, "day": day, "plan": plan}
+
+
+def _ni(v):
+    """Число в целые секунды или None (Mapon может не прислать поле)."""
+    try:
+        return None if v is None else int(round(float(v)))
+    except (TypeError, ValueError):
+        return None
+
+
+def _blk(d, keys):
+    """Выбрать из блока Mapon (now / today / week) нужные поля, числами."""
+    return {k: _ni((d or {}).get(src)) for k, src in keys}
+
+
+def tacho_panel(tacho, sim=None, weekly=None, now_ts=None):
+    """v3.217: числа для всплывашки статуса «как Mapon» (static/tacho-pop.js): по каждому водителю now / today /
+    week из driving_time_extended, смена и отдыхи (метки времени — UTC, время рисует браузер по Риге), сверка с GPS,
+    остаток дня экипажа / соло, строки «План» (до остановки, отдых по плану, неделя). Только показ — расчёт ETA не трогает."""
+    import time
+    t = float(now_ts or time.time())
+    team = _team(tacho)
+    drivers = tacho.get("drivers") or []
+    day_max = TEAM_DAY_SEC if team else SOLO_DAY_SEC
+    out_d = []
+    for d in drivers[:2]:
+        w = d.get("week") or {}
+        out_d.append({
+            "name": " ".join(filter(None, [(d.get("driver_name") or "").strip(), (d.get("driver_surname") or "").strip()])),
+            "state": d.get("current_state"),
+            "now": _blk(d.get("now"), [("driving", "driving"), ("rem", "driving_remaining"), ("avail", "driving_available"),
+                                       ("rest", "rest")]),
+            "today": _blk(d.get("today"), [("driving", "driving"), ("rem", "driving_remaining"), ("avail", "driving_available"),
+                                           ("shift", "shift"), ("shift_start", "shift_start"), ("shift_avail", "shift_available"),
+                                           ("rest_start", "daily_rest_start")]),
+            "week": dict(_blk(w, [("driving", "driving"), ("rem", "driving_remaining"), ("avail", "driving_available"),
+                                  ("prev", "previous_week_driving"), ("next", "next_fixed_week_driving_remaining"),
+                                  ("rest_start", "weekly_rest_start"), ("rest_min", "weekly_rest_min")]),
+                         ext=[_ni(w.get("10h_driving_extensions_used")), _ni(w.get("10h_driving_extensions_available"))],
+                         short=[_ni(w.get("9h_rest_shortening_used")), _ni(w.get("9h_rest_shortening_available"))]),
+        })
+    p = tacho_summary_parts(tacho, sim, weekly)
+    rest_done = any(x.startswith("суточный отдых выполнен") for x in p["day"])
+    d0 = next((d for d in drivers if d.get("current_state") == "DRIVING"), drivers[0]) if drivers else {}
+    base = team_day_left(drivers) if team else float((d0.get("today") or {}).get("driving_remaining") or 0)
+    left, fix = (day_max, None) if rest_done else gps_adjust(tacho, base, day_max)
+    g = tacho.get("gps") or {}
+    return {
+        "at": int(t), "team": bool(team), "day_max": int(day_max),
+        "drivers": out_d,
+        "gps": {"start": _ni(g.get("start")), "driven": _ni(g.get("driven"))} if g.get("start") is not None else None,
+        "tacho_driven": _ni(tacho_driven(tacho)),
+        "fix": {"kind": fix.get("kind"), "driven": _ni(fix["driven"]), "tacho": _ni(fix["tacho"])} if fix else None,
+        "left": _ni(left), "left_src": "gps" if fix else "tacho",
+        "plan": [x for x in p["stop"] + [y for y in p["day"] if y.startswith("суточный отдых выполнен")] + p["plan"] if x],
+    }
 
 
 def tacho_no_subscription(err):
@@ -533,8 +636,7 @@ def calc_seed(tacho, now_ts=None):
     short_left = int(week.get("9h_rest_shortening_remaining") or 0)
     day_max = TEAM_DAY_SEC if team else 9 * 3600
     if team:
-        day_left = min(TEAM_DAY_SEC, sum(float((d.get("today") or {}).get("driving_remaining") or 0) for d in drivers)
-                       + (9 * 3600 if len(drivers) < 2 else 0))
+        day_left = team_day_left(drivers)
     else:
         day_left = float(today.get("driving_remaining") or 0)
     day_left, gfix = gps_adjust(tacho, day_left, day_max)    # v3.104: остаток по GPS, если тахограф отстаёт

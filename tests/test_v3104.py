@@ -117,11 +117,19 @@ class EtaWithGpsTest(unittest.TestCase):
 
     def test_summary_mentions_gps(self):
         now = 2_000_000_000.0
-        t = dict(blank_team(), gps={"start": now - 11 * H, "driven": 5.67 * H})
+        t = dict(blank_team(2), gps={"start": now - 11 * H, "driven": 5.67 * H})      # две карты: тахограф отстаёт
         sim = A.tacho_eta(t, 3450, now_ts=now)
         txt = "\n".join(A.tacho_summary(t, sim))
         self.assertIn("отстаёт от GPS", txt)
         self.assertIn("(по GPS)", txt)
+
+    def test_summary_nocard_second_card(self):
+        now = 2_000_000_000.0
+        t = dict(blank_team(1), gps={"start": now - 11 * H, "driven": 5.67 * H})      # экипаж, одна карта
+        sim = A.tacho_eta(t, 3450, now_ts=now)
+        txt = "\n".join(A.tacho_summary(t, sim))
+        self.assertIn("вторая карта не считана", txt)
+        self.assertNotIn("отстаёт от GPS", txt)
 
 
 class RowGpsTest(unittest.TestCase):

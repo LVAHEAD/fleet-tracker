@@ -1399,7 +1399,8 @@ async function calcRow(id, why) {
       const hp = hitchPillHtml(data, true);
       if (hp || tfHtml) line2 = `<div class="status-line2">${tfHtml}${hp}</div>`;
     }
-    const statusHtml = `<div class="status-line" title="${escapeHtml(data.status_ru + " " + data.duration_str + (data.on_target ? "\nна объекте" + (data.on_target.name ? ": " + data.on_target.name : "") : "") + (tachoTip ? "\n" + tachoTip : ""))}">${trTag}${statusLine1}${extra}${ot}${data.is_trailer ? "" : hitchHtml}</div>${line2}`;
+    const tpAttr = data.tacho_panel ? ` data-tp="${escapeHtml(JSON.stringify({ p: data.tacho_panel, u: row.unit || "", h: (data.status_ru || "") + " " + (data.duration_str || "") }))}"` : "";   // v3.217: всплывашка (tacho-pop.js)
+    const statusHtml = `<div class="status-line"${tpAttr} title="${escapeHtml(data.status_ru + " " + data.duration_str + (data.on_target ? "\nна объекте" + (data.on_target.name ? ": " + data.on_target.name : "") : "") + (tachoTip ? "\n" + tachoTip : ""))}">${trTag}${statusLine1}${extra}${ot}${data.is_trailer ? "" : hitchHtml}</div>${line2}`;
     const statusClass = data.status === "driving" ? "status-driving" : "status-standing";
 
     statusCell.innerHTML = statusHtml;

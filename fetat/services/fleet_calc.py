@@ -20,7 +20,7 @@ from fetat.services.corridors import clean_corridor, corridor_info, fleet_corrid
 from fetat.domain.ferries import PORT_RADIUS_KM, clean_line_id, ferry_options, ferry_sec, find_ferry
 from fetat.domain.tacho import (FRESH_SOLO_TACHO, TZ_DEFAULT, plan as tacho_plan, TACHO_SPEED_KMH, calc_eta, calc_seed, country_tz, crew_mode, gps_shift,
                                tacho_eta, tacho_no_subscription,
-                               tacho_summary, week_left_info)
+                               tacho_panel, tacho_summary, week_left_info)
 from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM, truck_fuel, truck_weight
 from fetat.utils.geo import haversine_km
 from fetat.utils.timefmt import ceil_15min, format_duration
@@ -338,6 +338,10 @@ def _add_tacho(result, unit, trailer, crew=None, x10=False, crew_seen=None, tm=N
             result["tacho_resting_now"] = d0.get("current_state") == "REST"
             result["tacho_team"] = team
             result["tacho_summary"] = tacho_summary(tacho, sim)
+            try:                                              # v3.217: числа для всплывашки статуса; только показ
+                result["tacho_panel"] = tacho_panel(tacho, sim)
+            except Exception:
+                pass
             result["tacho_weeklimit"] = bool(sim and sim.get("week", {}).get("hit"))
             result["calc_seed"] = calc_seed(tacho)          # v3.31: для ⏱ калькулятора по клику на строку
         else:
