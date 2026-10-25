@@ -257,6 +257,9 @@ td input::placeholder { color: #9aa5b5; }
 /* ---------- v1.21: кнопка L/O (погрузка / выгрузка) перед полем Таргет ---------- */
 .target-wrap { display: flex; align-items: center; gap: 4px; }
 .target-wrap .target-input { flex: 1; }
+/* v3.211: цепочка перецепа — серый хвост поверх пустой части поля пройденной точки (swap-chain.js), размеры строки не меняет */
+.target-wrap { position: relative; }
+.chain-tail { position: absolute; top: 50%; transform: translateY(-50%); color: #5b6472; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; line-height: 1; }
 .lo-btn {
   flex: 0 0 30px;
   height: var(--stop-h, 22px);

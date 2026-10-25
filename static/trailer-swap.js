@@ -71,6 +71,13 @@ function exchangeSlot(other, openIdx) {
   if (openIdx === -1) return 1 + (other.extra || []).length;
   return openIdx >= 1 ? openIdx : null;
 }
+// v3.211: подсказка в диалоге — куда встанет встреча в чужой строке: перед первой непройденной точкой (slot) или в конец
+function exchangeWhere(other, slot) {
+  const pts = [other.target || ""].concat((other.extra || []).map((x) => x.target || ""));
+  if (slot >= pts.length) return `в конец трипа, точкой ${pts.length + 1}`;
+  const t = String(pts[slot] || "").trim();
+  return `точкой ${slot + 1}, перед «${t || "пусто"}»`;
+}
 // в строке other вместо yNo встаёт mineNo; перед точкой p вставляется ✓-встреча с mineNo со следом ⇄ (парой к моей строке pairRid)
 function applyExchange(other, p, mineNo, yNo, nowMs, pairRid) {
   const ex = other.extra || (other.extra = []);
@@ -224,7 +231,7 @@ function swapChipClick(id, k, anchor) {
     if (inf.ex && inf.slot == null) note += " В её трипе нет пройденных точек — обмен там автоматически не сделать.";
   }
   const chk = inf.ex && inf.slot != null
-    ? { text: `Обмен: в строке ${escapeHtml(to)}${inf.lab(inf.ex)} поставить ${escapeHtml(row.unit)} и вставить встречу` } : null;
+    ? { text: `Обмен: в строке ${escapeHtml(to)}${inf.lab(inf.ex)} поставить ${escapeHtml(row.unit)} и вставить встречу ${escapeHtml(exchangeWhere(inf.ex, inf.slot))}` } : null;
   openSwapPop(anchor, `Передать ${row.trailer ? "прицеп " + escapeHtml(row.trailer) : "рейс"} → ${escapeHtml(to)}?`, note,
     [{ text: "Да, перецеп", ok: true, fn: (on) => doTransfer(id, k, on) },
      { text: "Нет, просто встреча", fn: () => toggleDone(id, k) }], chk);
