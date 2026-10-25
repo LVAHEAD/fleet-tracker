@@ -468,10 +468,6 @@ td input::placeholder { color: #9aa5b5; }
 .eta-cell { white-space: nowrap; cursor: help; }
 .eta-simple { color: #888; font-size: 12px; }
 .eta-tacho { font-weight: 600; }
-.tacho-pause {
-  display: inline-block; width: 4px; height: 11px; margin: 0 7px 0 1px; vertical-align: -1px;
-  border-left: 3px solid #b3541e; border-right: 3px solid #b3541e; cursor: help;
-}
 
 /* ---------- v1.34: вкладка "Запреты" ---------- */
 .bans-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -603,7 +599,6 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 .st-stop { color: #c0392b; }
 .st-go { color: #2e8b57; }
 .st-speed { color: #888; margin-left: 4px; }
-.status-cell .tacho-pause { margin: 0 0 0 8px; }
 /* ETA — одна строка */
 .eta-cell { overflow: hidden; }
 .eta-cell .eta-tacho { font-weight: 600; }

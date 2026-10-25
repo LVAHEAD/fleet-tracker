@@ -1364,13 +1364,11 @@ async function calcRow(id, why) {
     const icon = data.status === "driving"
       ? '<span class="st-ic st-go">▶</span>' : '<span class="st-ic st-stop">■</span>';
     let statusLine1 = ccBadge + icon + escapeHtml(data.duration_str);   // v3.37: 👤 / 👥 — после страны (ниже)
-    // v1.33: ⏸ — впереди обязательный отдых по тахографу или водитель сейчас отдыхает
+    // v3.216: значок ⏸ (v1.33) убран — смысл был неясен; отдых по плану остаётся в подсказке статуса
     const tachoTip = (data.tacho_summary || []).join("\n");
     const speedTxt = data.status === "driving" && data.speed != null
       ? escapeHtml(`${Math.round(data.speed)} км/ч`) : "";
     const extra = speedTxt ? `<span class="st-speed"> · ${speedTxt}</span>` : "";
-    const pauseIc = (data.tacho_rest_ahead || data.tacho_resting_now)
-      ? `<span class="tacho-pause" title="${escapeHtml(tachoTip)}"></span>` : "";
     // v1.59: трак на объекте таргета (полигон Mapon или радиус 300 м)
     // v1.81: на какой точке стоит (первая непройденная) — номер в плашке, подсветка её строки
     const otIdx = data.on_target ? ((data.active_idx && data.active_idx.length) ? data.active_idx[0] : 0) : null;
@@ -1401,7 +1399,7 @@ async function calcRow(id, why) {
       const hp = hitchPillHtml(data, true);
       if (hp || tfHtml) line2 = `<div class="status-line2">${tfHtml}${hp}</div>`;
     }
-    const statusHtml = `<div class="status-line" title="${escapeHtml(data.status_ru + " " + data.duration_str + (data.on_target ? "\nна объекте" + (data.on_target.name ? ": " + data.on_target.name : "") : "") + (tachoTip ? "\n" + tachoTip : ""))}">${trTag}${statusLine1}${extra}${pauseIc}${ot}${data.is_trailer ? "" : hitchHtml}</div>${line2}`;
+    const statusHtml = `<div class="status-line" title="${escapeHtml(data.status_ru + " " + data.duration_str + (data.on_target ? "\nна объекте" + (data.on_target.name ? ": " + data.on_target.name : "") : "") + (tachoTip ? "\n" + tachoTip : ""))}">${trTag}${statusLine1}${extra}${ot}${data.is_trailer ? "" : hitchHtml}</div>${line2}`;
     const statusClass = data.status === "driving" ? "status-driving" : "status-standing";
 
     statusCell.innerHTML = statusHtml;
