@@ -1197,7 +1197,7 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 /* попап комментария шире и прокручивается бегунком; редактор шире и выше */
 .com-pop { width: 520px; max-width: calc(100vw - 16px); max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; }
 .com-ed { width: 620px; }
-.com-ed textarea { min-height: 280px; max-height: 65vh; overflow-y: auto; }
+.com-ed textarea { min-height: min(560px, 75vh); max-height: 75vh; overflow-y: auto; }
 
 /* ---------- v3.20: чужая правка — красная рамка до клика хозяина трипа ---------- */
 #fleet-tbody .chg-mark { outline: 2px solid #e04b3c !important; outline-offset: -1px; background-color: #fff1ef !important; }
