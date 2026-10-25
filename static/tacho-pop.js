@@ -129,6 +129,8 @@
     anchor = el; cur = c;
     tip.classList.toggle("pin", pinned);
     tip.innerHTML = render(c);
+    const ds = c.p.drivers || [];
+    tip.classList.toggle("tp-pink", (c.p.team && ds.length < 2) || ds.some((d) => d && !cardOk(d)));   // Mapon отдал не всё — бледно-розовая карточка
     tip.hidden = false;
     place(el);
   }
