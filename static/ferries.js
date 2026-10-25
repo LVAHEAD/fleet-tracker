@@ -88,13 +88,26 @@ aside.side .mapwrap{margin-bottom:10px}aside.side .filters{margin-bottom:6px}
 .legend i{display:inline-block;width:22px;height:4px;border-radius:2px;margin-right:6px;vertical-align:middle}
 .selbar{display:flex;align-items:center;gap:8px;min-height:30px}
 .empty{padding:26px;text-align:center;color:var(--muted)}
+.mbtn{display:none}
+/* v3.209: телефон — чипы стран в одну прокручиваемую строку сверху, карта свёрнута (кнопка), «Заказ паромов» сворачивается, линии карточками */
 @media (max-width:760px){
- .row{grid-template-columns:minmax(0,1fr) 24px;}
- .row .op{grid-column:1}
- .row .rt{grid-column:1/2}
- .row .time{grid-column:1/2}
- .chev{grid-column:2;grid-row:1}
- .more{grid-template-columns:minmax(0,1fr)}
+ .wrap{display:flex;flex-direction:column;gap:10px}
+ .wrap>aside.side{position:static;display:flex;flex-direction:column;gap:8px;grid-column:auto;width:100%;min-width:0;box-sizing:border-box}
+ .top{flex-direction:column;align-items:stretch;gap:8px}
+ .search{max-width:none;flex:none;width:100%;box-sizing:border-box}
+ .filters{order:-1;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;position:sticky;top:0;background:var(--bg);z-index:3}
+ .filters .btn{white-space:nowrap;padding:7px 13px;font-size:14px}
+ .mapwrap{max-height:150px;overflow:hidden;position:relative}
+ .mapwrap.mopen{max-height:none}
+ .mapwrap:not(.mopen)::after{content:"";position:absolute;left:0;right:0;bottom:0;height:46px;background:linear-gradient(transparent,var(--surface))}
+ .legend span:last-child{display:none}.legend{padding:6px 10px}
+ .mbtn{display:block;align-self:flex-start;font:inherit;font-size:13px;padding:6px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--surface);color:var(--accent)}
+ .ord{margin-top:0}.ord-h{cursor:pointer}.ord-h span:first-child::after{content:" ▸"}.ord.open .ord-h span:first-child::after{content:" ▾"}.ord:not(.open) a{display:none}
+ .ord a{padding:10px 12px}
+ .row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"op hrs" "rt rt" "bar bar" "fr fr";gap:6px 10px;padding:12px}
+ .row>span:first-child{grid-area:op}.row .rt{grid-area:rt}.row .time{display:contents}
+ .hrs{grid-area:hrs;justify-self:end}.bar{grid-area:bar}.freq{grid-area:fr}.chev{display:none}
+ .more{grid-template-columns:minmax(0,1fr)}.copy{padding:5px 10px;font-size:13px}
 }
 @media (prefers-reduced-motion:reduce){.chev{transition:none}}
 </style>
@@ -106,6 +119,7 @@ aside.side .mapwrap{margin-bottom:10px}aside.side .filters{margin-bottom:6px}
   <aside class="side">
   <div class="mapwrap" id="mapwrap"><div id="mapbox"></div>
     <div class="legend"><span><i style="background:var(--c-fi)"></i>Германия ↔ Финляндия</span><span><i style="background:var(--c-se)"></i>Швеция</span><span><i style="background:var(--c-dk)"></i>Дания</span><span><i style="background:var(--c-ee)"></i>Эстония</span><span>Клик по линии или порту — показать в таблице. Схема, береговая линия упрощена.</span></div></div>
+  <button type="button" class="mbtn" id="mapbtn">▾ Развернуть карту</button>
   <div class="filters" id="flt"></div>
   <div class="selbar" id="selbar"></div>
   <div class="ord" id="ord" hidden></div>
@@ -291,6 +305,11 @@ root.getElementById("mapbox").addEventListener("click", (e) => {
 root.getElementById("list").addEventListener("mouseover", (e) => { const ln = e.target.closest(".line"); root.querySelectorAll(".ln.hi").forEach((x) => x.classList.remove("hi")); if (ln) root.querySelectorAll(".ln").forEach((x) => { if (x.dataset.ids.split(",").includes(ln.dataset.i)) x.classList.add("hi"); }); });
 buildMap();
 render();
+root.getElementById("mapbtn").addEventListener("click", (e) => {   // телефон: свернуть / развернуть карту
+  const o = root.getElementById("mapwrap").classList.toggle("mopen");
+  e.currentTarget.textContent = o ? "▴ Свернуть карту" : "▾ Развернуть карту";
+});
+root.getElementById("ord").addEventListener("click", (e) => { if (e.target.closest(".ord-h")) e.currentTarget.classList.toggle("open"); });
 
 // v3.207: блок «Заказ паромов» — ссылки из листа «Ссылки» (/api/links, группа с названием «заказ паромов»; регистр и лишние пробелы не важны).
 // Список правится в листе, в код ничего не зашито; нет группы или лист не прочитан — блок скрыт.

@@ -53,6 +53,11 @@ class FerriesCountryTest(unittest.TestCase):
         self.assertIn('"заказ паромов"', JS)
         self.assertIn("/api/links", JS)
 
+    def test_mobile_layout(self):
+        self.assertIn("@media (max-width:760px)", JS)
+        for k in ('id="mapbtn"', ".mapwrap.mopen", "grid-template-areas", ".ord:not(.open) a"):
+            self.assertIn(k, JS)
+
 
 if __name__ == "__main__":
     unittest.main()
