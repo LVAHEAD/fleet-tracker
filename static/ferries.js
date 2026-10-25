@@ -60,6 +60,12 @@ h1 small{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
 .wrap>aside.side{grid-column:1;grid-row:2/span 8;position:sticky;top:8px}
 .wrap>*:not(.top):not(aside.side){grid-column:2}
 aside.side .mapwrap{margin-bottom:10px}aside.side .filters{margin-bottom:6px}
+.ord{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:10px}
+.ord-h{display:flex;justify-content:space-between;padding:8px 12px;background:var(--accent-soft);border-bottom:1px solid var(--line);font-weight:600;font-size:13px}
+.ord-h span:last-child{font-weight:400;color:var(--muted)}
+.ord a{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:8px 12px;border-top:1px solid var(--line);color:var(--fg);text-decoration:none;font-size:14px}
+.ord-h+a{border-top:0}.ord a:hover{background:var(--accent-soft)}
+.ord a span{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere;text-align:right}
 .legend span:last-child{flex-basis:100%}
 @media (max-width:1150px){.wrap{display:block}.wrap>aside.side{position:static}.wrap>*{margin-bottom:10px}}
 .sea{fill:var(--water)}
@@ -98,6 +104,7 @@ aside.side .mapwrap{margin-bottom:10px}aside.side .filters{margin-bottom:6px}
     <div class="legend"><span><i style="background:var(--c-fi)"></i>Германия ↔ Финляндия</span><span><i style="background:var(--c-se)"></i>Швеция</span><span><i style="background:var(--c-dk)"></i>Дания</span><span><i style="background:var(--c-ee)"></i>Эстония</span><span>Клик по линии или порту — показать в таблице. Схема, береговая линия упрощена.</span></div></div>
   <div class="filters" id="flt"></div>
   <div class="selbar" id="selbar"></div>
+  <div class="ord" id="ord" hidden></div>
   </aside>
   <p class="note">Справочно: время и условия сверяйте с оператором. Полоска — длительность рейса от 0 до 43 ч (самый долгий, Росток – Ханко, Transfennica). Клик по линии — условия и контакты.</p>
   <div id="list" style="display:flex;flex-direction:column;gap:14px"></div>
@@ -266,5 +273,23 @@ root.getElementById("mapbox").addEventListener("click", (e) => {
 root.getElementById("list").addEventListener("mouseover", (e) => { const ln = e.target.closest(".line"); root.querySelectorAll(".ln.hi").forEach((x) => x.classList.remove("hi")); if (ln) root.querySelectorAll(".ln").forEach((x) => { if (x.dataset.ids.split(",").includes(ln.dataset.i)) x.classList.add("hi"); }); });
 buildMap();
 render();
+
+// v3.207: блок «Заказ паромов» — ссылки из листа «Ссылки» (/api/links, группа с названием «заказ паромов»; регистр и лишние пробелы не важны).
+// Список правится в листе, в код ничего не зашито; нет группы или лист не прочитан — блок скрыт.
+(async function loadOrder() {
+  const box = root.getElementById("ord");
+  try {
+    const r = await fetch("/api/links"); if (!r.ok) return;
+    const j = await r.json();
+    const g = (j.groups || []).find((x) => (x.title || "").trim().replace(/\s+/g, " ").toLowerCase() === "заказ паромов");
+    if (!g || !g.items || !g.items.length) return;
+    const sub = (u) => { if (/^mailto:/i.test(u)) return u.slice(7); try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return ""; } };
+    box.innerHTML = `<div class="ord-h"><span>Заказ паромов</span><span>${g.items.length}</span></div>` + g.items.map((it) => {
+      const mail = /^mailto:/i.test(it.url);
+      return `<a href="${esc(it.url)}"${mail ? "" : ' target="_blank" rel="noopener"'} title="${esc(mail ? it.url.slice(7) : it.url)}">${esc(it.name)}<span>${esc(sub(it.url))}</span></a>`;
+    }).join("");
+    box.hidden = false;
+  } catch (e) { /* нет связи — блок просто не показываем */ }
+})();
 
 })();
