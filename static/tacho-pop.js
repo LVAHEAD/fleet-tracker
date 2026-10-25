@@ -93,7 +93,7 @@
     return '<div class="mp-h">' + IC.gauge + "<b>Tachograph</b>" + (c.u ? '<span class="mp-unit">' + esc(c.u) + "</span>" : "") +
       '<span class="mp-at">' + (c.h ? esc(c.h) + " · " : "") + "на " + riga(p.at) + ' (Riga)</span>' +
       '<button type="button" class="tp-x" aria-label="Закрыть">×</button></div>' +
-      '<div class="mp-tabs">' + tabs + '</div><div class="mp-g">' + tiles(ds[tab] || null, p.at) + links + "</div>" + gpsLine(p) +
+      '<div class="mp-tabs">' + tabs + '</div><div class="mp-g">' + tiles(ds[tab] || null, p.at) + links + "</div>" + (!ds[tab] ? '<div class="tp-gps warn"><b>⚠</b><span>Mapon не отдаёт данные этого водителя: карта не считана, его часы неизвестны' + (p.team ? " — остаток дня экипажа считаем с учётом GPS" : "") + "</span></div>" : "") + gpsLine(p) +
       plan +
       '<div class="tp-f"><span>Сегодня осталось</span><b>' + hm(p.left) + "</b><span>" + (p.left_src === "gps" ? "по GPS" : "по тахографу") + crew + "</span></div>";
   }
