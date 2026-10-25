@@ -79,14 +79,29 @@ function exchangeWhere(other, slot) {
   return `точкой ${slot + 1}, перед «${t || "пусто"}»`;
 }
 // в строке other вместо yNo встаёт mineNo; перед точкой p вставляется ✓-встреча с mineNo со следом ⇄ (парой к моей строке pairRid)
+// v3.213: если на месте p уже стоит непройденная точка-машина с нашим номером (диспетчер ввёл встречу заранее) —
+// встречей становится она сама, новая не вставляется (иначе дубль «машина → сама к себе»)
+function exchangeReuses(other, p, mineNo) {
+  const q = p >= 1 ? (other.extra || [])[p - 1] : null;
+  if (!q || q.swap) return false;
+  const n = ptTruckNo(q);
+  return !!n && normNo(n) === normNo(mineNo);
+}
 function applyExchange(other, p, mineNo, yNo, nowMs, pairRid) {
   const ex = other.extra || (other.extra = []);
-  const pt = { lo: "", target: mineNo, delivery: "", note: "", swap: { from: yNo, to: mineNo, at: nowMs, pair: { rid: pairRid } } };
-  if (p >= 1 + ex.length) ex.push(pt); else ex.splice(p - 1, 0, pt);
-  const nd = {};   // ручные ✓ — по новым номерам (как при вставке точки в середину)
-  Object.keys(other.done || {}).forEach((j) => { nd[Number(j) >= p ? Number(j) + 1 : Number(j)] = other.done[j]; });
-  nd[p] = true;
-  other.done = nd;
+  const sw = { from: yNo, to: mineNo, at: nowMs, pair: { rid: pairRid } };
+  if (exchangeReuses(other, p, mineNo)) {
+    sw.reuse = true;
+    ex[p - 1].swap = sw;
+    other.done = Object.assign({}, other.done, { [p]: true });
+  } else {
+    const pt = { lo: "", target: mineNo, delivery: "", note: "", swap: sw };
+    if (p >= 1 + ex.length) ex.push(pt); else ex.splice(p - 1, 0, pt);
+    const nd = {};   // ручные ✓ — по новым номерам (как при вставке точки в середину)
+    Object.keys(other.done || {}).forEach((j) => { nd[Number(j) >= p ? Number(j) + 1 : Number(j)] = other.done[j]; });
+    nd[p] = true;
+    other.done = nd;
+  }
   other.unit = mineNo;
   other.open = true;
   delete other.crew;
@@ -100,9 +115,14 @@ function undoExchange(other, p, at) {
   if (!pt || !pt.swap || pt.swap.at !== at) return false;
   const yNo = pt.swap.from;
   dropSeenAfter(other, p);   // v3.198: ✓ после встречи набрал другой тягач
-  ex.splice(p - 1, 1);
   const nd = {};
-  Object.keys(other.done || {}).forEach((j) => { const n = Number(j); if (n !== p) nd[n > p ? n - 1 : n] = other.done[j]; });
+  if (pt.swap.reuse) {   // v3.213: точка была введена до обмена — остаётся на месте, снимаем только след и ✓
+    delete pt.swap;
+    Object.keys(other.done || {}).forEach((j) => { if (Number(j) !== p) nd[j] = other.done[j]; });
+  } else {
+    ex.splice(p - 1, 1);
+    Object.keys(other.done || {}).forEach((j) => { const n = Number(j); if (n !== p) nd[n > p ? n - 1 : n] = other.done[j]; });
+  }
   other.done = nd;
   other.unit = yNo;
   return true;
@@ -231,7 +251,7 @@ function swapChipClick(id, k, anchor) {
     if (inf.ex && inf.slot == null) note += " В её трипе нет пройденных точек — обмен там автоматически не сделать.";
   }
   const chk = inf.ex && inf.slot != null
-    ? { text: `Обмен: в строке ${escapeHtml(to)}${inf.lab(inf.ex)} поставить ${escapeHtml(row.unit)} и вставить встречу` } : null;
+    ? { text: `Обмен: в строке ${escapeHtml(to)}${inf.lab(inf.ex)} поставить ${escapeHtml(row.unit)} и ${exchangeReuses(inf.ex, inf.slot, row.unit) ? "отметить встречу" : "вставить встречу"}` } : null;
   openSwapPop(anchor, `Передать ${row.trailer ? "прицеп " + escapeHtml(row.trailer) : "рейс"} → ${escapeHtml(to)}?`, note,
     [{ text: "Да, перецеп", ok: true, fn: (on) => doTransfer(id, k, on) },
      { text: "Нет, просто встреча", fn: () => toggleDone(id, k) }], chk);
