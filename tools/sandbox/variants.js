@@ -1,33 +1,32 @@
-/* Песочница Флота, 25.10: варианты размера карты-схемы на закладке «Паромы» (переключатель внизу, виден на этой закладке).
-   Схема живёт в Shadow DOM (#ferries-root), поэтому стили вставляются внутрь него. */
+/* Песочница Флота, 25.10: варианты карты-схемы на закладке «Паромы» (переключатель внизу, виден на этой закладке).
+   Выбрано Владимиром: «сбоку 340 px» (вариант 1); ищем лучший вид бокового варианта.
+   Схема живёт в Shadow DOM (#ferries-root): стили вставляются внутрь, карта / фильтры переносятся в колонку <aside>. */
 (function () {
-  var V = {
-    0: ["Как было", ""],
-    1: ["Невысокая 240 px", "#mapbox svg{max-height:240px}"],
-    2: ["Узкая 480 px по центру", "#mapbox svg{max-width:480px;margin:0 auto}"],
-    3: ["Свёрнута (кнопка)", ""],
-    4: ["Сбоку 340 px, список справа",
-      ".wrap{display:grid;grid-template-columns:340px minmax(0,1fr);gap:10px 18px;align-items:start}" +
-      ".wrap>.top{grid-column:1/-1}.wrap>.mapwrap{grid-column:1;grid-row:2/span 6;position:sticky;top:8px}" +
-      ".wrap>*:not(.top):not(.mapwrap){grid-column:2}#mapbox{min-width:0}.legend span:last-child{flex-basis:100%}"]
-  };
-  var cur = 0, st, tgl;
+  function side(w, right) {
+    var a = right ? "minmax(0,1fr) " + w + "px" : w + "px minmax(0,1fr)", c1 = right ? 2 : 1, c2 = right ? 1 : 2;
+    return ".wrap{display:grid;grid-template-columns:" + a + ";gap:10px 18px;align-items:start}.wrap>.top{grid-column:1/-1}" +
+      ".wrap>aside.side{display:block;grid-column:" + c1 + ";grid-row:2/span 8;position:sticky;top:8px}" +
+      ".wrap>*:not(.top):not(aside.side){grid-column:" + c2 + "}#mapbox{min-width:0}.legend span:last-child{flex-basis:100%}" +
+      "aside.side .mapwrap{margin-bottom:10px}aside.side .filters{margin-bottom:6px}";
+  }
+  var V = [
+    ["Как было", "", 0],
+    ["Сбоку 340 (выбран)", side(340), 0],
+    ["Сбоку 340 + фильтры под картой", side(340), 1],
+    ["Сбоку 280 компакт + фильтры", side(280), 1],
+    ["Сбоку 420 + фильтры", side(420), 1],
+    ["Справа 340 + фильтры", side(340, true), 1]
+  ];
+  var cur = 1, st, aside;
   function sh() { var h = document.getElementById("ferries-root"); return h && h.shadowRoot; }
   function apply(n) {
     var r = sh(); if (!r) return; cur = n;
     if (!st) { st = document.createElement("style"); r.appendChild(st); }
-    var css = V[n][1];
-    if (n === 3) css = ".mapwrap.fold #mapbox,.mapwrap.fold .legend{display:none}.mapwrap.fold{border-style:dashed}";
-    st.textContent = css;
-    var w = r.getElementById("mapwrap");
-    if (!tgl) {
-      tgl = document.createElement("button"); tgl.type = "button"; tgl.className = "btn";
-      tgl.style.cssText = "margin:6px 10px;display:none";
-      tgl.onclick = function () { w.classList.toggle("fold"); tgl.textContent = w.classList.contains("fold") ? "▸ Показать схему" : "▾ Скрыть схему"; };
-      w.insertBefore(tgl, w.firstChild);
-    }
-    if (n === 3) { w.classList.add("fold"); tgl.style.display = "block"; tgl.textContent = "▸ Показать схему"; }
-    else { w.classList.remove("fold"); tgl.style.display = "none"; }
+    var w = r.getElementById("mapwrap"), fl = r.getElementById("flt"), sb = r.getElementById("selbar");
+    if (!aside) { aside = document.createElement("aside"); aside.className = "side"; w.parentNode.insertBefore(aside, w); aside.appendChild(w); }
+    st.textContent = "aside.side{display:contents}" + V[n][1];
+    if (V[n][2]) { aside.appendChild(fl); aside.appendChild(sb); }
+    else { aside.after(fl); fl.after(sb); }
     [].forEach.call(bar.querySelectorAll("button"), function (b) { b.classList.toggle("on", +b.dataset.v === n); });
   }
   var bar = document.createElement("div");
@@ -35,9 +34,9 @@
   var s = document.createElement("style");
   s.textContent = ".vbar button{background:#fff;color:#2f6fd6;border:1px solid #2f6fd6;border-radius:6px;padding:4px 9px;cursor:pointer;font:13px sans-serif}.vbar button:hover,.vbar button.on{background:#2f6fd6;color:#fff}";
   document.head.appendChild(s); bar.className = "vbar";
-  Object.keys(V).forEach(function (k) {
-    var b = document.createElement("button"); b.type = "button"; b.dataset.v = k; b.textContent = k + " · " + V[k][0];
-    b.onclick = function () { apply(+k); }; bar.appendChild(b);
+  V.forEach(function (v, k) {
+    var b = document.createElement("button"); b.type = "button"; b.dataset.v = k; b.textContent = k + " · " + v[0];
+    b.onclick = function () { apply(k); }; bar.appendChild(b);
   });
   document.body.appendChild(bar);
   setInterval(function () {
