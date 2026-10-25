@@ -81,17 +81,22 @@ function exchangeWhere(other, slot) {
 // в строке other вместо yNo встаёт mineNo; перед точкой p вставляется ✓-встреча с mineNo со следом ⇄ (парой к моей строке pairRid)
 // v3.213: если на месте p уже стоит непройденная точка-машина с нашим номером (диспетчер ввёл встречу заранее) —
 // встречей становится она сама, новая не вставляется (иначе дубль «машина → сама к себе»)
-function exchangeReuses(other, p, mineNo) {
+// v3.220: «вторая строка того же тягача»: у чужой строки тягач тот же (mineNo), а непройденная точка-встреча — с тем, кому передаём (yNo):
+// тогда она сама и есть встреча; тягач в строке не меняется (флаг keep)
+function exchangeReuses(other, p, mineNo, yNo) {
   const q = p >= 1 ? (other.extra || [])[p - 1] : null;
   if (!q || q.swap) return false;
   const n = ptTruckNo(q);
-  return !!n && normNo(n) === normNo(mineNo);
+  if (!n) return false;
+  if (normNo(n) === normNo(mineNo)) return true;
+  return !!yNo && normNo(n) === normNo(yNo) && normNo(other.unit) === normNo(mineNo);
 }
 function applyExchange(other, p, mineNo, yNo, nowMs, pairRid) {
   const ex = other.extra || (other.extra = []);
   const sw = { from: yNo, to: mineNo, at: nowMs, pair: { rid: pairRid } };
-  if (exchangeReuses(other, p, mineNo)) {
+  if (exchangeReuses(other, p, mineNo, yNo)) {
     sw.reuse = true;
+    if (normNo(other.unit) === normNo(mineNo) && normNo(ptTruckNo(ex[p - 1])) === normNo(yNo)) sw.keep = true;   // v3.220: тягач строки уже тот
     ex[p - 1].swap = sw;
     other.done = Object.assign({}, other.done, { [p]: true });
   } else {
@@ -113,7 +118,7 @@ function undoExchange(other, p, at) {
   const ex = other.extra || [];
   const pt = ex[p - 1];
   if (!pt || !pt.swap || pt.swap.at !== at) return false;
-  const yNo = pt.swap.from;
+  const yNo = pt.swap.from, keep = !!pt.swap.keep;
   dropSeenAfter(other, p);   // v3.198: ✓ после встречи набрал другой тягач
   const nd = {};
   if (pt.swap.reuse) {   // v3.213: точка была введена до обмена — остаётся на месте, снимаем только след и ✓
@@ -124,7 +129,7 @@ function undoExchange(other, p, at) {
     Object.keys(other.done || {}).forEach((j) => { const n = Number(j); if (n !== p) nd[n > p ? n - 1 : n] = other.done[j]; });
   }
   other.done = nd;
-  other.unit = yNo;
+  if (!keep) other.unit = yNo;   // v3.220: keep — тягач строки не менялся
   return true;
 }
 function rowIsEmpty(r) {
@@ -176,8 +181,16 @@ document.addEventListener("mousedown", () => closeSwapPop());
 // другие строки Флота с тем же тягачом: чужая строка для обмена — первая непустая, место встречи в ней
 function swapDupInfo(row, to) {
   const dups = rows.filter((r) => r.id !== row.id && normNo(r.unit) === normNo(to));
-  const ex = dups.find((r) => !rowIsEmpty(r)) || null;
-  const slot = ex ? exchangeSlot(ex, firstOpenIdx(ex)) : null;
+  let ex = dups.find((r) => !rowIsEmpty(r)) || null;
+  let slot = ex ? exchangeSlot(ex, firstOpenIdx(ex)) : null;
+  if (slot == null) {   // v3.220: нет строки получателя — вторая строка того же тягача, где первая непройденная точка уже встреча с ним
+    const same = rows.find((r) => {
+      if (r.id === row.id || rowIsEmpty(r) || normNo(r.unit) !== normNo(row.unit)) return false;
+      const sl = exchangeSlot(r, firstOpenIdx(r));
+      return sl != null && exchangeReuses(r, sl, row.unit, to);
+    });
+    if (same) { ex = same; slot = exchangeSlot(same, firstOpenIdx(same)); }
+  }
   const lab = (r) => {
     const d = typeof rowDisp === "function" && typeof dispLabel === "function" ? dispLabel(rowDisp(r)) : "";
     return d ? ` (${escapeHtml(d)})` : "";
@@ -250,8 +263,10 @@ function swapChipClick(id, k, anchor) {
     note = `В Флоте уже есть строка ${escapeHtml(to)}${inf.lab(inf.dups[0])}${inf.dups.length > 1 ? " и ещё " + (inf.dups.length - 1) : ""} — удалите её сами${inf.ex && inf.slot != null ? ", если это не обмен" : ""}.`;
     if (inf.ex && inf.slot == null) note += " В её трипе нет пройденных точек — обмен там автоматически не сделать.";
   }
+  const sameRow = inf.ex && normNo(inf.ex.unit) === normNo(row.unit);   // v3.220: вторая строка того же тягача
   const chk = inf.ex && inf.slot != null
-    ? { text: `Обмен: в строке ${escapeHtml(to)}${inf.lab(inf.ex)} поставить ${escapeHtml(row.unit)} и ${exchangeReuses(inf.ex, inf.slot, row.unit) ? "отметить встречу" : "вставить встречу"}` } : null;
+    ? { text: sameRow ? `Обмен: в другой строке ${escapeHtml(row.unit)}${inf.lab(inf.ex)} отметить встречу с ${escapeHtml(to)}`
+      : `Обмен: в строке ${escapeHtml(to)}${inf.lab(inf.ex)} поставить ${escapeHtml(row.unit)} и ${exchangeReuses(inf.ex, inf.slot, row.unit, to) ? "отметить встречу" : "вставить встречу"}` } : null;
   openSwapPop(anchor, `Передать ${row.trailer ? "прицеп " + escapeHtml(row.trailer) : "рейс"} → ${escapeHtml(to)}?`, note,
     [{ text: "Да, перецеп", ok: true, fn: (on) => doTransfer(id, k, on) },
      { text: "Нет, просто встреча", fn: () => toggleDone(id, k) }], chk);
