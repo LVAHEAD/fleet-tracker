@@ -76,6 +76,10 @@ aside.side .mapwrap{margin-bottom:10px}aside.side .filters{margin-bottom:6px}
 .ln:hover,.ln.hi{stroke-width:6;opacity:1}
 .mapwrap.sel .ln:not(.on){opacity:.12}
 .mapwrap.sel .pt:not(.on){opacity:.35}
+/* раскрытая строка таблицы: её линия и порты на схеме ярко, остальные притушены */
+.mapwrap.foc .ln:not(.fon){opacity:.12}
+.mapwrap.foc .pt:not(.fon){opacity:.35}
+.ln.fon{stroke-width:5.5;opacity:1}
 .pt{cursor:pointer}
 .pt circle{fill:var(--surface);stroke:var(--fg);stroke-width:2.2}
 .pt text{font:600 13px -apple-system,Segoe UI,sans-serif;fill:var(--fg);paint-order:stroke;stroke:var(--land);stroke-width:3.5px;stroke-linejoin:round}
@@ -243,6 +247,7 @@ function render() {
     `<section class="grp"><div class="grp-h">${pair(flipDir(g.rows[0]))}<span>${esc(flipDir(g.rows[0]))}</span><span class="n">${g.rows.length} лин.</span></div>${g.rows.map(lineHtml).join("")}</section>`).join("")
     : '<div class="grp"><div class="empty">Ничего не найдено. Сбросьте поиск или фильтр.</div></div>';
   root.querySelectorAll(".line").forEach((e) => { if (open.has(e.dataset.i)) { e.classList.add("open"); e.querySelector(".row").setAttribute("aria-expanded", "true"); } });
+  focusMap();
 }
 root.getElementById("flt").innerHTML = regions.map((r) => `<button type="button" class="btn" data-r="${esc(r)}" aria-pressed="${r === reg}">${esc(r)}</button>`).join("");
 root.getElementById("flt").addEventListener("click", (e) => {
@@ -256,9 +261,19 @@ root.getElementById("list").addEventListener("click", (e) => {
   const c = e.target.closest(".copy"); if (c) { copyText(c, c.dataset.t); return; }
   const r = e.target.closest(".row"); if (!r) return;
   const l = r.parentElement; l.classList.toggle("open"); r.setAttribute("aria-expanded", l.classList.contains("open"));
+  focusMap();
 });
+function focusMap() {   // v3.208: раскрытая строка — выделить её линию на схеме, остальные притушить
+  const w = root.getElementById("mapwrap");
+  const ids = new Set([...root.querySelectorAll(".line.open")].map((e) => +e.dataset.i));
+  const on = ids.size > 0 && !sel;
+  w.classList.toggle("foc", on);
+  w.querySelectorAll(".ln").forEach((l) => l.classList.toggle("fon", on && l.dataset.ids.split(",").some((i) => ids.has(+i))));
+  const ports = new Set(); if (on) SEG.forEach(([i, a, b]) => { if (ids.has(i)) { ports.add(a); ports.add(b); } });
+  w.querySelectorAll(".pt").forEach((p) => p.classList.toggle("fon", on && ports.has(p.dataset.p)));
+}
 function markMap() {
-  const w = root.getElementById("mapwrap"); w.classList.toggle("sel", !!sel);
+  const w = root.getElementById("mapwrap"); w.classList.toggle("sel", !!sel); focusMap();
   w.querySelectorAll(".ln").forEach((l) => l.classList.toggle("on", !!sel && l.dataset.ids.split(",").some((i) => sel.has(+i))));
   w.querySelectorAll(".pt").forEach((p) => p.classList.toggle("on", !!sel && SEG.some(([i, a, b]) => sel.has(i) && (a === p.dataset.p || b === p.dataset.p)) && selName === PORTS[p.dataset.p][0]));
   root.getElementById("selbar").innerHTML = sel ? `<span class="note">Показано на схеме: <b>${esc(selName)}</b></span><button type="button" class="btn" id="selx">Сбросить</button>` : "";
