@@ -15,7 +15,10 @@
     ["Сбоку 340 + фильтры под картой", side(340), 1],
     ["Сбоку 280 компакт + фильтры", side(280), 1],
     ["Сбоку 420 + фильтры", side(420), 1],
-    ["Справа 340 + фильтры", side(340, true), 1]
+    ["Справа 340 + фильтры", side(340, true), 1],
+    ["Сбоку 600", side(600), 1],
+    ["Сбоку 700", side(700), 1],
+    ["Сбоку 800", side(800), 1]
   ];
   var cur = 1, st, aside;
   function sh() { var h = document.getElementById("ferries-root"); return h && h.shadowRoot; }
