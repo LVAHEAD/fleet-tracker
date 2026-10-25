@@ -1006,6 +1006,7 @@ button.hitch-ic:hover { background: #e6dfcc; }
 /* ---------- v1.79: пройденные точки ✓ ---------- */
 .target-wrap.pt-done .lo-btn, .target-wrap.pt-done .cc-badge, .target-wrap.pt-done input { opacity: .45; }
 .target-wrap.pt-done input { text-decoration: line-through; }
+.target-wrap.pt-done .chain-tail { text-decoration: line-through; opacity: .45; }   /* хвост цепочки перецепа — как таргет пройденной точки */
 /* v3.81: окно Delivery пройденной точки — зачёркнуто, мягче названия (время должно читаться) */
 .delivery-input.pt-done, .xd-input.pt-done { text-decoration: line-through; opacity: .6; }
 .target-wrap.pt-done .pn-chip { background: #e3f1e6 !important; color: #2d6b3c !important; }
