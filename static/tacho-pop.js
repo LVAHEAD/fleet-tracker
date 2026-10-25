@@ -147,11 +147,12 @@
       n.setAttribute("title", n.getAttribute("data-tp-title")); n.removeAttribute("data-tp-title");
     });
   }
-  const host = (e) => { const el = e.target.closest && e.target.closest(".status-line[data-tp]"); return el; };
+  // плашка «на точке» (.ot-pill) — у неё свой клик (зум на машине) и своя подсказка: всплывашку не зовём
+  const host = (e) => { const t = e.target; if (!t.closest || t.closest(".ot-pill")) return null; return t.closest(".status-line[data-tp]"); };
 
   document.addEventListener("mouseover", (e) => {
     const el = host(e);
-    if (!el) return;
+    if (!el) { if (!pinned && e.target.closest && e.target.closest(".ot-pill")) { close(); } return; }
     strip(el);
     if (pinned) return;
     clearTimeout(hideT);
