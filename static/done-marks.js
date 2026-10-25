@@ -27,7 +27,7 @@ function keepDoneSeen(row, data) {
     const t = pts[i];
     if (!t) return;
     if (x && x.done && x.auto && x.at) next[t] = x.at;
-    else if (old[t] && !(x && x.manual === false)) next[t] = old[t];
+    else if (old[t] && !(x && (x.manual === false || x.gated))) next[t] = old[t];   // v3.210: gated — точка идёт после непройденной, старую ✓ не храним
     if (x && x.done && x.auto && x.arr) nextA[t] = x.arr;
   });
   if (JSON.stringify(next) !== JSON.stringify(old) || JSON.stringify(nextA) !== JSON.stringify(oldA)) {

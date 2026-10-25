@@ -489,9 +489,17 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
     out = []
     stops_box = [None]    # стоянки из Mapon — один раз на вызов, лениво
     floor = None          # v3.200: ts отъезда с последней пройденной точки — раньше этого стоянки не считаем
+    # v3.210: авто-✓ и запомненная ✓ у точки i > 0 — только когда в трипе уже есть пройденная точка (есть нижняя граница):
+    # иначе это проезд прошлого груза (OS-2602). Дальше — как раньше (v3.29: пропущенную точку закрывает следующая).
+    # Ручная ✓ на точке k снимает запрет для всех точек до k
+    last_manual = max((i for i, v in enumerate(manual[:len(pts)]) if v is True), default=-1)
+    any_done = False      # в трипе уже есть пройденная точка
     for i, tstr in enumerate(pts):
         m = manual[i] if i < len(manual) else None
+        gated = i > 0 and not any_done and i > last_manual
         info = {"done": False, "auto": False, "at": None, "manual": m}
+        if gated:
+            info["gated"] = True      # фронт не хранит запомненную ✓ такой точки (keepDoneSeen)
         auto_at = None
         t, lat, lng = None, None, None
         if tstr:
@@ -509,7 +517,7 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
         if seen_arr and i < len(seen_arr) and isinstance(seen_arr[i], str) and seen_arr[i]:
             seen_arr_at = seen_arr[i]
         auto_arr = None      # v3.57: приезд на точку — начало стоянки, которая дала ✓
-        if t is not None and m is None and seen_at is None and unit.get("lat") is not None:
+        if t is not None and m is None and seen_at is None and not gated and unit.get("lat") is not None:
             auto_at, auto_arr, zone = _auto_done(tstr, t, lat, lng, unit, stops_box, floor)
             if zone:
                 info["zone"] = zone
@@ -533,7 +541,7 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
                 ct = _click_time(click, i)
                 if ct:
                     info.update(at=ct, msrc="click")
-        elif m is None and seen_at:
+        elif m is None and seen_at and not gated:
             info.update(done=True, auto=True, at=seen_at, kept=True, arr=seen_arr_at)
         elif m is None and auto_at:
             info.update(done=True, auto=True,
@@ -543,6 +551,8 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
             f = auto_at or _parse_west_ts(info.get("at"))
             if f and (floor is None or f > floor):
                 floor = f
+        if info["done"]:
+            any_done = True
         out.append(info)
     # v3.29: пройдена следующая точка — значит, пройдены и предыдущие (ручное «не пройдена» не трогаем)
     last = max((i for i, x in enumerate(out) if x["done"]), default=-1)

@@ -312,6 +312,7 @@
      "badge_hint": "LV · около LV10",
      "cc": "LV",
      "done": false,
+     "gated": true,
      "manual": null
     },
     {
@@ -321,6 +322,7 @@
      "badge_hint": "SE · около SE25",
      "cc": "SE",
      "done": false,
+     "gated": true,
      "manual": null
     }
    ],
