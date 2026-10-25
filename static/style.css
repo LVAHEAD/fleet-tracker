@@ -715,11 +715,11 @@ body.sort-manual .manual-only { display: block; }
 }
 .com-ed-hd { font-weight: 600; font-size: 13px; }
 .com-ed-hd span { color: #888; font-weight: 400; }
-.com-ed textarea {
+.com-ed .com-body {
   width: 100%; box-sizing: border-box; min-height: 200px; resize: vertical; border: 1px solid #ddd; border-radius: 6px;
   padding: 8px; font: 13px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; background: #fafafa;
 }
-.com-ed textarea:focus { outline: 2px solid #7f77dd; outline-offset: -1px; }
+.com-ed .com-body:focus { outline: 2px solid #7f77dd; outline-offset: -1px; }
 .com-ed-row { display: flex; gap: 6px; align-items: center; }
 .com-ed-row button { padding: 4px 10px; }
 .com-sp { flex: 1; }
@@ -1197,7 +1197,7 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 /* попап комментария шире и прокручивается бегунком; редактор шире и выше */
 .com-pop { width: 520px; max-width: calc(100vw - 16px); max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; }
 .com-ed { width: 620px; }
-.com-ed textarea { min-height: min(560px, 75vh); max-height: 75vh; overflow-y: auto; }
+.com-ed .com-body { min-height: min(560px, 75vh); max-height: 75vh; overflow-y: auto; }   /* v3.214 */
 
 /* ---------- v3.20: чужая правка — красная рамка до клика хозяина трипа ---------- */
 #fleet-tbody .chg-mark { outline: 2px solid #e04b3c !important; outline-offset: -1px; background-color: #fff1ef !important; }
@@ -1701,3 +1701,13 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 .chain-cell.chain-need .chain-cb:not(:checked) { background: #ffc2dc; border-color: #e0457b; }
 .chain-cell.chain-need .chain-cb:not(:checked):hover { background: #ffa6cd; }
 .chain-cb:focus-visible { outline: 2px solid #2f6fd6; outline-offset: 2px; }
+
+/* v3.215: редактор комментария — панель Ж / К / цвета / ↶ ↷, поле contenteditable («Синий Кальк») */
+.com-ed .com-body { white-space: pre-wrap; word-break: break-word; overflow-y: auto; cursor: text; }
+.com-ed .com-body:empty::before { content: attr(data-ph); color: #999; }
+.com-tb { display: flex; gap: 4px; align-items: center; margin: 4px 0; }
+.com-tb button { min-width: 28px; padding: 3px 8px; background: #fff; color: #2f6fd6; border: 1px solid #2f6fd6; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.com-tb button:hover, .com-tb button:active { background: #2f6fd6; color: #fff; }
+.com-tb .com-col { min-width: 0; width: 22px; height: 22px; padding: 0; background: var(--c); border-color: var(--c); border-radius: 50%; }
+.com-tb .com-col:hover { background: var(--c); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--c); }
+.com-tsep { width: 1px; height: 18px; background: #ddd; margin: 0 4px; }
