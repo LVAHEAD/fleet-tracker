@@ -87,11 +87,13 @@ function comEditorToMd(ed) {
 
 function placeFloat(el, anchor, dx) {
   const a = anchor.getBoundingClientRect();
-  const w = el.offsetWidth, h = el.offsetHeight;
   const z = uiZoom();
+  if (el.classList.contains("com-ed")) el.style.maxHeight = Math.max(200, Math.floor(window.innerHeight / z) - 16) + "px";   // v3.223: окно целиком в экране, поле ввода прокручивается
+  const w = el.offsetWidth, h = el.offsetHeight;
   const W = w * z, H = h * z;
   el.style.left = Math.max(8, Math.min(window.innerWidth - W - 8, a.right - W + (dx || 0))) / z + "px";
-  el.style.top = (a.bottom + 6 + H < window.innerHeight ? a.bottom + 6 : Math.max(8, a.top - 6 - H)) / z + "px";
+  const top = a.bottom + 6 + H < window.innerHeight ? a.bottom + 6 : Math.max(8, a.top - 6 - H);
+  el.style.top = Math.max(8, Math.min(top, window.innerHeight - H - 8)) / z + "px";   // v3.223: нижний край не уходит за экран
 }
 
 function hideComPop() {

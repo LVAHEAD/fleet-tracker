@@ -36,7 +36,14 @@
 
   const validTs = (v) => num(v) && v > 1e9;
   const cardOk = (d) => { const t = d.today || {}; return validTs(t.rest_start) || validTs(t.shift_start); };   // нет данных суток — Mapon показывает NO CARD
-  function tiles(d, at) {
+  // v3.223: какой недельный отдых нужен — 45 h или 24 h (один на экипаж, по более строгому водителю)
+  function weeklyNeed(pp) {
+    const n = pp && num(pp.weekly_need);
+    if (!n) return "";
+    const h = Math.round(n / 3600) + " h";
+    return (pp.weekly_mixed ? ' · <span title="У водителей экипажа значения разные; экипаж отдыхает вместе — берём более строгое">' + h + "*</span>" : " · " + h);
+  }
+  function tiles(d, at, pp) {
     if (!d) {
       return ["Now", "Today", "10h Driving", "9h rest", "Daily rest start", "This week", "Next week", "Weekly rest start"]
         .map((l) => tile(l, "", "—", "", null)).join("");
@@ -61,7 +68,7 @@
         : tile("Daily rest start", "bed", riga(t.rest_start), mh(restIn), null)) +
       tile("This week", "clock", mh(w.driving), wRem != null ? mh(wRem) : "", wRem != null ? (w.driving || 0) / ((w.driving || 0) + wRem || WEEK_CAP) : null) +
       tile("Next week", "clock", num(w.next) != null ? mh(w.next) : "—", "", null) +
-      tile("Weekly rest start", "bed", riga(w.rest_start, true), wkIn != null ? mh(wkIn) : "", null);
+      tile("Weekly rest start", "bed", riga(w.rest_start, true), (wkIn != null ? mh(wkIn) : "") + weeklyNeed(pp), null);
   }
 
   function gpsLine(p) {
@@ -93,7 +100,7 @@
     return '<div class="mp-h">' + IC.gauge + "<b>Tachograph</b>" + (c.u ? '<span class="mp-unit">' + esc(c.u) + "</span>" : "") +
       '<span class="mp-at">' + (c.h ? esc(c.h) + " · " : "") + "на " + riga(p.at) + ' (Riga)</span>' +
       '<button type="button" class="tp-x" aria-label="Закрыть">×</button></div>' +
-      '<div class="mp-tabs">' + tabs + '</div><div class="mp-g">' + tiles(ds[tab] || null, p.at) + links + "</div>" + (!ds[tab] ? '<div class="tp-gps warn"><b>⚠</b><span>Mapon не отдаёт данные этого водителя: карта не считана, его часы неизвестны' + (p.team ? " — остаток дня экипажа считаем с учётом GPS" : "") + "</span></div>" : "") + gpsLine(p) +
+      '<div class="mp-tabs">' + tabs + '</div><div class="mp-g">' + tiles(ds[tab] || null, p.at, p) + links + "</div>" + (!ds[tab] ? '<div class="tp-gps warn"><b>⚠</b><span>Mapon не отдаёт данные этого водителя: карта не считана, его часы неизвестны' + (p.team ? " — остаток дня экипажа считаем с учётом GPS" : "") + "</span></div>" : "") + gpsLine(p) +
       plan +
       '<div class="tp-f"><span>Сегодня осталось</span><b>' + hm(p.left) + "</b><span>" + (p.left_src === "gps" ? "по GPS" : "по тахографу") + crew + "</span></div>";
   }

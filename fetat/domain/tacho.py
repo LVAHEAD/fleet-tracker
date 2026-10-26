@@ -602,6 +602,15 @@ def tacho_panel(tacho, sim=None, weekly=None, now_ts=None):
                          short=[_ni(w.get("9h_rest_shortening_used")), _ni(w.get("9h_rest_shortening_available"))]),
         })
     p = tacho_summary_parts(tacho, sim, weekly)
+    # v3.223: недельный отдых экипажа — один на всех, по более строгому водителю (Mapon: weekly_rest_min, 24 / 45 ч)
+    mins = [m for m in ((d["week"] or {}).get("rest_min") for d in out_d) if isinstance(m, (int, float)) and m > 0]
+    need = max(mins) if mins else None
+    if need is None:                                      # Mapon поля не дал — считаем по истории отдыхов
+        try:
+            wk = weekly_for_tacho(tacho)
+            need = wk.get("need_sec") if wk else None
+        except Exception:
+            need = None
     rest_done = any(x.startswith("суточный отдых выполнен") for x in p["day"])
     d0 = next((d for d in drivers if d.get("current_state") == "DRIVING"), drivers[0]) if drivers else {}
     base = team_day_left(drivers) if team else float((d0.get("today") or {}).get("driving_remaining") or 0)
@@ -610,6 +619,7 @@ def tacho_panel(tacho, sim=None, weekly=None, now_ts=None):
     return {
         "at": int(t), "team": bool(team), "day_max": int(day_max),
         "drivers": out_d,
+        "weekly_need": _ni(need), "weekly_mixed": len(set(mins)) > 1,
         "gps": {"start": _ni(g.get("start")), "driven": _ni(g.get("driven"))} if g.get("start") is not None else None,
         "tacho_driven": _ni(tacho_driven(tacho)),
         "fix": {"kind": fix.get("kind"), "driven": _ni(fix["driven"]), "tacho": _ni(fix["tacho"])} if fix else None,
