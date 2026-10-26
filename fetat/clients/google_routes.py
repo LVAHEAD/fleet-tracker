@@ -266,12 +266,10 @@ def _project(lat, lng, a, b):
     return t, math.hypot(px, py)
 
 
-def _along_lookup(tkey, lat, lng, now):
-    c = _along_cache.get(tkey)
-    if not c or now - c["at"] > ALONG_ROUTE_TTL:
-        return None
-    pts, cum = c["pts"], c["cum"]
-    best = None   # (расстояние, индекс начала отрезка, доля)
+def _along_best(c, lat, lng):
+    """Ближайший к машине отрезок линии: (расстояние км, индекс начала отрезка, доля) или None, если линия далеко."""
+    pts = c["pts"]
+    best = None
     for i in range(len(pts) - 1):
         a, b = pts[i], pts[i + 1]
         # грубый отсев: оба конца отрезка далеко по широте/долготе
@@ -281,6 +279,15 @@ def _along_lookup(tkey, lat, lng, now):
         t, d = _project(lat, lng, a, b)
         if best is None or d < best[0]:
             best = (d, i, t)
+    return best
+
+
+def _along_lookup(tkey, lat, lng, now):
+    c = _along_cache.get(tkey)
+    if not c or now - c["at"] > ALONG_ROUTE_TTL:
+        return None
+    pts, cum = c["pts"], c["cum"]
+    best = _along_best(c, lat, lng)
     if best is None or best[0] > ALONG_ROUTE_MAX_OFF_KM:
         return None
     d, i, t = best
@@ -355,11 +362,12 @@ def _leg_route(lat1, lng1, lat2, lng2, api_key, waypoints):
     return res
 
 
-def _truck_miss_reason(tkey, had_entry, now):
+def _truck_miss_reason(tkey, had_entry, now, lat=None, lng=None):
     """v3.157: почему для машины пришлось идти в Google (для /gusage; на расчёт не влияет).
     new — кеша по этой цели / точкам по пути ещё не было; noline — ответ был без линии маршрута;
-    old — линия старше ALONG_ROUTE_TTL; off — машина ушла с линии дальше ALONG_ROUTE_MAX_OFF_KM
-    (или прошлый ответ устарел, а линия не подошла)."""
+    old — линия старше ALONG_ROUTE_TTL; off — машина ушла с линии дальше ALONG_ROUTE_MAX_OFF_KM.
+    v3.221: если известны координаты машины, «off» делится по расстоянию до линии (чтобы подобрать допуск):
+    off_2_3 / off_3_5 / off_5_10 — км от линии, off_far — дальше 10 км или линия вне зоны поиска."""
     if not had_entry:
         return "new"
     c = _along_cache.get(tkey)
@@ -367,7 +375,13 @@ def _truck_miss_reason(tkey, had_entry, now):
         return "noline"
     if now - c["at"] > ALONG_ROUTE_TTL:
         return "old"
-    return "off"
+    if lat is None or lng is None:
+        return "off"
+    best = _along_best(c, lat, lng)
+    if best is None or best[0] > 10:
+        return "off_far"
+    d = best[0]
+    return "off_2_3" if d <= 3 else "off_3_5" if d <= 5 else "off_5_10" if d <= 10 else "off_far"
 
 
 def _truck_route(lat1, lng1, lat2, lng2, api_key, waypoints):
@@ -391,7 +405,7 @@ def _truck_route(lat1, lng1, lat2, lng2, api_key, waypoints):
         _route_stat("cache_hits", "truck")
         return res
     had_entry = bool(mem) or bool(doc and doc.get("dist") is not None)
-    _route_stat("calls", "truck", miss=_truck_miss_reason(tkey, had_entry, now))
+    _route_stat("calls", "truck", miss=_truck_miss_reason(tkey, had_entry, now, lat1, lng1))
     res = _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints)
     entry = {"at": now, "olat": lat1, "olng": lng1, "res": res}
     with _route_cache_lock:

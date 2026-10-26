@@ -1683,11 +1683,33 @@ function hitchPillHtml(data, compact) {
 // v1.71: привязанный прицеп во второй строке Статуса тягача
 function linkedTrailerHtml(number, lt, row) {
   const un = `<button class="trl-unlink" title="Отвязать прицеп (вернётся отдельной строкой)">×</button>`;
-  if (!lt) return `<span class="hitch-pill">🔗 ${escapeHtml(number)}</span>${un}`;
-  if (lt.error) return `<span class="hitch-pill rf-warn" title="${escapeHtml(lt.error)}">🔗 ${escapeHtml(number)} ?</span>${un}`;
+  // v3.221: клик по плашке с номером прицепа копирует номер (обработчик — trlCopyClick ниже)
+  const cp = (n) => ` data-copy="${escapeHtml(n)}"`;
+  if (!lt) return `<span class="hitch-pill trl-copy"${cp(number)} title="Клик — скопировать номер">🔗 ${escapeHtml(number)}</span>${un}`;
+  if (lt.error) return `<span class="hitch-pill trl-copy rf-warn"${cp(number)} title="${escapeHtml(lt.error + "\nКлик — скопировать номер")}">🔗 ${escapeHtml(number)} ?</span>${un}`;
   const far = lt.far ? `<span class="trl-far" title="Прицеп в ${escapeHtml(fmtKm(lt.km))} от тягача — перецепили?">⚠ ${escapeHtml(fmtKm(lt.km))}</span>` : "";
-  return `<span class="hitch-pill" title="Привязанный прицеп${lt.km != null ? " · " + fmtKm(lt.km) + " от тягача" : ""}">🔗 ${escapeHtml(lt.number)}</span>${un}${reeferPillHtml(lt, row)}${far}`;
+  return `<span class="hitch-pill trl-copy"${cp(lt.number)} title="Привязанный прицеп${lt.km != null ? " · " + fmtKm(lt.km) + " от тягача" : ""}\nКлик — скопировать номер">🔗 ${escapeHtml(lt.number)}</span>${un}${reeferPillHtml(lt, row)}${far}`;
 }
+// v3.221: копирование номера прицепа в буфер по клику на плашку; «✓ скопировано» на секунду вместо alert
+document.addEventListener("click", (e) => {
+  const el = e.target.closest && e.target.closest(".trl-copy[data-copy]");
+  if (!el) return;
+  const txt = el.getAttribute("data-copy") || "";
+  const done = () => {
+    const was = el.innerHTML;
+    el.textContent = "✓ скопировано";
+    setTimeout(() => { if (el.isConnected) el.innerHTML = was; }, 900);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(done, () => {});
+  } else {
+    const ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { if (document.execCommand("copy")) done(); } catch (_) { /* буфер недоступен */ }
+    ta.remove();
+  }
+});
 
 
 // v3.45: плашка коридора — полоска между строками точек того плеча, где действует обход Швейцарии.
