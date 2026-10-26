@@ -150,7 +150,13 @@
     });
   }
   // плашка «на точке» (.ot-pill) — у неё свой клик (зум на машине) и своя подсказка: всплывашку не зовём
-  const host = (e) => { const t = e.target; if (!t.closest || t.closest(".ot-pill")) return null; return t.closest(".status-line[data-tp]"); };
+  // 26.10 (Владимир): всплывашка — только над флагом страны и значком экипажа (.cc-badge, .crew-b), не над всей строкой статуса
+  const AREA = ".cc-badge, .crew-b";
+  const host = (e) => {
+    const t = e.target;
+    if (!t.closest || t.closest(".ot-pill") || !t.closest(AREA)) return null;
+    return t.closest(".status-line[data-tp]");
+  };
 
   document.addEventListener("mouseover", (e) => {
     const el = host(e);
@@ -167,7 +173,8 @@
     if (!el || pinned) return;
     clearTimeout(showT);
     const to = e.relatedTarget;
-    if (to && (el.contains(to) || (tip && tip.contains(to)))) return;
+    const toArea = to && to.closest ? to.closest(AREA) : null;   // перешли с флага на значок экипажа — не закрываем
+    if (to && ((toArea && el.contains(toArea)) || (tip && tip.contains(to)))) return;
     hideT = setTimeout(() => { close(); restore(); }, 160);
   });
   document.addEventListener("click", (e) => {
