@@ -1,6 +1,6 @@
 /* v3.222: всплывашка рефа прицепа — плитки как панель Freezer в Mapon (подписи по-английски, время по Риге).
    Данные — data.reefer (fetat/domain/trailers.py: reefer_summary), лежат в data-rp на плашке .rf-pill.
-   Наведение (через 450 мс) — всплывашка, уход курсора / Esc — закрыть. Клик по плашке остаётся «Temp ↔ NoTemp». */
+   Наведение (через 2 с) — всплывашка, уход курсора / Esc — закрыть. Клик по плашке остаётся «Temp ↔ NoTemp». */
 (function () {
   "use strict";
 
@@ -93,7 +93,7 @@
     clearTimeout(hideT);
     if (anchor === el && tip && !tip.hidden) return;
     clearTimeout(showT);
-    showT = setTimeout(() => open(el), 450);
+    showT = setTimeout(() => open(el), 2000);
   });
   document.addEventListener("mouseout", (e) => {
     const el = host(e);
