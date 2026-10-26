@@ -36,6 +36,22 @@ class V3222(unittest.TestCase):
         self.assertFalse(r["compartments"][1]["on"])
         self.assertTrue(r["compartments"][0]["ts"] > 1e9)
 
+    def test_two_compartments_on(self):                      # C-221H (26.10): оба отсека включены, уставки 8° и 4°
+        t = lambda ret, sp: {"return": {"value": ret, "gmt": G}, "setpoint": {"value": sp}, "supply": {"value": 8.5, "gmt": G}}
+        u = {"reefer": {"0": {"state": {"value": "on", "gmt": G}, "temperature": t(8.9, 8), "hours": {"diesel": {"value": 3309}}, "mode": {"run": {"value": 1}}},
+                        "1": {"state": {"value": "on", "gmt": G}, "temperature": t(4.8, 4), "mode": {"run": {"value": 1}}},
+                        "refrigerator_type": "CARRIER", "refrigerator_compartment_count": "2"}}
+        saved = A.time_now_ts
+        A.time_now_ts = lambda: A._iso_ts(G)
+        try:
+            r = A.reefer_summary(u)
+        finally:
+            A.time_now_ts = saved
+        self.assertEqual([c["on"] for c in r["compartments"]], [True, True])
+        self.assertEqual([c["dev"] for c in r["compartments"]], [0.9, 0.8])
+        self.assertFalse(r["warn"])
+        self.assertEqual(r["diesel_h"], 3309)
+
     def test_summary_without_hours(self):
         u = self._unit()
         del u["reefer"]["0"]["hours"], u["reefer"]["0"]["mode"], u["reefer"]["1"]["mode"]

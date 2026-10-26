@@ -25,19 +25,20 @@
     const comps = r.compartments || [];
     const main = comps.find((c) => c.on) || comps[0] || null;
     const other = comps.find((c) => c !== main) || null;
-    const dev = main && main.dev != null && Math.abs(main.dev) > main.lim && !main.stale;
+    const bad = (c) => !!c && c.dev != null && Math.abs(c.dev) > c.lim && !c.stale;      // отклонение возврата от уставки больше допуска
+    const dev = bad(main), bad2 = bad(other), badC = comps.find(bad) || null;
     const ts = Math.max.apply(null, comps.map((c) => num(c.ts) || 0).concat([0]));
     const t = [];
     t.push(tile("Incoming temperature", main && main.on ? deg(main.ret) : "—", main && main.on && main.dev != null ? (main.dev > 0 ? "+" : "") + main.dev + "° к уставке" : "", dev ? "bad" : ""));
     t.push(tile("Set temperature", main && main.on ? deg(main.set) : "—", ""));
     t.push(tile("Outgoing temperature", main && main.on ? deg(main.sup) : "—", ""));
-    t.push(tile("Temperature 2", other ? (other.on ? deg(other.ret) : '<span class="mp-nd">Off</span>') : "—", other && other.on ? "уставка " + deg(other.set) : ""));
+    t.push(tile("Temperature 2", other ? (other.on ? deg(other.ret) : '<span class="mp-nd">Off</span>') : "—", other && other.on ? "уставка " + deg(other.set) : "", bad2 ? "bad" : ""));
     t.push(tile("Run mode", num(r.run) == null ? "—" : esc(RUN[r.run] || "mode " + r.run), ""));
     t.push(tile("Diesel hours", num(r.diesel_h) == null ? "—" : Math.round(r.diesel_h), ""));
     t.push(tile("Fuel", num(r.fuel_l) == null ? "—" : Math.round(r.fuel_l) + " L", r.fuel_low ? "мало (< 40 л)" : "", r.fuel_low ? "bad" : ""));
     const stale = comps.some((c) => c.on && c.stale);
     const warn = stale ? "Данные рефа старые — температуры могут не совпадать с текущими"
-      : dev ? "Возврат отличается от уставки на " + (main.dev > 0 ? "+" : "") + main.dev + "° (допуск ±" + main.lim + "°)" : "";
+      : badC ? "Отсек " + badC.n + ": возврат отличается от уставки на " + (badC.dev > 0 ? "+" : "") + badC.dev + "° (допуск ±" + badC.lim + "°)" : "";
     return '<div class="mp-h"><b>Freezer</b>' + (r.type ? '<span class="mp-unit">' + esc(r.type) + "</span>" : "") +
       '<span class="mp-at">' + (ts ? "на " + riga(ts) + " (Riga)" : "") + "</span></div>" +
       '<div class="mp-g">' + t.join("") + "</div>" +
