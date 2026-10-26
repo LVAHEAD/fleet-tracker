@@ -137,11 +137,24 @@ def reefer_summary(u):
         on = state == "on"
         dev = round(ret - sp, 1) if on and isinstance(ret, (int, float)) and isinstance(sp, (int, float)) else None
         comps.append({"n": int(k) + 1, "on": on, "set": sp, "ret": ret, "sup": sup, "dev": dev, "lim": reefer_dev_limit(sp),
-                      "stale": bool(at and now - at > REEFER_STALE_SEC),
+                      "stale": bool(at and now - at > REEFER_STALE_SEC), "ts": at,
                       "at": ts_west(at).strftime("%d/%m %H:%M") if at else None})
     warn = any(c["dev"] is not None and abs(c["dev"]) > c["lim"] and not c["stale"] for c in comps)
     return {"type": rf.get("refrigerator_type"), "compartments": comps, "fuel_l": fuel,
-            "fuel_low": fuel_low, "warn": warn}
+            "fuel_low": fuel_low, "warn": warn,
+            "diesel_h": _reefer_first(rf, keys, ("hours", "diesel")), "run": _reefer_first(rf, keys, ("mode", "run"))}
+
+
+def _reefer_first(rf, keys, path):
+    """v3.222: первое значение поля рефа по отсекам (моточасы лежат только в отсеке 0, режим — в каждом)."""
+    for k in keys:
+        v = rf.get(k) or {}
+        for p in path:
+            v = v.get(p) if isinstance(v, dict) else None
+        v = v.get("value") if isinstance(v, dict) else None
+        if isinstance(v, (int, float)):
+            return v
+    return None
 
 
 def find_hitch(unit, units, truck_ids):

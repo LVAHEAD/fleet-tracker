@@ -1662,14 +1662,15 @@ function reeferPillHtml(data, row) {
   const txt = on.length ? "❄ " + on.map((c) => fmtT(c.ret)).join(" / ") : (comps.length ? "❄ выкл" : "");
   const fuel = r.fuel_l != null ? `<span class="rf-fuel${r.fuel_low ? " rf-fuel-low" : ""}">⛽${Math.round(r.fuel_l)}</span>` : "";
   if (!txt && !fuel) return "";
+  const rp = ` data-rp="${escapeHtml(JSON.stringify(r))}"`;   // v3.222: всплывашка рефа (static/reefer-pop.js)
   if (row && row.noTemp) {
     lines.push("NoTemp: тревоги рефа выключены, клик — вернуть Temp");
-    return `<span class="rf-pill rf-nt rf-tog" data-nt="1" title="${escapeHtml(lines.join("\n"))}">NoTemp${fuel}</span>`;
+    return `<span class="rf-pill rf-nt rf-tog" data-nt="1"${rp} title="${escapeHtml(lines.join("\n"))}">NoTemp${fuel}</span>`;
   }
   const cls = r.warn || r.fuel_low ? "rf-warn" : on.length ? "rf-on" : "rf-off";
   const tog = row ? " rf-tog" : "";
   if (row) lines.push("Клик — NoTemp (груз без температуры, тревоги рефа выключатся)");
-  return `<span class="rf-pill ${cls}${tog}" title="${escapeHtml(lines.join("\n"))}">${escapeHtml(txt)}${fuel}</span>`;
+  return `<span class="rf-pill ${cls}${tog}"${rp} title="${escapeHtml(lines.join("\n"))}">${escapeHtml(txt)}${fuel}</span>`;
 }
 function hitchPillHtml(data, compact) {
   const h = data.hitch;
