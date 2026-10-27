@@ -42,9 +42,19 @@ class BansBadRequest(RuntimeError):
     pass
 
 
+# v3.224: nakordoni с 22.10 отвечает 403 на запросы с «fleet-eta-tracker» (без браузерных заголовков).
+# Шлём как браузер: UA, Accept, Referer на страницу запретов. Текст ответа 403 / 5xx попадает в ошибку.
+BANS_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"),
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "ru,en;q=0.8",
+    "Referer": "https://nakordoni.eu/ru/for_truck_drivers/traffic_bans/",
+}
+
+
 def _bans_get(params):
-    r = requests.get(BANS_URL, params={"lang": "ru", **params}, timeout=20,
-                     headers={"User-Agent": "fleet-eta-tracker"})
+    r = requests.get(BANS_URL, params={"lang": "ru", **params}, timeout=20, headers=BANS_HEADERS)
     if r.status_code == 429:
         try:
             ra = int(r.headers.get("Retry-After") or 0)
@@ -53,7 +63,9 @@ def _bans_get(params):
         raise BansRateLimited("nakordoni: слишком много запросов (429)", ra)
     if r.status_code == 400:
         raise BansBadRequest(f"nakordoni: 400 для {params.get('country')}")
-    r.raise_for_status()
+    if r.status_code >= 400:
+        snippet = " ".join((r.text or "").split())[:120]
+        raise RuntimeError(f"nakordoni: HTTP {r.status_code}" + (f" — {snippet}" if snippet else ""))
     d = r.json()
     if not d.get("success", True):
         raise RuntimeError("nakordoni: success=false")

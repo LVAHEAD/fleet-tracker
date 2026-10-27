@@ -111,6 +111,8 @@ def _bans_refresh(max_age=BANS_TTL):
         if data:
             _bans_cache.update(data=data, at=oldest)
         _bans_cache["error"] = err
+        # v3.224: время последней неудачной попытки — в плашке «Обновление не удалось в ЧЧ:ММ»
+        _bans_cache["error_at"] = time.time() if err else None
 
 
 def fetch_bans():

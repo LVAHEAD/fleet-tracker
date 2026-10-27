@@ -99,7 +99,7 @@ Fleet ETA Tracker — вкладка "Запреты" (справочная)
     calEl.innerHTML = rows || '<div class="muted">Нет данных</div>';
     const when = d.loaded_at ? `данные от ${esc(d.loaded_at)}` : "";
     calEl.innerHTML += d.error
-      ? `<div class="bans-err">Обновление не удалось (${esc(d.error)}) — показаны ${when || "прошлые данные"}</div>`
+      ? `<div class="bans-err">Обновление не удалось${d.error_at ? ` в ${esc(d.error_at)}` : ""} (${esc(d.error)}) — показаны ${when || "прошлые данные"}</div>`
       : (when ? `<div class="bans-when">${when}</div>` : "");
   }
 

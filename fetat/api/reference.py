@@ -141,11 +141,13 @@ def api_bans():
         data = _bans_cache["data"]
         loaded = _bans_cache["at"]
         err = _bans_cache["error"]
+        err_at = _bans_cache.get("error_at")
     loaded_txt = (ts_west(loaded)
                   .strftime("%d/%m %H:%M")) if data else None
+    err_at_txt = ts_west(err_at).strftime("%H:%M") if err and err_at else None   # v3.224
     if data is None:
-        return jsonify({"error": err or "нет данных — попробуйте позже"}), 502
-    return jsonify({**data, "error": err, "loaded_at": loaded_txt})
+        return jsonify({"error": err or "нет данных — попробуйте позже", "error_at": err_at_txt}), 502
+    return jsonify({**data, "error": err, "error_at": err_at_txt, "loaded_at": loaded_txt})
 
 
 @bp.route("/api/links")
