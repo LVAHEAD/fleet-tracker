@@ -26,6 +26,7 @@
   sec.id = "fx-demo";
   sec.innerHTML = `<h2>Фикс-время точки: оповещения (макет)</h2>
     <p class="fx-sub">Метки фикса: at, FIX, F. После слота водителю нужно ~2 ч на выгрузку и поиск парковки. Ячейка ETA красится по тому же образцу, что опоздание сейчас.</p>
+    <label class="fx-sw"><input type="checkbox" id="fx-on" checked> Показать в таблице Флота выше: пять строк, сверху вниз в том же порядке, у первой непройденной точки ②+. Одна строка в ячейке, подробности в подсказке при наведении.</label>
     <div class="fx-scroll"><table>
       <tr><th>Состояние</th><th>TimeSlot точки</th><th>Ячейка ETA</th><th>Подсказка</th></tr>${body}</table></div>
     <div class="fx-tl"><b>OI-1781, ④ Bama Nyland: как считается запас</b>
@@ -42,4 +43,46 @@
       <p class="fx-foot">Резерв после слота: 03:40 − 00:30 = 3 ч 10 м, нужно 2 ч, значит «успевает». Числа в примере выдуманы для макета, часы смены в аппе возьмём из Mapon.</p>
     </div>`;
   tbl.parentElement.appendChild(sec);
+
+  // ---- показ в самой таблице: подменяем etaCellHtml (после app.js), строка ETA точки ②+ получает состояние ----
+  const SHORT = [
+    { c: "fx-ok", t: "⏱ 00:30 ✓", tip: "Успевает. Слот 28.10 00:30 (at).\nСамый ранний приезд 21:15, ждёт 3 ч 15 м.\nВыехать до 22:40. После слота резерв 3 ч 10 м (нужно 2 ч)." },
+    { c: "fx-wait", t: "⏳ ждёт 3:15", tip: "Приедет раньше слота: 21:15 против 00:30 (FIX).\nРаньше нельзя, ждёт 3 ч 15 м: можно занять перерывом или отдыхом.\nВыехать до 22:40." },
+    { c: "fx-warn", t: "⚠ рез. 1:20", tip: "К слоту 00:30 (F) успевает, но после слота у водителя 1 ч 20 м смены.\nНужно 2 ч на выгрузку и поиск парковки." },
+    { c: "fx-bad", t: "✗ 02:10 +1:40", tip: "Не успевает к слоту: самый ранний приезд 02:10, слот 00:30 (at).\nПозже на 1 ч 40 м." },
+    { c: "fx-go", t: "▶ пора ехать", tip: "Выехать надо было до 22:40, сейчас 22:52, машина стоит.\nК слоту 00:30 (at) иначе не успеть." }
+  ];
+  const picked = {};          // row.id -> номер состояния (стабильно при перерисовке)
+  let fxOn = true;
+  function fxPatch(row, c, html) {
+    if (!row || !row.extra || !row.extra.length || !c || !c.extra) return html;
+    const i = c.extra.findIndex((ce) => ce && !ce.done && !ce.error && (ce.eta_tacho || ce.eta_local));
+    if (i < 0) return html;
+    if (picked[row.id] == null) {
+      if (Object.keys(picked).length >= SHORT.length) return html;
+      picked[row.id] = Object.keys(picked).length;
+    }
+    const st = SHORT[picked[row.id]];
+    const box = document.createElement("div");
+    box.innerHTML = html;
+    const sl = box.querySelectorAll(":scope > .sl")[i + 1];
+    const t = sl && sl.querySelector(".eta-x-t");
+    if (!t) return html;
+    t.textContent = st.t;
+    t.className = "eta-x-t " + st.c;
+    if (st.c === "fx-warn") sl.classList.add("fx-warn-sl");
+    if (st.c === "fx-bad" || st.c === "fx-go") sl.classList.add("sl-late");
+    sl.title = st.tip;
+    return box.innerHTML;
+  }
+  if (typeof window.etaCellHtml === "function") {
+    const orig = window.etaCellHtml;
+    window.etaCellHtml = function (row, c, composed) {
+      const html = orig.apply(this, arguments);
+      return fxOn ? fxPatch(row, c, html) : html;
+    };
+    const sw = document.getElementById("fx-on");
+    if (sw) sw.addEventListener("change", () => { fxOn = sw.checked; if (typeof window.renderRows === "function") window.renderRows(); });
+    if (typeof window.renderRows === "function") window.renderRows();
+  }
 })();

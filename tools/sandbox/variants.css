@@ -37,3 +37,13 @@
 #fx-demo .fx-ticks .fx-lim { top: 28px; border-left: 0; border-right: 1px solid var(--fx-bad); padding: 0 4px 0 0; color: var(--fx-bad); }
 #fx-demo .fx-ticks .fx-slotm { border-left-color: var(--fx-blue); color: var(--fx-blue); font-weight: 600; }
 #fx-demo .fx-foot { margin: 8px 0 0; color: var(--fx-mute); font-size: 11px; }
+#fx-demo .fx-sw { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--fx-line); border-radius: 6px; background: var(--fx-soft); font-size: 12px; max-width: 68ch; cursor: pointer; }
+#fx-demo .fx-sw input { margin-top: 2px; flex: none; }
+/* в самой таблице Флота: ячейка точки с фикс-временем */
+.eta-cell .sl .eta-x-t.fx-ok { color: #2d6b3c; }
+.eta-cell .sl .eta-x-t.fx-wait { color: #333; }
+.eta-cell .sl .eta-x-t.fx-warn { color: #a86a00; }
+.eta-cell .sl.fx-warn-sl { box-shadow: inset 0 -2px 0 #f1dba0; }
+.eta-cell .sl .eta-x-t.fx-bad { color: #c0392b; }
+.eta-cell .sl .eta-x-t.fx-go { color: #c0392b; animation: fx-blink 1.2s steps(2, start) infinite; }
+@media (prefers-reduced-motion: reduce) { .eta-cell .sl .eta-x-t.fx-go { animation: none; } }
