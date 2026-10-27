@@ -43,9 +43,16 @@
     const h = Math.round(n / 3600) + " h";
     return (pp.weekly_mixed ? ' · <span title="У водителей экипажа значения разные; экипаж отдыхает вместе — берём более строгое">' + h + "*</span>" : " · " + h);
   }
+  // суффикс подписи плитки: «Weekly rest (45h)», норма жирным (нижняя строка плитки остаётся «время · 45 h»)
+  function weeklyTag(pp) {
+    const n = pp && num(pp.weekly_need);
+    if (!n) return "";
+    const h = Math.round(n / 3600) + "h";
+    return (pp.weekly_mixed ? ' (<b title="У водителей экипажа значения разные; экипаж отдыхает вместе — берём более строгое">' + h + "*</b>)" : " (<b>" + h + "</b>)");
+  }
   function tiles(d, at, pp) {
     if (!d) {
-      return ["Now", "Today", "10h Driving", "9h rest", "Daily rest start", "This week", "Next week", "Weekly rest start"]
+      return ["Now", "Today", "10h Driving", "9h rest", "Daily rest start", "This week", "Next week", "Weekly rest"]
         .map((l) => tile(l, "", "—", "", null)).join("");
     }
     const n = d.now || {}, t = d.today || {}, w = d.week || {};
@@ -68,7 +75,7 @@
         : tile("Daily rest start", "bed", riga(t.rest_start), mh(restIn), null)) +
       tile("This week", "clock", mh(w.driving), wRem != null ? mh(wRem) : "", wRem != null ? (w.driving || 0) / ((w.driving || 0) + wRem || WEEK_CAP) : null) +
       tile("Next week", "clock", num(w.next) != null ? mh(w.next) : "—", "", null) +
-      tile("Weekly rest start", "bed", riga(w.rest_start, true), (wkIn != null ? mh(wkIn) : "") + weeklyNeed(pp), null);
+      tile("Weekly rest" + weeklyTag(pp), "bed", riga(w.rest_start, true), (wkIn != null ? mh(wkIn) : "") + weeklyNeed(pp), null);
   }
 
   function gpsLine(p) {
