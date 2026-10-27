@@ -1,8 +1,18 @@
-"""Фид запретов движения nakordoni.eu: запросы по группам стран, кеш и блокировки.
-Сборка запретов (ADR, полные запреты) — пока в app.py, переедет в domain/bans.py."""
+"""Фид запретов движения nakordoni.eu (API v2, ключ Explorer): запросы по группам стран, кеш и блокировки.
+Сборка запретов (ADR, полные запреты) — в domain/bans.py."""
+import os
 import threading
 
 import requests
+
+
+# v3.225: v1 закрыт 8.09.2026 (version_sunset), работаем на v2. Ключ — переменная окружения
+# NAKORDONI_API_KEY (Cloud Run), в код и репозиторий не попадает. Без ключа запросов нет вообще.
+# v2 принимает до 3 кодов стран за запрос (country=AT,CZ,DE). Бесплатный план Explorer требует
+# видимую ссылку «Data by nakordoni.eu» там, где показаны данные.
+BANS_URL = "https://nakordoni.eu/api/v2/data/truck-bans"
+BANS_KEY_ENV = "NAKORDONI_API_KEY"
+BANS_HEADERS_BASE = {"User-Agent": "fleet-eta-tracker", "Accept": "application/json"}
 
 
 # v1.84: кеш по странам. Раньше любой 429 посреди обновления выбрасывал всё, а после
@@ -11,7 +21,6 @@ import requests
 # Теперь: одно обновление за раз (общий замок), удачные страны сохраняются сразу,
 # после 429 — стоп и пауза (Retry-After, не меньше 30 мин), потом докачиваются только
 # недостающие страны; пауза между запросами 3 с.
-BANS_URL = "https://nakordoni.eu/api/truckban_json.php"
 
 
 BANS_PAUSE = 3.0             # пауза между запросами, сек
@@ -42,19 +51,16 @@ class BansBadRequest(RuntimeError):
     pass
 
 
-# v3.224: nakordoni с 22.10 отвечает 403 на запросы с «fleet-eta-tracker» (без браузерных заголовков).
-# Шлём как браузер: UA, Accept, Referer на страницу запретов. Текст ответа 403 / 5xx попадает в ошибку.
-BANS_HEADERS = {
-    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                   "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"),
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "ru,en;q=0.8",
-    "Referer": "https://nakordoni.eu/ru/for_truck_drivers/traffic_bans/",
-}
+class BansNoKey(RuntimeError):
+    """Нет ключа NAKORDONI_API_KEY: запросов не шлём, в плашке — понятная причина."""
 
 
 def _bans_get(params):
-    r = requests.get(BANS_URL, params={"lang": "ru", **params}, timeout=20, headers=BANS_HEADERS)
+    key = (os.environ.get(BANS_KEY_ENV) or "").strip()
+    if not key:
+        raise BansNoKey(f"нет ключа nakordoni ({BANS_KEY_ENV} не задан)")
+    headers = {**BANS_HEADERS_BASE, "Authorization": f"Bearer {key}"}
+    r = requests.get(BANS_URL, params=params, timeout=20, headers=headers)
     if r.status_code == 429:
         try:
             ra = int(r.headers.get("Retry-After") or 0)
@@ -63,20 +69,28 @@ def _bans_get(params):
         raise BansRateLimited("nakordoni: слишком много запросов (429)", ra)
     if r.status_code == 400:
         raise BansBadRequest(f"nakordoni: 400 для {params.get('country')}")
+    if r.status_code in (401, 403):
+        raise RuntimeError(f"nakordoni: ключ не принят (HTTP {r.status_code})")
     if r.status_code >= 400:
         snippet = " ".join((r.text or "").split())[:120]
         raise RuntimeError(f"nakordoni: HTTP {r.status_code}" + (f" — {snippet}" if snippet else ""))
-    d = r.json()
-    if not d.get("success", True):
+    body = r.json()
+    if not body.get("ok", False):
+        err = body.get("error") or {}
+        raise RuntimeError(f"nakordoni: {err.get('code') or 'ошибка'} — {(err.get('message') or '')[:120]}")
+    data = body.get("data") or {}
+    if not data.get("success", True):
         raise RuntimeError("nakordoni: success=false")
-    return d
+    return data
 
 
 def _bans_store(codes, d):
-    """v1.84: ответ по группе стран -> в кеш по странам (страна без запретов тоже отмечается)."""
+    """v1.84: ответ по группе стран -> в кеш по странам (страна без запретов тоже отмечается).
+    v3.225: d — это `data` ответа v2; страны, которых нет в relevant_countries, не отмечаются (остаются «нет данных»)."""
     import time
     now = time.time()
-    part = {c: {"at": now, "upcoming": [], "current": []} for c in codes}
+    answered = set(d.get("relevant_countries") or codes) & set(codes)
+    part = {c: {"at": now, "upcoming": [], "current": []} for c in answered}
     for key, dst in (("upcoming_bans", "upcoming"), ("current_bans", "current")):
         for b in d.get(key) or []:
             cc = b.get("country_code")
@@ -89,7 +103,7 @@ def _bans_store(codes, d):
 
 
 def _bans_fetch_group(codes):
-    """Запрос по группе стран; если ответ обрезан или 400 — делим группу пополам;
+    """Запрос по группе стран (не больше 3 кодов); 400 — делим группу пополам;
     страну, на которую фид отвечает 400, пропускаем. 429 — пробрасываем (стоп)."""
     import time
     try:
@@ -104,9 +118,4 @@ def _bans_fetch_group(codes):
             _bans_store(codes, {})   # фид не знает страну — считаем "без запретов", не спрашиваем снова
         return
     time.sleep(BANS_PAUSE)
-    if d.get("truncated") and len(codes) > 1:
-        half = len(codes) // 2
-        _bans_fetch_group(codes[:half])
-        _bans_fetch_group(codes[half:])
-        return
     _bans_store(codes, d)

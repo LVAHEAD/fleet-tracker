@@ -4,7 +4,7 @@
 Вызывается из tests/test_replay.py в отдельном процессе (подменяет requests и time глобально)."""
 import sys, os, json, time as _t
 root, out = sys.argv[1], sys.argv[2]
-os.environ["FLEET_STORE"] = "memory"; os.environ["MAPON_API_KEY"] = "k"; os.environ["GOOGLE_API_KEY"] = "g"
+os.environ["FLEET_STORE"] = "memory"; os.environ["MAPON_API_KEY"] = "k"; os.environ["GOOGLE_API_KEY"] = "g"; os.environ["NAKORDONI_API_KEY"] = "k"
 sys.path.insert(0, root); os.chdir(root)
 FIX = 1791338400.0  # 2026-10-07 06:00 UTC
 _t.time = lambda: FIX
@@ -54,7 +54,7 @@ def fake(method, url, *a, **kw):
                               "polyline": {"encodedPolyline": enc(pts)}}]})
     if "nominatim" in url: return R([{"lat": "52.52", "lon": "13.40", "display_name": "Berlin", "address": {"country_code": "de"}}])
     if "photon" in url: return R({"features": []})
-    if "nakordoni" in url: return R({"bans": []})
+    if "nakordoni" in url: return R({"ok": True, "api_version": "v2", "data": {"success": True, "upcoming_bans": [], "current_bans": [], "truncated": False}})
     if "object/list" in url: return R({"data": {"objects": []}})
     return R({"data": {"units": []}})
 requests.get = lambda url, *a, **kw: fake("GET", url, *a, **kw)

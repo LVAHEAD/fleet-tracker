@@ -1,0 +1,620 @@
+{
+ "ok": true,
+ "api_version": "v2",
+ "product": "truck-bans",
+ "attribution": "Data by nakordoni.eu",
+ "terms": "https://nakordoni.eu/en/p/developer_api_terms",
+ "data": {
+  "success": true,
+  "lang": "en",
+  "ppid": null,
+  "country": "AT,CZ,DE",
+  "relevant_countries": [
+   "AT",
+   "CZ",
+   "DE"
+  ],
+  "countries_not_covered": [],
+  "current_bans": [],
+  "is_ban_active": false,
+  "upcoming_bans": [
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-10-27",
+    "time_from": "00:00",
+    "time_until": "05:00",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-10-27",
+    "time_from": "22:00",
+    "time_until": "23:59",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-10-28",
+    "time_from": "00:00",
+    "time_until": "05:00",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-10-28",
+    "time_from": "22:00",
+    "time_until": "23:59",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "CZ",
+    "country_name": "Czech Republic",
+    "date": "2026-10-28",
+    "time_from": "13:00",
+    "time_until": "22:00",
+    "details_url": "https://nakordoni.eu/s/cz",
+    "restriction_type": "Holiday",
+    "restriction_details": "Public holiday: Independent Czechoslovak State Day. Sunday & public-holiday ban (year-round; trucks >7.5t)",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-10-29",
+    "time_from": "00:00",
+    "time_until": "05:00",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-10-29",
+    "time_from": "22:00",
+    "time_until": "23:59",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-10-30",
+    "time_from": "00:00",
+    "time_until": "05:00",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-10-30",
+    "time_from": "22:00",
+    "time_until": "23:59",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-10-31",
+    "time_from": "00:00",
+    "time_until": "05:00",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-10-31",
+    "time_from": "15:00",
+    "time_until": "23:59",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "Saturday ban (year-round; trucks >7.5t; StVO §42)",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-10-31",
+    "time_from": "22:00",
+    "time_until": "23:59",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "DE",
+    "country_name": "Germany",
+    "date": "2026-10-31",
+    "time_from": "00:00",
+    "time_until": "22:00",
+    "details_url": "https://nakordoni.eu/s/de",
+    "restriction_type": "Regional Holiday",
+    "restriction_details": "Reformation Day (BB, HB, HH, MV, NI, SN, ST, SH, TH)",
+    "min_weight_tons": null
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-11-01",
+    "time_from": "00:00",
+    "time_until": "22:00",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Sunday",
+    "restriction_details": "Sunday & public-holiday ban (year-round; trucks >7.5t)",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-11-01",
+    "time_from": "00:00",
+    "time_until": "22:00",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Holiday",
+    "restriction_details": "All Saints' Day",
+    "min_weight_tons": null
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-11-01",
+    "time_from": "22:00",
+    "time_until": "23:59",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "CZ",
+    "country_name": "Czech Republic",
+    "date": "2026-11-01",
+    "time_from": "13:00",
+    "time_until": "22:00",
+    "details_url": "https://nakordoni.eu/s/cz",
+    "restriction_type": "Sunday",
+    "restriction_details": "Sunday & public-holiday ban (year-round; trucks >7.5t)",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "DE",
+    "country_name": "Germany",
+    "date": "2026-11-01",
+    "time_from": "00:00",
+    "time_until": "22:00",
+    "details_url": "https://nakordoni.eu/s/de",
+    "restriction_type": "Regional Holiday",
+    "restriction_details": "All Saints' Day (BW, BY, NW, RP, SL)",
+    "min_weight_tons": null
+   },
+   {
+    "country_code": "DE",
+    "country_name": "Germany",
+    "date": "2026-11-01",
+    "time_from": "00:00",
+    "time_until": "22:00",
+    "details_url": "https://nakordoni.eu/s/de",
+    "restriction_type": "Sunday",
+    "restriction_details": "Sunday & public-holiday ban (year-round, nationwide, all roads; trucks >7.5t and all truck-trailer combinations)",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-11-02",
+    "time_from": "00:00",
+    "time_until": "05:00",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-11-02",
+    "time_from": "22:00",
+    "time_until": "23:59",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-11-03",
+    "time_from": "00:00",
+    "time_until": "05:00",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   },
+   {
+    "country_code": "AT",
+    "country_name": "Austria",
+    "date": "2026-11-03",
+    "time_from": "22:00",
+    "time_until": "23:59",
+    "details_url": "https://nakordoni.eu/s/at",
+    "restriction_type": "Seasonal",
+    "restriction_details": "vehicles without Lärmarmzertifikat",
+    "min_weight_tons": 7.5
+   }
+  ],
+  "bans_by_country": {
+   "AT": {
+    "country_name": "Austria",
+    "tz": "Europe/Vienna",
+    "local_time": "08:24",
+    "local_date": "2026-10-27",
+    "status": "clear",
+    "active_window": null,
+    "next_window": {
+     "date": "2026-10-27",
+     "time_from": "22:00",
+     "time_until": "23:59"
+    },
+    "bans": [
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-10-27",
+      "time_from": "00:00",
+      "time_until": "05:00",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-10-27",
+      "time_from": "22:00",
+      "time_until": "23:59",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-10-28",
+      "time_from": "00:00",
+      "time_until": "05:00",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-10-28",
+      "time_from": "22:00",
+      "time_until": "23:59",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-10-29",
+      "time_from": "00:00",
+      "time_until": "05:00",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-10-29",
+      "time_from": "22:00",
+      "time_until": "23:59",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-10-30",
+      "time_from": "00:00",
+      "time_until": "05:00",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-10-30",
+      "time_from": "22:00",
+      "time_until": "23:59",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-10-31",
+      "time_from": "00:00",
+      "time_until": "05:00",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-10-31",
+      "time_from": "15:00",
+      "time_until": "23:59",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "Saturday ban (year-round; trucks >7.5t; StVO §42)",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-10-31",
+      "time_from": "22:00",
+      "time_until": "23:59",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-11-01",
+      "time_from": "00:00",
+      "time_until": "22:00",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Sunday",
+      "restriction_details": "Sunday & public-holiday ban (year-round; trucks >7.5t)",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-11-01",
+      "time_from": "00:00",
+      "time_until": "22:00",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Holiday",
+      "restriction_details": "All Saints' Day",
+      "min_weight_tons": null
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-11-01",
+      "time_from": "22:00",
+      "time_until": "23:59",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-11-02",
+      "time_from": "00:00",
+      "time_until": "05:00",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-11-02",
+      "time_from": "22:00",
+      "time_until": "23:59",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-11-03",
+      "time_from": "00:00",
+      "time_until": "05:00",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "AT",
+      "country_name": "Austria",
+      "date": "2026-11-03",
+      "time_from": "22:00",
+      "time_until": "23:59",
+      "details_url": "https://nakordoni.eu/s/at",
+      "restriction_type": "Seasonal",
+      "restriction_details": "vehicles without Lärmarmzertifikat",
+      "min_weight_tons": 7.5
+     }
+    ]
+   },
+   "CZ": {
+    "country_name": "Czech Republic",
+    "tz": "Europe/Prague",
+    "local_time": "08:24",
+    "local_date": "2026-10-27",
+    "status": "clear",
+    "active_window": null,
+    "next_window": {
+     "date": "2026-10-28",
+     "time_from": "13:00",
+     "time_until": "22:00"
+    },
+    "bans": [
+     {
+      "country_code": "CZ",
+      "country_name": "Czech Republic",
+      "date": "2026-10-28",
+      "time_from": "13:00",
+      "time_until": "22:00",
+      "details_url": "https://nakordoni.eu/s/cz",
+      "restriction_type": "Holiday",
+      "restriction_details": "Public holiday: Independent Czechoslovak State Day. Sunday & public-holiday ban (year-round; trucks >7.5t)",
+      "min_weight_tons": 7.5
+     },
+     {
+      "country_code": "CZ",
+      "country_name": "Czech Republic",
+      "date": "2026-11-01",
+      "time_from": "13:00",
+      "time_until": "22:00",
+      "details_url": "https://nakordoni.eu/s/cz",
+      "restriction_type": "Sunday",
+      "restriction_details": "Sunday & public-holiday ban (year-round; trucks >7.5t)",
+      "min_weight_tons": 7.5
+     }
+    ]
+   },
+   "DE": {
+    "country_name": "Germany",
+    "tz": "Europe/Berlin",
+    "local_time": "08:24",
+    "local_date": "2026-10-27",
+    "status": "clear",
+    "active_window": null,
+    "next_window": {
+     "date": "2026-10-31",
+     "time_from": "00:00",
+     "time_until": "22:00"
+    },
+    "bans": [
+     {
+      "country_code": "DE",
+      "country_name": "Germany",
+      "date": "2026-10-31",
+      "time_from": "00:00",
+      "time_until": "22:00",
+      "details_url": "https://nakordoni.eu/s/de",
+      "restriction_type": "Regional Holiday",
+      "restriction_details": "Reformation Day (BB, HB, HH, MV, NI, SN, ST, SH, TH)",
+      "min_weight_tons": null
+     },
+     {
+      "country_code": "DE",
+      "country_name": "Germany",
+      "date": "2026-11-01",
+      "time_from": "00:00",
+      "time_until": "22:00",
+      "details_url": "https://nakordoni.eu/s/de",
+      "restriction_type": "Regional Holiday",
+      "restriction_details": "All Saints' Day (BW, BY, NW, RP, SL)",
+      "min_weight_tons": null
+     },
+     {
+      "country_code": "DE",
+      "country_name": "Germany",
+      "date": "2026-11-01",
+      "time_from": "00:00",
+      "time_until": "22:00",
+      "details_url": "https://nakordoni.eu/s/de",
+      "restriction_type": "Sunday",
+      "restriction_details": "Sunday & public-holiday ban (year-round, nationwide, all roads; trucks >7.5t and all truck-trailer combinations)",
+      "min_weight_tons": 7.5
+     }
+    ]
+   }
+  },
+  "total_bans": 23,
+  "returned": 23,
+  "total_available": 24,
+  "truncated": true,
+  "covered_countries": [
+   "AT",
+   "CH",
+   "CZ",
+   "DE",
+   "FR",
+   "HU",
+   "IT",
+   "LI",
+   "LU",
+   "SI",
+   "SK",
+   "PL",
+   "RO",
+   "BG",
+   "HR",
+   "ES",
+   "GR",
+   "PT",
+   "BE",
+   "BY",
+   "ME",
+   "MK",
+   "SE"
+  ],
+  "window": {
+   "from": "2026-10-27",
+   "to": "2026-11-03",
+   "days": 8,
+   "requested": false
+  },
+  "as_of": "2026-10-27T07:24:31+00:00",
+  "source": "nakordoni.eu",
+  "page_url": "https://nakordoni.eu/en/apps/truckban",
+  "summary": "Truck bans in the next 7 days: Austria, Czech Republic, Germany"
+ },
+ "usage": {
+  "limit": 1000,
+  "used": 1,
+  "reset": "2026-10-28T00:00:00Z"
+ }
+}
