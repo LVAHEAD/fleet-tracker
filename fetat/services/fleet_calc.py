@@ -30,17 +30,25 @@ from fetat.utils.log import warn
 UNLOAD_STOP_SEC = 30 * 60    # стоянка на каждой пройденной точке цепочки — 30 мин по умолчанию (15.10; в v3.39 было 0, до того 30 мин)
 
 
-def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps=None, first_str="", ferry_id=None):
+def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps=None, first_str="", ferry_id=None,
+                     fixes=None):
     """v1.64: точки 2..N строки Флота. Для каждой: км от машины по цепочке, км плеча,
     ETA (простой и по тахографу) с учётом UNLOAD_STOP_SEC на каждой предыдущей точке,
-    запреты на плече, плашка кода региона, координаты и линия плеча для карты."""
+    запреты на плече, плашка кода региона, координаты и линия плеча для карты.
+    v3.229: fixes — «не раньше» по точкам [①, ②…] (epoch, сек или None): приехал раньше — ждёт, ожидание сдвигает
+    ETA следующих точек (wait_acc); у каждой точки — tacho_left (остаток вождения и смены на приезде)."""
     import time
     loc = lambda ts: ts_west(ts)
     now = time.time()
+    fixes = fixes or []
     prev_lat, prev_lng = first["target_lat"], first["target_lng"]
     cum_km = float(first.get("dist_km") or 0)
     # приезд на 1-ю точку
     prev_arr = sim["eta_ts"] if sim else now + cum_km / 70 * 3600
+    wait_acc = 0.0       # v3.229: сколько ждали у фикс-точек до неё (сек); ETA следующих — позже на столько
+    if fixes and fixes[0] and prev_arr < fixes[0]:
+        wait_acc = fixes[0] - prev_arr
+        prev_arr = fixes[0]
     out = []
     n_stops = 0          # сколько точек уже пройдено (на каждой UNLOAD_STOP_SEC)
     deps = deps or {}     # v3.192: {текст точки: отход (epoch, сек)} — из «Даты» точек
@@ -83,11 +91,11 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
         fsec = fr["sec"] if fr else 0.0
         if fr:
             dep_ts = deps.get(prev_str)
-            prev_simple = now + (cum_km - leg_km) / 70 * 3600 + (n_stops - 1) * UNLOAD_STOP_SEC + ferry_extra
+            prev_simple = now + (cum_km - leg_km) / 70 * 3600 + (n_stops - 1) * UNLOAD_STOP_SEC + ferry_extra + wait_acc
             fsec_s, _l = ferry_sec(fr, prev_simple, dep_ts)
             ferry_extra += fsec_s - UNLOAD_STOP_SEC
             fsec, ferry_late = ferry_sec(fr, prev_arr, dep_ts)
-        simple_ts = now + cum_km / 70 * 3600 + dwell + ferry_extra
+        simple_ts = now + cum_km / 70 * 3600 + dwell + ferry_extra + wait_acc
         item = dict(t)
         item.update({
             "lat": lat, "lng": lng,
@@ -108,7 +116,7 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
         if tacho and fr:
             try:
                 tm = bool(tacho_eta(tacho, max(cum_km - leg_km, 1.0)).get("team"))
-                fb = {"ts": prev_arr + fsec, "km0": cum_km - leg_km, "n0": n_stops, "team": tm,
+                fb = {"ts": prev_arr + fsec, "km0": cum_km - leg_km, "n0": n_stops, "team": tm, "w0": wait_acc,
                       "tz": country_tz("FI") if fr["to_fi"] else TZ_DEFAULT}
             except Exception as _e:
                 warn("fleet_calc:ferry", _e)
@@ -116,7 +124,9 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
         if tacho and fb:
             try:
                 pl = tacho_plan(fb["ts"], max(cum_km - fb["km0"], 0.0), team=fb["team"], tz=fb["tz"])
-                arr = pl["eta_ts"] + (n_stops - fb["n0"]) * UNLOAD_STOP_SEC
+                lost = (n_stops - fb["n0"]) * UNLOAD_STOP_SEC + (wait_acc - fb["w0"])
+                arr = pl["eta_ts"] + lost
+                item["tacho_left"] = {"drive": int(pl["day_left"]), "shift": int(max(0.0, pl["win_left"] - lost))}   # v3.229
                 item["eta_tacho"] = ceil_15min(loc(arr)).strftime("%d/%m %H:%M")
                 item["tacho_rest_ahead"] = any(e["k"] == "r" for e in pl["ev"])
                 item["tacho_weeklimit"] = False
@@ -125,7 +135,10 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
         elif tacho:
             try:
                 sk = tacho_eta(tacho, cum_km)   # v3.39: неделя — только отметка, и на ②③
-                arr = sk["eta_ts"] + dwell
+                arr = sk["eta_ts"] + dwell + wait_acc
+                lf = sk.get("left")
+                if lf:                                    # v3.229: остаток на приезде — стоянки и ожидание уже прошли
+                    item["tacho_left"] = {"drive": int(lf["drive"]), "shift": int(max(0.0, lf["shift"] - dwell - wait_acc))}
                 item["eta_tacho"] = ceil_15min(loc(arr)).strftime("%d/%m %H:%M")
                 item["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sk["stops"])
                 item["tacho_weeklimit"] = bool(sk.get("week", {}).get("hit"))   # отметка, ETA не сдвинут
@@ -146,6 +159,11 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
             except Exception as _e:
                 warn("fleet_calc:95", _e)
                 pass
+        fx = fixes[xi + 1] if len(fixes) > xi + 1 else None
+        if fx and arr < fx:                               # v3.229: приехал раньше «не раньше» — ждёт, дальше едет с момента fx
+            item["wait_sec"] = int(fx - arr)
+            wait_acc += fx - arr
+            arr = fx
         out.append(item)
         prev_lat, prev_lng, prev_arr = lat, lng, arr
         prev_str = str(tstr or "").strip().lower()
@@ -333,6 +351,9 @@ def _add_tacho(result, unit, trailer, crew=None, x10=False, crew_seen=None, tm=N
                 result["eta_tacho"] = eta_t.strftime("%d/%m %H:%M")
                 result["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sim["stops"])
                 result["_sim_stops"] = sim["stops"]
+                lf = sim.get("left")
+                if lf:                                       # v3.229: остаток вождения и смены на приезде в ① — для вердикта фикс-времени
+                    result["tacho_left"] = {"drive": int(lf["drive"]), "shift": int(lf["shift"])}
                 gf = sim.get("gps_fix")
                 if gf:                                       # v3.104: для подсказки значка «экипаж / соло»
                     result["tacho_gps_fix"] = {"driven": int(gf["driven"]), "tacho": int(gf["tacho"]),
@@ -629,14 +650,25 @@ def _deps(payload):
     return out
 
 
+def _fixes(payload):
+    """v3.229: «не раньше» по точкам [①, ②…] из окон TimeSlot: список epoch сек / None (до 13 точек); мусор → None."""
+    d = payload.get("fix_at")
+    if not isinstance(d, list):
+        return []
+    return [float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else None for v in d[:13]]
+
+
 def _add_extra(result, extras, units, unit, tacho, sim, payload):
     """v1.64: следующие точки той же машины (2-я, 3-я выгрузка...) — цепочкой от предыдущей точки,
     плюс UNLOAD_STOP_SEC на каждую предыдущую точку. v1.74: до 12 точек; v1.79: без пройденных."""
     if extras and result.get("target_lat") is not None:
         try:
+            fx_all, act0 = _fixes(payload), result.get("active_idx")
+            fx = [(fx_all[i] if i < len(fx_all) else None) for i in act0] if act0 else fx_all   # v3.229: по непройденным точкам
             result["extra"] = calc_extra_stops(extras, units, unit, result, tacho, sim,
                                                clean_corridor(payload.get("corridor")),
-                                               _deps(payload), payload.get("target"), clean_line_id(payload.get("ferry")))
+                                               _deps(payload), payload.get("target"), clean_line_id(payload.get("ferry")),
+                                               fx)
         except Exception as e:
             result["extra"] = [{"error": str(e)} for _ in extras]
 

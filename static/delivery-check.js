@@ -70,7 +70,9 @@ function parseDeliveryWindow(txt) {
     if (a != null) return { start: at(a), end: null };
   }
   // v3.105: «at 10:30» / «в 10:30» — фикс-время приёмки: окно из одного момента (позже — опоздание, раньше — будет ждать)
-  const fixed = rest.match(new RegExp("(?:^|[^a-zа-яё])(?:at|в|@)\\s*" + DT_T));
+  // v3.229: «FIX 10:30» и «F 10:30» — то же, что at; одиночная «F» — только прямо перед временем и не внутри слова
+  const fixed = rest.match(new RegExp("(?:^|[^a-zа-яё])(?:at|в|@)\\s*" + DT_T))
+    || rest.match(new RegExp("(?:^|[^a-zа-яё\\d])(?:fix|f)\\s*" + DT_T));
   if (fixed) {
     const t = hmOf(fixed[1], fixed[2], fixed[3]);
     if (t != null) return { start: at(t), end: at(t), fixed: true };
@@ -104,11 +106,48 @@ function deliveryCheck(row, etaStr) {
     out.late = true;
     out.lines.push(w.fixed ? `Позже фикс-времени TimeSlot (${row.delivery}) — ${hm(w.end)}`
       : `Позже TimeSlot (${row.delivery}) — ${w.start ? "окно до" : "срок"} ${hm(w.end)}`);
-  } else if (w.start && etaD < w.start) {
+  } else if (w.start && etaD < w.start - FIX_EARLY_MS) {   // v3.229: раньше слота можно до 1 ч — раньше только ждёт
     out.lines.push(w.fixed ? `⏳ Раньше фикс-времени TimeSlot — ${hm(w.start)}, будет ждать`
       : `⏳ Раньше окна TimeSlot — с ${hm(w.start)}, будет ждать`);
   }
   return out;
+}
+// v3.229: фикс-время точки — раньше слота можно до 1 ч, после слота нужно ~2 ч рабочего времени (выгрузка + парковка)
+const FIX_EARLY_MS = 60 * 60000;
+const FIX_AFTER_SEC = 2 * 3600;
+const FIX_PARK_DRIVE_SEC = 30 * 60;   // и хоть полчаса вождения (на поиск парковки)
+// «не раньше» точки по её окну Delivery / TimeSlot (epoch, сек) — серверу для ожидания; нет начала окна — null
+function fixNotBefore(txt) {
+  let w = null;
+  try { w = parseDeliveryWindow(txt); } catch (e) { return null; }
+  return w && w.start ? Math.floor((w.start.getTime() - FIX_EARLY_MS) / 1000) : null;
+}
+function fixHm(sec) {
+  const m = Math.max(0, Math.round(sec / 60));
+  return m >= 60 ? `${Math.floor(m / 60)} ч${m % 60 ? " " + (m % 60) + " мин" : ""}` : `${m} мин`;
+}
+// Вердикт по фикс-точке (w.fixed): {kind: late|short|wait, text} или null, если успевает (текст у «успевает» — не решено).
+// etaStr — ETA «дд/мм чч:мм»; left — {drive, shift} сек на приезде (сервер, tacho_left); wait — сек ожидания у сервера.
+function fixVerdict(txt, etaStr, left) {
+  let w = null;
+  try { w = parseDeliveryWindow(txt); } catch (e) { return null; }
+  const eta = parseEta(etaStr);
+  if (!w || !w.fixed || !w.start || !eta) return null;
+  const slot = w.start;
+  if (Date.now() - slot.getTime() > 2 * 86400000) return null;           // дата в прошлом — это опечатка, её ловит deliveryCheck
+  const diff = (eta.getTime() - slot.getTime()) / 1000;
+  if (diff > 0) return { kind: "late", text: `Не успевает на ${fixHm(diff)}`, short: `опоздает на ${fixHm(diff)}` };
+  const early = -diff;
+  const waitSec = early;                                                    // приехал раньше слота — стоит до слота
+  if (left && typeof left.shift === "number") {
+    const shiftAtSlot = left.shift - waitSec;
+    const driveLeft = typeof left.drive === "number" ? left.drive : Infinity;
+    if (shiftAtSlot < FIX_AFTER_SEC || driveLeft < FIX_PARK_DRIVE_SEC) {
+      return { kind: "short", text: `Не хватает на выгрузку и парковку: после слота ${fixHm(Math.max(0, Math.min(shiftAtSlot, FIX_AFTER_SEC)))} из 2 ч`, short: "нет 2 ч после слота" };
+    }
+  }
+  if (early > FIX_EARLY_MS / 1000) return { kind: "wait", text: `Приедет раньше, ждёт ${fixHm(early)}`, short: `ждёт ${fixHm(early)}` };
+  return null;
 }
 // v3.10: проверка по тексту TimeSlot (любая точка)
 function slotCheck(txt, etaStr) { return deliveryCheck({ delivery: txt }, etaStr); }

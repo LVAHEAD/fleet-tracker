@@ -405,7 +405,8 @@ def plan(start_ts, dist_km, team=False, day_left=None, since_drive=0.0, rest_pre
         km_done += d * v
         day -= d
         since += d
-    return {"ev": ev, "eta_ts": t, "wk": wk}
+    # v3.229: остаток вождения дня и смены на момент прибытия — для вердикта фикс-времени точки
+    return {"ev": ev, "eta_ts": t, "wk": wk, "day_left": max(0.0, day), "win_left": max(0.0, win_end - t)}
 
 
 GPS_START_MAX_SEC = 24 * 3600   # v3.106: начало смены по GPS старше суток — не верим (стоянку не распознали)
@@ -497,7 +498,7 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None, no_week=False, ext_days=
     week_info = {"left": week_left, "need": max(0.0, float(dist_km or 0)) / (TACHO_SPEED_KMH / 3600.0),
                  "next": None, "hit": p["wk"] is not None}
     return {"eta_ts": p["eta_ts"], "stops": stops, "team": team, "first_limit_sec": first_limit, "week": week_info,
-            "wk": p["wk"], "gps_fix": gfix}
+            "wk": p["wk"], "gps_fix": gfix, "left": {"drive": p["day_left"], "shift": p["win_left"]}}
 
 
 def tacho_summary(tacho, sim=None, weekly=None):

@@ -1085,6 +1085,8 @@ function etaCellHtml(row, c, composed) {
       const wk = ce.tacho_weeklimit ? '<span class="wk-mark" title="Недельный лимит вождения кончится по пути">56</span>' : "";
       const fb = ce.ferry ? `<button type="button" class="fer-b${ce.ferry.manual ? " fer-man" : ""}${ce.ferry.late ? " fer-late" : ""}" data-i="${i}" title="Паром: ${escapeHtml(ce.ferry.label)}${ce.ferry.manual ? " (выбран вручную)" : " (авто)"}. Клик — выбрать другую линию">⛴${ce.ferry.late ? "⚠" : ""}</button>` : "";   // v3.193
       inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}${tzBadge(ce.eta_tz)}</span>${fb}`;
+      const fv = fixViewAllowed() ? fixVerdict(x.delivery, ce.eta_tacho || ce.eta_local, ce.tacho_left) : null;   // v3.229
+      if (fv && !(nbAt === i && c.onArr)) { inner = fixRollHtml(inner, fv); chk.lines.unshift("🎯 " + fv.text); }
       tip = [`Точка ${STOP_NUM[i + 2]}: ${x.target}`,
              `${ce.leg_km.toFixed(1)} км от точки ${STOP_NUM[i + 1]}, всего ${ce.dist_km.toFixed(1)} км`,
              ce.ferry ? `⛴ ${ce.ferry.label}: ${ce.ferry.hours} ч + Gate-In ${ce.ferry.gate_in_h} ч${ce.ferry.dep ? `, отход ${ce.ferry.dep}` : ""}, в порту назначения ~${ce.ferry.arrive}` : "",   // v3.191
@@ -1283,6 +1285,8 @@ function recheckLate(id) {
   const c = lastCalcText[id];
   const tr = document.querySelector(`#fleet-tbody tr[data-id="${id}"]`);
   if (!row || !c || !c.etaCore || !tr) return;
+  // v3.229: «не раньше» по точкам изменилось (правка фикса / окна) — ожидание сдвигает ETA следующих точек: пересчёт строки
+  if (fixViewAllowed() && JSON.stringify(fixAtList(row)) !== (c.fixSig || "[]")) { calcRow(id, "edit"); return; }
   // v3.10: ① пройдена — её TimeSlot не проверяем; следующие точки проверяет etaCellHtml
   const firstDone = c.nbAt != null || !!(c.doneFlags && c.doneFlags[0] && c.doneFlags[0].done);
   const chk = firstDone ? { late: false, lines: [] } : deliveryCheck(row, c.etaStr);
@@ -1336,6 +1340,7 @@ async function calcRow(id, why) {
         row.extra && row.extra.length ? { extra: row.extra.map((x) => x.target || "") } : {},
         row.ferry ? { ferry: row.ferry } : {},   // v3.193: линию парома выбрал диспетчер
         ferryDeps(row),   // v3.192: отход парома из «Даты» точки-порта
+        fixAtList(row).length ? { fix_at: fixAtList(row) } : {},   // v3.229: «не раньше» по точкам (фикс-время) — только VL
         row.trailer ? { trailer: row.trailer } : {},
         row.crew ? { crew: row.crew } : {},
         row.crewSeen && row.crewSeen.u === row.unit ? { crew_seen: Math.floor(row.crewSeen.t / 1000) } : {},   // v3.105: память «экипаж»
@@ -1431,6 +1436,8 @@ async function calcRow(id, why) {
       }
       const osa = onSiteArr(row, data, 0);
       if (osa) { etaText = osa.html; onArr = osa.arr; }
+      const fv0 = !osa && fixViewAllowed() ? fixVerdict(row.delivery, data.eta_tacho || data.eta_local, data.tacho_left) : null;   // v3.229
+      if (fv0) { etaText = fixRollHtml(etaText, fv0); tip.unshift("🎯 " + fv0.text); }
       etaCore = etaText;
       bansR = (data.bans_route || []).slice();
       (data.extra || []).forEach((x, i) => (x.bans_route || []).forEach((b) => bansR.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
@@ -1472,6 +1479,9 @@ async function calcRow(id, why) {
         const osa = onSiteArr(row, data, act0);
         if (osa) onArr = osa.arr;
         etaCore = osa ? osa.html : `${wk}<span class="eta-x-t">⏱ ${escapeHtml(et || "—")}${tzBadge(data.eta_tz)}</span>`;
+        const delA = act0 === 0 ? row.delivery : ((row.extra || [])[act0 - 1] || {}).delivery;   // v3.229: фикс у первой непройденной
+        const fvA = !osa && fixViewAllowed() ? fixVerdict(delA, et, data.tacho_left) : null;
+        if (fvA) etaCore = fixRollHtml(etaCore, fvA);
         bansR = (data.bans_route || []).slice();
         (data.extra || []).forEach((x, i) => (x.bans_route || []).forEach((b) => bansR.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
         nearR = banNearLines(data);
@@ -1479,6 +1489,7 @@ async function calcRow(id, why) {
         tipLines = ["Простой ETA: " + (data.eta_local || "—")].concat(data.eta_tacho ? ["⏱ По тахографу: " + data.eta_tacho] : [])
           .concat(data.route_countries && data.route_countries.length > 1 ? ["Страны: " + data.route_countries.join(" → ")] : []);
         if (osa) tipLines.unshift(osa.tip);
+        if (fvA) tipLines.unshift("🎯 " + fvA.text);
         Object.assign(cx, { etaCore, bansR, tipLines, nearR, banInfo, nbAt: act0 - 1, onArr });
         composed = composeEta(row, cx);
       }
@@ -1522,6 +1533,7 @@ async function calcRow(id, why) {
     lastCalcText[id] = { targetAddress: data.first_done ? null : (data.target_address || null),   // v3.199: при пройденной ① адрес в ответе — первой активной точки, не ①
                           status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo, onArr,
                          etaStr: onArr || data.eta_tacho || data.eta_local, extra: extraCalc(data),
+                         fixSig: JSON.stringify(fixAtList(row)),   // v3.229: по чему считали ожидание у фикс-точек
                          crew: crewOf(data),
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual,
                            by: x.by != null ? x.by : null, zone: x.zone || null })),
@@ -1774,8 +1786,24 @@ function ferryDeps(row) {
   return Object.keys(dep).length ? { dep } : {};
 }
 
+// v3.229: фикс-время точки пока только у VL (остальным — ETA как раньше, расчёт без изменений)
+function fixViewAllowed() {
+  return typeof dispTag === "function" && typeof fleetMe === "function" && dispTag(fleetMe()) === "VL";
+}
+// «не раньше» (epoch, сек) по точкам [①, ②…] из их «Даты»: окно / фикс / «после» → начало минус 1 ч; пусто — нет ни одной
+function fixAtList(row) {
+  if (!fixViewAllowed()) return [];
+  const a = [row.delivery].concat((row.extra || []).map((x) => x.delivery)).map(fixNotBefore);
+  return a.some(Boolean) ? a : [];
+}
+// ETA со значком уезжает вверх, текст вердикта выезжает снизу: 6 с ETA, 3 с текст (вариант «Прокрутка», «Ускоренно»)
+function fixRollHtml(inner, v) {
+  return v ? `<span class="fx-roll fx-${v.kind}"><span class="fx-a">${inner}</span><span class="fx-b">${escapeHtml(v.short)}</span></span>` : inner;
+}
+
 function extraCalc(data) {
   return (data.extra || []).map((x) => ({
+    tacho_left: x.tacho_left || null, wait_sec: x.wait_sec || null,   // v3.229
     error: x.error || null,
     done: !!x.done, done_at: x.done_at || null, done_arr: x.done_arr || null, done_tz: x.done_tz || null, eta_tz: x.eta_tz || null, done_auto: !!x.done_auto, from_truck: !!x.from_truck,
     done_by: x.done_by != null ? x.done_by : null, done_zone: x.done_zone || null,
