@@ -1,29 +1,75 @@
-/* Песочница Флота: вариант «Фикс-время точки (at / FIX / F): оповещения» (27.10). Цвета как в аппе: красный #c0392b, зелёный #2d6b3c, синий #2f6fd6. */
+/* Песочница Флота: ВРЕМЕННЫЕ варианты «Фикс-время точки»: ячейка ETA циклично переключается
+   ETA со значком (долго) ↔ текст предупреждения (коротко). 27.10. Цвета как в аппе: красный #c0392b, зелёный #2d6b3c. */
+
+/* ---- в самой таблице Флота ---- */
+.eta-cell .sl { position: relative; }
+.eta-cell .sl .eta-x-t[class*="fx-"] { position: relative; flex: 1 1 0; min-width: 0; height: 100%; display: block; }
+.eta-x-t .fx-a, .eta-x-t .fx-b { position: absolute; inset: 0; display: flex; align-items: center; overflow: hidden; white-space: nowrap; }
+.eta-x-t .fx-b { opacity: 0; font-size: 12px; }
+.eta-x-t .fx-b > span { flex: none; }
+.eta-x-t .fx-bl { display: none; }
+.eta-cell .sl .eta-x-t.fx-ok { color: #2d6b3c; }
+.eta-cell .sl .eta-x-t.fx-wait { color: #333; }
+.eta-cell .sl .eta-x-t.fx-warn { color: #a86a00; }
+.eta-cell .sl.fx-warn-sl { box-shadow: inset 0 -2px 0 #f1dba0; }
+.eta-cell .sl .eta-x-t.fx-bad, .eta-cell .sl .eta-x-t.fx-go { color: #c0392b; }
+.eta-cell .sl .eta-x-t.fx-go .fx-a { animation: fx-blink 1.2s steps(2, start) infinite; }
+@keyframes fx-blink { 50% { opacity: .35; } }
+
+/* фаза «текст»: переключает один таймер на <body> */
+body.fx-phase-b .eta-x-t .fx-a { opacity: 0; }
+body.fx-phase-b .eta-x-t .fx-b { opacity: 1; }
+body.fx-phase-b .eta-cell .sl .eta-x-t.fx-go .fx-a { animation: none; }
+
+/* вариант 1 «Смена»: мгновенно (ничего не добавляем) */
+
+/* вариант 2 «Плавно»: растворение */
+body.fx-v2 .eta-x-t .fx-a, body.fx-v2 .eta-x-t .fx-b { transition: opacity .6s ease; }
+
+/* вариант 3 «Прокрутка»: строка уезжает вверх, текст выезжает снизу */
+body.fx-v3 .eta-x-t .fx-a, body.fx-v3 .eta-x-t .fx-b { transition: transform .45s ease, opacity .45s ease; }
+body.fx-v3 .eta-x-t .fx-b { transform: translateY(100%); }
+body.fx-v3.fx-phase-b .eta-x-t .fx-a { transform: translateY(-100%); }
+body.fx-v3.fx-phase-b .eta-x-t .fx-b { transform: translateY(0); }
+
+/* вариант 4 «Бегущая»: полный текст бежит справа налево все 10 с */
+body.fx-v4 .eta-x-t .fx-bs { display: none; }
+body.fx-v4 .eta-x-t .fx-bl { display: block; padding-left: 100%; }
+body.fx-v4.fx-phase-b .eta-x-t .fx-bl { animation: fx-marq var(--fx-b, 10s) linear 1 forwards; }
+@keyframes fx-marq { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+@media (prefers-reduced-motion: reduce) {
+  body[class*="fx-v"] .eta-x-t .fx-a, body[class*="fx-v"] .eta-x-t .fx-b { transition: none; transform: none; }
+  body.fx-v4 .eta-x-t .fx-bl { padding-left: 0; animation: none !important; }
+  .eta-cell .sl .eta-x-t.fx-go .fx-a { animation: none; }
+}
+
+/* ---- блок-пульт под таблицей ---- */
 #fx-demo { --fx-ok: #2d6b3c; --fx-warn: #a86a00; --fx-warn-line: #f1dba0; --fx-bad: #c0392b; --fx-bad-line: #f3c1bb;
   --fx-blue: #2f6fd6; --fx-mute: #777; --fx-line: #e3e6ec; --fx-soft: #f5f7fb;
   margin: 24px 0 40px; padding: 0 max(16px, env(safe-area-inset-left, 0px)); max-width: 980px; color: #222; font: 13px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; }
 #fx-demo h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; text-wrap: balance; }
-#fx-demo .fx-sub { margin: 0 0 12px; color: var(--fx-mute); font-size: 12px; max-width: 68ch; }
+#fx-demo .fx-sub { margin: 0 0 12px; color: var(--fx-mute); font-size: 12px; max-width: 70ch; }
+#fx-demo .fx-ctl { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: stretch; margin: 0 0 14px; }
+#fx-demo fieldset { margin: 0; padding: 6px 10px 8px; min-width: 0; border: 1px solid var(--fx-line); border-radius: 6px; background: var(--fx-soft); }
+#fx-demo legend { padding: 0 4px; font-size: 11px; color: var(--fx-mute); letter-spacing: .02em; }
+#fx-demo .fx-opt { display: flex; gap: 6px; align-items: baseline; padding: 2px 0; cursor: pointer; font-size: 12.5px; }
+#fx-demo .fx-opt small { color: var(--fx-mute); font-size: 11.5px; }
+#fx-demo .fx-act { display: flex; flex-direction: column; gap: 6px; justify-content: center; min-width: 0; }
+#fx-demo .fx-act button { padding: 5px 12px; border: 1px solid var(--fx-blue); border-radius: 6px; background: #fff; color: var(--fx-blue); font: inherit; cursor: pointer; }
+#fx-demo .fx-act button:hover, #fx-demo .fx-act button:active { background: var(--fx-blue); color: #fff; }
+#fx-demo .fx-stat { color: var(--fx-mute); font-size: 12px; font-variant-numeric: tabular-nums; }
 #fx-demo .fx-scroll { overflow-x: auto; border: 1px solid var(--fx-line); border-radius: 6px; background: #fff; }
 #fx-demo table { border-collapse: collapse; width: 100%; min-width: 640px; }
 #fx-demo th { text-align: left; padding: 7px 10px; font-size: 11px; font-weight: 600; color: var(--fx-mute); letter-spacing: .02em; border-bottom: 1px solid var(--fx-line); background: var(--fx-soft); }
 #fx-demo td { padding: 8px 10px; border-bottom: 1px solid #eef0f4; vertical-align: top; min-width: 0; }
 #fx-demo tr:last-child td { border-bottom: 0; }
 #fx-demo .fx-st { font-weight: 600; white-space: nowrap; }
-#fx-demo .fx-st i { font-style: normal; display: inline-block; width: 18px; }
 #fx-demo .fx-slot { color: var(--fx-mute); font-size: 12px; white-space: nowrap; }
-#fx-demo .fx-cell { white-space: nowrap; }
-#fx-demo .fx-t { font-weight: 600; font-variant-numeric: tabular-nums; }
-#fx-demo .fx-n { display: block; margin-top: 1px; color: var(--fx-mute); font-size: 11px; white-space: normal; }
+#fx-demo .fx-t { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 #fx-demo .fx-ok .fx-t { color: var(--fx-ok); }
 #fx-demo .fx-wait .fx-t { color: #333; }
-#fx-demo .fx-warn { box-shadow: inset 0 -2px 0 var(--fx-warn-line); }
 #fx-demo .fx-warn .fx-t { color: var(--fx-warn); }
-#fx-demo .fx-bad { box-shadow: inset 0 -2px 0 var(--fx-bad-line); }
-#fx-demo .fx-bad .fx-t { color: var(--fx-bad); }
-#fx-demo .fx-go .fx-t { color: var(--fx-bad); animation: fx-blink 1.2s steps(2, start) infinite; }
-@keyframes fx-blink { 50% { opacity: .35; } }
-@media (prefers-reduced-motion: reduce) { #fx-demo .fx-go .fx-t { animation: none; } }
+#fx-demo .fx-bad .fx-t, #fx-demo .fx-go .fx-t { color: var(--fx-bad); }
 #fx-demo .fx-tip { color: #444; font-size: 12px; max-width: 34ch; }
 #fx-demo .fx-tl { margin: 14px 0 0; padding: 10px 12px 12px; border: 1px solid var(--fx-line); border-radius: 6px; background: #fff; }
 #fx-demo .fx-tl b { display: block; margin-bottom: 8px; font-size: 12px; }
@@ -35,15 +81,5 @@
 #fx-demo .fx-ticks { position: relative; height: 46px; margin-top: 3px; font-size: 10.5px; color: var(--fx-mute); font-variant-numeric: tabular-nums; }
 #fx-demo .fx-ticks span { position: absolute; top: 0; padding-left: 4px; border-left: 1px solid #bbb; white-space: nowrap; }
 #fx-demo .fx-ticks .fx-lim { top: 28px; border-left: 0; border-right: 1px solid var(--fx-bad); padding: 0 4px 0 0; color: var(--fx-bad); }
-#fx-demo .fx-ticks .fx-slotm { border-left-color: var(--fx-blue); color: var(--fx-blue); font-weight: 600; }
+#fx-demo .fx-ticks .fx-slotm { border-left-color: var(--fx-blue); color: var(--fx-blue); font-weight: 600; top: 14px; }
 #fx-demo .fx-foot { margin: 8px 0 0; color: var(--fx-mute); font-size: 11px; }
-#fx-demo .fx-sw { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--fx-line); border-radius: 6px; background: var(--fx-soft); font-size: 12px; max-width: 68ch; cursor: pointer; }
-#fx-demo .fx-sw input { margin-top: 2px; flex: none; }
-/* в самой таблице Флота: ячейка точки с фикс-временем */
-.eta-cell .sl .eta-x-t.fx-ok { color: #2d6b3c; }
-.eta-cell .sl .eta-x-t.fx-wait { color: #333; }
-.eta-cell .sl .eta-x-t.fx-warn { color: #a86a00; }
-.eta-cell .sl.fx-warn-sl { box-shadow: inset 0 -2px 0 #f1dba0; }
-.eta-cell .sl .eta-x-t.fx-bad { color: #c0392b; }
-.eta-cell .sl .eta-x-t.fx-go { color: #c0392b; animation: fx-blink 1.2s steps(2, start) infinite; }
-@media (prefers-reduced-motion: reduce) { .eta-cell .sl .eta-x-t.fx-go { animation: none; } }
