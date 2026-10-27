@@ -25,23 +25,37 @@ Fleet ETA Tracker — левая выезжалка (v3.56): как правая
     try { localStorage.setItem(SEC_KEY, name); } catch (e) { /* режим без хранилища */ }
   }
 
-  // v3.63: переключение раздела — как у правых: панель уезжает, раздел меняется, панель выезжает обратно
-  let swapTimer = null;
+  // v3.228: переключение раздела — как у правых панелей: старая панель уезжает, новая выезжает одновременно (250 мс),
+  // ярлыки стоят на месте. Одна панель на все разделы — старый вид уезжает «призраком» (копия панели), настоящая выезжает с новым разделом.
+  let swapTimer = null, ghost = null;
+  function endGhost() {
+    clearTimeout(swapTimer); swapTimer = null;
+    if (ghost) { ghost.remove(); ghost = null; }
+    panel.classList.remove("lp-from");
+  }
   function switchSection(name) {
     if (!isOpen()) { section = name; set(true); return; }
-    if (name === section && !swapTimer) return;
-    clearTimeout(swapTimer);
-    body.classList.add("left-swap");
-    swapTimer = setTimeout(() => {
-      swapTimer = null;
-      body.classList.remove("left-swap");
-      showSection(name);
-    }, 250);
+    if (name === section) return;
+    if (ghost) { endGhost(); showSection(name); return; }   // частые клики — без анимации
+    ghost = panel.cloneNode(true);
+    ghost.removeAttribute("id");
+    ghost.querySelectorAll("[id]").forEach((e) => e.removeAttribute("id"));
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.inert = true;
+    ghost.classList.add("lp-ghost");
+    const top = panel.scrollTop;
+    panel.after(ghost);
+    ghost.scrollTop = top;
+    panel.classList.add("lp-from");
+    showSection(name);
+    panel.scrollTop = 0;
+    void panel.offsetWidth;                                  // зафиксировать стартовые положения
+    requestAnimationFrame(() => { panel.classList.remove("lp-from"); if (ghost) ghost.classList.add("lp-out"); });
+    swapTimer = setTimeout(endGhost, 300);
   }
 
   function set(open) {
-    clearTimeout(swapTimer); swapTimer = null;
-    body.classList.remove("left-swap");
+    endGhost();
     body.classList.toggle("left-open", open);
     panel.setAttribute("aria-hidden", open ? "false" : "true");
     showSection(section);
@@ -63,7 +77,7 @@ Fleet ETA Tracker — левая выезжалка (v3.56): как правая
   // v3.163: открыть нужный раздел из кода (Ctrl+клик по полю таргета → Адреса)
   window.leftPanelOpen = (name) => {
     section = name;
-    if (!isOpen()) set(true); else showSection(name);
+    if (!isOpen()) set(true); else switchSection(name);
   };
 
   try { const s = localStorage.getItem(SEC_KEY); section = s === "links" || s === "help" || s === "addr" ? s : "bans"; } catch (e) { /* ignore */ }

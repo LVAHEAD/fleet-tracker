@@ -1424,9 +1424,14 @@ body.left-open .left-tab { left: var(--sidew); opacity: 1; }
 #left-tab-bans { top: calc(50% - 52px); }   /* зеркально правой колонке: карта, блокнот, калькулятор */
 #left-tab-links { top: 50%; }
 body.left-open .left-tab.on { background: #eef3fd; opacity: 1; }
-/* v3.63: переключение раздела — панель и ярлыки уезжают на 250 мс и выезжают обратно (left-panel.js) */
-body.left-swap .left-panel { left: calc(-1 * var(--sidew) - 24px); }
-body.left-swap .left-tab { left: 0; }
+/* v3.228: переключение раздела как у правых панелей (left-panel.js): копия-«призрак» старого раздела уезжает влево,
+   настоящая панель с новым разделом одновременно выезжает; ярлыки стоят на месте */
+.left-panel.lp-from { left: calc(-1 * var(--sidew) - 24px) !important; transition: none !important; }
+.left-panel.lp-ghost { pointer-events: none; }
+.left-panel.lp-ghost.lp-out { left: calc(-1 * var(--sidew) - 24px); }
+@media (max-width: 767px) {
+  .left-panel.lp-from, .left-panel.lp-ghost.lp-out { left: -100vw !important; }
+}
 .left-pane[hidden] { display: none; }
 .left-empty { color: #888; font-size: 13px; margin: 12px 0; }
 .left-sec-title { display: none; }
