@@ -1769,6 +1769,31 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 .tp.tp-pink, .tp.tp-pink .mp-g, .tp.tp-pink .mp-t { background: #fff3f5; }
 .tp.tp-pink .tp-f { background: #ffe9ed; }
 
+/* История водителя и поиск водителя в Truck Info — вид «как Mapon-всплывашка» (см. .tp-mp выше) */
+.ti-hist { max-width: 420px; margin: 8px 0; border: 1px solid #c4cddd; border-radius: 6px; box-shadow: 0 4px 14px rgba(20, 35, 60, .12);
+  font-family: "Open Sans", -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 12.5px; color: #333; font-variant-numeric: tabular-nums; }
+.ti-hist th { padding: 9px 12px 7px; font-size: 13px; font-weight: 600; color: #333; border-bottom: 1px solid #dcdcdc; }
+.ti-hist td { padding: 6px 8px; border-bottom: 1px solid #e6e6e6; white-space: nowrap; }
+.ti-hist tr:last-child td { border-bottom: 0; }
+.ti-hist td:first-child { border-left: 3px solid #cfcfcf; padding-left: 10px; }
+.ti-hist tr.ti-a-drv td:first-child { border-left-color: #437a15; }
+.ti-hist tr.ti-a-wrk td:first-child { border-left-color: #d89a00; }
+.ti-hist tr.ti-a-rst td:first-child { border-left-color: #9a9a9a; }
+.ti-hist tr.ti-a-av td:first-child { border-left-color: #2b7bd0; }
+.ti-hist td:nth-child(3) { color: #8a8a8a; text-align: right; }
+.ti-tag.ti-a-drv { background: #e4f1d8; color: #437a15; }
+.ti-tag.ti-a-wrk { background: #fff6dc; color: #8a6200; }
+.ti-tag.ti-a-rst { background: #ececec; color: #666; }
+.ti-tag.ti-a-av { background: #e3eefb; color: #2b7bd0; }
+.ti-hist tr.ti-h-card td { background: #f5f7fb; color: #2b7bd0; font-size: 11.5px; border-left: 3px solid #2b7bd0; padding-left: 10px; }
+.ti-hist tr.ti-h-card td:first-child { color: #8a8a8a; }
+.ti-find { display: flex; flex-direction: column; max-width: 420px; border: 1px solid #c4cddd; border-radius: 6px; background: #fff; }
+.ti-pick { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 0; border-bottom: 1px solid #e6e6e6; background: #fff;
+  font: 13px "Open Sans", -apple-system, "Segoe UI", Roboto, sans-serif; color: #333; text-align: left; cursor: pointer; }
+.ti-pick:last-child { border-bottom: 0; }
+.ti-pick:hover { background: #f5f7fb; }
+.ti-pick b { margin-left: auto; color: #2b7bd0; font-weight: 700; }
+
 /* v3.221: плашка номера привязанного прицепа — клик копирует номер */
 .trl-copy { cursor: pointer; }
 

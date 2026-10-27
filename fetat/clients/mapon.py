@@ -264,6 +264,38 @@ def get_driver_rests(driver_id, max_age=None):
     return data, err
 
 
+def get_driver_history(driver_id, days=3):
+    """Лента водителя за days суток из кеша get_driver_rests: подряд идущие куски одного статуса
+    (DRIVING / WORK / REST / AVAILABLE) склеены (зазор ≤ 2 мин), события карты — отдельным списком.
+    Возвращает ({"acts": [{start, end, status, src}], "cards": [{ts, what}]}, error)."""
+    import time
+    _, err = get_driver_rests(driver_id)
+    with _act_lock:
+        c = _act_cache.get(driver_id)
+        acts = list(c.get("acts") or []) if c else []
+    if not acts:
+        return None, err or "нет данных"
+    since = time.time() - max(1, min(int(days), ACT_DAYS)) * 86400
+    segs, cards = [], []
+    for a in sorted(acts, key=lambda x: x["start"]):
+        if a["status"] in ("CARD_INSERTED", "CARD_REMOVED"):
+            if a["start"] >= since:
+                cards.append({"ts": a["start"], "what": a["status"]})
+            continue
+        if a["status"] not in ("REST", "DRIVING", "WORK", "AVAILABLE") or a["end"] <= a["start"] or a["end"] < since:
+            continue
+        s = max(a["start"], since)
+        last = segs[-1] if segs else None
+        if last and last["status"] == a["status"] and s - last["end"] <= 120:
+            last["end"] = max(last["end"], a["end"])
+            last["src"].add(a["src"] or "?")
+        else:
+            segs.append({"start": s, "end": a["end"], "status": a["status"], "src": {a["src"] or "?"}})
+    for g in segs:
+        g["src"] = sorted(g["src"])
+    return {"acts": segs, "cards": cards}, None
+
+
 _group_ids_cache = {}   # v1.70: group_id -> (ts, set) — состав группы меняется редко
 
 

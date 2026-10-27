@@ -314,7 +314,10 @@
 <!-- ==================== Вкладка: Truck Info (рабочая) ==================== -->
 <div id="tab-truckinfo" class="tab-panel" hidden>
   <div class="ti-form">
-    <input id="ti-unit" list="units-list" placeholder="номер трака" autocomplete="off">
+    <input id="ti-unit" list="units-list" placeholder="номер трака или водитель" autocomplete="off">
+    <select id="ti-days" title="за сколько суток история водителя">
+      <option value="3">3 сут</option><option value="7">7 сут</option><option value="14">14 сут</option>
+    </select>
     <button id="ti-go" type="button">Показать</button>
     <span class="ti-hint">время — LV (Рига)</span>
   </div>

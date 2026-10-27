@@ -4,7 +4,8 @@ import re
 from flask import Blueprint, current_app, jsonify, request
 
 from fetat.clients.mapon import (
-    _check_daily_activities, driver_has_data, fetch_group_unit_ids, fetch_units, get_driver_rests, get_tacho,
+    _check_daily_activities, driver_has_data, fetch_group_unit_ids, fetch_units, get_driver_history, get_driver_rests,
+    get_tacho,
     MAPON_API_URL, MAPON_BASE, mapon_get, MAPON_TACHO_URL, unit_stops,
 )
 from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
@@ -70,6 +71,56 @@ def _find_unit(q_raw):
             or next((u for u in units if q in norm(u.get("number")) or q in norm(u.get("label"))), None))
 
 
+_drv_index = {"at": 0, "rows": []}
+
+
+DRV_INDEX_TTL = 600             # индекс «водитель → трак» — раз в 10 мин, тахограф каждой машины и так в кеше на 5 мин
+
+
+def _driver_index():
+    """Водители с картой в тахографах тягачей группы HEAD TRUCK: [{name, unit_id, number, state, driver_id}]."""
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+    if time.time() - _drv_index["at"] < DRV_INDEX_TTL and _drv_index["rows"]:
+        return _drv_index["rows"]
+    group_ids = fetch_group_unit_ids(MAPON_API_KEY, HEAD_TRUCK_GROUP_ID)
+    units = [u for u in fetch_units(MAPON_API_KEY) if u["unit_id"] in group_ids]
+
+    def one(u):
+        try:
+            tacho, _ = get_tacho(u["unit_id"])
+        except Exception as e:
+            warn("mapon:drv_index", e)
+            return []
+        return [{"name": " ".join(filter(None, [d.get("driver_name"), d.get("driver_surname")])),
+                 "unit_id": u["unit_id"], "number": u.get("number") or u.get("label"),
+                 "state": d.get("current_state"), "driver_id": d.get("driver_id")}
+                for d in (tacho or {}).get("drivers") or [] if driver_has_data(d)]
+
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        rows = [r for part in ex.map(one, units) for r in part if r["name"]]
+    _drv_index.update(at=time.time(), rows=rows)
+    return rows
+
+
+@bp.route("/api/driver-search")
+def api_driver_search():
+    """Поиск водителя по имени / фамилии среди тех, у кого сейчас карта в тахографе тягача."""
+    if not MAPON_API_KEY:
+        return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
+    norm = lambda x: re.sub(r"[^0-9a-zа-яёāčēģīķļņšūž]", "", str(x or "").lower())
+    q = norm(request.args.get("q"))
+    if len(q) < 2:
+        return jsonify({"drivers": []})
+    try:
+        rows = _driver_index()
+    except Exception as e:
+        return jsonify({"error": f"Mapon: {e}"}), 502
+    hit = [r for r in rows if q in norm(r["name"])][:15]
+    return jsonify({"drivers": [{"name": r["name"], "unit_id": r["unit_id"], "number": r["number"],
+                                 "state": r["state"]} for r in hit]})
+
+
 @bp.route("/api/truck-info")
 def api_truck_info():
     """Truck Info: данные машины из Mapon (GET, по номеру)."""
@@ -82,7 +133,11 @@ def api_truck_info():
     if not unit:
         return jsonify({"error": "трак не найден"}), 404
     uid = unit["unit_id"]
-    out = {"unit_id": uid, "number": unit.get("number") or unit.get("label"), "drivers": []}
+    try:
+        days = max(1, min(int(request.args.get("days") or 3), 21))
+    except ValueError:
+        days = 3
+    out = {"unit_id": uid, "number": unit.get("number") or unit.get("label"), "drivers": [], "days": days}
     tacho, terr = get_tacho(uid)
     if not tacho:
         out["tacho_error"] = terr
@@ -117,6 +172,13 @@ def api_truck_info():
                                 for c in (hist or {}).get("cards", [])][-6:]
             else:
                 row["weekly_error"] = werr
+            hist, herr = get_driver_history(did, days)
+            if hist:
+                row["history"] = [{"from": _lv(g["start"]), "to": _lv(g["end"]), "status": g["status"],
+                                   "hours": _hm(g["end"] - g["start"]), "src": g["src"]} for g in hist["acts"]]
+                row["history_cards"] = [{"at": _lv(c["ts"]), "what": c["what"]} for c in hist["cards"]]
+            else:
+                row["history_error"] = herr
         out["drivers"].append(row)
     try:
         out["stops"] = [{"from": _lv(x["start"]), "to": "сейчас" if x["now"] else _lv(x["end"]),
