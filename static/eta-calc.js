@@ -631,7 +631,9 @@ const EtaCalc = (() => {
 
   // ---------- расклад по дням: строка на сутки 00–24, вождение (км), остаток ----------
   function drawDays() {
-    const rows = [], days = euDays(S.etd, S.eta + 1);
+    // v3.226: блок дней начинается с сегодняшнего дня, даже если выезд сдвинут на завтра: дни до выезда — «стоим»-строки
+    const nowMs = Date.now(), waiting = S.etd - nowMs > 15 * 60e3;
+    const rows = [], days = euDays(waiting ? nowMs : S.etd, S.eta + 1);
     let cum = 0;
     for (let di = 0; di < days.length; di++) {
       const day = days[di], d0 = day.ms, d1 = di + 1 < days.length ? days[di + 1].ms : fromWall(day.w.getTime() + 86400e3), len = d1 - d0;
@@ -643,6 +645,9 @@ const EtaCalc = (() => {
         if (e.k === "d") { drv += (f - s) / 3600e3; kmd += (f - s) / 3600e3 * SPEED; }
         return `<i class="${e.k}" title="${tip(e)}" style="left:${((s - d0) / len * 100).toFixed(3)}%;width:${((f - s) / len * 100).toFixed(3)}%"></i>`;
       }).join("");
+      const ws = Math.max(d0, nowMs), we = Math.min(d1, S.etd);
+      const wt = waiting && we > ws
+        ? `<i class="wt" title="Стоим до выезда ${fdt(new Date(S.etd))}" style="left:${((ws - d0) / len * 100).toFixed(3)}%;width:${((we - ws) / len * 100).toFixed(3)}%">выезд ${fdt(new Date(S.etd))}</i>` : "";
       const wk = S.wk && S.wk.ms >= d0 && S.wk.ms < d1 ? `<i class="w" title="Недельный остаток кончился ${ft(new Date(S.wk.ms))}" style="left:${((S.wk.ms - d0) / len * 100).toFixed(3)}%"></i>` : "";
       // v3.59: ручки отдыха и в таблице по дням — те же, что на шкале (тянуть отдых прямо здесь)
       const hd = S.ev.filter((e) => e.k === "r").map((e) => {
@@ -652,7 +657,7 @@ const EtaCalc = (() => {
         return one("l", S.at(e.t0), fdt(new Date(S.at(e.t0)))) + one("r", S.at(e.t1), hm(e.t1 - e.t0));
       }).join("");
       cum += kmd;
-      rows.push(`<span class="ec-dl">${WD[day.w.getUTCDay()]} ${fd(d0)}</span><div class="ec-day" data-len="${len}">${[6, 12, 18].map((h) => `<span class="gl" style="left:${h / 24 * 100}%"></span>`).join("")}${segs}${wk}${hd}</div>` +
+      rows.push(`<span class="ec-dl">${WD[day.w.getUTCDay()]} ${fd(d0)}</span><div class="ec-day" data-len="${len}">${[6, 12, 18].map((h) => `<span class="gl" style="left:${h / 24 * 100}%"></span>`).join("")}${wt}${segs}${wk}${hd}</div>` +
         `<span class="ec-dv">${hmm(drv)} <span>(${km(kmd)})</span></span><span class="ec-dr">${S.eta <= d1 ? "🏁 " + ft(new Date(S.eta)) : km(Math.max(0, S.dist - cum))}</span>`);
     }
     const axis = Array.from({ length: 13 }, (_, k) => `<span style="left:${k * 2 / 24 * 100}%">${k * 2}</span>`).join("") +

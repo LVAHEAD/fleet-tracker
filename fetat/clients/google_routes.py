@@ -329,15 +329,16 @@ def _wps_key(waypoints):
     return tuple((round(a, 4), round(b, 4)) for a, b in (waypoints or []))
 
 
-def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None, kind="truck"):
+def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None, kind="truck", cache_only=False):
     """(км, линия маршрута). kind="leg" — плечо между двумя неподвижными точками,
-    kind="truck" — от машины до точки (начало маршрута движется)."""
+    kind="truck" — от машины до точки (начало маршрута движется).
+    v3.226: cache_only (только kind="leg") — берём плечо из кеша, в Google не ходим; нет в кеше — (None, None)."""
     if kind == "leg":
-        return _leg_route(lat1, lng1, lat2, lng2, api_key, waypoints)
+        return _leg_route(lat1, lng1, lat2, lng2, api_key, waypoints, cache_only)
     return _truck_route(lat1, lng1, lat2, lng2, api_key, waypoints)
 
 
-def _leg_route(lat1, lng1, lat2, lng2, api_key, waypoints):
+def _leg_route(lat1, lng1, lat2, lng2, api_key, waypoints, cache_only=False):
     import time
     key = ("leg", round(lat1, 4), round(lng1, 4), round(lat2, 4), round(lng2, 4), _wps_key(waypoints))
     now = time.time()
@@ -353,6 +354,8 @@ def _leg_route(lat1, lng1, lat2, lng2, api_key, waypoints):
             _route_cache[key] = (float(doc["at"]), res)
         _route_stat("cache_hits", "leg")
         return res
+    if cache_only:
+        return None, None
     _route_stat("calls", "leg")
     res = _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints)
     with _route_cache_lock:

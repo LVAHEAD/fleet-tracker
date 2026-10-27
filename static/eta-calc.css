@@ -139,6 +139,8 @@ body.ec-resizing .ec-panel, body.ec-resizing .calc-tab, body.ec-resizing .nb-tab
 .ec-day .gl { position: absolute; top: 0; bottom: 0; width: 1px; background: #e6e6e6; }
 .ec-day i { position: absolute; top: 0; bottom: 0; cursor: help; }
 .ec-day i.w { width: 2px; }
+/* v3.226: «стоим до выезда» — светло-серая штриховка с подписью «выезд ДД/ММ ЧЧ:ММ» */
+.ec-day i.wt { background: repeating-linear-gradient(135deg, #ececec 0 4px, #f6f6f6 4px 8px); font-style: normal; font-size: 10px; line-height: 16px; color: #8a8a8a; padding-left: 4px; overflow: hidden; white-space: nowrap; box-sizing: border-box; }
 .ec-day i:hover { outline: 1px solid #1a1a1a; outline-offset: -1px; }
 .ec-dv { text-align: right; white-space: nowrap; }
 .ec-dv > span { color: #888; }

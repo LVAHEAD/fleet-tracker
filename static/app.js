@@ -1532,6 +1532,7 @@ async function calcRow(id, why) {
                          ecAt: data.active_idx && data.active_idx.length ? data.active_idx[0] : 0,
                          ecSeed: data.calc_seed || null,
                          corridor: data.corridor || null,          // v3.32: плашка коридора ИТ ↔ Бенелюкс
+                         chainGeo0: data.first_done ? !!data.first_done.chain_geo : !!data.target_chain_geo,   // v3.226: ① в NO / в 200 км от Стокгольма
                          nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };
     lastDoneFlags[id] = lastCalcText[id].doneFlags;   // v3.136: запас для пересчёта после вставки / удаления точки
     applyDoneClasses(tr, row, lastCalcText[id]);
@@ -1779,6 +1780,8 @@ function extraCalc(data) {
     done: !!x.done, done_at: x.done_at || null, done_arr: x.done_arr || null, done_tz: x.done_tz || null, eta_tz: x.eta_tz || null, done_auto: !!x.done_auto, from_truck: !!x.from_truck,
     done_by: x.done_by != null ? x.done_by : null, done_zone: x.done_zone || null,
     dist_km: x.dist_km, leg_km: x.leg_km,
+    done_leg_km: x.done_leg_km != null ? x.done_leg_km : null,   // v3.226: км пройденной точки (из кеша плеч) — до ячейки не доходили
+    chain_geo: !!x.chain_geo,                                    // v3.226: точка в NO / в 200 км от Стокгольма — для яркой «C»
     eta_tacho: x.eta_tacho || null, eta_local: x.eta_local || null,
     tacho_weeklimit: !!x.tacho_weeklimit,
     badge: x.badge || null, badgeHint: x.badge_hint || null,
@@ -2202,6 +2205,14 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
         if (/^(NO|SE)/i.test(b.textContent.trim())) need = true;
       });
       if (cell.classList.contains("chain-need") !== need) cell.classList.toggle("chain-need", need);
+      // v3.226: «C» насыщеннее — в трипе есть точка с плашкой O в Норвегии или в 200 км от Стокгольма (пройденные ✓ тоже считаем)
+      let hi = false;
+      const row = rows.find((r) => r.id === Number(tr.dataset.id)), c = lastCalcText[Number(tr.dataset.id)];
+      if (row && c) {
+        if (c.chainGeo0 && ptLo(row) === "O") hi = true;
+        (row.extra || []).forEach((p, i) => { const ce = c.extra && c.extra[i]; if (ce && ce.chain_geo && ptLo(p) === "O") hi = true; });
+      }
+      if (cell.classList.contains("chain-hi") !== hi) cell.classList.toggle("chain-hi", hi);
     });
   }
   let q = null;

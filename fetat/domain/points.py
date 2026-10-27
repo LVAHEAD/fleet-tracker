@@ -255,6 +255,20 @@ def target_badge_info(target_str, lat, lng, address=None):
     return badge, hint
 
 
+STOCKHOLM_LL = (59.3293, 18.0686)
+STOCKHOLM_CHAIN_KM = 200.0
+
+
+def chain_geo(lat, lng, badge=None):
+    """v3.226: точка в Норвегии (код NO…) или в 200 км от Стокгольма — клиент делает «C» (цепи) ярче,
+    если на такой точке плашка O (в том числе у пройденной)."""
+    if str(badge or "").upper().startswith("NO"):
+        return True
+    if lat is None or lng is None:
+        return False
+    return haversine_km(lat, lng, STOCKHOLM_LL[0], STOCKHOLM_LL[1]) <= STOCKHOLM_CHAIN_KM
+
+
 DONE_RADIUS_KM = 0.5        # стоял ближе 500 м от точки
 
 
@@ -508,6 +522,7 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
                 lat, lng = t.get("lat"), t.get("lng")
                 if lat is not None:       # v1.80: код региона и у пройденной точки
                     info["badge"], info["badge_hint"] = target_badge_info(tstr, lat, lng, t.get("target_address"))
+                    info["chain_geo"] = chain_geo(lat, lng, info["badge"])   # v3.226
                     info["cc"] = _country_at(lat, lng)   # v3.143: страна точки — для местного времени ✓
             except Exception as e:
                 warn("points:resolve", e)   # v3.98: раньше молча — точка «не пройдена» без следа

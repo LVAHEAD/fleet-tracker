@@ -11,7 +11,7 @@ from fetat.config import GOOGLE_API_KEY, HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.bans import (bans_hits_text, bans_near_text, bans_on_route, countries_times_text, country_chain,
                                needs_at_night_ban)
 from fetat.domain.points import (
-    find_unit_by_label, find_unit_exact, NEAR_LABEL_MAX_KM, on_target, points_done, site_arrival,
+    chain_geo, find_unit_by_label, find_unit_exact, NEAR_LABEL_MAX_KM, on_target, points_done, site_arrival,
     resolve_fleet_target, STATUS_RU, target_badge_info,
 )
 from fetat.domain.regions import nearest_region_code
@@ -133,6 +133,7 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
                 warn("fleet_calc:83", _e)
                 pass
         item["badge"], item["badge_hint"] = target_badge_info(tstr, lat, lng, t.get("target_address"))
+        item["chain_geo"] = chain_geo(lat, lng, item["badge"])   # v3.226
         if leg_poly and leg_km >= 5:
             try:
                 det = {}
@@ -226,9 +227,10 @@ def _add_trailer_info(result, unit, units, payload):
     return trailer
 
 
-def _add_done_legs(dn, pts_all, units, unit):
+def _add_done_legs(dn, pts_all, units, unit, corridor=None):
     """v3.122: км плеча у пройденных точек ②③… — от предыдущей точки до этой (у ① плеча нет: там путь от машины).
-    Тот же расчёт и общий долгий кеш плеч, что у непройденных (kind="leg"): Google только при первом показе плеча.
+    v3.226: только из общего долгого кеша плеч (kind="leg", тот же ключ, что у непройденных, с коридором трипа):
+    запросами Google не пересчитываем; плеча в кеше нет — без км (останется ✓).
     Точки-траки (встреча) пропускаем — у них нет постоянных координат; любая ошибка — просто без км."""
     for k in range(1, len(pts_all)):
         if not dn[k].get("done") or not pts_all[k] or not pts_all[k - 1]:
@@ -238,8 +240,9 @@ def _add_done_legs(dn, pts_all, units, unit):
             b = resolve_fleet_target(pts_all[k], units, unit)
             if a.get("target_is_truck") or b.get("target_is_truck"):
                 continue
-            wps = fleet_waypoints(a["lat"], a["lng"], b["lat"], b["lng"], None)
-            km, _poly = road_distance_km_google(a["lat"], a["lng"], b["lat"], b["lng"], GOOGLE_API_KEY, wps, kind="leg")
+            wps = fleet_waypoints(a["lat"], a["lng"], b["lat"], b["lng"], corridor)
+            km, _poly = road_distance_km_google(a["lat"], a["lng"], b["lat"], b["lng"], GOOGLE_API_KEY, wps, kind="leg",
+                                                cache_only=True)
             if km is not None:
                 dn[k]["leg_km"] = round(km, 1)
         except Exception as e:
@@ -264,7 +267,7 @@ def _apply_points_done(result, payload, target_str, unit, units, tm=None):
             dn = [{"done": False} for _ in pts_all]
         if tm:
             tm.mark("d_pts")                          # v3.124: подшаги done
-        _add_done_legs(dn, pts_all, units, unit)   # v3.122
+        _add_done_legs(dn, pts_all, units, unit, clean_corridor(payload.get("corridor")))   # v3.122; v3.226: из кеша, с коридором трипа
         if tm:
             tm.mark("d_legs")
         result["points_done"] = dn
@@ -540,6 +543,7 @@ def _add_code_badges(result, target_str):
         if result.get("target_lat") is not None:
             result["target_badge"], result["target_code_hint"] = target_badge_info(
                 target_str, result["target_lat"], result["target_lng"], result.get("target_address"))
+            result["target_chain_geo"] = chain_geo(result["target_lat"], result["target_lng"], result["target_badge"])   # v3.226
     except Exception as _e:
         warn("fleet_calc:387", _e)
         pass

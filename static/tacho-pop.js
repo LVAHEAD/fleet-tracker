@@ -180,7 +180,7 @@
     clearTimeout(hideT);
     if (anchor === el && tip && !tip.hidden) return;
     clearTimeout(showT);
-    showT = setTimeout(() => open(el), 2000);
+    showT = setTimeout(() => open(el), 1500);   // v3.226: 1,5 с (было 2 с)
   });
   document.addEventListener("mouseout", (e) => {
     const el = host(e);

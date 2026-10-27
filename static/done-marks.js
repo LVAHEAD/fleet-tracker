@@ -70,10 +70,11 @@ function remapDone(data) {
   const doneItem = (i) => ({ done: true, done_at: dn[i].at_loc || dn[i].at, done_arr: dn[i].arr_loc || dn[i].arr || null, done_tz: dn[i].tz || null, done_auto: dn[i].auto, done_msrc: dn[i].msrc || null,   // v3.143: время — местное, если at_loc; v3.172: msrc — источник времени ручной ✓
     done_by: dn[i].by != null ? dn[i].by : null, done_zone: dn[i].zone || null,
     done_leg_km: dn[i].leg_km != null ? dn[i].leg_km : null,   // v3.122: плечо пройденной точки ②③…
+    chain_geo: !!dn[i].chain_geo,                              // v3.226: точка в NO / в 200 км от Стокгольма
     badge: dn[i].badge || null, badge_hint: dn[i].badge_hint || null });
   const main = data.target_lat != null ? {
     dist_km: data.dist_km, leg_km: data.dist_km, eta_local: data.eta_local, eta_tacho: data.eta_tacho,
-    tacho_weeklimit: data.tacho_weeklimit, eta_tz: data.eta_tz || null, badge: data.target_badge, badge_hint: data.target_code_hint,
+    tacho_weeklimit: data.tacho_weeklimit, eta_tz: data.eta_tz || null, badge: data.target_badge, badge_hint: data.target_code_hint, chain_geo: !!data.target_chain_geo,
     lat: data.target_lat, lng: data.target_lng, polyline: null, bans_route: null, from_truck: true,
     target_address: data.target_address,
   } : { error: "нет координат" };
