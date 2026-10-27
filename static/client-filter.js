@@ -15,6 +15,21 @@ try {
   if (Array.isArray(v)) clientFilter = v.filter((x) => typeof x === "string" && x);
 } catch (e) {}
 
+// v3.228: кнопка «B G K» в шапке (колонка «Статус», только у VL): клиенты по началу названия (Bama Supliers тоже B).
+// Складывается с галочками окна «Клиент»: строка проходит, если клиент отмечен в окне ИЛИ начинается с включённой буквы.
+const CLIENT_LETTERS = [["B", "bama", "Bama"], ["G", "greenfood", "GreenFood"], ["K", "kesko", "Kesko"]];
+let clientPrefix = [];   // включённые буквы (B / G / K)
+try {
+  const v = JSON.parse(localStorage.getItem("fleet-client-letters") || "[]");
+  if (Array.isArray(v)) clientPrefix = v.filter((x) => CLIENT_LETTERS.some((l) => l[0] === x));
+} catch (e) {}
+function clientLettersAllowed() {
+  return typeof dispTag === "function" && typeof fleetMe === "function" && dispTag(fleetMe()) === "VL";
+}
+function clientPrefixKeys() {
+  return clientLettersAllowed() ? CLIENT_LETTERS.filter((l) => clientPrefix.includes(l[0])).map((l) => l[1]) : [];
+}
+
 function clientName(row) { return String((row && row.client) || "").trim().replace(/\s+/g, " "); }
 function clientKey(name) { return String(name || "").toLowerCase().replace(/\s+/g, ""); }
 
@@ -48,9 +63,11 @@ function clientList(rowsArr, selected, tag) {
 }
 
 function rowPassesClient(row) {
-  if (!clientFilter.length) return true;
+  const pre = clientPrefixKeys();
+  if (!clientFilter.length && !pre.length) return true;
   if (!row || !row.unit) return true;     // пустые строки видны всегда, как у остальных фильтров
-  return clientFilter.includes(clientKey(clientName(row)));
+  const key = clientKey(clientName(row));
+  return clientFilter.includes(key) || pre.some((p) => key.startsWith(p));
 }
 
 (function () {
@@ -60,12 +77,49 @@ function rowPassesClient(row) {
   let pop = null;
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const save = () => { try { localStorage.setItem("fleet-client-filter", JSON.stringify(clientFilter)); } catch (e) {} };
+  const saveLetters = () => { try { localStorage.setItem("fleet-client-letters", JSON.stringify(clientPrefix)); } catch (e) {} };
   const mark = () => {
-    th.classList.toggle("client-on", clientFilter.length > 0);
-    th.title = clientFilter.length ? `Фильтр по клиентам: выбрано ${clientFilter.length} — клик, чтобы изменить`
-      : "Фильтр по клиентам — клик";
+    const n = clientFilter.length + clientPrefixKeys().length;
+    th.classList.toggle("client-on", n > 0);
+    th.title = n ? `Фильтр по клиентам: выбрано ${n} — клик, чтобы изменить` : "Фильтр по клиентам — клик";
   };
   const rerender = () => { mark(); if (typeof renderRows === "function") renderRows(); };
+
+  // v3.228: «B G K» в шапке «Статус» — только у VL; у остальных остаётся надпись «Статус». Рисуется при каждой отметке панели (fleetMarkBar)
+  const sth = document.getElementById("status-th");
+  function renderLetters() {
+    if (!sth) return;
+    const lbl = sth.querySelector(".st-lbl");
+    let box = sth.querySelector(".cl-letters");
+    if (!clientLettersAllowed()) {
+      if (box) box.remove();
+      if (lbl) lbl.hidden = false;
+      mark();
+      return;
+    }
+    if (lbl) lbl.hidden = true;
+    if (!box) {
+      box = document.createElement("span");
+      box.className = "cl-letters";
+      box.setAttribute("role", "group");
+      box.setAttribute("aria-label", "Фильтр по клиентам: Bama, GreenFood, Kesko");
+      box.innerHTML = CLIENT_LETTERS.map((l) => `<button type="button" data-l="${l[0]}" title="${l[2]}">${l[0]}</button>`).join("");
+      box.addEventListener("click", (e) => {
+        const b = e.target.closest("button[data-l]");
+        if (!b) return;
+        e.stopPropagation();
+        const l = b.dataset.l;
+        clientPrefix = clientPrefix.includes(l) ? clientPrefix.filter((x) => x !== l) : [...clientPrefix, l];
+        saveLetters();
+        renderLetters();
+        rerender();
+      });
+      sth.appendChild(box);
+    }
+    box.querySelectorAll("button[data-l]").forEach((b) => b.classList.toggle("on", clientPrefix.includes(b.dataset.l)));
+    mark();
+  }
+  window.clientLetters = { render: renderLetters };
 
   function fillList() {
     const q = clientKey(pop.querySelector(".cf-search").value);
@@ -102,7 +156,10 @@ function rowPassesClient(row) {
     });
     pop.querySelector(".cf-reset").addEventListener("click", () => {
       clientFilter = [];
+      clientPrefix = [];   // v3.228: гасит и буквы B G K
       save();
+      saveLetters();
+      renderLetters();
       rerender();
       close();   // v3.205: «Сбросить» закрывает окно
     });
@@ -116,4 +173,5 @@ function rowPassesClient(row) {
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
   window.addEventListener("scroll", (e) => { if (pop && !pop.contains(e.target)) close(); }, true);
   mark();
+  renderLetters();
 })();

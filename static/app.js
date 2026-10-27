@@ -1991,6 +1991,7 @@ function moveManual(id, dir) {
         b.dataset.own === ownFilter || (ownFilter === "mine" && b.dataset.own === fleetMe())));
       bar.classList.toggle("has-own", !!fleetMe());
     });
+    if (window.clientLetters) window.clientLetters.render();   // v3.228: «B G K» в шапке «Статус» (только VL)
     if (fb) {
       const has = rows.some((r) => foldable(r));
       fb.disabled = !has;   // без строк с 3+ точками — бледный

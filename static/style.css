@@ -979,6 +979,14 @@ button.hitch-ic:hover { background: #e6dfcc; }
 #fleet-table thead th.th-client::after { content: "▼"; display: inline-block; box-sizing: border-box; width: 18px; height: 16px; margin-left: 6px; vertical-align: middle; border: 1px solid #2f6fd6; border-radius: 4px; background: #fff; color: #2f6fd6; font-size: 9px; line-height: 14px; text-align: center; }
 #fleet-table thead th.th-client.client-on { background: #2f6fd6; color: #fff; }
 #fleet-table thead th.th-client.client-on::after { background: #fff; color: #2f6fd6; }
+/* v3.228: «B G K» в шапке «Статус» (только VL) — «Синий Кальк», склеенные кнопки, мультивыбор */
+.cl-letters { display: inline-flex; vertical-align: middle; }
+.cl-letters button { min-width: 26px; height: 22px; margin: 0 0 0 -1px; padding: 0 7px; border: 1px solid #2f6fd6; background: #fff; color: #2f6fd6;
+  font-family: inherit; font-size: 12px; font-weight: 600; line-height: 20px; cursor: pointer; }
+.cl-letters button:first-child { margin-left: 0; border-radius: 6px 0 0 6px; }
+.cl-letters button:last-child { border-radius: 0 6px 6px 0; }
+.cl-letters button:hover, .cl-letters button:active, .cl-letters button.on { background: #2f6fd6; color: #fff; }
+.cl-letters button:focus-visible { outline: 2px solid #2f6fd6; outline-offset: 2px; }
 /* v3.204: фильтр по машинам (static/unit-filter.js) — заголовок как у «Клиент», окно — то же .client-flt-pop */
 #fleet-table thead th.th-unit { cursor: pointer; user-select: none; }
 #fleet-table thead th.th-unit::after { content: "▼"; display: inline-block; box-sizing: border-box; width: 18px; height: 16px; margin-left: 6px; vertical-align: middle; border: 1px solid #2f6fd6; border-radius: 4px; background: #fff; color: #2f6fd6; font-size: 10px; line-height: 14px; text-align: center; }
