@@ -75,6 +75,7 @@ def resolve_place_label(target_str):
 
 
 NEAR_LABEL_MAX_KM = 80      # дальше этого "около XX" в подписи не показываем (страну всё равно берём)
+BADGE_ANCHORS = [("ES04", 37.39475, -1.74072, 5.0)]   # точки, где код плашки задан вручную (код, lat, lng, радиус км): PEREGRIN
 
 
 def find_unit_exact(units, query):
@@ -250,6 +251,10 @@ def target_badge_info(target_str, lat, lng, address=None):
     else:
         tcode, td = nearest_region_code(lat, lng)
         tcc = (address or {}).get("country") or (tcode[:2] if tcode else None)
+        for a_code, a_lat, a_lng, a_r in BADGE_ANCHORS:
+            if lat is not None and lng is not None and haversine_km(lat, lng, a_lat, a_lng) <= a_r:
+                tcode, td, tcc = a_code, 0.0, a_code[:2]
+                break
     badge = tcode if tcode and td <= NEAR_LABEL_MAX_KM else tcc
     hint = (f"{tcc} · около {tcode}" + (f" ({round(td)} км)" if td > NEAR_LABEL_MAX_KM else "")) if tcode else tcc
     return badge, hint
