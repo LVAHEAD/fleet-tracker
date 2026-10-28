@@ -555,7 +555,7 @@ def mapon_objects():
                 continue
             la = [p[0] for p in pts]
             ln = [p[1] for p in pts]
-            items.append({"name": (o.get("name") or "").strip(), "poly": pts,
+            items.append({"name": (o.get("name") or "").strip(), "gid": str(o.get("group_id") or ""), "poly": pts,
                           "bbox": (min(la), max(la), min(ln), max(ln)),
                           "c": (sum(la) / len(la), sum(ln) / len(ln))})
     except Exception:
@@ -563,3 +563,26 @@ def mapon_objects():
             return _mobj_cache["items"]
     _mobj_cache.update(at=now, items=items)
     return items
+
+
+_mgrp_cache = {"at": 0.0, "m": None}
+
+
+def mapon_group_names():
+    """v3.231: {id группы объектов: название} из object/list_groups (кеш на MAPON_OBJ_TTL); ошибка — прежний кеш или {}."""
+    import time
+    now = time.time()
+    if _mgrp_cache["m"] is not None and now - _mgrp_cache["at"] < MAPON_OBJ_TTL:
+        return _mgrp_cache["m"]
+    m = {}
+    try:
+        gl = mapon_get("https://mapon.com/api/v1/object/list_groups.json", {"key": MAPON_API_KEY}).get("data") or {}
+        for g in gl.get("groups") or gl.get("object_groups") or (gl if isinstance(gl, list) else []):
+            if isinstance(g, dict):
+                m[str(g.get("id"))] = g.get("name") or g.get("title") or ""
+    except Exception:
+        if _mgrp_cache["m"] is not None:
+            return _mgrp_cache["m"]
+    _mgrp_cache.update(at=now, m=m)
+    return m
+

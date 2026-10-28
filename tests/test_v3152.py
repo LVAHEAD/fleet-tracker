@@ -35,8 +35,10 @@ class AddrTab(unittest.TestCase):
     def test_submit_does_not_write(self):
         js = read("static", "addr-tab.js")
         # v3.171: сеть — только правка существующего адреса («Редактировать»); новый адрес по-прежнему никуда не пишется
-        self.assertEqual(js.count("fetch("), 1)
+        # v3.231: ещё один fetch — только чтение (GET объекта Mapon у адреса), записей по-прежнему одна
+        self.assertEqual(js.count("fetch("), 2)
         self.assertIn('fetch("/api/addresses/update"', js)
+        self.assertIn('fetch("/api/mapon-object-at?', js)
         self.assertIn("никуда не сохраняются", js)
 
 

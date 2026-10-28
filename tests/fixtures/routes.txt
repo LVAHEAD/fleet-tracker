@@ -27,6 +27,7 @@
 /api/links GET
 /api/locate POST
 /api/mapon-check GET
+/api/mapon-object-at GET
 /api/mapon-objects GET
 /api/mapon-units GET
 /api/me GET

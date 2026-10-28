@@ -137,6 +137,7 @@
   // ---------- карта в карточке (v3.171): объект в центре, зум 15; один экземпляр карты на все карточки ----------
   const CARD_MAP_ZOOM = 15;
   let cardMapBox = null, cardMap = null, cardMarker = null;
+  let mapTok = 0;   // v3.231: номер выбранной карточки — ответ Mapon для старой игнорируем
 
   function placeCardMap(card, a, tries) {
     const g = addrGps(a);
@@ -205,6 +206,24 @@
       r.appendChild(val);
       card.appendChild(r);
     });
+    // v3.231: строка «Mapon» — объект (зона) у этого адреса и его группа; грузится отдельно, чтобы карточка не ждала Mapon
+    const mrow = el("div", "addr-card-row");
+    mrow.appendChild(el("span", "addr-card-key", "Mapon"));
+    const mval = el("span", "addr-card-val addr-card-empty", "…");
+    mrow.appendChild(mval);
+    card.appendChild(mrow);
+    const tok = ++mapTok;
+    if (a.lat != null && a.lng != null) {
+      fetch("/api/mapon-object-at?lat=" + encodeURIComponent(a.lat) + "&lng=" + encodeURIComponent(a.lng))
+        .then((r) => r.json())
+        .then((d) => {
+          if (tok !== mapTok) return;   // выбрали другой адрес
+          const o = d && d.object;
+          if (o) { mval.classList.remove("addr-card-empty"); mval.textContent = o.name + (o.group ? " · " + o.group : ""); }
+          else mval.textContent = d && d.error ? "нет данных (" + d.error + ")" : "нет объекта (зоны) в Mapon";
+        })
+        .catch(() => { if (tok === mapTok) mval.textContent = "нет данных"; });
+    } else mval.textContent = "—";
     placeCardMap(card, a, 0);
     // v3.171: одна кнопка «Редактировать» — только у тех, кто правит сразу (data-can-edit); у остальных кнопок нет,
     // пока не подключено хранилище предложений. «Предложить правку» и «Это другая площадка» убраны.

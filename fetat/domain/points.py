@@ -2,7 +2,7 @@
 
 from fetat.utils.timefmt import ts_west
 from fetat.clients.geocode import geocode, geocode_city
-from fetat.clients.mapon import mapon_objects, unit_stops, unit_passes
+from fetat.clients.mapon import mapon_objects, mapon_group_names, unit_stops, unit_passes
 from fetat.config import MAPON_API_KEY
 from fetat.domain.addresses import (
     address_public, base_point, dovoz_country, find_address, is_base_word,
@@ -608,6 +608,14 @@ def target_object(glat, glng):
             if best is None or d < best[0]:
                 best = (d, o)
     return best[1] if best else None
+
+
+def object_at(lat, lng):
+    """v3.231: объект Mapon у точки (для карточки адреса) -> {"name", "group"} или None; правило то же, что у target_object."""
+    o = target_object(lat, lng)
+    if not o:
+        return None
+    return {"name": o["name"], "group": mapon_group_names().get(o.get("gid") or "", "")}
 
 
 def on_target(tlat, tlng, glat, glng):

@@ -9,7 +9,7 @@ from fetat.clients.mapon import (
     MAPON_API_URL, MAPON_BASE, mapon_get, MAPON_TACHO_URL, unit_stops,
 )
 from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
-from fetat.domain.points import find_unit_exact
+from fetat.domain.points import find_unit_exact, object_at
 from fetat.domain.regions import nearest_region_code
 from fetat.domain.tacho import tacho_no_subscription, WEEKLY_FULL_SEC, weekly_status
 from fetat.domain.trailers import is_trailer
@@ -286,6 +286,22 @@ def api_mapon_units():
 
 
 _objs_cache = {"t": 0.0, "objs": None}   # v3.55: кеш списка объектов Mapon
+
+
+@bp.route("/api/mapon-object-at")
+def api_mapon_object_at():
+    """v3.231: объект Mapon у точки ?lat=&lng= (карточка адреса): {"object": {"name", "group"} | null}."""
+    try:
+        lat, lng = float(request.args.get("lat")), float(request.args.get("lng"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "нужны lat и lng"}), 400
+    if not MAPON_API_KEY:
+        return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
+    try:
+        return jsonify({"object": object_at(lat, lng)})
+    except Exception as e:
+        warn("mapon:object_at", e)
+        return jsonify({"error": "Mapon недоступен"}), 502
 
 
 @bp.route("/api/mapon-objects")
