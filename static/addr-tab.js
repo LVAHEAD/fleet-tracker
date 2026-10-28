@@ -172,7 +172,7 @@
     card.textContent = "";
     card.hidden = false;   // v3.171: карта создаётся в видимом контейнере
     card.appendChild(el("div", "addr-card-name", a.name));
-    // v3.170: порядок Адрес, GPS, Open, Тип, Alias, Client, Supplier (подписи как в листе); пустые поля скрыты.
+    // v3.170: порядок Адрес, GPS, Open, Тип, Alias, Client, Supplier (подписи как в листе); пустые поля скрыты (кроме Open и Заметка — v3.231: показываем прочерком).
     // Страна (код + флаг) стоит под подписью «Адрес»; у «Адрес» и GPS справа внизу значок «копировать».
     const rows = [
       ["Адрес", a.full, true], ["GPS", gpsText(addrGps(a)), true], ["Open", a.open], ["Тип", TYPE_RU[a.type] || a.type],
@@ -180,7 +180,8 @@
     ];
     rows.forEach(([k, v, copy]) => {
       const withCountry = k === "Адрес" && a.country;
-      if (!v && !withCountry) return;
+      const always = k === "Open" || k === "Заметка";   // v3.231: эти поля видны и пустыми (прочерк) — их заполняют чаще всего
+      if (!v && !withCountry && !always) return;
       const r = el("div", "addr-card-row");
       const key = el("span", "addr-card-key", k);
       if (withCountry) {
@@ -191,7 +192,7 @@
         key.appendChild(cc);
       }
       r.appendChild(key);
-      const val = el("span", "addr-card-val", v || "");
+      const val = el("span", "addr-card-val" + (!v && always ? " addr-card-empty" : ""), v || (always ? "—" : ""));
       if (copy && v) {
         val.classList.add("has-copy");
         val.appendChild(copyButton(k, v));
