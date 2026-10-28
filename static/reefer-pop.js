@@ -28,20 +28,22 @@
     const bad = (c) => !!c && c.dev != null && Math.abs(c.dev) > c.lim && !c.stale;      // отклонение возврата от уставки больше допуска
     const dev = bad(main), bad2 = bad(other), badC = comps.find(bad) || null;
     const ts = Math.max.apply(null, comps.map((c) => num(c.ts) || 0).concat([0]));
+    // v3.232: как панель Freezer в Mapon — общий блок, затем «Temperature 1» и «Temperature 2» (уставка + Outgoing каждого отсека)
     const t = [];
     t.push(tile("Incoming temperature", main && main.on ? deg(main.ret) : "—", main && main.on && main.dev != null ? (main.dev > 0 ? "+" : "") + main.dev + "° к уставке" : "", dev ? "bad" : ""));
-    t.push(tile("Set temperature", main && main.on ? deg(main.set) : "—", ""));
-    t.push(tile("Outgoing temperature", main && main.on ? deg(main.sup) : "—", ""));
-    t.push(tile("Temperature 2", other ? (other.on ? deg(other.ret) : '<span class="mp-nd">Off</span>') : "—", other && other.on ? "уставка " + deg(other.set) : "", bad2 ? "bad" : ""));
     t.push(tile("Run mode", num(r.run) == null ? "—" : esc(RUN[r.run] || "mode " + r.run), ""));
     t.push(tile("Diesel hours", num(r.diesel_h) == null ? "—" : Math.round(r.diesel_h), ""));
-    t.push(tile("Fuel", num(r.fuel_l) == null ? "—" : Math.round(r.fuel_l) + " L", r.fuel_low ? "мало (< 40 л)" : "", r.fuel_low ? "bad" : ""));
+    const sec = (title, c, badc) => '<div class="mp-sec">' + title + '</div><div class="mp-g mp-g2">' +
+      tile("Set temperature", c && c.on ? deg(c.set) : "—", "") +
+      tile("Outgoing temperature", c && c.on ? deg(c.sup) : (c ? '<span class="mp-nd">Off</span>' : "—"), c && c.on && c.dev != null && c !== main ? (c.dev > 0 ? "+" : "") + c.dev + "° к уставке (возврат " + deg(c.ret) + ")" : "", badc ? "bad" : "") + "</div>";
+    const fuelTile = '<div class="mp-g">' + tile("Fuel", num(r.fuel_l) == null ? "—" : Math.round(r.fuel_l) + " L", r.fuel_low ? "мало (< 40 л)" : "", r.fuel_low ? "bad" : "") + "</div>";
     const stale = comps.some((c) => c.on && c.stale);
     const warn = stale ? "Данные рефа старые — температуры могут не совпадать с текущими"
       : badC ? "Отсек " + badC.n + ": возврат отличается от уставки на " + (badC.dev > 0 ? "+" : "") + badC.dev + "° (допуск ±" + badC.lim + "°)" : "";
     return '<div class="mp-h"><b>Freezer</b>' + (r.type ? '<span class="mp-unit">' + esc(r.type) + "</span>" : "") +
       '<span class="mp-at">' + (ts ? "на " + riga(ts) + " (Riga)" : "") + "</span></div>" +
       '<div class="mp-g">' + t.join("") + "</div>" +
+      sec("Temperature 1", main, dev) + (other ? sec("Temperature 2", other, bad2) : "") + fuelTile +
       (warn ? '<div class="tp-gps warn"><b>⚠</b><span>' + esc(warn) + "</span></div>" : "");
   }
 

@@ -1813,6 +1813,11 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 /* v3.222: всплывашка рефа «как Freezer в Mapon» (static/reefer-pop.js) */
 .tp-rf .mp-v.bad { color: var(--tp-bad); }
 .tp-rf .mp-t:nth-child(3n) { border-right: 0; }
+/* v3.232: блоки «Temperature 1 / 2» — две плитки в ряд, как в Mapon */
+.tp-rf .mp-sec { padding: 6px 12px 4px; font-size: 12px; color: #555; background: #fafafa; border-bottom: 1px solid #e6e6e6; }
+.tp-rf .mp-g2 { grid-template-columns: repeat(2, 1fr); }
+.tp-rf .mp-g2 .mp-t:nth-child(3n) { border-right: 1px solid #e6e6e6; }
+.tp-rf .mp-g2 .mp-t:nth-child(2n) { border-right: 0; }
 
 /* v3.223: окно комментария не выше экрана — поле ввода забирает остаток высоты и прокручивается внутри */
 .com-ed { max-height: calc(100vh - 16px); box-sizing: border-box; }
