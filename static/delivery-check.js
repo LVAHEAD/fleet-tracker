@@ -152,10 +152,11 @@ function fixVerdict(txt, etaStr, left) {
 // v3.10: проверка по тексту TimeSlot (любая точка)
 function slotCheck(txt, etaStr) { return deliveryCheck({ delivery: txt }, etaStr); }
 // опаздывает ли хоть одна непройденная следующая точка (② и дальше)
-function extrasLate(row, extra) {
+// v3.230: nbAt / onArr — точка, на которой трак уже стоит: сравниваем со временем приезда (как в ячейке), а не с «ETA от сейчас»
+function extrasLate(row, extra, nbAt, onArr) {
   return (row.extra || []).some((x, i) => {
     const ce = extra && extra[i];
-    return !!(ce && !ce.done && !ce.error && slotCheck(x.delivery, ce.eta_tacho || ce.eta_local).late);
+    return !!(ce && !ce.done && !ce.error && slotCheck(x.delivery, (nbAt === i && onArr) || ce.eta_tacho || ce.eta_local).late);
   });
 }
 // "dd/mm HH:MM" (ETA с сервера) -> Date

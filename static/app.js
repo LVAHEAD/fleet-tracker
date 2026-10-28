@@ -1291,7 +1291,7 @@ function recheckLate(id) {
   const firstDone = c.nbAt != null || !!(c.doneFlags && c.doneFlags[0] && c.doneFlags[0].done);
   const chk = firstDone ? { late: false, lines: [] } : deliveryCheck(row, c.etaStr);
   c.late = chk.late;
-  c.anyLate = c.late || extrasLate(row, c.extra);
+  c.anyLate = c.late || extrasLate(row, c.extra, c.nbAt, c.onArr);
   c.tipLines = (c.tipLines || []).filter((l) => !l.startsWith("Позже TimeSlot") && !l.startsWith("⏳ Раньше окна") && !l.startsWith("⚠ Дата TimeSlot"));
   c.tipLines.unshift(...chk.lines);
   const composed = composeEta(row, c);
@@ -1493,7 +1493,7 @@ async function calcRow(id, why) {
         Object.assign(cx, { etaCore, bansR, tipLines, nearR, banInfo, nbAt: act0 - 1, onArr });
         composed = composeEta(row, cx);
       }
-      anyLate = extrasLate(row, cx.extra);
+      anyLate = extrasLate(row, cx.extra, cx.nbAt, cx.onArr);   // v3.230: трак на объекте ② — по времени приезда
       const prevC = lastCalcText[id];
       if (prevC && prevC.etaCore && prevC.anyLate === false && anyLate) {
         blinkRows.add(id);
