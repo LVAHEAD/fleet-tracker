@@ -70,7 +70,12 @@
     const list = baseList();
     if (!list.length) { info.textContent = "База ещё загружается…"; return; }
     const found = list.filter((a) => matches(a, q));
-    if (!found.length) info.textContent = "Ничего не нашли. Можно добавить новый адрес.";
+    if (!found.length) {
+      info.textContent = "Ничего не нашли. Можно добавить новый адрес.";
+      // v3.231: старая карточка не остаётся под «Ничего не нашли» (кроме открытой правки / формы нового адреса)
+      const card = $("addrCard");
+      if (!card.classList.contains("addr-card-editing") && $("addrForm").hidden) card.hidden = true;
+    }
     else if (found.length > SHOW_MAX) info.textContent = "Найдено " + found.length + ", показаны первые " + SHOW_MAX + " — уточните запрос.";
     else info.textContent = "Найдено: " + found.length;
     found.slice(0, SHOW_MAX).forEach((a) => res.appendChild(addressRow(a)));
