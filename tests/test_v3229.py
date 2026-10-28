@@ -47,6 +47,8 @@ out.shortAfter = k(a.fixVerdict(S, eta(5.5), L(2.2)));                         /
 out.shortDrive = k(a.fixVerdict(S, eta(6), L(9, 0.2)));                        // вождения < 30 мин на парковку
 out.wait = k(a.fixVerdict(S, eta(3), L(10)));
 out.waitShort = k(a.fixVerdict(S, eta(3), L(3)));                              // ждать 3 ч, смены 3 ч → после слота 0
+out.waitLong = [k(a.fixVerdict(S, eta(-30), L(2))), k(a.fixVerdict(S, eta(-30), L(9, 0)))];   // v3.231: ждёт 36 ч — свежая смена, не «short»
+out.waitEdge = [k(a.fixVerdict(S, eta(-2.5), L(3))), k(a.fixVerdict(S, eta(-3.5), L(3)))];   // ждёт 8,5 ч → short; 9,5 ч → wait
 out.noLeft = [k(a.fixVerdict(S, eta(3), null)), k(a.fixVerdict(S, eta(5.5), null))];   // без данных тахографа — только по времени
 out.notFixed = a.fixVerdict(`${dm(at(6))} ${hm(at(6))}-${hm(at(8))}`, eta(3), L(9));   // обычное окно — вердикта нет
 // ранний приезд до 1 ч — без «будет ждать», раньше — с ним
@@ -89,6 +91,8 @@ class FixClientTest(unittest.TestCase):
         self.assertEqual(o["shortDrive"], "short")
         self.assertEqual(o["wait"], "wait")
         self.assertEqual(o["waitShort"], "short")
+        self.assertEqual(o["waitLong"], ["wait", "wait"])
+        self.assertEqual(o["waitEdge"], ["short", "wait"])
         self.assertEqual(o["noLeft"], ["wait", None])
         self.assertIsNone(o["notFixed"])
 

@@ -115,6 +115,7 @@ function deliveryCheck(row, etaStr) {
 // v3.229: фикс-время точки — раньше слота можно до 1 ч, после слота нужно ~2 ч рабочего времени (выгрузка + парковка)
 const FIX_EARLY_MS = 60 * 60000;
 const FIX_AFTER_SEC = 2 * 3600;
+const FIX_REST_SEC = 9 * 3600;       // v3.231: ожидание от 9 ч — успевает отдохнуть, смена новая
 const FIX_PARK_DRIVE_SEC = 30 * 60;   // и хоть полчаса вождения (на поиск парковки)
 // «не раньше» точки по её окну Delivery / TimeSlot (epoch, сек) — серверу для ожидания; нет начала окна — null
 function fixNotBefore(txt) {
@@ -139,7 +140,8 @@ function fixVerdict(txt, etaStr, left) {
   if (diff > 0) return { kind: "late", text: `Не успевает на ${fixHm(diff)}`, short: `опоздает на ${fixHm(diff)}` };
   const early = -diff;
   const waitSec = early;                                                    // приехал раньше слота — стоит до слота
-  if (left && typeof left.shift === "number") {
+  // ждёт дольше суточного отдыха — водитель отдыхает и берёт свежую смену, остаток «на приезде» уже не важен
+  if (left && typeof left.shift === "number" && waitSec < FIX_REST_SEC) {
     const shiftAtSlot = left.shift - waitSec;
     const driveLeft = typeof left.drive === "number" ? left.drive : Infinity;
     if (shiftAtSlot < FIX_AFTER_SEC || driveLeft < FIX_PARK_DRIVE_SEC) {
