@@ -40,6 +40,18 @@
       if (p === "/api/warm" || p === "/api/presence") return J({ ok: true, tags: [], version: "3.184" });
       if (p === "/api/notebook" || p.indexOf("/api/notebook") === 0) return J({ ok: true, items: [], notes: [] });
       if (p === "/api/fuel-stations") return J({ ok: true, stations: [], items: [] });
+      // v3.231: объект Mapon у адреса — модель: у каждого третьего адреса зоны нет, у остальных зона из списка объектов макета
+      if (p === "/api/mapon-object-at") {
+        var la = parseFloat(u.searchParams.get("lat")), ln = parseFloat(u.searchParams.get("lng"));
+        var objs = ((snap.gets["/api/mapon-objects"] || {}).json || {}).objects || [];
+        if (!objs.length) objs = [   // в снимке объектов Mapon нет — вымышленные зоны с группами, как в аппе
+          { name: "Зона погрузки 1", group: "GFI Clients" }, { name: "Склад клиента", group: "Fish Clients" },
+          { name: "Паркинг у терминала", group: "PARKING" }, { name: "Зона выгрузки", group: "Bama Supliers" }];
+        var h = Math.abs(Math.round(la * 1000) + Math.round(ln * 1000));
+        if (h % 3 === 0) return J({ object: null });
+        var o = objs[h % objs.length];
+        return J({ object: { name: o.name, group: o.group || "" } });
+      }
       return J({ error: "в макете недоступно" });
     });
   };
