@@ -113,7 +113,32 @@ def weekly_rest_info(tacho, now_ts=None):
            "mapon": int(min(starts)) if starts else None,
            "ddd": int(min(ddd)) if ddd else None}
     out["unconfirmed"] = bool(out["mapon"] and (not out["ddd"] or abs(out["mapon"] - out["ddd"]) > 3600))
+    # v3.233: правило Claude (у Mapon его нет): на этой неделе (пн 00:00 UTC – вс 24:00) отдых уже сокращённый
+    # (24–45 ч), а срок следующего попадает на следующую неделю — нужна 45ка
+    dl = out["mapon"] or out["ddd"]
+    if dl and (not out["need"] or out["need"] < WEEKLY_FULL_SEC):
+        nxt = _next_monday_utc(now)
+        red = _reduced_this_week(tacho, nxt - 7 * 86400)
+        if red and dl >= nxt:
+            out.update(rule45=True, need_mapon=out["need"], need=int(WEEKLY_FULL_SEC), reduced_at=red)
     return out
+
+
+def _reduced_this_week(tacho, week_start):
+    """Начало сокращённого недельного отдыха (24–45 ч), начатого на текущей неделе, любого водителя; иначе None."""
+    for d in (tacho.get("drivers") or [])[:2]:
+        did = d.get("driver_id")
+        if not did:
+            continue
+        try:
+            hist, _ = get_driver_rests(did)
+        except Exception:
+            continue
+        for r in (hist or {}).get("rests") or []:
+            dur = r["end"] - r["start"]
+            if r["start"] >= week_start and WEEKLY_MIN_SEC <= dur < WEEKLY_FULL_SEC:
+                return int(r["start"])
+    return None
 
 
 def weekly_for_tacho(tacho):

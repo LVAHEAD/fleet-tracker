@@ -63,3 +63,35 @@ class V3233(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class V3233Rule45(unittest.TestCase):
+    NOW = 1_793_000_000                       # чт 2026-10-29 ~ UTC
+
+    def _wk(self):
+        return T._next_monday_utc(self.NOW) - 7 * 86400
+
+    def _info(self, rests, mapon_off, need=86400):
+        ws = self._wk()
+        t = crew([need], [T._next_monday_utc(self.NOW) + mapon_off])
+        hist = {"rests": [{"start": ws + a, "end": ws + a + h * 3600, "src": ["ddd"]} for a, h in rests], "from": 0}
+        with mock.patch.object(T, "weekly_status", return_value=(None, None)), \
+                mock.patch.object(T, "get_driver_rests", return_value=(hist, None)):
+            return T.weekly_rest_info(t, self.NOW)
+
+    def test_reduced_this_week_deadline_next_week(self):
+        r = self._info([(3600, 30)], 3600)
+        self.assertTrue(r["rule45"])
+        self.assertEqual((r["need"], r["need_mapon"]), (162000, 86400))
+
+    def test_deadline_this_week_no_rule(self):
+        r = self._info([(3600, 30)], -3600)
+        self.assertNotIn("rule45", r)
+
+    def test_full_rest_no_rule(self):
+        r = self._info([(3600, 46)], 3600)
+        self.assertNotIn("rule45", r)
+
+    def test_already_45_no_rule(self):
+        r = self._info([(3600, 30)], 3600, need=162000)
+        self.assertNotIn("rule45", r)

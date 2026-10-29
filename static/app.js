@@ -1065,12 +1065,13 @@ function weeklyChipHtml(w) {
   if (!w || !w.need) return "";
   const h = Math.round(w.need / 3600), fmt = (ts) => new Date(ts * 1000).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   const soon = w.mapon && w.mapon * 1000 - Date.now() < 48 * 3600 * 1000;
-  const tip = [`Недельный отдых: нужна ${h}ка (по Mapon)`];
+  const tip = [w.rule45 ? `Недельный отдых: нужна 45ка — расчёт Claude (у Mapon: ${w.need_mapon ? Math.round(w.need_mapon / 3600) + "ка" : "—"})` : `Недельный отдых: нужна ${h}ка (по Mapon)`];
+  if (w.rule45) tip.push(`Правило: на этой неделе отдых уже сокращённый (с ${fmt(w.reduced_at)}), срок попадает на следующую неделю — нужна 45ка`);
   if (w.mapon) tip.push(`Срок по Mapon: ${fmt(w.mapon)}`);
   if (w.ddd) tip.push(`Срок по тахографу (ddd): ${fmt(w.ddd)}`);
   if (w.unconfirmed) tip.push(w.ddd ? "⚠ Срок Mapon построен на отдыхе только из CAN — тахографом не подтверждён, ближе срок по ddd" : "⚠ Срок Mapon не подтверждён тахографом (нет недельного отдыха в ddd)");
   tip.push("Неделя тахографа — с пн 00:00 UTC");
-  return ` <span class="wk-rest${soon ? " wk-soon" : ""}${w.unconfirmed ? " wk-unc" : ""}" title="${escapeHtml(tip.join("\n"))}">${h}ка${w.unconfirmed ? "?" : ""}</span>`;
+  return ` <span class="wk-rest${soon ? " wk-soon" : ""}${w.unconfirmed ? " wk-unc" : ""}" title="${escapeHtml(tip.join("\n"))}">${h}ка${w.rule45 ? "*" : ""}${w.unconfirmed ? "?" : ""}</span>`;
 }
 function etaCellHtml(row, c, composed) {
   // v1.82: ① пройдена — кнопка NB/🚫 на строке первой непройденной точки (c.nbAt — её индекс в extra)
