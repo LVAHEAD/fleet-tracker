@@ -163,7 +163,7 @@ MAPON_ACTIVITIES_URL = "https://mapon.com/api/v1/driver/daily_activities.json"
 ACT_TTL = 1800                  # история водителя — не чаще раза в 30 мин
 
 
-ACT_DAYS = 21                   # глубина истории (до 31 дня у Mapon)
+ACT_DAYS = 28                   # глубина истории (до 31 дня у Mapon); v3.233: 21 → 28
 
 
 _act_cache = {}                 # driver_id -> {"at", "data", "error"}

@@ -6,7 +6,7 @@ from flask import Blueprint, current_app, jsonify, request
 from fetat.clients.mapon import (
     _check_daily_activities, driver_has_data, fetch_group_unit_ids, fetch_units, get_driver_history, get_driver_rests,
     get_tacho,
-    MAPON_API_URL, MAPON_BASE, mapon_get, MAPON_TACHO_URL, unit_stops,
+    ACT_DAYS, MAPON_API_URL, MAPON_BASE, mapon_get, MAPON_TACHO_URL, unit_stops,
 )
 from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.points import find_unit_exact, object_at
@@ -134,7 +134,7 @@ def api_truck_info():
         return jsonify({"error": "трак не найден"}), 404
     uid = unit["unit_id"]
     try:
-        days = max(1, min(int(request.args.get("days") or 3), 21))
+        days = max(1, min(int(request.args.get("days") or 3), ACT_DAYS))
     except ValueError:
         days = 3
     out = {"unit_id": uid, "number": unit.get("number") or unit.get("label"), "drivers": [], "days": days}

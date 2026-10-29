@@ -1060,10 +1060,22 @@ function distCellHtml(row, c) {
   return lines.join("");
 }
 
+// v3.233: значок недельного отдыха у ETA — «24ка» / «45ка» + срок по Mapon и по тахографу (ddd) в подсказке
+function weeklyChipHtml(w) {
+  if (!w || !w.need) return "";
+  const h = Math.round(w.need / 3600), fmt = (ts) => new Date(ts * 1000).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const soon = w.mapon && w.mapon * 1000 - Date.now() < 48 * 3600 * 1000;
+  const tip = [`Недельный отдых: нужна ${h}ка (по Mapon)`];
+  if (w.mapon) tip.push(`Срок по Mapon: ${fmt(w.mapon)}`);
+  if (w.ddd) tip.push(`Срок по тахографу (ddd): ${fmt(w.ddd)}`);
+  if (w.unconfirmed) tip.push(w.ddd ? "⚠ Срок Mapon построен на отдыхе только из CAN — тахографом не подтверждён, ближе срок по ddd" : "⚠ Срок Mapon не подтверждён тахографом (нет недельного отдыха в ddd)");
+  tip.push("Неделя тахографа — с пн 00:00 UTC");
+  return ` <span class="wk-rest${soon ? " wk-soon" : ""}${w.unconfirmed ? " wk-unc" : ""}" title="${escapeHtml(tip.join("\n"))}">${h}ка${w.unconfirmed ? "?" : ""}</span>`;
+}
 function etaCellHtml(row, c, composed) {
   // v1.82: ① пройдена — кнопка NB/🚫 на строке первой непройденной точки (c.nbAt — её индекс в extra)
   const nbAt = c.nbAt != null ? c.nbAt : null;
-  const first = composed && nbAt == null ? composed.html : (c.eta || "—");
+  const first = (composed && nbAt == null ? composed.html : (c.eta || "—")) + weeklyChipHtml(c.weekly);
   if (!row.extra || !row.extra.length) return first;
   const lines = [`<div class="sl${hideK(row, 0) ? " fold-hide" : ""}">${first}</div>`];
   row.extra.forEach((x, i) => {
@@ -1534,7 +1546,7 @@ async function calcRow(id, why) {
                           status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo, onArr,
                          etaStr: onArr || data.eta_tacho || data.eta_local, extra: extraCalc(data),
                          fixSig: JSON.stringify(fixAtList(row)),   // v3.229: по чему считали ожидание у фикс-точек
-                         crew: crewOf(data),
+                         crew: crewOf(data), weekly: data.weekly_rest || null,
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual,
                            by: x.by != null ? x.by : null, zone: x.zone || null })),
                          allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null, fuelLow: fuelLowOf(data),

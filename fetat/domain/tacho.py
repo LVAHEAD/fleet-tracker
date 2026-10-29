@@ -38,7 +38,7 @@ WEEKLY_FULL_SEC = 45 * 3600     # от 45 ч — обычный недельны
 WEEKLY_PERIOD_SEC = 144 * 3600  # следующий недельный — не позже 6×24 ч после конца прошлого
 
 
-def weekly_status(driver_id, now_ts=None):
+def weekly_status(driver_id, now_ts=None, ddd_only=False):
     """Недельный отдых водителя по истории:
     last — последний отдых от 24 ч (идёт сейчас или завершён), prev — предыдущий;
     deadline — начать следующий недельный не позже (конец last + 144 ч);
@@ -51,7 +51,8 @@ def weekly_status(driver_id, now_ts=None):
     if not hist:
         return None, err
     weekly = [r for r in hist["rests"] if r["end"] - r["start"] >= WEEKLY_MIN_SEC
-              and r["start"] > hist["from"] + 60]          # отдых, обрезанный началом окна, не берём
+              and r["start"] > hist["from"] + 60          # отдых, обрезанный началом окна, не берём
+              and (not ddd_only or "ddd" in r["src"])]    # v3.233: ddd_only — только подтверждённые тахографом
     last_rest = hist["rests"][-1] if hist["rests"] else None
     ongoing_rest = last_rest if last_rest and now - last_rest["end"] < 1800 else None
     res = {"weekly": [{"start": r["start"], "end": r["end"], "hours": round((r["end"] - r["start"]) / 3600, 1),
@@ -81,6 +82,38 @@ def weekly_status(driver_id, now_ts=None):
         res.update(deadline=last["end"] + WEEKLY_PERIOD_SEC,
                    need_sec=WEEKLY_FULL_SEC if last_reduced else WEEKLY_MIN_SEC)
     return res, None
+
+
+def weekly_rest_info(tacho, now_ts=None):
+    """v3.233: срок и тип недельного отдыха для значка у ETA. Только данные Mapon (правило «после сокращённого
+    на неделе — 45ка» не берём, решено 29.10): need — weekly_rest_min (24 / 45 ч, у экипажа более строгий),
+    mapon — ближайший weekly_rest_start (последний отдых от 24 ч + 6 суток), ddd — срок от последнего
+    отдыха из файла тахографа (.ddd); unconfirmed — срок Mapon построен на отдыхе только из CAN (расходится с ddd)."""
+    import time
+    now = float(now_ts or time.time())
+    mins, starts, ddd = [], [], []
+    for d in (tacho.get("drivers") or [])[:2]:
+        w = d.get("week") or {}
+        m, st = w.get("weekly_rest_min"), w.get("weekly_rest_start")
+        if isinstance(m, (int, float)) and m > 0:
+            mins.append(float(m))
+        if isinstance(st, (int, float)) and st > 1e9:
+            starts.append(float(st))
+        did = d.get("driver_id")
+        if did:
+            try:
+                r, _ = weekly_status(did, now, ddd_only=True)
+            except Exception:
+                r = None
+            if r and r.get("deadline"):
+                ddd.append(float(r["deadline"]))
+    if not mins and not starts:
+        return None
+    out = {"need": int(max(mins)) if mins else None,
+           "mapon": int(min(starts)) if starts else None,
+           "ddd": int(min(ddd)) if ddd else None}
+    out["unconfirmed"] = bool(out["mapon"] and (not out["ddd"] or abs(out["mapon"] - out["ddd"]) > 3600))
+    return out
 
 
 def weekly_for_tacho(tacho):

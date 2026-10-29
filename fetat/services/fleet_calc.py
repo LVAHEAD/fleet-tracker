@@ -20,7 +20,7 @@ from fetat.services.corridors import clean_corridor, corridor_info, fleet_corrid
 from fetat.domain.ferries import PORT_RADIUS_KM, clean_line_id, ferry_options, ferry_sec, find_ferry
 from fetat.domain.tacho import (FRESH_SOLO_TACHO, TZ_DEFAULT, plan as tacho_plan, TACHO_SPEED_KMH, calc_eta, calc_seed, country_tz, crew_mode, gps_shift,
                                tacho_eta, tacho_no_subscription,
-                               tacho_panel, tacho_summary, week_left_info)
+                               tacho_panel, tacho_summary, week_left_info, weekly_rest_info)
 from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM, truck_fuel, truck_weight
 from fetat.utils.geo import haversine_km
 from fetat.utils.timefmt import ceil_15min, format_duration
@@ -323,6 +323,12 @@ def _add_tacho(result, unit, trailer, crew=None, x10=False, crew_seen=None, tm=N
                 tacho["gps"] = g
             result["crew"] = "team" if team else "solo"
             result["crew_src"] = src
+            try:                                             # v3.233: срок и тип недельного отдыха (значок у ETA)
+                wr = weekly_rest_info(tacho)
+                if wr:
+                    result["weekly_rest"] = wr
+            except Exception:
+                pass
             if src == "memory":
                 result["crew_seen_at"] = int(float(crew_seen))   # v3.105: когда видели две карты
             # v3.18: имена водителей из Mapon (карты в тахографе)
