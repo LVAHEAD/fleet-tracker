@@ -67,7 +67,13 @@ function markForeign(tr, row) {
     if (owner) b.addEventListener("click", (e) => { e.stopPropagation(); clearChg(row, keys); renderRows(); });
     // v3.96: плашка «кто редактировал» — в одной строке с диспетчером (диспетчер и плашка в одной обёртке)
     const disp = cell.querySelector(".disp-lbl, .disp-sel");
-    if (disp) {
+    const row3 = cell.querySelector(".row3");
+    const ico = Array.from(cell.querySelectorAll(".disp-row > .blink-ico"));
+    if (row3 && ico.length) row3.prepend(...ico);   // v3.232: с плашкой «✎ кто» в строке диспетчера нет места — значки остаются на третьей строке
+    const wrap0 = cell.querySelector(".disp-row");
+    if (wrap0) {
+      wrap0.append(b);
+    } else if (disp) {
       const wrap = document.createElement("span");
       wrap.className = "disp-row";
       disp.before(wrap);

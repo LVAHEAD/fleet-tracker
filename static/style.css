@@ -1206,7 +1206,8 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 /* ---------- v3.20: чужая правка — красная рамка до клика хозяина трипа ---------- */
 #fleet-tbody .chg-mark { outline: 2px solid #e04b3c !important; outline-offset: -1px; background-color: #fff1ef !important; }
 /* v3.96: диспетчер и «кто редактировал» — одна строка */
-#fleet-tbody .disp-row { display: flex; align-items: center; gap: 4px; margin-top: 3px; max-width: 100%; }
+#fleet-tbody .disp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 3px; max-width: 100%; }   /* v3.232: значки алертов слева от плашки диспетчера */
+#fleet-tbody .disp-row > .blink-ico { flex: none; }
 #fleet-tbody .disp-row .disp-lbl, #fleet-tbody .disp-row .disp-sel { margin-top: 0; min-width: 0; }
 #fleet-tbody .disp-row .chg-badge { margin: 0; flex: none; }
 #fleet-tbody .chg-badge { display: inline-block; margin: 3px 0 0 4px; padding: 0 5px; font-size: 10.5px; line-height: 16px;
@@ -1239,8 +1240,8 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 /* v3.95: значки слева в ячейке машины — только у мигающей строки; красное важнее рефа, реф важнее топлива */
 #fleet-tbody .blink-ico { display: none; vertical-align: middle; margin-right: 3px; }
 #fleet-tbody tr.row-blink td.unit-cell .blink-ico[data-k="late"],
-#fleet-tbody tr.row-blink-rf:not(.row-blink) td.unit-cell .blink-ico[data-k="rf"],
-#fleet-tbody tr.row-blink-fuel:not(.row-blink):not(.row-blink-rf) td.unit-cell .blink-ico[data-k="fuel"] { display: inline-flex; }   /* v3.130: inline-flex — иконка по центру плашки */
+#fleet-tbody tr.row-blink-rf td.unit-cell .blink-ico[data-k="rf"],
+#fleet-tbody tr.row-blink-fuel td.unit-cell .blink-ico[data-k="fuel"] { display: inline-flex; }   /* v3.232: все активные сразу, без приоритета */   /* v3.130: inline-flex — иконка по центру плашки */
 .done-pop { width: 420px; }
 .done-pop .dp-q { display: block; width: calc(100% - 20px); margin: 6px 10px; padding: 4px 8px; font-size: 12px;
   border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
