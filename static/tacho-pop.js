@@ -36,11 +36,14 @@
 
   const validTs = (v) => num(v) && v > 1e9;
   const cardOk = (d) => { const t = d.today || {}; return validTs(t.rest_start) || validTs(t.shift_start); };   // нет данных суток — Mapon показывает NO CARD
+  // v3.234: подсказка к «45h*» — правило Claude (у Mapon его нет)
+  const R45 = "Расчёт Claude: на этой неделе отдых уже сокращённый, срок попадает на следующую неделю — нужна 45ка. Mapon показывает 24ка";
   // v3.223: какой недельный отдых нужен — 45 h или 24 h (один на экипаж, по более строгому водителю)
   function weeklyNeed(pp) {
     const n = pp && num(pp.weekly_need);
     if (!n) return "";
     const h = Math.round(n / 3600) + " h";
+    if (pp.weekly_rule45) return ' · <span title="' + R45 + '">' + h + "*</span>";
     return (pp.weekly_mixed ? ' · <span title="У водителей экипажа значения разные; экипаж отдыхает вместе — берём более строгое">' + h + "*</span>" : " · " + h);
   }
   // суффикс подписи плитки: «Weekly rest (45h)», норма жирным (нижняя строка плитки остаётся «время · 45 h»)
@@ -48,6 +51,7 @@
     const n = pp && num(pp.weekly_need);
     if (!n) return "";
     const h = Math.round(n / 3600) + "h";
+    if (pp.weekly_rule45) return ' (<b title="' + R45 + '">' + h + "*</b>)";
     return (pp.weekly_mixed ? ' (<b title="У водителей экипажа значения разные; экипаж отдыхает вместе — берём более строгое">' + h + "*</b>)" : " (<b>" + h + "</b>)");
   }
   function tiles(d, at, pp) {

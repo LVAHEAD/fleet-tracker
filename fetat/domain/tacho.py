@@ -670,6 +670,13 @@ def tacho_panel(tacho, sim=None, weekly=None, now_ts=None):
             need = wk.get("need_sec") if wk else None
         except Exception:
             need = None
+    rule45, need_mapon = False, None
+    try:                                                  # v3.234: правило 45ка (как у значка у ETA) — и в плитке
+        wr = weekly_rest_info(tacho, t)
+        if wr and wr.get("rule45"):
+            rule45, need_mapon, need = True, wr.get("need_mapon"), wr["need"]
+    except Exception:
+        pass
     rest_done = any(x.startswith("суточный отдых выполнен") for x in p["day"])
     d0 = next((d for d in drivers if d.get("current_state") == "DRIVING"), drivers[0]) if drivers else {}
     base = team_day_left(drivers) if team else float((d0.get("today") or {}).get("driving_remaining") or 0)
@@ -679,6 +686,7 @@ def tacho_panel(tacho, sim=None, weekly=None, now_ts=None):
         "at": int(t), "team": bool(team), "day_max": int(day_max),
         "drivers": out_d,
         "weekly_need": _ni(need), "weekly_mixed": len(set(mins)) > 1,
+        "weekly_rule45": rule45, "weekly_need_mapon": _ni(need_mapon),
         "gps": {"start": _ni(g.get("start")), "driven": _ni(g.get("driven"))} if g.get("start") is not None else None,
         "tacho_driven": _ni(tacho_driven(tacho)),
         "fix": {"kind": fix.get("kind"), "driven": _ni(fix["driven"]), "tacho": _ni(fix["tacho"])} if fix else None,

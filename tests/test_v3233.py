@@ -95,3 +95,20 @@ class V3233Rule45(unittest.TestCase):
     def test_already_45_no_rule(self):
         r = self._info([(3600, 30)], 3600, need=162000)
         self.assertNotIn("rule45", r)
+
+
+class V3234Panel(unittest.TestCase):
+    def test_panel_applies_rule45(self):
+        t = crew([86400], [1_800_000_000])
+        with mock.patch.object(T, "weekly_rest_info", return_value={"rule45": True, "need": 162000, "need_mapon": 86400}):
+            p = T.tacho_panel(t)
+        self.assertEqual((p["weekly_need"], p["weekly_rule45"], p["weekly_need_mapon"]), (162000, True, 86400))
+
+    def test_panel_without_rule(self):
+        t = crew([86400], [1_800_000_000])
+        with mock.patch.object(T, "weekly_rest_info", return_value={"need": 86400}):
+            p = T.tacho_panel(t)
+        self.assertEqual((p["weekly_need"], p["weekly_rule45"]), (86400, False))
+
+    def test_front_star(self):
+        self.assertIn("weekly_rule45", rd("static", "tacho-pop.js"))
