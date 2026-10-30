@@ -533,6 +533,7 @@
      "cc": "LV",
      "chain_geo": false,
      "done": false,
+     "gated": true,
      "manual": false
     }
    ],

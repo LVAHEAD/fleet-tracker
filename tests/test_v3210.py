@@ -32,11 +32,23 @@ class OrderRule(unittest.TestCase):
         self.assertFalse(r[1]["done"])
         self.assertTrue(r[1].get("gated"))
 
-    def test_skipped_point_closed_by_next(self):               # OI-3041 / v3.29: ① ✓, ② без стоянки, ③ поймана — ② «по ③»
+    def test_skipped_point_not_closed_by_auto_next(self):      # v3.236 (OI-2078): ② без стоянки — ③ по стоянке её не закрывает
         AUTO.update({"A": 1000.0, "C": 3000.0})
         r = run(["A", "B", "C"])
-        self.assertTrue(r[0]["done"] and r[2]["done"])
+        self.assertTrue(r[0]["done"])
+        self.assertFalse(r[1]["done"] or r[2]["done"])
+        self.assertTrue(r[2].get("gated"))
+        self.assertEqual(r[1].get("stood_later"), 2)           # подсказка у ②: после неё была стоянка на ③
+
+    def test_skipped_point_closed_by_manual_next(self):        # ручная ✓ на ③ закрывает ② (v3.29)
+        AUTO.update({"A": 1000.0})
+        r = run(["A", "B", "C"], manual=[None, None, True])
         self.assertTrue(r[1]["done"] and r[1].get("by") == 2)
+
+    def test_no_hint_when_no_stop_later(self):
+        AUTO.update({"A": 1000.0})
+        r = run(["A", "B", "C"])
+        self.assertNotIn("stood_later", r[1])
 
     def test_next_point_done_after_previous(self):
         AUTO.update({"A": 1000.0, "B": 2000.0})

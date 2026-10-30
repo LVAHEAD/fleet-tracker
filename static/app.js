@@ -1073,10 +1073,16 @@ function weeklyChipHtml(w) {
   tip.push("Неделя тахографа — с пн 00:00 UTC");
   return ` <span class="wk-rest${soon ? " wk-soon" : ""}${w.unconfirmed ? " wk-unc" : ""}" title="${escapeHtml(tip.join("\n"))}">${h}ка${w.rule45 ? "*" : ""}${w.unconfirmed ? "?" : ""}</span>`;
 }
+// v3.236: у открытой точки j после неё уже была стоянка на более поздней — подсказка отметить ✓ вручную
+function holdHtml(c, j) {
+  const h = c && c.hold;
+  if (!h || h.open !== j) return "";
+  return ` <span class="hold-mark" title="${escapeHtml(`После этой точки уже была стоянка на точке ${STOP_NUM[h.later + 1]}. Авто-✓ ${STOP_NUM[h.later + 1]} не ставим, пока эта не пройдена — если проехали, отметьте ✓ вручную`)}">⚠</span>`;
+}
 function etaCellHtml(row, c, composed) {
   // v1.82: ① пройдена — кнопка NB/🚫 на строке первой непройденной точки (c.nbAt — её индекс в extra)
   const nbAt = c.nbAt != null ? c.nbAt : null;
-  const first = (composed && nbAt == null ? composed.html : (c.eta || "—")) + weeklyChipHtml(c.weekly);
+  const first = (composed && nbAt == null ? composed.html : (c.eta || "—")) + weeklyChipHtml(c.weekly) + holdHtml(c, 0);
   if (!row.extra || !row.extra.length) return first;
   const lines = [`<div class="sl${hideK(row, 0) ? " fold-hide" : ""}">${first}</div>`];
   row.extra.forEach((x, i) => {
@@ -1111,10 +1117,10 @@ function etaCellHtml(row, c, composed) {
     if (chk.lines.length) tip = chk.lines.join("\n") + (tip ? "\n" + tip : "");
     if (nbAt === i && composed) {
       const t = (chk.lines.length ? chk.lines.join("\n") + "\n" : "") + (composed.title || tip);
-      lines.push(`<div class="sl${lateCls}${hideK(row, i + 1) ? " fold-hide" : ""}" title="${escapeHtml(t)}">${composed.html}</div>`);
+      lines.push(`<div class="sl${lateCls}${hideK(row, i + 1) ? " fold-hide" : ""}" title="${escapeHtml(t)}">${composed.html}${holdHtml(c, i + 1)}</div>`);
       return;
     }
-    lines.push(`<div class="sl${lateCls}${hideK(row, i + 1) ? " fold-hide" : ""}" title="${escapeHtml(tip)}"><span class="eta-nb-sp"></span>${inner}</div>`);
+    lines.push(`<div class="sl${lateCls}${hideK(row, i + 1) ? " fold-hide" : ""}" title="${escapeHtml(tip)}"><span class="eta-nb-sp"></span>${inner}${holdHtml(c, i + 1)}</div>`);
   });
   return lines.join("");
 }
@@ -1547,7 +1553,7 @@ async function calcRow(id, why) {
                           status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo, onArr,
                          etaStr: onArr || data.eta_tacho || data.eta_local, extra: extraCalc(data),
                          fixSig: JSON.stringify(fixAtList(row)),   // v3.229: по чему считали ожидание у фикс-точек
-                         crew: crewOf(data), weekly: data.weekly_rest || null,
+                         crew: crewOf(data), weekly: data.weekly_rest || null, hold: data.done_hint ? { open: data.done_hint.open, later: data.done_hint.later } : null,
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual,
                            by: x.by != null ? x.by : null, zone: x.zone || null })),
                          allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null, fuelLow: fuelLowOf(data),

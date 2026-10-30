@@ -71,16 +71,23 @@ class CascadeDoneTest(unittest.TestCase):
         A.recent_stops, A.mapon_objects = self._stops, self._objs
 
     def test_later_done_marks_earlier(self):
-        # OI-3041: ③ без ✓, ④ ✓ → ③ пройдена «по ④»
+        # OI-3041 (v3.29): ③ без ✓, ④ ✓ → ③ пройдена «по ④». С v3.236 (OI-2078) — только если ④ отмечена вручную
         A.recent_stops = lambda uid: [{"lat": 59.30, "lng": 10.40, "start": NOW - 10 * H, "end": NOW - 9 * H, "now": False}]
         unit = {"unit_id": 1, "lat": 59.60, "lng": 10.20}
-        res = A.points_done(["56.9, 24.1", "59.0, 11.0", "59.30, 10.40"], [True, None, None], unit, [])
+        res = A.points_done(["56.9, 24.1", "59.0, 11.0", "59.30, 10.40"], [True, None, True], unit, [])
         self.assertTrue(res[2]["done"])
         self.assertIsNone(res[2].get("by"))
         self.assertTrue(res[1]["done"])
         self.assertEqual(res[1]["by"], 2)
         self.assertIsNone(res[1]["at"])
         self.assertIsNone(res[0].get("by"))       # ручная ✓ осталась ручной
+
+    def test_auto_later_does_not_close_earlier(self):      # v3.236: стоянка на ③ не закрывает открытую ②
+        A.recent_stops = lambda uid: [{"lat": 59.30, "lng": 10.40, "start": NOW - 10 * H, "end": NOW - 9 * H, "now": False}]
+        unit = {"unit_id": 1, "lat": 59.60, "lng": 10.20}
+        res = A.points_done(["56.9, 24.1", "59.0, 11.0", "59.30, 10.40"], [True, None, None], unit, [])
+        self.assertFalse(res[1]["done"] or res[2]["done"])
+        self.assertEqual(res[1].get("stood_later"), 2)
 
     def test_manual_not_done_wins(self):
         A.recent_stops = lambda uid: []

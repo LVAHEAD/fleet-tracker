@@ -289,6 +289,9 @@ def _apply_points_done(result, payload, target_str, unit, units, tm=None):
         if tm:
             tm.mark("d_legs")
         result["points_done"] = dn
+        hold = next(({"open": j, "later": x["stood_later"]} for j, x in enumerate(dn) if x.get("stood_later") is not None), None)
+        if hold:
+            result["done_hint"] = hold              # v3.236: открытая точка j, после неё уже была стоянка на точке later
         active = [i for i, p in enumerate(pts_all) if not dn[i]["done"]]
         result["active_idx"] = active
         if not active:

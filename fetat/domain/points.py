@@ -515,7 +515,11 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
     any_done = False      # в трипе уже есть пройденная точка
     for i, tstr in enumerate(pts):
         m = manual[i] if i < len(manual) else None
-        gated = i > 0 and not any_done and i > last_manual
+        # v3.236: ещё и когда раньше есть непройденная точка — стоянка на ⑤ не закрывает открытую ④ (OI-2078)
+        # (точки раньше ручной ✓ закроет каскад v3.29 — их не считаем, кроме ручного «не пройдена»)
+        prev_open = next((k for k in range(i) if pts[k] and not out[k]["done"]
+                          and not (k < last_manual and out[k]["manual"] is not False)), None)
+        gated = i > 0 and i > last_manual and (not any_done or prev_open is not None)
         info = {"done": False, "auto": False, "at": None, "manual": m}
         if gated:
             info["gated"] = True      # фронт не хранит запомненную ✓ такой точки (keepDoneSeen)
@@ -541,6 +545,14 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
             auto_at, auto_arr, zone = _auto_done(tstr, t, lat, lng, unit, stops_box, floor)
             if zone:
                 info["zone"] = zone
+        if gated and any_done and prev_open is not None and m is None and t is not None and unit.get("lat") is not None \
+                and "stood_later" not in out[prev_open]:
+            try:        # v3.236: после открытой точки уже была стоянка на этой — подсказка «отметьте ✓ вручную, если проехали»
+                ev = seen_at or _auto_done(tstr, t, lat, lng, unit, stops_box, floor)[0]
+                if ev:
+                    out[prev_open]["stood_later"] = i
+            except Exception as e:
+                warn("points:stood_later", e)
         if m is True:
             info["done"] = True
             # v3.172: время ручной ✓ — отъезд с ближайшей стоянки Mapon в 100 м, иначе время нажатия (msrc: mapon / click).

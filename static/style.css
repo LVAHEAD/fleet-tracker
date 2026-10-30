@@ -1842,3 +1842,6 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 .wk-rest { display: inline-block; margin-left: 4px; padding: 0 4px; border: 1px solid #c9d3e3; border-radius: 4px; background: #f4f6fa; color: #5a6a85; font-size: 10px; font-weight: 700; line-height: 14px; vertical-align: middle; cursor: help; }
 .wk-rest.wk-soon { border-color: #f2d48a; background: #fff6dc; color: #9a6a00; }
 .wk-rest.wk-unc { border-style: dashed; }
+
+/* v3.236: подсказка у открытой точки — после неё уже была стоянка на следующей */
+.hold-mark { margin-left: 4px; color: #c77d00; font-size: 12px; cursor: help; }
