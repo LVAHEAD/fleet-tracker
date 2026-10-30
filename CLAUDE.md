@@ -4,7 +4,7 @@
 когда реально приедут с учётом тахографа (EU 561/2006), что мешает по пути (запреты, паромы).
 Владелец — Владимир. Пользователи — он и диспетчеры. Интерфейс на русском.
 
-Стек: Python 3 / Flask, gunicorn (`Procfile`: `gunicorn app:app`, 1 worker × 8 threads — общий кеш в памяти),
+Стек: Python 3 / Flask, gunicorn (`Procfile`: `gunicorn app:app`, 1 worker × 16 threads — общий кеш в памяти),
 Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
 Вход — IAP по списку Google-аккаунтов. Общий Флот хранится в Firestore.
 Фронтенд — ванильный JS без сборки (`static/`, `templates/index.html`). Карта Флота — панель справа (`static/map-panel.js`, механика в `app.js`). Боковые панели — общая ширина `--sidew` (500), закрытие кликом мимо — `SIDE_KEEP` в `app.js`.
