@@ -179,6 +179,8 @@
   document.addEventListener("mouseover", (e) => {
     const el = host(e);
     if (!el) { if (!pinned && e.target.closest && e.target.closest(".ot-pill")) { close(); } return; }
+    // 30.10 (Владимир): наведение на флаг страны (ES и т.п.) всплывашку не вызывает — только значок экипажа; по клику на флаг открывается как раньше
+    if (!e.target.closest(".crew-b")) return;
     strip(el);
     if (pinned) return;
     clearTimeout(hideT);
