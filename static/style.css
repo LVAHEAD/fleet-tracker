@@ -683,6 +683,8 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 body.sort-manual .drag-h { display: inline-block; }
 body.sort-manual #fleet-tbody td:first-child { white-space: nowrap; }
 body.sort-manual #fleet-tbody td:first-child .unit-input { width: calc(100% - 16px); }
+/* 30.10 (Владимир): номер машины и клиент во Флоте — жирным */
+#fleet-tbody .unit-input, #fleet-tbody .cl-input { font-weight: 700; }
 .manual-only { display: none; }
 body.sort-manual .manual-only { display: block; }
 #fleet-tbody tr.drop-before td { box-shadow: inset 0 2px 0 #2f6fd6; }
