@@ -171,6 +171,14 @@ function rowPassesSlot(row) {
   document.addEventListener("click", (e) => { if (pop && !pop.contains(e.target) && !th.contains(e.target)) close(); }, true);
   document.addEventListener("fleet-popup-open", (e) => { if (e.detail !== "slot") close(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  // правый клик по шапке Флота — сброс фильтров Машина / Клиент / Дата одним проходом
+  (window.fleetFltResets = window.fleetFltResets || []).push(() => { slotFilter = []; save(); mark(); close(); });
+  const thead = th.closest("thead");
+  if (thead) thead.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    window.fleetFltResets.forEach((f) => { try { f(); } catch (err) {} });
+    if (typeof renderRows === "function") renderRows();
+  });
   window.addEventListener("scroll", (e) => { if (pop && !pop.contains(e.target)) close(); }, true);
   mark();
 })();

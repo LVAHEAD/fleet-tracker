@@ -84,6 +84,10 @@ function rowPassesClient(row) {
     th.title = n ? `Фильтр по клиентам: выбрано ${n} — клик, чтобы изменить` : "Фильтр по клиентам — клик";
   };
   const rerender = () => { mark(); if (typeof renderRows === "function") renderRows(); };
+  (window.fleetFltResets = window.fleetFltResets || []).push(() => {   // правый клик по шапке Флота (slot-filter.js)
+    clientFilter = []; clientPrefix = [];
+    save(); saveLetters(); if (typeof renderLetters === "function") renderLetters(); mark(); close();
+  });
 
   // v3.228: «B G K» в шапке «Статус» — только у VL; у остальных остаётся надпись «Статус». Рисуется при каждой отметке панели (fleetMarkBar)
   const sth = document.getElementById("status-th");

@@ -137,6 +137,13 @@ function unitFilterMark() {
     });
     pop.querySelector(".cf-search").focus();
   }
+  // правый клик по шапке Флота сбрасывает фильтры Машина / Клиент / Дата (слушатель — в slot-filter.js)
+  (window.fleetFltResets = window.fleetFltResets || []).push(() => {
+    unitMultiOnly = false;
+    try { localStorage.setItem("fleet-unit-multi", ""); } catch (err) {}
+    unitFilters[unitSlot()] = [];
+    save(); mark(); close();
+  });
 
   th.addEventListener("click", (e) => { e.stopPropagation(); if (pop) close(); else open(); });
   // слушаем в фазе перехвата — клик вне окна закрывает его, даже если ниже по дереву стоит stopPropagation
