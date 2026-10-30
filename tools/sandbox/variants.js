@@ -198,3 +198,98 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();
+
+/* 30.10: «Машина в нескольких трипах» (//обс Владимира, вариант б): у машины во Флоте несколько трипов — показать это.
+   1 — плашка «×N» у номера, наведение — список трипов машины, клик — к следующему; 2 — общая цветная скобка слева и «трип 1/2»;
+   3 — трипы одной машины подряд, у следующего подпись «следующий трип · после ETA последней точки». В данных песочницы дублей нет —
+   номер машины подменяется на экране у выбранных строк (расчёт не трогаем). */
+(function () {
+  "use strict";
+  var mode = "1", groups = [], FAKE = {}, busy = false, obs = null;
+  var COLORS = ["#2f6fd6", "#d97706", "#7c3aed"];
+  function trs() { return Array.prototype.slice.call(document.querySelectorAll("#fleet-tbody tr[data-id]")); }
+  function trOf(id) { return document.querySelector('#fleet-tbody tr[data-id="' + id + '"]'); }
+  function rowOf(id) { return rows.filter(function (r) { return String(r.id) === String(id); })[0]; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function makeGroups() {   // выдуманные дубли: 2 трипа у одной машины и 3 трипа у другой
+    var list = rows.filter(function (r) { return r.unit && trOf(r.id); });
+    var pick = function (ix) { return ix.map(function (i) { return list[i]; }).filter(Boolean); };
+    groups = [pick([0, 9]), pick([3, 11, 14])].filter(function (g) { return g.length > 1; });
+    groups.forEach(function (g) { g.forEach(function (r) { FAKE[r.id] = g[0].unit; }); });
+  }
+  function lastEta(tr) {
+    var c = tr && tr.querySelector(".eta-cell"); if (!c) return "";
+    var ls = c.innerText.split("\n").map(function (x) { return x.trim(); }).filter(Boolean);
+    return ls.length ? ls[ls.length - 1] : "";   // ETA последней точки трипа
+  }
+  function lastTarget(r) { var x = r.extra && r.extra.length ? r.extra[r.extra.length - 1] : null; return (x && x.target) || r.target || ""; }
+  function info(r, i, n) {
+    var d = typeof dispLabel === "function" && typeof rowDisp === "function" ? dispLabel(rowDisp(r)) : "";
+    var dt = typeof markDateText === "function" ? markDateText(r) : "";
+    return (i + 1) + "/" + n + " · " + [r.client, r.ref, dt && "① " + dt, d].filter(Boolean).join(" · ");
+  }
+  function flash(tr) { if (!tr) return; tr.scrollIntoView({ behavior: "smooth", block: "center" }); tr.classList.add("sbx-flash"); setTimeout(function () { tr.classList.remove("sbx-flash"); }, 1600); }
+  function clear() {
+    document.querySelectorAll(".mt-badge, .mt-ord, tr.mt-cap").forEach(function (x) { x.remove(); });
+    trs().forEach(function (tr) { tr.classList.remove("mt-in", "mt-next", "mt-hl"); tr.style.removeProperty("--mt-c"); });
+  }
+  function apply() {
+    if (busy) return; busy = true;
+    try {
+      if (!groups.length) makeGroups();
+      clear();
+      trs().forEach(function (tr) { var u = FAKE[tr.dataset.id], inp = tr.querySelector(".unit-input"); if (u && inp && inp.value !== u) inp.value = u; });
+      if (mode === "off") return;
+      groups.forEach(function (g, gi) {
+        var c = COLORS[gi % COLORS.length], vis = g.filter(function (r) { return trOf(r.id); });
+        if (mode === "3") {   // трипы одной машины подряд, за первым видимым
+          for (var k = 1; k < vis.length; k++) { var a = trOf(vis[k - 1].id), b = trOf(vis[k].id); if (a.nextSibling !== b) a.parentNode.insertBefore(b, a.nextSibling); }
+        }
+        g.forEach(function (r, i) {
+          var tr = trOf(r.id); if (!tr) return;
+          var cell = tr.querySelector(".unit-cell"); if (!cell) return;
+          tr.classList.add("mt-in"); tr.style.setProperty("--mt-c", c); tr.dataset.mtg = gi;
+          var tip = "У машины " + g[0].unit + " трипов во Флоте: " + g.length + "\n" + g.map(function (x, j) { return (x === r ? "▸ " : "   ") + info(x, j, g.length); }).join("\n");
+          if (mode === "1") {
+            var b = document.createElement("button"); b.type = "button"; b.className = "mt-badge"; b.textContent = "×" + g.length;
+            b.title = tip + "\n\nКлик — к следующему трипу этой машины";
+            b.addEventListener("click", function (e) { e.stopPropagation(); flash(trOf(g[(i + 1) % g.length].id)); });
+            cell.querySelector(".unit-input").after(b);
+          } else {
+            var o = document.createElement("span"); o.className = "mt-ord"; o.textContent = "трип " + (i + 1) + "/" + g.length; o.title = tip;
+            o.addEventListener("click", function (e) { e.stopPropagation(); flash(trOf(g[(i + 1) % g.length].id)); });
+            var r3 = cell.querySelector(".row3"); (r3 || cell).prepend(o);
+          }
+          if (mode === "3" && i > 0) {
+            tr.classList.add("mt-next");
+            var prev = trOf(g[i - 1].id), cap = document.createElement("tr"); cap.className = "mt-cap";
+            var td = document.createElement("td"); td.colSpan = tr.children.length;
+            td.innerHTML = "↳ следующий трип " + esc(g[0].unit) + " — после трипа " + i + "/" + g.length + " (" + esc(lastTarget(g[i - 1])) + (prev ? ", ETA " + esc(lastEta(prev)) : "") + ")";
+            cap.appendChild(td); tr.parentNode.insertBefore(cap, tr);
+          }
+        });
+      });
+    } finally { busy = false; if (obs) obs.takeRecords(); }   // свои перестановки строк наблюдателю не отдаём (иначе цикл)
+  }
+  function setMode(m) {
+    mode = m; document.body.classList.remove("mt-m1", "mt-m2", "mt-m3"); if (m !== "off") document.body.classList.add("mt-m" + m);
+    document.querySelectorAll("#sbx-bar3 button[data-mt]").forEach(function (b) { b.classList.toggle("on", b.dataset.mt === m); });
+    if (typeof renderRows === "function") renderRows(); else apply();
+  }
+  function init() {
+    var bar = document.createElement("div"); bar.id = "sbx-bar3";
+    bar.innerHTML = 'Машина в нескольких трипах: <button data-mt="1">1 · плашка ×N</button><button data-mt="2">2 · скобка + «трип 1/2»</button><button data-mt="3">3 · подряд с подписью</button><button data-mt="off">выкл</button>';
+    bar.addEventListener("click", function (e) { var b = e.target.closest("button[data-mt]"); if (b) setMode(b.dataset.mt); });
+    document.body.appendChild(bar);
+    var tb = document.getElementById("fleet-tbody");
+    obs = new MutationObserver(function () { if (!busy) setTimeout(apply, 0); }); obs.observe(tb, { childList: true });
+    // наведение на строку — подсветить все трипы той же машины (варианты 1 и 2)
+    tb.addEventListener("mouseover", function (e) {
+      var tr = e.target.closest("tr.mt-in"); document.querySelectorAll("tr.mt-hl").forEach(function (x) { x.classList.remove("mt-hl"); });
+      if (tr && mode !== "3") document.querySelectorAll('tr.mt-in[data-mtg="' + tr.dataset.mtg + '"]').forEach(function (x) { x.classList.add("mt-hl"); });
+    });
+    tb.addEventListener("mouseleave", function () { document.querySelectorAll("tr.mt-hl").forEach(function (x) { x.classList.remove("mt-hl"); }); });
+    setTimeout(function () { setMode("1"); }, 300);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
+})();
