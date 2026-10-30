@@ -19,6 +19,7 @@ from fetat.services.corridors import clean_corridor, corridor_info, resolve_wayp
 from fetat.services.fleet_calc import truck_seed
 from fetat.domain.routing_rules import swiss_bypass_candidates
 from fetat.utils.log import warn
+from fetat.clients import http
 
 
 MAX_INTERMEDIATES = 25      # лимит Routes API на промежуточные точки (вместе с паромами/Инсбруком)
@@ -82,7 +83,7 @@ def _compute_multi_route(points, api_key, corridor=None):
         "X-Goog-Api-Key": api_key,
         "X-Goog-FieldMask": "routes.distanceMeters,routes.legs.distanceMeters,routes.polyline.encodedPolyline",
     }
-    resp = requests.post(ROUTES_API_URL, json=body, headers=headers, timeout=30)
+    resp = http.post(ROUTES_API_URL, json=body, headers=headers, timeout=30)
     resp.raise_for_status()
     data = resp.json()
     if "routes" not in data or not data["routes"]:

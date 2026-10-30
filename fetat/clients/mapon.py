@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 
 from fetat.config import MAPON_API_KEY
+from fetat.clients import http
 from fetat.utils.geo import _wkt_points
 from fetat.utils.timefmt import _iso_utc, _lv_time, _utc_iso
 from fetat.utils.log import warn
@@ -36,7 +37,7 @@ def mapon_get(url, params, timeout=20):
     import time
     for attempt in range(3):
         with MAPON_SEM:
-            resp = requests.get(url, params=params, timeout=timeout)
+            resp = http.get(url, params=params, timeout=timeout)
         resp.raise_for_status()
         data = resp.json()
         if isinstance(data, dict) and "error" in data:
@@ -116,6 +117,7 @@ def unit_driver_names(unit_id):
 MAPON_TACHO_URL = "https://mapon.com/api/v1/unit_data/driving_time_extended.json"
 
 
+TACHO_ERR_TTL = 60               # сбой запроса к Mapon — не дольше минуты
 TACHO_TTL = 300                 # данные тахографа обновляем не чаще раза в 5 минут на машину
 
 
@@ -141,7 +143,10 @@ def get_tacho(unit_id, max_age=None):
     now = time.time()
     with _tacho_lock:
         c = _tacho_cache.get(unit_id)
-        if c and now - c["at"] < (max_age if max_age is not None else TACHO_TTL):
+        ttl = max_age if max_age is not None else TACHO_TTL
+        if c and c.get("fail"):
+            ttl = min(ttl, TACHO_ERR_TTL)   # сбой Mapon не держим 5 мин — ↻ через минуту спросит заново
+        if c and now - c["at"] < ttl:
             return c["data"], c["error"]
     try:
         d = mapon_get(MAPON_TACHO_URL, {"key": MAPON_API_KEY, "unit_id": unit_id}).get("data") or {}
@@ -150,10 +155,11 @@ def get_tacho(unit_id, max_age=None):
         if has and len(has) < len(drivers):
             drivers = has      # NU-8704: второй слот «NO CARD / NO DATA» — не второй водитель, экипажем машину не считаем
         data, err = ({"drivers": drivers} if drivers else None), (None if drivers else "нет данных водителя")
+        fail = False
     except Exception as e:
-        data, err = None, str(e)
+        data, err, fail = None, str(e), True
     with _tacho_lock:
-        _tacho_cache[unit_id] = {"at": now, "data": data, "error": err}
+        _tacho_cache[unit_id] = {"at": now, "data": data, "error": err, "fail": fail}
     return data, err
 
 

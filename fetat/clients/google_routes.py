@@ -7,6 +7,7 @@ import requests
 
 from fetat.utils.geo import _decode_polyline, _encode_polyline, haversine_km
 from fetat.utils.log import warn
+from fetat.clients import http
 
 
 ROUTES_API_URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
@@ -500,7 +501,7 @@ def _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None):
             {"location": {"latLng": {"latitude": wlat, "longitude": wlng}}}
             for wlat, wlng in waypoints
         ]
-    resp = requests.post(ROUTES_API_URL, json=body, headers=headers, timeout=20)
+    resp = http.post(ROUTES_API_URL, json=body, headers=headers, timeout=20)
     resp.raise_for_status()
     data = resp.json()
     if "routes" not in data or not data["routes"]:

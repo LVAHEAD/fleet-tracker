@@ -34,11 +34,10 @@ def _fs_headers(force=False):
 
 def fs_request(method, url, **kw):
     """Запрос к Firestore с токеном; на 401 — новый токен и один повтор."""
-    import requests
-    send = getattr(requests, method)
-    r = send(url, headers=_fs_headers(), **kw)
+    from fetat.clients import http
+    r = http.call(method, url, headers=_fs_headers(), **kw)
     if r.status_code == 401:
-        r = send(url, headers=_fs_headers(force=True), **kw)
+        r = http.call(method, url, headers=_fs_headers(force=True), **kw)
     return r
 
 

@@ -73,6 +73,8 @@ def call(name, m, url, body=None):
         res[name] = [r.status_code, r.mimetype, sorted(j), sorted(j["items"][0])]
     if name == "index":           # номер версии в странице меняется каждый билд
         res[name][2] = res[name][2].replace(app.APP_VERSION, "X.YY")
+        import re as _re   # ?v= у static — хеш файла, меняется с каждой правкой файла
+        res[name][2] = _re.sub(r"\?v=[0-9a-f]{10}", "?v=X.YY", res[name][2])
 call("index", "GET", "/")
 call("units", "GET", "/api/units")
 call("calc_code", "POST", "/api/calc", {"unit": "OI-1778", "target": "LV10"})
