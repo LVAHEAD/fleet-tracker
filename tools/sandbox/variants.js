@@ -235,11 +235,69 @@
         if (inp.dataset.mtT == null) inp.dataset.mtT = inp.title || "";
         var t = tripsOf(unitOf(r)), many = on && t.length > 1;
         inp.classList.toggle("mt-dot", many);   // Б — пунктир под номером
-        inp.title = many ? "У машины " + unitOf(r) + " трипов во Флоте: " + t.length + "\n" + t.map(function (x) { return (x === r ? "▸ " : "• ") + line(x); }).join("\n") + (inp.dataset.mtT ? "\n\n" + inp.dataset.mtT : "") : inp.dataset.mtT;
+        inp.title = many ? "" : inp.dataset.mtT;   // 23:05: вместо подсказки браузера — карточка (showCard)
         tr.style.display = on && multiOnly && !many && r.unit ? "none" : "";   // В — только машины с 2+ трипами
       });
     } finally { busy = false; if (obs) obs.takeRecords(); }
   }
+  // Карточка «трипы машины» (23:06): наведение на номер с пунктиром, через 1 с; клик по трипу — к его строке
+  var card = null, tShow = null, tHide = null;
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function fmt(d) { return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+  function codes(tr) {
+    var c = tr ? Array.prototype.slice.call(tr.querySelectorAll(".target-cc .cc-badge, .cc-badge.x-cc")).map(function (x) { return x.hidden ? "" : x.textContent.trim(); }).filter(Boolean) : [];
+    return c.length ? c[0] + (c.length > 1 ? " → " + c[c.length - 1] : "") : "";
+  }
+  function etaEnd(tr) {   // ETA последней точки: текст и дата
+    var c = tr && tr.querySelector(".eta-cell"); if (!c) return { t: "", d: null };
+    var ls = c.innerText.split("\n").map(function (x) { return x.replace(/[⏱📍]/g, "").trim(); }).filter(Boolean), t = ls.length ? ls[ls.length - 1] : "";
+    var m = /(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/.exec(t), y = new Date().getFullYear();
+    return { t: m ? m[0] : t, d: m ? new Date(y, +m[2] - 1, +m[1], +m[3], +m[4]) : null };
+  }
+  function slotStart(r) { try { var w = parseDeliveryWindow(String(r.delivery || "")); return w && (w.start || w.end) || null; } catch (e) { return null; } }
+  function disp(r) { return typeof dispLabel === "function" && typeof rowDisp === "function" ? dispLabel(rowDisp(r)) : ""; }
+  function hideCard() { clearTimeout(tShow); if (card) { card.remove(); card = null; } }
+  function showCard(inp) {
+    hideCard();
+    var tr = inp.closest("tr[data-id]"), me = rows.filter(function (x) { return String(x.id) === tr.dataset.id; })[0]; if (!me) return;
+    var t = tripsOf(unitOf(me)).slice().sort(function (a, b) { var x = slotStart(a), y = slotStart(b); return (x ? +x : 9e15) - (y ? +y : 9e15); });
+    var h = '<div class="mtc-h"><b>' + esc(unitOf(me)) + '</b> — ' + t.length + ' трипа во Флоте</div>';
+    t.forEach(function (x, i) {
+      var xt = trOf(x.id), e = etaEnd(xt), st = slotStart(x);
+      h += '<div class="mtc-r' + (x === me ? " me" : "") + '" data-id="' + x.id + '"><span class="mtc-n">' + (i + 1) + "/" + t.length + '</span>' +
+        '<span class="mtc-m"><b>' + esc(x.client || "без клиента") + '</b>' + (x.ref ? " · " + esc(x.ref) : "") + (codes(xt) ? '<i>' + esc(codes(xt)) + '</i>' : "") + '</span>' +
+        '<span class="mtc-d">① ' + (st ? esc(fmt(st).slice(0, 5)) : "—") + '<br>ETA ' + esc(e.t || "—") + '</span><span class="mtc-w">' + esc(disp(x)) + '</span></div>';
+      if (i < t.length - 1) {   // стык: конец этого трипа против ① следующего
+        var nx = slotStart(t[i + 1]);
+        if (e.d && nx) {
+          var hrs = (nx - e.d) / 36e5, bad = hrs < 0;
+          h += '<div class="mtc-gap' + (bad ? " bad" : "") + '">' + (bad ? "⚠ не успевает на ① трипа " + (i + 2) + " — опоздание " : "↓ запас до ① трипа " + (i + 2) + ": ") +
+            (Math.abs(hrs) >= 36 ? (Math.abs(hrs) / 24).toFixed(1).replace(".", ",") + " сут" : Math.round(Math.abs(hrs)) + " ч") + "</div>";
+        } else h += '<div class="mtc-gap">↓ стык не посчитать — нет ETA или даты ①</div>';
+      }
+    });
+    if (inp.dataset.mtT) h += '<div class="mtc-f">' + esc(inp.dataset.mtT).replace(/\n/g, "<br>") + "</div>";
+    card = document.createElement("div"); card.className = "mt-card"; card.innerHTML = h; document.body.appendChild(card);
+    var r = inp.getBoundingClientRect();
+    card.style.left = Math.max(8, Math.min(r.left, innerWidth - card.offsetWidth - 8)) + "px";
+    card.style.top = (r.bottom + card.offsetHeight + 8 > innerHeight ? Math.max(8, r.top - card.offsetHeight - 4) : r.bottom + 4) + "px";
+    card.addEventListener("mouseenter", function () { clearTimeout(tHide); });
+    card.addEventListener("mouseleave", function () { tHide = setTimeout(hideCard, 250); });
+    card.addEventListener("click", function (e) {
+      var rr = e.target.closest(".mtc-r:not(.me)"); if (!rr) return;
+      var g = trOf(rr.dataset.id); hideCard();
+      if (g) { g.scrollIntoView({ behavior: "smooth", block: "center" }); g.classList.add("sbx-flash"); setTimeout(function () { g.classList.remove("sbx-flash"); }, 1600); }
+    });
+  }
+  document.addEventListener("mouseover", function (e) {
+    var inp = e.target.closest && e.target.closest(".unit-input.mt-dot"); if (!inp) return;
+    clearTimeout(tHide); clearTimeout(tShow); tShow = setTimeout(function () { showCard(inp); }, 1000);
+  });
+  document.addEventListener("mouseout", function (e) {
+    if (e.target.closest && e.target.closest(".unit-input.mt-dot")) { clearTimeout(tShow); tHide = setTimeout(hideCard, 250); }
+  });
+  document.addEventListener("mousedown", function (e) { if (card && !card.contains(e.target)) hideCard(); });
+
   // А — предупреждение, когда в строку вписали номер машины, у которой уже есть другой трип
   document.addEventListener("change", function (e) {
     var inp = e.target; if (!on || !inp.matches || !inp.matches(".unit-input")) return;
