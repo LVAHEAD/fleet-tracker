@@ -94,3 +94,29 @@ function markForeign(tr, row) {
     }, { once: true });
   });
 }
+
+// Справка → «Погасить везде»: снять отметки чужих правок во всех трипах Флота.
+// Админ снимает во всех трипах, остальные — в своих (сервер пропустит только это).
+function chgClearableRows() {
+  const admin = !!(window.fleetSync && window.fleetSync.admin);
+  return rows.filter((r) => r.chg && typeof r.chg === "object" && Object.keys(r.chg).length && (admin || isTripOwner(r)));
+}
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("chgClearAllBtn");
+  if (!btn) return;
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const list = chgClearableRows();
+    const n = list.reduce((s, r) => s + Object.keys(r.chg).length, 0);
+    if (!list.length) {
+      openSwapPop(btn, "Чужих правок нет", "Гасить нечего.", [{ text: "OK", ok: true }]);
+      return;
+    }
+    openSwapPop(btn, "Погасить чужие правки?", `Отметок: ${n}, трипов: ${list.length}. Рамки пропадут у всех диспетчеров.`,
+      [{ text: "Погасить", ok: true, fn: () => {
+        list.forEach((r) => { delete r.chg; });
+        saveRows();
+        renderRows();
+      } }, { text: "Отмена" }]);
+  });
+});

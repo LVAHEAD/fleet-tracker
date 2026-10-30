@@ -186,10 +186,11 @@ def api_fleet_sync():
                 data = _fleet_clean(op.get("set"))
                 if not op.get("new") and ("disp" in data or "disp" in unset):
                     _check_disp_change(user, rid, data.get("disp", ""))
-                # v3.20: метки чужой правки. Снять их (поле chg) может только хозяин трипа.
+                # v3.20: метки чужой правки. Снять их (поле chg) может хозяин трипа, а также админ («Погасить везде» в Справке).
                 cur = None if op.get("new") else FLEET_STORE.get(rid)
                 if "chg" in data or "chg" in unset:
-                    if cur is None or (fleet_owner(cur) and user.lower() != fleet_owner(cur)):
+                    if cur is None or (fleet_owner(cur) and user.lower() != fleet_owner(cur)
+                                       and canon_email(user) not in FLEET_ADMINS):
                         data.pop("chg", None)
                         unset = [k for k in unset if k != "chg"]
                 elif cur is not None:
