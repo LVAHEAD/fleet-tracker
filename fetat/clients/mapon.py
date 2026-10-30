@@ -319,81 +319,134 @@ def fetch_group_unit_ids(api_key, group_id):
     return ids
 
 
-def unit_stops(unit_id, days=3, min_sec=2 * 3600):
-    """Стоянки трака за days суток из route/list (куски, разрезанные полуночью, склеены)."""
-    import time
-    now = time.time()
-    d = mapon_get("https://mapon.com/api/v1/route/list.json",
-                  {"key": MAPON_API_KEY, "unit_id": unit_id,
-                   "from": _iso_utc(now - days * 86400), "till": _iso_utc(now)}, timeout=30)
+ROUTE_LIST_URL = "https://mapon.com/api/v1/route/list.json"
+ROUTES_KEEP_DAYS = 4            # v3.242: общая история отрезков route/list на машину (стоянки, проезды, Truck Info)
+ROUTES_TTL = 600                # хвост догружаем не чаще раза в 10 мин
+ROUTES_FULL_SEC = 6 * 3600      # полная перезагрузка 4 суток — раз в 6 ч (страховка от правок истории в Mapon)
+_routes_cache = {}              # unit_id -> {"at", "full_at", "routes", "memo"}
+_routes_lock = threading.Lock()
+
+
+def _rts(x):
+    """Время точки отрезка route/list -> ts | None (у идущего сейчас отрезка конца нет — это норма)."""
+    t = (x or {}).get("time")
+    if not t:
+        return None
+    try:
+        return datetime.strptime(t, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+    except Exception as _e:
+        warn("mapon:281", _e)
+        return None
+
+
+def _route_list(unit_id, frm, till):
+    """Сырые отрезки route/list за [frm, till] (с треком, если Mapon его отдаёт)."""
+    base = {"key": MAPON_API_KEY, "unit_id": unit_id, "from": _iso_utc(frm), "till": _iso_utc(till)}
+    try:
+        d = mapon_get(ROUTE_LIST_URL, dict(base, **{"include[]": "polyline"}), timeout=30)
+    except Exception:
+        d = mapon_get(ROUTE_LIST_URL, base, timeout=30)
     out = []
     for u in (d.get("data") or {}).get("units") or []:
-        for r in u.get("routes") or []:
-            if r.get("type") != "stop":
-                continue
-            st = r.get("start") or {}
-            try:
-                s_ts = datetime.strptime(st.get("time"), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
-                e_raw = (r.get("end") or {}).get("time")
-                e_ts = (datetime.strptime(e_raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
-                        if e_raw else now)
-            except Exception as _e:
-                warn("mapon:251", _e)
-                continue
-            if out and abs(s_ts - out[-1]["end"]) <= 60 and out[-1]["address"] == st.get("address"):
-                out[-1]["end"] = e_ts
-                out[-1]["now"] = not e_raw
-            else:
-                out.append({"start": s_ts, "end": e_ts, "address": st.get("address"),
-                            "lat": st.get("lat"), "lng": st.get("lng"), "now": not e_raw})
-    return [x for x in out if x["end"] - x["start"] >= min_sec or x["now"]]
+        out += [r for r in u.get("routes") or [] if isinstance(r, dict)]
+    return out
+
+
+def unit_routes(unit_id, max_age=ROUTES_TTL):
+    """v3.242: отрезки route/list за ROUTES_KEEP_DAYS суток с кешем. Раз в max_age догружается только хвост —
+    с начала предпоследнего отрезка (он и последний могли измениться), раньше — из кеша.
+    Полная загрузка — первый раз и раз в ROUTES_FULL_SEC. Ошибка догрузки — отдаём прежнее (warn), ошибка полной — исключение.
+    -> (routes, memo): memo — словарь для производных (стоянки, проезды) этой версии отрезков."""
+    import time
+    now = time.time()
+    c = _routes_cache.get(unit_id)
+    if c and now - c["at"] < max_age:
+        return c["routes"], c["memo"]
+    lo = now - ROUTES_KEEP_DAYS * 86400
+    starts = [s for s in (_rts(r.get("start")) for r in (c["routes"][-2:] if c else [])) if s]
+    if not c or not starts or now - c["full_at"] >= ROUTES_FULL_SEC:
+        routes = _route_list(unit_id, lo, now)
+        full_at = now
+    else:
+        frm = min(starts)
+        try:
+            tail = _route_list(unit_id, frm, now)
+        except Exception as _e:
+            warn("mapon:routes-tail", _e)
+            return c["routes"], c["memo"]
+        keep = [r for r in c["routes"] if lo <= (_rts(r.get("end")) or now) and (_rts(r.get("start")) or 0) < frm]
+        routes = keep + [r for r in tail if (_rts(r.get("start")) or 0) >= frm]
+        full_at = c["full_at"]
+    with _routes_lock:
+        _routes_cache[unit_id] = {"at": now, "full_at": full_at, "routes": routes, "memo": {}}
+    return routes, _routes_cache[unit_id]["memo"]
+
+
+def unit_stops(unit_id, days=3, min_sec=2 * 3600, max_age=ROUTES_TTL):
+    """Стоянки трака за days суток (куски, разрезанные полуночью, склеены). v3.242: из общего кеша unit_routes."""
+    import time
+    routes, memo = unit_routes(unit_id, max_age=max_age)
+    key = ("stops", days, min_sec)
+    if key in memo:
+        return memo[key]
+    now = time.time()
+    lo = now - min(days, ROUTES_KEEP_DAYS) * 86400
+    out = []
+    for r in routes:
+        if r.get("type") != "stop":
+            continue
+        st = r.get("start") or {}
+        s_ts = _rts(st)
+        if s_ts is None:
+            continue
+        e_raw = (r.get("end") or {}).get("time")
+        e_ts = _rts(r.get("end")) if e_raw else now
+        if e_ts is None or e_ts < lo:
+            continue
+        if out and abs(s_ts - out[-1]["end"]) <= 60 and out[-1]["address"] == st.get("address"):
+            out[-1]["end"] = e_ts
+            out[-1]["now"] = not e_raw
+        else:
+            out.append({"start": s_ts, "end": e_ts, "address": st.get("address"),
+                        "lat": st.get("lat"), "lng": st.get("lng"), "now": not e_raw})
+    res = [x for x in out if x["end"] - x["start"] >= min_sec or x["now"]]
+    memo[key] = res
+    return res
 
 
 def unit_passes(unit_id, days=4):
     """v3.49: где трак был за days суток — для проездных точек (границы без остановки).
     -> [{"end": ts, "pts": [(lat, lng), ...]}]: короткие стоянки (любой длины), начало / конец отрезков движения и,
-    если Mapon отдаёт трек (include polyline), точки трека. Ошибка — пустой список."""
+    если Mapon отдаёт трек (include polyline), точки трека. Ошибка — пустой список. v3.242: из общего кеша unit_routes."""
     import time
     from fetat.utils.geo import _decode_polyline
-    now = time.time()
-    base = {"key": MAPON_API_KEY, "unit_id": unit_id, "from": _iso_utc(now - days * 86400), "till": _iso_utc(now)}
     try:
-        try:
-            d = mapon_get("https://mapon.com/api/v1/route/list.json", dict(base, **{"include[]": "polyline"}), timeout=30)
-        except Exception:
-            d = mapon_get("https://mapon.com/api/v1/route/list.json", base, timeout=30)
+        routes, memo = unit_routes(unit_id)
     except Exception as _e:
         warn("mapon:275", _e)
         return []
-
-    def ts_of(x):
-        t = (x or {}).get("time")
-        if not t:   # у идущего сейчас отрезка конца ещё нет — это норма
-            return None
-        try:
-            return datetime.strptime(t, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
-        except Exception as _e:
-            warn("mapon:281", _e)
-            return None
-
+    key = ("passes", days)
+    if key in memo:
+        return memo[key]
+    now = time.time()
+    lo = now - min(days, ROUTES_KEEP_DAYS) * 86400
     out = []
-    for u in (d.get("data") or {}).get("units") or []:
-        for r in u.get("routes") or []:
-            pts = []
-            for k in ("start", "end"):
-                p = r.get(k) or {}
-                if p.get("lat") is not None and p.get("lng") is not None:
-                    pts.append((float(p["lat"]), float(p["lng"])))
-            pl = r.get("polyline")
-            if r.get("type") == "route" and isinstance(pl, str) and pl:
-                try:
-                    pts += [(float(a), float(b)) for a, b in _decode_polyline(pl)]
-                except Exception as _e:
-                    warn("mapon:296", _e)
-                    pass
-            end = ts_of(r.get("end")) or now
-            if pts and end < now - 60:
-                out.append({"end": end, "pts": pts})
+    for r in routes:
+        pts = []
+        for k in ("start", "end"):
+            p = r.get(k) or {}
+            if p.get("lat") is not None and p.get("lng") is not None:
+                pts.append((float(p["lat"]), float(p["lng"])))
+        pl = r.get("polyline")
+        if r.get("type") == "route" and isinstance(pl, str) and pl:
+            try:
+                pts += [(float(a), float(b)) for a, b in _decode_polyline(pl)]
+            except Exception as _e:
+                warn("mapon:296", _e)
+        end = _rts(r.get("end")) or now
+        if pts and lo <= end < now - 60:
+            out.append({"end": end, "pts": pts})
+    memo[key] = out
     return out
 
 

@@ -286,26 +286,14 @@ DONE_LEFT_KM = 1.0          # и уже уехал дальше 1 км (инач
 DONE_HISTORY_DAYS = 4       # v3.17: смотрим последние 96 ч (дальше — запомненные ✓ строки)
 
 
-DONE_STOPS_TTL = 600        # историю стоянок кешируем на 10 мин на машину
-
-
-_done_stops_cache = {}      # unit_id -> (ts, stops)
-
-
 def recent_stops(unit_id):
-    import time
-    hit = _done_stops_cache.get(unit_id)
-    if hit and time.time() - hit[0] < DONE_STOPS_TTL:
-        return hit[1]
-    stops = unit_stops(unit_id, days=DONE_HISTORY_DAYS, min_sec=DONE_MIN_STOP_SEC)
-    _done_stops_cache[unit_id] = (time.time(), stops)
-    return stops
+    """v3.242: кеш — общий в unit_routes (fetat/clients/mapon.py): хвост раз в 10 мин, 4 суток раз в 6 ч."""
+    return unit_stops(unit_id, days=DONE_HISTORY_DAYS, min_sec=DONE_MIN_STOP_SEC)
 
 
 # v3.49: проездные точки (границы) — машина проходит без остановки ≥ 15 мин, ✓ ставим по факту проезда
 TRANSIT_WORDS = ("border", "grense", "grenze", "tull", "zoll", "customs", "граница")
 TRANSIT_NEAR_KM = 5          # трек проверяем только у точек не дальше 5 км (дешёвый префильтр)
-_passes_cache = {}           # unit_id -> (ts, passes)
 
 
 def is_transit(tstr):
@@ -314,13 +302,7 @@ def is_transit(tstr):
 
 
 def recent_passes(unit_id):
-    import time
-    hit = _passes_cache.get(unit_id)
-    if hit and time.time() - hit[0] < DONE_STOPS_TTL:
-        return hit[1]
-    res = unit_passes(unit_id, days=DONE_HISTORY_DAYS)
-    _passes_cache[unit_id] = (time.time(), res)
-    return res
+    return unit_passes(unit_id, days=DONE_HISTORY_DAYS)
 
 
 def _near_point(a, b, lat, lng, obj):
