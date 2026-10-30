@@ -21,6 +21,14 @@ try {
     else if (["all", "L", "O"].includes(k)) unitFilters["all|" + k] = clean(v[k]);   // набор по режимам без диспетчера
   });
 } catch (e) {}
+// v3.247: галочка «только машины с 2+ трипами» (одна на все режимы, запоминается после F5); трипы считаем по всему Флоту
+let unitMultiOnly = false;
+try { unitMultiOnly = localStorage.getItem("fleet-unit-multi") === "1"; } catch (e) {}
+function unitTripCount(unit) {
+  const k = unitKey(unit);
+  if (!k || typeof rows === "undefined") return 0;
+  return rows.filter((r) => r && r.unit && unitKey(r.unit) === k).length;
+}
 function unitSlot() {
   let who = "all", lo = "all";
   try { who = ownFilter === "mine" ? fleetMe() : ownFilter; } catch (e) { /* dispatchers.js ещё не загружен */ }
@@ -51,8 +59,10 @@ function unitList(rowsArr, selected) {
 
 function rowPassesUnit(row) {
   const f = curUnits();
-  if (!f.length) return true;
+  if (!f.length && !unitMultiOnly) return true;
   if (!row || !row.unit) return true;     // пустые строки видны всегда, как у остальных фильтров
+  if (unitMultiOnly && unitTripCount(row.unit) < 2) return false;   // v3.247
+  if (!f.length) return true;
   return f.includes(unitKey(row.unit));
 }
 
@@ -62,8 +72,9 @@ function unitFilterMark() {
   const th = document.getElementById("unit-flt-th");
   if (!th) return;
   const n = curUnits().length;
-  th.classList.toggle("unit-on", n > 0);
-  th.title = n ? `Фильтр по машинам: выбрано ${n} — клик, чтобы изменить` : "Фильтр по машинам — клик";
+  th.classList.toggle("unit-on", n > 0 || unitMultiOnly);
+  th.title = n ? `Фильтр по машинам: выбрано ${n} — клик, чтобы изменить`
+    : unitMultiOnly ? "Фильтр по машинам: только машины с 2+ трипами — клик, чтобы изменить" : "Фильтр по машинам — клик";
 }
 
 (function () {
@@ -95,7 +106,8 @@ function unitFilterMark() {
     pop.id = "unit-flt-pop";
     pop.className = "client-flt-pop unit-flt-pop";   // вид и разметка окна — как у фильтра по клиентам
     pop.innerHTML = '<div class="cf-top"><input type="search" class="cf-search" placeholder="Поиск машины" autocomplete="off">'
-      + '<button type="button" class="cf-reset">Сбросить</button></div><div class="cf-list"></div>';
+      + '<button type="button" class="cf-reset">Сбросить</button></div>'
+      + `<label class="mt-only"><input type="checkbox"${unitMultiOnly ? " checked" : ""}> только машины с 2+ трипами</label><div class="cf-list"></div>`;
     document.body.appendChild(pop);
     const r = th.getBoundingClientRect();
     pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pop.offsetWidth - 8)) + "px";
@@ -110,7 +122,14 @@ function unitFilterMark() {
       save();
       rerender();
     });
+    pop.querySelector(".mt-only input").addEventListener("change", (e) => {   // v3.247
+      unitMultiOnly = e.target.checked;
+      try { localStorage.setItem("fleet-unit-multi", unitMultiOnly ? "1" : ""); } catch (err) {}
+      rerender();
+    });
     pop.querySelector(".cf-reset").addEventListener("click", () => {
+      unitMultiOnly = false;
+      try { localStorage.setItem("fleet-unit-multi", ""); } catch (err) {}
       unitFilters[unitSlot()] = [];
       save();
       rerender();

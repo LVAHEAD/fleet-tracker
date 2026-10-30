@@ -528,6 +528,7 @@ function renderRows(onlyIds) {
 function renderRowsTail() {
   if (window.PrepMap) window.PrepMap.sync();   // v3.179: плашки кодов у трипов без машины
   if (window.slotQuickUpdate) window.slotQuickUpdate();   // v3.180: быстрые кнопки T / +1 / +2 (v3.205 — у всех)
+  if (typeof markMultiTrips === "function") markMultiTrips();   // v3.247: машина в нескольких трипах — пунктир под номером
   updateFleetCount();
 }
 
@@ -664,7 +665,10 @@ function attachRowHandlers(one) {
     const id = Number(tr.dataset.id);
 
     tr.querySelector(".unit-input").addEventListener("change", (e) => {
-      updateRowField(id, "unit", e.target.value);
+      const v = e.target.value;
+      updateRowField(id, "unit", v);
+      if (typeof markMultiTrips === "function") markMultiTrips();   // v3.247: пунктир у всех строк этой машины (и снять у прежней)
+      if (v.trim() && typeof multiTripWarn === "function") multiTripWarn(id, v);   // v3.247: у машины уже есть трип во Флоте
     });
     const dsel = tr.querySelector(".disp-sel");
     if (dsel) dsel.addEventListener("change", (e) => {   // v2.01
