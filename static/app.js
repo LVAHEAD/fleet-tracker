@@ -246,9 +246,12 @@ function markSegSync(tr, c) {
   tr.querySelectorAll(".cl-seg-b").forEach((b) => b.classList.toggle("on", Number(b.dataset.c) === c));
 }
 
-function emptyRow() {
+function emptyRow(disp) {
   const r = { id: window.newRowId ? window.newRowId() : rowIdCounter++, unit: "", lo: "", target: "", delivery: "", note: "" };
   if (typeof fleetMe === "function" && fleetMe()) r.disp = fleetMe();   // v2.01: ответственный — кто создал
+  // v3.246: админ / назначающий — диспетчер из фильтра Флота («+ строка») или строки выше («+ строка ниже»)
+  const S = window.fleetSync;
+  if (disp && String(disp).includes("@") && S && (S.admin || S.canAssign)) r.disp = canonEmail(disp);
   return r;   // v2.00: уникальный id на всех
 }
 
@@ -794,7 +797,7 @@ function attachRowHandlers(one) {
     tr.querySelector(".add-btn").addEventListener("click", (e) => {
       e.stopPropagation();
       const idx = rows.findIndex((r) => r.id === id);
-      const nr = emptyRow();
+      const nr = emptyRow(idx >= 0 ? rowDisp(rows[idx]) : "");
       freshEmptyIds.add(nr.id);
       rows.splice(idx + 1, 0, nr);
       if (displayOrder) {
@@ -2182,7 +2185,7 @@ function emptyOwnRow() {
 }
 
 document.getElementById("add-row-btn").addEventListener("click", () => {
-  const nr = emptyRow();
+  const nr = emptyRow(String(ownFilter).includes("@") ? ownFilter : "");
   freshEmptyIds.add(nr.id);
   rows.push(nr);
   saveRows();

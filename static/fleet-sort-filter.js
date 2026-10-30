@@ -193,6 +193,13 @@ function stripeRow(tr, row) {
   const kind = rowLoKind(row);
   if (kind) tr.classList.add(`lo-row-${kind}`);
 }
+function rowHasLo(row) {
+  for (let i = 0; ; i++) {
+    const p = pointOf(row, i);
+    if (!p) return false;
+    if (p.lo === "L" || p.lo === "O") return true;
+  }
+}
 function rowPassesFilter(row) { return rowPassesFilterWith(row, rowPassesOwn); }
 // ownPass — проверка «диспетчер»: таблица — rowPassesOwn, Карта Флота — свой фильтр (map-disp-filter.js); L / O и клиент общие
 function rowPassesFilterWith(row, ownPass) {
@@ -203,6 +210,8 @@ function rowPassesFilterWith(row, ownPass) {
     return ownPass(row) && (freshEmptyIds.has(row.id) || rowPassesSlot(row));
   }
   if (!ownPass(row)) return false;   // v2.01 / v3.11
+  // v3.246: строку, созданную в этой вкладке, не прячем фильтрами L / O, клиента, машин и даты, пока у её точек нет метки L / O
+  if (freshEmptyIds.has(row.id) && !rowHasLo(row)) return true;
   if (awaitsComplete(row)) return true;   // v3.81: ждущие «✓ Завершён» видны при любом L/O и фильтре по клиентам, но не при чужом диспетчере
   if (!rowPassesClient(row)) return false;   // v3.114: фильтр по клиентам (client-filter.js)
   if (!rowPassesUnit(row)) return false;     // v3.204: фильтр по машинам (unit-filter.js)
