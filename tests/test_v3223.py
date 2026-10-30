@@ -34,7 +34,7 @@ class V3223(unittest.TestCase):
         js = rd("static", "tacho-pop.js")
         self.assertIn("weeklyNeed(pp)", js)
         self.assertIn("tiles(ds[tab] || null, p.at, p)", js)
-        self.assertIn("open(el), 1500)", js)    # v3.226: тахограф — 1,5 с (было 2 с); реф остался 2 с
+        self.assertIn("open(el), 1000)", js)    # 30.10: одна задержка 1 с для всплывашек статуса и рефа
         self.assertIn("open(el), 1000)", rd("static", "reefer-pop.js"))
 
     def test_comment_window_fits_screen(self):
