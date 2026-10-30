@@ -35,7 +35,7 @@ class V3223(unittest.TestCase):
         self.assertIn("weeklyNeed(pp)", js)
         self.assertIn("tiles(ds[tab] || null, p.at, p)", js)
         self.assertIn("open(el), 1500)", js)    # v3.226: тахограф — 1,5 с (было 2 с); реф остался 2 с
-        self.assertIn("open(el), 2000)", rd("static", "reefer-pop.js"))
+        self.assertIn("open(el), 1000)", rd("static", "reefer-pop.js"))
 
     def test_comment_window_fits_screen(self):
         rc = rd("static", "row-comments.js")
