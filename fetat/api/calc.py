@@ -53,7 +53,7 @@ def api_calc():
         hit = _calc_cached(key, now)
         if hit is not None:
             return jsonify(hit), 200
-    set_route_ctx(why, current_user_email())   # v3.13: разбивка в счётчике
+    set_route_ctx(why, current_user_email(), payload.get("unit"))   # v3.13: разбивка в счётчике
     body, code = calc_row(payload)
     if code == 200 and isinstance(body, dict) and not body.get("error"):
         _calc_store(key, body, now)

@@ -64,10 +64,12 @@ def _shared_on():
     return os.environ.get("FLEET_STORE") != "memory"
 
 
-def set_route_ctx(why=None, user=None):
-    """v3.13: причина расчёта (edit / all / auto / sync / route) и пользователь — для разбивки запросов."""
+def set_route_ctx(why=None, user=None, unit=None):
+    """v3.13: причина расчёта (edit / all / auto / sync / route) и пользователь — для разбивки запросов.
+    unit — машина строки, только для строки [gmiss] в логе."""
     _ctx.why = _slug(why) or "other"
     _ctx.user = _slug((user or "").split("@")[0]) or "anon"
+    _ctx.unit = str(unit or "")[:20]
 
 
 def _slug(v):
@@ -388,6 +390,20 @@ def _truck_miss_reason(tkey, had_entry, now, lat=None, lng=None):
     return "off_2_3" if d <= 3 else "off_3_5" if d <= 5 else "off_5_10" if d <= 10 else "off_far"
 
 
+def _log_gmiss(miss, tkey, lat, lng):
+    """Строка лога на каждый запрос «машина → точка» в Google: какая машина, почему, как далеко от линии.
+    Разбор «дальше 10 км» (30.10): фильтр Cloud Run Logs — textPayload:"[gmiss]". На расчёт не влияет."""
+    try:
+        c = _along_cache.get(tkey)
+        best = _along_best(c, lat, lng) if c else None
+        off = f"{best[0]:.1f}" if best else "-"
+        print(f"[gmiss] unit={getattr(_ctx, 'unit', '') or '-'} why={getattr(_ctx, 'why', 'other')} "
+              f"user={getattr(_ctx, 'user', 'anon')} miss={miss} off_km={off} "
+              f"from={lat:.3f},{lng:.3f} to={tkey[1]:.3f},{tkey[2]:.3f} wps={len(tkey[3])}", flush=True)
+    except Exception as _e:
+        warn("gmiss", _e)
+
+
 def _truck_route(lat1, lng1, lat2, lng2, api_key, waypoints):
     import time
     tkey = ("truck", round(lat2, 4), round(lng2, 4), _wps_key(waypoints))
@@ -409,7 +425,9 @@ def _truck_route(lat1, lng1, lat2, lng2, api_key, waypoints):
         _route_stat("cache_hits", "truck")
         return res
     had_entry = bool(mem) or bool(doc and doc.get("dist") is not None)
-    _route_stat("calls", "truck", miss=_truck_miss_reason(tkey, had_entry, now, lat1, lng1))
+    miss = _truck_miss_reason(tkey, had_entry, now, lat1, lng1)
+    _route_stat("calls", "truck", miss=miss)
+    _log_gmiss(miss, tkey, lat1, lng1)
     res = _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints)
     entry = {"at": now, "olat": lat1, "olng": lng1, "res": res}
     with _route_cache_lock:
