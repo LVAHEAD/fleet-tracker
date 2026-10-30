@@ -1192,7 +1192,7 @@ body.sort-manual #fleet-table .col-unit { width: 128px; }
 #fleet-table .col-eta    { width: 160px; }
 @media (min-width: 1500px) and (max-width: 1799px) {
   #fleet-table .col-status { width: 232px; }
-  #fleet-table .col-eta    { width: 140px; }
+  #fleet-table .col-eta    { width: 175px; }
 }
 .status-cell .status-line2 { flex-wrap: nowrap; }
 /* цвет диспетчера — только плашка (👤 VL); цвет задаёт лист «Диспетчеры» */
@@ -1329,7 +1329,7 @@ body.map-resizing .map-panel .w-label, body.ec-resizing .w-label { display: bloc
   #fleet-table .col-target   { width: 390px; }
   #fleet-table .col-delivery { width: 140px; }
   #fleet-table .col-dist     { width: 55px; }
-  #fleet-table .col-eta      { width: 140px; }
+  #fleet-table .col-eta      { width: 175px; }
   #fleet-table .col-note     { width: auto; }
   #fleet-table .col-actions  { width: 70px; }
   body.sort-manual #fleet-table .col-actions { width: 110px; }
