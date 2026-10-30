@@ -480,14 +480,14 @@ def _click_time(click, i):
 def _parse_west_ts(v):
     """v3.200: «dd/mm HH:MM» (местное время ts_west) -> ts или None. Год — текущий (если дата далеко в будущем — прошлый)."""
     import time, calendar
-    from datetime import datetime
+    from datetime import datetime, timezone
     try:
         d = datetime.strptime(str(v), "%d/%m %H:%M")
         now = time.time()
-        y0 = datetime.utcfromtimestamp(now).year
+        y0 = datetime.fromtimestamp(now, timezone.utc).year
         for y in (y0, y0 - 1):
             naive = calendar.timegm(d.replace(year=y).timetuple())
-            off = (ts_west(naive).replace(tzinfo=None) - datetime.utcfromtimestamp(naive)).total_seconds()
+            off = (ts_west(naive).replace(tzinfo=None) - datetime.fromtimestamp(naive, timezone.utc).replace(tzinfo=None)).total_seconds()
             ts = naive - off
             if ts <= now + 86400:
                 return ts

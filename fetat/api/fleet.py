@@ -242,6 +242,11 @@ def api_presence():
     return jsonify({"ok": True, "tags": presence_tags(current_user_email()), "version": APP_VERSION})
 
 
+# Прогрев зовёт каждая открытая вкладка; один прогрев на всех раз в WARM_MIN_GAP с.
+WARM_MIN_GAP = 200
+_warm_last = {"at": 0.0}
+
+
 @bp.route("/api/warm", methods=["POST"])
 def api_warm():
     """v3.124: прогрев кешей Mapon (тахограф, история водителей) для машин, которые открыты в таблице.
@@ -250,6 +255,10 @@ def api_warm():
     from fetat.clients.mapon import fetch_units, get_driver_rests, get_tacho
     from fetat.config import MAPON_API_KEY
     from fetat.services.fleet_calc import _find_unit
+    import time as _t
+    if _t.time() - _warm_last["at"] < WARM_MIN_GAP:
+        return jsonify({"ok": True, "warmed": 0, "skipped": True})
+    _warm_last["at"] = _t.time()
     body = request.get_json(force=True, silent=True) or {}
     names = [str(x) for x in (body.get("units") or [])][:60]
     units = fetch_units(MAPON_API_KEY)

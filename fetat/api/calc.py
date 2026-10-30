@@ -1,5 +1,9 @@
 """Расчёты: строка Флота (/api/calc) и From → To (/api/route). Логика — fetat/services/."""
 
+import json
+import threading
+import time
+
 from flask import Blueprint, jsonify, request
 
 from fetat.api.meta import current_user_email
@@ -11,13 +15,48 @@ from fetat.services.route_calc import from_crew, route_calc, unit_seed
 
 bp = Blueprint("calc", __name__)
 
+# Кеш готового расчёта строки: Флот общий, автообновление идёт из каждой открытой вкладки.
+# Автопроход (why=auto) берёт свежий результат того же запроса, если он моложе CALC_RESULT_TTL;
+# правка, загрузка и ручной ↻ всегда считают заново и кладут результат в кеш.
+CALC_RESULT_TTL = 180
+_calc_cache = {}
+_calc_cache_lock = threading.Lock()
+
+
+def _calc_key(payload):
+    p = {k: v for k, v in payload.items() if k != "why"}
+    return json.dumps(p, sort_keys=True, ensure_ascii=False, default=str)
+
+
+def _calc_cached(key, now):
+    with _calc_cache_lock:
+        hit = _calc_cache.get(key)
+    if hit and now - hit[0] < CALC_RESULT_TTL:
+        return hit[1]
+    return None
+
+
+def _calc_store(key, body, now):
+    with _calc_cache_lock:
+        for k in [k for k, v in _calc_cache.items() if now - v[0] >= CALC_RESULT_TTL]:
+            del _calc_cache[k]
+        _calc_cache[key] = (now, body)
+
 
 @bp.route("/api/calc", methods=["POST"])
 def api_calc():
     """Строка Флота — fetat/services/fleet_calc.py: calc_row."""
     payload = request.get_json(force=True, silent=True) or {}
-    set_route_ctx(payload.get("why") or "edit", current_user_email())   # v3.13: разбивка в счётчике
+    why = payload.get("why") or "edit"
+    key, now = _calc_key(payload), time.time()
+    if why == "auto":
+        hit = _calc_cached(key, now)
+        if hit is not None:
+            return jsonify(hit), 200
+    set_route_ctx(why, current_user_email())   # v3.13: разбивка в счётчике
     body, code = calc_row(payload)
+    if code == 200 and isinstance(body, dict) and not body.get("error"):
+        _calc_store(key, body, now)
     return jsonify(body), code
 
 
