@@ -217,6 +217,10 @@
       var g = ix.map(function (i) { return list[i]; }).filter(Boolean);
       if (g.length > 1) g.forEach(function (r) { FAKE[r.id] = g[0].unit; });
     });
+    // 23:08: для примера цветов в карточке — у второго и третьего трипа другие диспетчеры (только в макете)
+    var dl = typeof DISP_LIST !== "undefined" ? DISP_LIST : [], g2 = [list[9], list[11], list[14]];
+    g2.forEach(function (r, i) { var d = dl[i + 1]; if (r && d) r.disp = d.email; });
+    if (typeof renderRows === "function") setTimeout(renderRows, 0);
   }
   function tripsOf(unit) { var k = nn(unit); return k ? rows.filter(function (r) { return nn(unitOf(r)) === k; }) : []; }
   function line(r) {
@@ -264,7 +268,9 @@
     var h = '<div class="mtc-h"><b>' + esc(unitOf(me)) + '</b> — ' + t.length + ' трипа во Флоте</div>';
     t.forEach(function (x, i) {
       var xt = trOf(x.id), e = etaEnd(xt), st = slotStart(x);
-      h += '<div class="mtc-r' + (x === me ? " me" : "") + '" data-id="' + x.id + '"><span class="mtc-n">' + (i + 1) + "/" + t.length + '</span>' +
+      var de = typeof dispEntry === "function" && typeof rowDisp === "function" ? dispEntry(rowDisp(x)) : null, dc = (de && de.color) || "#f4f6fa";
+      var db = typeof shadeHex === "function" ? (shadeHex(dc, 0.18) || "#c9d3e3") : "#c9d3e3";
+      h += '<div class="mtc-r' + (x === me ? " me" : "") + '" data-id="' + x.id + '" style="--mtd:' + dc + ';--mtdb:' + db + '"><span class="mtc-n">' + (i + 1) + "/" + t.length + '</span>' +
         '<span class="mtc-m"><b>' + esc(x.client || "без клиента") + '</b>' + (x.ref ? " · " + esc(x.ref) : "") + (codes(xt) ? '<i>' + esc(codes(xt)) + '</i>' : "") + '</span>' +
         '<span class="mtc-d">① ' + (st ? esc(fmt(st).slice(0, 5)) : "—") + '<br>ETA ' + esc(e.t || "—") + '</span><span class="mtc-w">' + esc(disp(x)) + '</span></div>';
       if (i < t.length - 1) {   // стык: конец этого трипа против ① следующего
