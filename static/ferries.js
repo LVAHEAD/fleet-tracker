@@ -52,6 +52,7 @@ h1 small{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
 .ct span{user-select:all}
 .copy{font:inherit;font-size:12px;padding:1px 7px;border-radius:5px;border:1px solid var(--accent);background:var(--surface);color:var(--accent);cursor:pointer;margin-left:5px}
 .copy:hover{background:var(--accent);color:#fff}
+.op.lk{cursor:pointer}.op.lk:hover{text-decoration:underline}.sched{color:var(--accent);font-weight:600}
 
 .mapwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
 #mapbox svg{display:block;width:100%;height:auto}
@@ -124,7 +125,7 @@ aside.side .mapwrap{margin-bottom:10px}aside.side .filters{margin-bottom:6px}
   <div class="selbar" id="selbar"></div>
   <div class="ord" id="ord" hidden></div>
   </aside>
-  <p class="note">Справочно: время и условия сверяйте с оператором. Полоска — длительность рейса от 0 до 43 ч (самый долгий, Росток – Ханко, Transfennica). Клик по линии — условия и контакты.</p>
+  <p class="note">Справочно: время и условия сверяйте с оператором. Полоска — длительность рейса от 0 до 43 ч (самый долгий, Росток – Ханко, Transfennica). Клик по линии — условия и ссылка на расписание; клик по названию оператора — сразу расписание.</p>
   <div id="list" style="display:flex;flex-direction:column;gap:14px"></div>
   <p class="note"><b>Регистрация (check-in).</b> Тягач с водителем — не позднее 60–90 мин до отхода; несопровождаемые прицепы — за 2–3 ч; ADR — декларация подана и подтверждена минимум за 24 ч до рейса.</p>
 </div>
@@ -237,19 +238,25 @@ function copyText(btn, text) {
 }
 function selText(btn) { const s = btn.previousElementSibling; if (s) { const r = document.createRange(); r.selectNodeContents(s); const g = getSelection(); g.removeAllRanges(); g.addRange(r); } }
 function hrsHtml(s) { return esc(s).replace(/\s*ч(?=\s|$)/g, "<u>ч</u>").replace(/\s*мин(?=\s|$)/g, "<u>мин</u>"); }
+// v3.235: ссылки на расписания грузовых линий операторов (вместо контактов); у Finnlines и Transfennica отдельных адресов по линиям нет — общая страница
+const OP_LINK = {"Finnlines": "https://www.finnlines.com/freight/schedules/", "Transfennica": "https://www.transfennica.com/online-schedules/",
+  "Stena Line": "https://www.stenalinetravel.com/routes", "Unity Line": "https://www.unityline.eu/cargo/timetables", "TT-Line": "https://www.ttline.com/en/freight/",
+  "DFDS Seaways": "https://www.dfds.com/en/freight-ferries-and-logistics/routes-and-schedules", "Color Line": "https://www.colorline.com/timetable",
+  "Fjord Line": "https://fjordline.com/en/timetable", "Scandlines": "https://www.scandlines.com/"};
 function lineHtml(r) {
-  const ct = r.contact ? r.contact.split(" · ").map((x) => x.replace(/^Tel:\s*/, "")).map((x) => `<span class="c"><span>${esc(x)}</span><button type="button" class="copy" data-t="${esc(x)}" title="Скопировать">копировать</button></span>`).join("") : '<span style="color:var(--muted)">не указаны</span>';
+  const lk = OP_LINK[r.op];
+  const ct = lk ? `<a class="sched" href="${esc(lk)}" target="_blank" rel="noopener">Расписание ${esc(r.op)} ↗</a>` : '<span style="color:var(--muted)">ссылки на расписание нет</span>';
   const tag = r.tag ? `<span class="tag ${r.tag === "Прямой" ? "direct" : ""}">${esc(r.tag)}</span>` : "";
   const pct = r.h != null ? Math.max(3, Math.min(100, (r.h / MAXH) * 100)) : 0;
   return `<div class="line" data-i="${r.i}">
     <button type="button" class="row" aria-expanded="false">
-      <span><span class="op" style="--h:${hue(r.op)}">${esc(r.op)}</span></span>
+      <span><span class="op${lk ? " lk" : ""}" style="--h:${hue(r.op)}"${lk ? ` data-href="${esc(lk)}" title="Расписание ${esc(r.op)} ↗"` : ""}>${esc(r.op)}</span></span>
       <span class="rt"><div class="route">${esc(flipRoute(r))}</div><div class="ports">${esc(flipPorts(r))}</div></span>
       <span class="time">${r.time ? `<span class="hrs"><i>≈</i>${hrsHtml(r.time)}</span><span class="bar"><b style="width:${pct}%"></b></span>` : ""}
         <span class="freq">${tag}${esc(r.rest)}</span></span>
       <span class="chev" aria-hidden="true">▸</span>
     </button>
-    <div class="more"><h4>Условия</h4><p>${esc(r.cond)}</p><h4>Контакты</h4><div class="ct">${ct}</div></div>
+    <div class="more"><h4>Условия</h4><p>${esc(r.cond)}</p><h4>Расписание</h4><div class="ct">${ct}</div></div>
   </div>`;
 }
 function render() {
@@ -275,6 +282,7 @@ root.getElementById("flt").addEventListener("click", (e) => {
 });
 root.getElementById("q").addEventListener("input", (e) => { q = e.target.value; render(); });
 root.getElementById("list").addEventListener("click", (e) => {
+  const o = e.target.closest(".op.lk"); if (o) { window.open(o.dataset.href, "_blank", "noopener"); return; }   // v3.235: оператор — ссылка на расписание
   const c = e.target.closest(".copy"); if (c) { copyText(c, c.dataset.t); return; }
   const r = e.target.closest(".row"); if (!r) return;
   const l = r.parentElement; l.classList.toggle("open"); r.setAttribute("aria-expanded", l.classList.contains("open"));
