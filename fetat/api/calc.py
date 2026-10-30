@@ -3,6 +3,7 @@
 import json
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from flask import Blueprint, jsonify, request
 
@@ -12,6 +13,7 @@ from fetat.domain.tacho import calc_plan
 from fetat.services.corridors import corridor_options
 from fetat.services.fleet_calc import calc_row
 from fetat.services.route_calc import from_crew, route_calc, unit_seed
+from fetat.utils.log import warn
 
 bp = Blueprint("calc", __name__)
 
@@ -43,21 +45,55 @@ def _calc_store(key, body, now):
         _calc_cache[key] = (now, body)
 
 
-@bp.route("/api/calc", methods=["POST"])
-def api_calc():
-    """Строка Флота — fetat/services/fleet_calc.py: calc_row."""
-    payload = request.get_json(force=True, silent=True) or {}
+def _calc_one(payload, user):
+    """Расчёт одной строки с кешем автопрохода -> (ответ, код). Общий для /api/calc и /api/calc-batch."""
     why = payload.get("why") or "edit"
     key, now = _calc_key(payload), time.time()
     if why == "auto":
         hit = _calc_cached(key, now)
         if hit is not None:
-            return jsonify(hit), 200
-    set_route_ctx(why, current_user_email(), payload.get("unit"))   # v3.13: разбивка в счётчике
+            return hit, 200
+    set_route_ctx(why, user, payload.get("unit"))   # v3.13: разбивка в счётчике
     body, code = calc_row(payload)
     if code == 200 and isinstance(body, dict) and not body.get("error"):
         _calc_store(key, body, now)
+    return body, code
+
+
+@bp.route("/api/calc", methods=["POST"])
+def api_calc():
+    """Строка Флота — fetat/services/fleet_calc.py: calc_row."""
+    body, code = _calc_one(request.get_json(force=True, silent=True) or {}, current_user_email())
     return jsonify(body), code
+
+
+# v3.243: пакетный расчёт — ↻, загрузка и автообновление шлют строки пачками, а не по запросу на строку
+# (каждый запрос идёт через IAP). Строки пачки считаются параллельно в общем пуле: на весь сервер
+# не больше CALC_POOL расчётов пачек сразу, как и раньше примерно ограничивали 16 потоков gunicorn.
+CALC_BATCH_MAX = 12
+CALC_POOL = 12
+_calc_pool = ThreadPoolExecutor(max_workers=CALC_POOL, thread_name_prefix="calcb")
+
+
+@bp.route("/api/calc-batch", methods=["POST"])
+def api_calc_batch():
+    """body: {"items": [payload строки как у /api/calc, ...]} (1–CALC_BATCH_MAX) -> {"results": [ответ строки, ...]}
+    в том же порядке. Ошибка строки — {"error": ...} на её месте, остальные строки не страдают."""
+    items = (request.get_json(force=True, silent=True) or {}).get("items")
+    if not isinstance(items, list) or not 1 <= len(items) <= CALC_BATCH_MAX:
+        return jsonify({"error": f"Нужен список items (1–{CALC_BATCH_MAX} строк)"}), 400
+    user = current_user_email()
+
+    def one(p):
+        if not isinstance(p, dict):
+            return {"error": "Плохие данные строки"}
+        try:
+            return _calc_one(p, user)[0]
+        except Exception as e:
+            warn("calc-batch", e)
+            return {"error": "Ошибка расчёта"}
+
+    return jsonify({"results": list(_calc_pool.map(one, items))})
 
 
 @bp.route("/api/route", methods=["POST"])

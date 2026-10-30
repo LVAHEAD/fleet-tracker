@@ -1333,8 +1333,25 @@ function updateRowField(id, field, value) {
   }
 }
 
+// v3.243: тело запроса расчёта строки — общее для /api/calc и /api/calc-batch
+function calcPayload(row, why) {
+  return Object.assign(
+    { unit: row.unit, target: row.target },
+    row.extra && row.extra.length ? { extra: row.extra.map((x) => x.target || "") } : {},
+    row.ferry ? { ferry: row.ferry } : {},   // v3.193: линию парома выбрал диспетчер
+    ferryDeps(row),   // v3.192: отход парома из «Даты» точки-порта
+    fixAtList(row).length ? { fix_at: fixAtList(row) } : {},   // v3.229: «не раньше» по точкам (фикс-время) — только VL
+    row.trailer ? { trailer: row.trailer } : {},
+    row.crew ? { crew: row.crew } : {},
+    row.crewSeen && row.crewSeen.u === row.unit ? { crew_seen: Math.floor(row.crewSeen.t / 1000) } : {},   // v3.105: память «экипаж»
+    row.x10 ? { x10: true } : {},                                    // v3.39: 10-й час сегодня
+    row.corridor ? { corridor: row.corridor } : {},                 // v3.32: коридор выбрал диспетчер
+    { done: doneManualArray(row), done_seen: doneSeenArray(row), done_arr: doneArrArray(row), done_click: doneClickArray(row), why: why || "edit" });
+}
+
 // v3.13: why — зачем считаем (edit / all / auto / sync), для разбивки запросов к Google
-async function calcRow(id, why) {
+// v3.243: pre — готовый ответ из пачки /api/calc-batch (Promise), тогда свой запрос не шлём
+async function calcRow(id, why, pre) {
   const row = rows.find((r) => r.id === id);
   if (!row || !row.unit) return;
 
@@ -1351,23 +1368,11 @@ async function calcRow(id, why) {
   else { statusCell.textContent = "…"; statusCell.className = "status-cell muted"; }
 
   try {
-    const res = await fetch("/api/calc", {
+    const data = pre ? await pre : await (await fetch("/api/calc", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign(
-        { unit: row.unit, target: row.target },
-        row.extra && row.extra.length ? { extra: row.extra.map((x) => x.target || "") } : {},
-        row.ferry ? { ferry: row.ferry } : {},   // v3.193: линию парома выбрал диспетчер
-        ferryDeps(row),   // v3.192: отход парома из «Даты» точки-порта
-        fixAtList(row).length ? { fix_at: fixAtList(row) } : {},   // v3.229: «не раньше» по точкам (фикс-время) — только VL
-        row.trailer ? { trailer: row.trailer } : {},
-        row.crew ? { crew: row.crew } : {},
-        row.crewSeen && row.crewSeen.u === row.unit ? { crew_seen: Math.floor(row.crewSeen.t / 1000) } : {},   // v3.105: память «экипаж»
-        row.x10 ? { x10: true } : {},                                    // v3.39: 10-й час сегодня
-        row.corridor ? { corridor: row.corridor } : {},                 // v3.32: коридор выбрал диспетчер
-        { done: doneManualArray(row), done_seen: doneSeenArray(row), done_arr: doneArrArray(row), done_click: doneClickArray(row), why: why || "edit" })),
-    });
-    const data = await res.json();
+      body: JSON.stringify(calcPayload(row, why)),
+    })).json();
     if (!data.error) { keepDoneSeen(row, data); keepCrewSeen(row, data); remapDone(data); }
 
     if (data.error) {
@@ -1846,6 +1851,22 @@ function updateAutoTip() {
   const t = lastCalcAt ? new Date(lastCalcAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : "";
   lbl.title = lbl.dataset.tipBase + (t ? "\nПоследнее обновление: " + t : "");
 }
+// v3.243: пачка строк одним запросом; ответ каждой строки разбирает calcRow (статус, ETA, ошибка — как раньше)
+const CALC_BATCH = 8;
+function calcRowsBatch(ids, why) {
+  const list = ids.map((id) => rows.find((r) => r.id === id))
+    .filter((r) => r && r.unit && document.querySelector(`#fleet-tbody tr[data-id="${r.id}"]`));
+  if (list.length < 2) return Promise.allSettled(list.map((r) => calcRow(r.id, why)));
+  const req = fetch("/api/calc-batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items: list.map((r) => calcPayload(r, why)) }),
+  }).then((res) => res.json()).then((d) => {
+    if (!d || !Array.isArray(d.results) || d.results.length !== list.length) throw new Error((d && d.error) || "calc-batch");
+    return d.results;
+  });
+  return Promise.allSettled(list.map((r, i) => calcRow(r.id, why, req.then((res) => res[i]))));
+}
 // v3.126: ↻ — сначала строки на экране (прошли фильтры), остальные в фоне по 2 за раз; свежие (< 2 мин) в фоне пропускаются
 const rowCalcAt = {};
 const BG_FRESH_MS = 2 * 60 * 1000;
@@ -1867,14 +1888,17 @@ function calcAllRows(opts) {
   show();
   const t0 = performance.now();
   let slow = { unit: "", sec: 0 };
-  const run = (r) => {
+  // v3.243: строки — пачками по CALC_BATCH одним запросом /api/calc-batch; счётчик ↻ растёт по пачкам
+  const run = (list) => {
     const t1 = performance.now();
-    return Promise.resolve(calcRow(r.id, kind === "auto" ? "auto" : "all")).finally(() => {
+    return Promise.resolve(calcRowsBatch(list.map((r) => r.id), kind === "auto" ? "auto" : "all")).finally(() => {
       const sec = (performance.now() - t1) / 1000;
-      if (sec > slow.sec) slow = { unit: r.unit, sec };
+      if (sec > slow.sec) slow = { unit: list.map((r) => r.unit).join(", "), sec };
     });
   };
-  const jobs = vis.map((r) => run(r).finally(() => { left -= 1; show(); }));
+  const chunks = [];
+  for (let i = 0; i < vis.length; i += CALC_BATCH) chunks.push(vis.slice(i, i + CALC_BATCH));
+  const jobs = chunks.map((c) => run(c).finally(() => { left -= c.length; show(); }));
   // v1.53: после "Обновить всё" (и загрузки) — пересортировать по выбранному режиму;
   // v1.59: автообновление строки не переставляет
   const resortAfter = kind !== "auto";
@@ -1886,8 +1910,12 @@ function calcAllRows(opts) {
     const queue = kind === "auto" ? [] : rest.filter((r) => Date.now() - (rowCalcAt[r.id] || 0) > BG_FRESH_MS);
     const worker = async () => {
       while (queue.length && token === bgToken) {
-        const i = queue.findIndex((r) => rowPassesFilter(r));
-        await run(queue.splice(i >= 0 ? i : 0, 1)[0]);
+        const pick = [];
+        while (queue.length && pick.length < CALC_BATCH) {
+          const i = queue.findIndex((r) => rowPassesFilter(r));
+          pick.push(queue.splice(i >= 0 ? i : 0, 1)[0]);
+        }
+        await run(pick);
       }
     };
     Promise.allSettled([worker(), worker()]).then(() => {

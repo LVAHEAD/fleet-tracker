@@ -3,6 +3,7 @@
 /api/addresses/update POST
 /api/bans GET
 /api/calc POST
+/api/calc-batch POST
 /api/changelog GET
 /api/corridors POST
 /api/dispatchers GET
