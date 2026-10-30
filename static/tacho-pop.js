@@ -179,14 +179,16 @@
   document.addEventListener("mouseover", (e) => {
     const el = host(e);
     if (!el) { if (!pinned && e.target.closest && e.target.closest(".ot-pill")) { close(); } return; }
-    // 30.10 (Владимир): наведение на флаг страны (ES и т.п.) всплывашку не вызывает — только значок экипажа; по клику на флаг открывается как раньше
-    if (!e.target.closest(".crew-b")) return;
-    strip(el);
+    // 30.10 (Владимир): всплывашка — только по наведению на значок экипажа, 1 с; флаг страны её не вызывает.
+    // Подсказку браузера у самого значка прячем тоже, чтобы окна не накладывались.
+    const cb = e.target.closest(".crew-b");
+    if (!cb) return;
+    strip(el); strip(cb);
     if (pinned) return;
     clearTimeout(hideT);
     if (anchor === el && tip && !tip.hidden) return;
     clearTimeout(showT);
-    showT = setTimeout(() => open(el), 1500);   // v3.226: 1,5 с (было 2 с)
+    showT = setTimeout(() => open(el), 1000);   // 30.10: 1 с — одна задержка для всех всплывашек (было 1,5 с)
   });
   document.addEventListener("mouseout", (e) => {
     const el = host(e);
@@ -197,15 +199,12 @@
     if (to && ((toArea && el.contains(toArea)) || (tip && tip.contains(to)))) return;
     hideT = setTimeout(() => { close(); restore(); }, 160);
   });
+  // 30.10: клик всплывашку не открывает и не закрепляет (флаг — только ⏱, 👥 — только смена режима);
+  // любой клик вне окна гасит таймер и закрывает его. Фаза захвата — чтобы сработало и до stopPropagation у 👥.
   document.addEventListener("click", (e) => {
-    const el = host(e);
-    if (el) {
-      if (pinned && anchor === el) { close(); return; }
-      clearTimeout(showT); pinned = true; open(el);
-      return;
-    }
-    if (pinned && tip && !tip.contains(e.target)) { close(); restore(); }
-  });
+    if (tip && tip.contains(e.target)) return;
+    close(); restore();
+  }, true);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") { close(); restore(); } });
   // строку Флота перерисовали — якорь пропал: закрываем, чтобы не висела чужая всплывашка
   setInterval(() => { if (anchor && !document.body.contains(anchor)) close(); }, 1500);

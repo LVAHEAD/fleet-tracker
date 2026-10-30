@@ -95,8 +95,10 @@
     clearTimeout(hideT);
     if (anchor === el && tip && !tip.hidden) return;
     clearTimeout(showT);
-    showT = setTimeout(() => open(el), 2000);
+    showT = setTimeout(() => open(el), 1000);   // 30.10: 1 с — одна задержка для всех всплывашек (было 2 с)
   });
+  // 30.10: клик по плашке (Temp ⇄ NoTemp) — всплывашка не должна всплыть следом
+  document.addEventListener("click", (e) => { if (host(e)) close(); }, true);
   document.addEventListener("mouseout", (e) => {
     const el = host(e);
     if (!el) return;
