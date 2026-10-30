@@ -263,16 +263,23 @@
   }
   function init() {
     var bar = document.createElement("div"); bar.id = "sbx-bar3";
-    bar.innerHTML = 'Машина в нескольких трипах (А + Б + В): <button data-mt="on">вкл</button><button data-mt="off">выкл</button>' +
+    bar.innerHTML = 'Машина в нескольких трипах (А + Б + В): <button data-mt="on">вкл</button><button data-mt="off">выкл</button> · подчёркивание: ' +
+      '<button data-mc="1"><i class="mt-sw" style="background:#2f6fd6"></i>синий пунктир</button><button data-mc="2"><i class="mt-sw" style="background:#e69614"></i>янтарная линия</button>' +
+      '<button data-mc="3"><i class="mt-sw" style="background:#7c3aed"></i>фиолетовая двойная</button><button data-mc="4"><i class="mt-sw" style="background:#0f9d8a"></i>бирюзовый штрих</button><br>' +
       '<span class="sbx-hint">дубли: NP-… (2 трипа), OB-… (3) — номер с пунктиром; впишите такой номер в другую строку — предупреждение; «Машина ▼» — галочка</span>';
+    function setC(c) {
+      document.body.classList.remove("mt-c1", "mt-c2", "mt-c3", "mt-c4"); document.body.classList.add("mt-c" + c);
+      bar.querySelectorAll("button[data-mc]").forEach(function (x) { x.classList.toggle("on", x.dataset.mc === c); });
+    }
     bar.addEventListener("click", function (e) {
+      var c = e.target.closest("button[data-mc]"); if (c) { setC(c.dataset.mc); return; }
       var b = e.target.closest("button[data-mt]"); if (!b) return;
       on = b.dataset.mt === "on"; if (!on) multiOnly = false;
       bar.querySelectorAll("button[data-mt]").forEach(function (x) { x.classList.toggle("on", x === b); });
       apply();
     });
     document.body.appendChild(bar);
-    bar.querySelector('button[data-mt="on"]').classList.add("on");
+    bar.querySelector('button[data-mt="on"]').classList.add("on"); setC("1");
     var tb = document.getElementById("fleet-tbody");
     obs = new MutationObserver(function () { if (!busy) setTimeout(apply, 0); }); obs.observe(tb, { childList: true });
     new MutationObserver(function () { var p = document.getElementById("unit-flt-pop"); if (p && on) hookUnitPop(p); }).observe(document.body, { childList: true });

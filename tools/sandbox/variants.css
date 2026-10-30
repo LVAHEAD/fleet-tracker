@@ -71,7 +71,15 @@ tr.dj-row .dj-list { max-height: 30vh; }
 tr.sbx-flash > td { animation: sbxFlash 1.6s ease-out; }
 
 /* ===== 30.10 22:54: машина в нескольких трипах — А + Б + В ===== */
-#fleet-tbody .unit-input.mt-dot { text-decoration: underline dotted #6b7280; text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
+#fleet-tbody .unit-input.mt-dot { border-bottom: 3px dotted var(--mtu, #2f6fd6) !important; }
+/* цвет и вид линии под номером — 4 варианта (30.10 23:00: серый пунктир «совсем незаметно»; у полей ввода подчёркивание текста не рисуется — линия поля) */
+body.mt-c1 { --mtu: #2f6fd6; }
+body.mt-c2 { --mtu: #e69614; }
+body.mt-c2 #fleet-tbody .unit-input.mt-dot { border-bottom-style: solid !important; }
+body.mt-c3 { --mtu: #7c3aed; }
+body.mt-c3 #fleet-tbody .unit-input.mt-dot { border-bottom: 4px double var(--mtu) !important; }
+body.mt-c4 { --mtu: #0f9d8a; }
+body.mt-c4 #fleet-tbody .unit-input.mt-dot { border-bottom-style: dashed !important; }
 .unit-flt-pop .mt-only { display: flex; gap: 6px; align-items: center; padding: 6px 8px 4px; font-size: 12px; color: #374151; border-bottom: 1px solid #e5e9f0; cursor: pointer; }
 
 #sbx-bar3 { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 90; display: flex; gap: 6px; align-items: center; padding: 6px 10px;
@@ -79,3 +87,4 @@ tr.sbx-flash > td { animation: sbxFlash 1.6s ease-out; }
 #sbx-bar3 button { font: inherit; padding: 3px 10px; border: 1px solid #2f6fd6; border-radius: 6px; background: #fff; color: #2f6fd6; cursor: pointer; }
 #sbx-bar3 button:hover, #sbx-bar3 button.on { background: #2f6fd6; color: #fff; }
 #sbx-bar3 .sbx-hint { color: #6b7280; }
+#sbx-bar3 .mt-sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
