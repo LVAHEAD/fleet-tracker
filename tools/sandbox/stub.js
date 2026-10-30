@@ -25,15 +25,16 @@
     return Promise.all([snapP, fleetP]).then(function (all) {
       var snap = all[0], fleet = all[1];
       if (p === "/api/fleet" && method === "GET") {
-        if (u.searchParams.get("since")) return J({ ok: true, now: Date.now(), user: USER, changes: [] });
+        // v3.244: «чужие правки» для проверки sync — очередь window.__stubChanges (кладёт панель в variants.js)
+        if (u.searchParams.get("since")) return J({ ok: true, now: Date.now(), user: USER, changes: (window.__stubChanges || []).splice(0) });
         return J(Object.assign({}, fleet, { now: Date.now() }));
       }
-      if (p === "/api/calc") {
-        var b = bodyOf(opts);
-        var key = JSON.stringify([b.unit, b.target || "", b.extra || []]);
-        var hit = snap.calc[key];
-        return J(hit || { error: "нет данных в макете" });
-      }
+      var calcOne = function (b) {
+        var hit = snap.calc[JSON.stringify([b.unit, b.target || "", b.extra || []])];
+        return hit || { error: "нет данных в макете" };
+      };
+      if (p === "/api/calc") return J(calcOne(bodyOf(opts)));
+      if (p === "/api/calc-batch") return J({ results: (bodyOf(opts).items || []).map(calcOne) });   // v3.243
       var g = snap.gets[p];
       if (g && method === "GET") return J(g.json || {}, g.status === 200 ? 200 : 200);
       if (p.indexOf("/api/fleet/") === 0) return J({ ok: true, now: Date.now(), user: USER });

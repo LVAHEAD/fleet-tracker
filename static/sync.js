@@ -20,6 +20,8 @@
     timer: null,
     pendingRender: false,
     pendingRecalc: new Set(),
+    pendingIds: new Set(),      // v3.244: строки с чужими правками — перерисовать только их
+    renderAll: false,           // v3.244: добавление, удаление, 🔒 — вся таблица
     completed: new Set(),  // v3.23: id, завершённые в этой вкладке за последнюю минуту
   };
   window.fleetSync = S;
@@ -173,7 +175,11 @@
   function flush() {
     if (!S.pendingRender || typing()) return;
     S.pendingRender = false;
-    renderRows();
+    // v3.244: изменились только поля строк — перерисовать их; добавление, удаление, 🔒 — всю таблицу
+    const only = S.renderAll ? null : Array.from(S.pendingIds);
+    S.renderAll = false;
+    S.pendingIds.clear();
+    renderRows(only);
     const ids = Array.from(S.pendingRecalc);
     S.pendingRecalc.clear();
     for (let i = 0; i < ids.length; i += CALC_BATCH) calcRowsBatch(ids.slice(i, i + CALC_BATCH), "sync");   // v3.243: пачками
@@ -199,7 +205,7 @@
       const id = key(ch.row.id);
       const idx = rows.findIndex((r) => key(r.id) === id);
       if (ch.deleted) {
-        if (idx >= 0 && S.synced.has(id)) { dropRow(rows[idx].id); changed = true; }
+        if (idx >= 0 && S.synced.has(id)) { dropRow(rows[idx].id); changed = true; S.renderAll = true; }
         S.synced.delete(id);
         delete S.meta[id];
         return;
@@ -212,6 +218,7 @@
         S.synced.set(id, remote);
         S.pendingRecalc.add(ch.row.id);
         changed = true;
+        S.renderAll = true;
         return;
       }
       const row = rows[idx];
@@ -224,15 +231,16 @@
         if (local[k] === remote[k]) return;
         if (k in remote) row[k] = JSON.parse(remote[k]); else delete row[k];
         changed = true;
+        S.pendingIds.add(row.id);
         if (RECALC_FIELDS.includes(k)) rc = true;
       });
       S.synced.set(id, remote);
       if (rc) S.pendingRecalc.add(row.id);
     });
     // пустая строка-заглушка, если другой удалил всё
-    if (!rows.length) { rows.push(emptyRow()); changed = true; }
+    if (!rows.length) { rows.push(emptyRow()); changed = true; S.renderAll = true; }
     const sig = lockSig();                      // v2.02: чья-то 🔒 появилась / снялась / истекла
-    if (sig !== S.lockSig) { S.lockSig = sig; changed = true; }
+    if (sig !== S.lockSig) { S.lockSig = sig; changed = true; S.renderAll = true; }
     if (changed) { S.pendingRender = true; flush(); }
     if (!S.pushing) setStatus("ok");
   }

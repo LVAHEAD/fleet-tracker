@@ -491,11 +491,45 @@ function crewHtml(row, cached) {
   return `<button class="crew-b${man ? " crew-man" : ""}${cls}" title="${escapeHtml(tip.join("\n"))}">${txt}</button>`;
 }
 
-function renderRows() {
+// v3.244: onlyIds — перерисовать только эти строки (чужие правки из sync). Если порядок или состав строк
+// на экране изменился — полная перерисовка, как раньше. Хуки после перерисовки (обёртка ниже) — в обоих случаях.
+function renderRows(onlyIds) {
   const tbody = document.getElementById("fleet-tbody");
-  tbody.innerHTML = "";
   document.body.classList.toggle("sort-manual", sortMode === "manual");
-  orderedRows().forEach((row) => {
+  const order = orderedRows();
+  if (Array.isArray(onlyIds) && onlyIds.length) {
+    const trs = Array.from(tbody.querySelectorAll("tr[data-id]"));
+    if (trs.length === order.length && order.every((r, i) => trs[i].dataset.id === String(r.id))) {
+      const want = new Set(onlyIds.map(String));
+      order.forEach((row, i) => {
+        if (!want.has(String(row.id))) return;
+        const tr = buildRowTr(row);
+        trs[i].replaceWith(tr);
+        finishRowTr(tr, row);
+        attachRowHandlers(tr);
+      });
+      renderRowsTail();
+      return;
+    }
+  }
+  tbody.innerHTML = "";
+  order.forEach((row) => {
+    const tr = buildRowTr(row);
+    tbody.appendChild(tr);
+    finishRowTr(tr, row);
+  });
+  attachRowHandlers();
+  renderRowsTail();
+}
+
+function renderRowsTail() {
+  if (window.PrepMap) window.PrepMap.sync();   // v3.179: плашки кодов у трипов без машины
+  if (window.slotQuickUpdate) window.slotQuickUpdate();   // v3.180: быстрые кнопки T / +1 / +2 (v3.205 — у всех)
+  updateFleetCount();
+}
+
+// v3.244: строка таблицы целиком (без обработчиков: attachRowHandlers; после вставки в DOM — finishRowTr)
+function buildRowTr(row) {
     const tr = document.createElement("tr");
     tr.dataset.id = row.id;
     if (!rowPassesFilter(row)) tr.classList.add("lo-filtered");
@@ -575,15 +609,13 @@ function renderRows() {
       tr.querySelector("td").appendChild(ch);
     }
     if (window.fleetCanDelete && !window.fleetCanDelete(row)) tr.classList.add("no-del");
-    tbody.appendChild(tr);
+    return tr;
+}
+
+function finishRowTr(tr, row) {
     markForeign(tr, row);   // v3.20: чужие правки — красным до клика хозяина трипа
     markDeliveryInput(tr, row);
     applyDoneClasses(tr, row, lastCalcText[row.id]);
-  });
-  attachRowHandlers();
-  if (window.PrepMap) window.PrepMap.sync();   // v3.179: плашки кодов у трипов без машины
-  if (window.slotQuickUpdate) window.slotQuickUpdate();   // v3.180: быстрые кнопки T / +1 / +2 (v3.205 — у всех)
-  updateFleetCount();
 }
 
 // v3.156: «Флот (N)» — все активные строки с машиной, фильтры на число не влияют
@@ -623,8 +655,9 @@ function escapeHtml(s) {
   }[c]));
 }
 
-function attachRowHandlers() {
-  document.querySelectorAll("#fleet-tbody tr").forEach((tr) => {
+// v3.244: one — только эта строка (частичная перерисовка); без него — все строки таблицы
+function attachRowHandlers(one) {
+  (one ? [one] : document.querySelectorAll("#fleet-tbody tr")).forEach((tr) => {
     const id = Number(tr.dataset.id);
 
     tr.querySelector(".unit-input").addEventListener("change", (e) => {

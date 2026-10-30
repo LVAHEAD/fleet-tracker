@@ -12,7 +12,7 @@ shutil.copy(SCR + "/stub.js", D)
 
 html = open(W + "/index_raw.html", encoding="utf-8").read()
 html = re.sub(r'<script[^>]*maps\.googleapis\.com[^>]*></script>', "", html)          # ключ Google в макет не попадает
-html = re.sub(r'/static/([A-Za-z0-9_\-./]+?)(\?v=[\d.]+)?(?=["\'])', r"\1", html)       # относительные пути
+html = re.sub(r'/static/([A-Za-z0-9_\-./]+?)(\?v=[0-9A-Za-z.]+)?(?=["\'])', r"\1", html)       # относительные пути
 body = re.search(r"<body[^>]*>(.*)</body>", html, re.S).group(1)
 links = "\n".join(re.findall(r'<link rel="stylesheet"[^>]*>', html))
 shutil.copy(SCR + "/variants.css", D); shutil.copy(SCR + "/variants.js", D)

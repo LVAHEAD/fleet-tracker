@@ -1,4 +1,71 @@
 /* Только песочница: бледно-зелёный фон страницы, чтобы отличать от прода (28.10) */
 html, body { background: #e6f3e4 !important; }
 
-/* Песочница Флота: варианты вида — пусто (28.10, «Фикс-время точки» выкачено в v3.229). */
+/* ===== Дневник трипа — три варианта (30.10): A окошко у референса, B 4-я панель справа, C строка под трипом ===== */
+.ref-cell { position: relative; }
+.ref-cell .ref-input { padding-right: 30px; }
+.dj-btn { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); min-width: 24px; height: 20px; padding: 0 4px; font: inherit; font-size: 11px; line-height: 18px;
+  border: 1px solid #2f6fd6; border-radius: 5px; background: #fff; color: #2f6fd6; cursor: pointer; }
+.dj-btn:hover, .dj-btn.on { background: #2f6fd6; color: #fff; }
+body.dj-off .dj-btn { display: none; }
+
+/* общий вид журнала */
+.dj { font-size: 13px; color: #1f2937; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.dj-head { display: flex; align-items: baseline; gap: 8px; }
+.dj-head b { font-size: 14px; }
+.dj-head span { color: #6b7280; font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dj-x { border: 1px solid #2f6fd6; background: #fff; color: #2f6fd6; border-radius: 5px; cursor: pointer; font: inherit; padding: 0 7px; }
+.dj-x:hover { background: #2f6fd6; color: #fff; }
+.dj-list { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; overscroll-behavior: contain; max-height: 46vh; }
+.dj-e { display: grid; grid-template-columns: 74px 26px 1fr auto; gap: 6px; align-items: start; padding: 4px 6px; border-radius: 6px; background: #f4f6fa; }
+.dj-e.mine { background: #eef3fd; }
+.dj-e time { color: #6b7280; font-size: 12px; white-space: nowrap; }
+.dj-e i { font-style: normal; font-weight: 700; font-size: 12px; color: #2f6fd6; }
+.dj-e p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dj-e .del { border: 0; background: none; color: #9aa6b8; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
+.dj-e .del:hover { color: #c0392b; }
+.dj-new-line { display: flex; align-items: center; gap: 8px; color: #c77d00; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.dj-new-line::before, .dj-new-line::after { content: ""; flex: 1; height: 1px; background: #f2d48a; }
+.dj-e.fresh { background: #fff6dc; box-shadow: inset 3px 0 0 #f0b24a; }
+.dj-e.fresh .nw { color: #c77d00; font-size: 10px; font-weight: 700; }
+.dj-add { display: flex; gap: 6px; }
+.dj-add input { flex: 1; min-width: 0; font: inherit; padding: 5px 8px; border: 1px solid #c9d3e3; border-radius: 6px; background: #fff; }
+.dj-add input:focus { outline: 2px solid #2f6fd6; outline-offset: -1px; }
+.dj-add button { font: inherit; padding: 4px 12px; border: 1px solid #2f6fd6; border-radius: 6px; background: #fff; color: #2f6fd6; cursor: pointer; }
+.dj-add button:hover { background: #2f6fd6; color: #fff; }
+.dj-empty { color: #8a94a6; padding: 6px; }
+
+/* A — окошко у референса */
+.dj-pop { position: fixed; z-index: 60; width: 420px; max-width: calc(100vw - 16px); padding: 10px 12px; background: #fff; border: 1px solid #c9d3e3; border-radius: 8px; box-shadow: 0 8px 28px rgba(31,41,55,.22); }
+
+/* B — 4-я панель справа */
+.dj-panel { position: fixed; top: 0; bottom: 0; right: calc(-1 * var(--sidew, 500px) - 24px); width: var(--sidew, 500px); z-index: 55; background: #fff;
+  border-left: 1px solid #c9d3e3; box-shadow: -6px 0 24px rgba(31,41,55,.12); padding: 14px 14px 12px; transition: right .25s ease; overflow-y: auto; }
+body.dj-open .dj-panel { right: 0; }
+body.dj-open { margin-right: calc(var(--sidew, 500px) + 8px); transition: margin-right .25s ease; }
+.dj-panel .dj-list { max-height: none; flex: 1; }
+.dj-panel .dj { height: 100%; gap: 10px; }
+.dj-tab { position: fixed; right: 0; top: 52%; z-index: 54; writing-mode: vertical-rl; padding: 10px 4px; background: #fff; border: 1px solid #2f6fd6; border-right: 0; border-radius: 6px 0 0 6px; color: #2f6fd6; font-size: 12px; cursor: pointer; }
+body.dj-open .dj-tab { right: var(--sidew, 500px); background: #eef3fd; }
+body:not(.dj-mode-B) .dj-panel, body:not(.dj-mode-B) .dj-tab { display: none; }
+
+/* C — строка под трипом */
+tr.dj-row > td { padding: 8px 14px 10px 48px !important; background: #f7f9fd !important; border-top: 1px dashed #c9d3e3; }
+tr.dj-row .dj { max-width: 760px; }
+tr.dj-row .dj-list { max-height: 30vh; }
+
+/* переключатель вариантов (только песочница) */
+#sbx-bar { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 90; display: flex; gap: 6px; align-items: center; padding: 6px 10px;
+  background: #fff; border: 1px solid #c9d3e3; border-radius: 10px; box-shadow: 0 4px 16px rgba(31,41,55,.2); font-size: 12px; }
+#sbx-bar button { font: inherit; padding: 3px 10px; border: 1px solid #2f6fd6; border-radius: 6px; background: #fff; color: #2f6fd6; cursor: pointer; }
+#sbx-bar button:hover, #sbx-bar button.on { background: #2f6fd6; color: #fff; }
+
+/* v3.244: проверка частичной перерисовки (только песочница) */
+#sbx-bar2 { position: fixed; left: 50%; bottom: 52px; transform: translateX(-50%); z-index: 90; display: flex; gap: 6px; align-items: center; padding: 6px 10px;
+  background: #fff; border: 1px solid #c9d3e3; border-radius: 10px; box-shadow: 0 4px 16px rgba(31,41,55,.2); font-size: 12px; max-width: calc(100vw - 16px); flex-wrap: wrap; }
+#sbx-bar2 button { font: inherit; padding: 3px 10px; border: 1px solid #2f6fd6; border-radius: 6px; background: #fff; color: #2f6fd6; cursor: pointer; }
+#sbx-bar2 button:hover { background: #2f6fd6; color: #fff; }
+#sbx-bar2 label { display: flex; gap: 4px; align-items: center; }
+#sbx-bar2 .sbx-info { color: #374151; font-variant-numeric: tabular-nums; }
+@keyframes sbxFlash { from { box-shadow: inset 0 0 0 9999px rgba(255, 196, 0, .45); } to { box-shadow: inset 0 0 0 9999px rgba(255, 196, 0, 0); } }
+tr.sbx-flash > td { animation: sbxFlash 1.6s ease-out; }
