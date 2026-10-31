@@ -137,3 +137,15 @@ class FerryMenuTest(unittest.TestCase):
         self.assertLess(html.index("ferry-menu.js"), html.index("filename='app.js'"))
         self.assertIn("ferryMenu(b,", rd("static", "app.js"))
         self.assertIn("row.ferry ? { ferry: row.ferry }", rd("static", "app.js"))
+
+
+class TerminalCoordsSyncTest(unittest.TestCase):
+    """📍 терминалов на странице «Паромы» (static/ferries.js) = PORTS расчёта ETA."""
+
+    def test_js_terminals_match_ports(self):
+        import re
+        from pathlib import Path
+        js = (Path(__file__).resolve().parents[1] / "static" / "ferries.js").read_text(encoding="utf-8")
+        got = {(float(a), float(b)) for a, b in re.findall(r'\[\s*"[^"]+",\s*([\d.]+),\s*([\d.]+)\s*\]', js.split("const TERMINAL_LL")[1].split("};")[0])}
+        want = {(lat, lng) for lat, lng, *_ in PORTS.values()}
+        self.assertEqual(got, want)

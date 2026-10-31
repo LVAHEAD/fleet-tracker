@@ -243,6 +243,22 @@ const OP_LINK = {"Finnlines": "https://www.finnlines.com/freight/schedules/", "T
   "Stena Line": "https://www.stenalinetravel.com/routes", "Unity Line": "https://www.unityline.eu/cargo/timetables", "TT-Line": "https://www.ttline.com/en/freight/",
   "DFDS Seaways": "https://www.dfds.com/en/freight-ferries-and-logistics/routes-and-schedules", "Color Line": "https://www.colorline.com/timetable",
   "Fjord Line": "https://fjordline.com/en/timetable", "Scandlines": "https://www.scandlines.com/"};
+// Точные терминалы линий (те же координаты, что PORTS в fetat/domain/ferries.py — расчёт ETA; сверяет tests/test_ferries.py).
+// Ключ — номер строки FERRY_DATA. Пока только проверенные — Германия ↔ Финляндия; у остальных линий 📍 нет.
+const TERMINAL_LL = {
+  trav: ["Травемюнде (Skandinavienkai)", 53.94068, 10.85824], seel: ["Любек (Seelandkai)", 53.90090, 10.77848],
+  rost: ["Росток (Überseehafen)", 54.14616, 12.09899], vuos: ["Хельсинки (Vuosaari)", 60.22304, 25.18172],
+  hanko: ["Ханко", 59.82215, 22.95575], turku: ["Турку", 60.4333, 22.2166],
+};
+const LINE_TERMINALS = { 0: ["trav", "vuos"], 1: ["seel", "hanko"], 2: ["rost", "hanko"], 3: ["rost", "turku"], 4: ["rost", "seel", "hanko"] };
+function terminalsHtml(r) {
+  const ks = LINE_TERMINALS[r.i];
+  if (!ks) return '<span style="color:var(--muted)">точные координаты не заданы</span>';
+  return ks.map((k) => {
+    const [name, lat, lng] = TERMINAL_LL[k], ll = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    return `<a class="sched" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" title="Открыть в Google Maps">📍 ${esc(name)}</a><span>${ll}</span>`;
+  }).join("");
+}
 function lineHtml(r) {
   const lk = OP_LINK[r.op];
   const ct = lk ? `<a class="sched" href="${esc(lk)}" target="_blank" rel="noopener">Расписание ${esc(r.op)} ↗</a>` : '<span style="color:var(--muted)">ссылки на расписание нет</span>';
@@ -256,7 +272,7 @@ function lineHtml(r) {
         <span class="freq">${tag}${esc(r.rest)}</span></span>
       <span class="chev" aria-hidden="true">▸</span>
     </button>
-    <div class="more"><h4>Условия</h4><p>${esc(r.cond)}</p><h4>Расписание</h4><div class="ct">${ct}</div></div>
+    <div class="more"><h4>Условия</h4><p>${esc(r.cond)}</p><h4>Расписание</h4><div class="ct">${ct}</div><h4>Терминалы</h4><div class="ct">${terminalsHtml(r)}</div></div>
   </div>`;
 }
 function render() {
