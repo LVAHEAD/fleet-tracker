@@ -148,4 +148,4 @@ class TerminalCoordsSyncTest(unittest.TestCase):
         js = (Path(__file__).resolve().parents[1] / "static" / "ferries.js").read_text(encoding="utf-8")
         got = {(float(a), float(b)) for a, b in re.findall(r'\[\s*"[^"]+",\s*([\d.]+),\s*([\d.]+)\s*\]', js.split("const TERMINAL_LL")[1].split("};")[0])}
         want = {(lat, lng) for lat, lng, *_ in PORTS.values()}
-        self.assertEqual(got, want)
+        self.assertLessEqual(want, got)   # все расчётные порты есть на странице; терминалы других линий — можно добавлять
