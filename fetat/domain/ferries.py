@@ -14,7 +14,7 @@ GATE_IN_H = 2.0           # тягач с водителем: заезд на т
 # Точные Name из листа «Адреса» (Type = port): (широта, долгота, страна, подпись по-русски)
 PORTS = {
     "Lubeck (Travemünde) Port": (53.94068, 10.85824, "DE", "Травемюнде"),
-    "Lubeck (Seelandkai) Port": (53.90174, 10.78126, "DE", "Любек (Seelandkai)"),
+    "Lubeck (Seelandkai) Port": (53.90090, 10.77848, "DE", "Любек (Seelandkai)"),
     "Rostock Port": (54.14616, 12.09899, "DE", "Росток"),
     "Vuosaari Port": (60.22304, 25.18172, "FI", "Хельсинки (Vuosaari)"),
     "Hanko Port": (59.82215, 22.95575, "FI", "Ханко"),
