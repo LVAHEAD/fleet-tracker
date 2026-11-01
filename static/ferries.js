@@ -243,19 +243,43 @@ const OP_LINK = {"Finnlines": "https://www.finnlines.com/freight/schedules/", "T
   "Stena Line": "https://www.stenalinetravel.com/routes", "Unity Line": "https://www.unityline.eu/cargo/timetables", "TT-Line": "https://www.ttline.com/en/freight/",
   "DFDS Seaways": "https://www.dfds.com/en/freight-ferries-and-logistics/routes-and-schedules", "Color Line": "https://www.colorline.com/timetable",
   "Fjord Line": "https://fjordline.com/en/timetable", "Scandlines": "https://www.scandlines.com/"};
-// Точные терминалы линий (те же координаты, что PORTS в fetat/domain/ferries.py — расчёт ETA; сверяет tests/test_ferries.py).
-// Ключ — номер строки FERRY_DATA. Пока только проверенные — Германия ↔ Финляндия; у остальных линий 📍 нет.
+// Терминалы линий. С координатами — проверенные (у линий расчёта ETA — те же, что PORTS в fetat/domain/ferries.py; сверяет tests/test_ferries.py).
+// null — координаты ещё не проверены (Владимир присылает по мере проверки) — показываем название серым.
 const TERMINAL_LL = {
   trav: ["Травемюнде (Skandinavienkai)", 53.94068, 10.85824], seel: ["Любек (Seelandkai)", 53.90090, 10.77848],
   rost: ["Росток (Überseehafen)", 54.14616, 12.09899], vuos: ["Хельсинки (Vuosaari)", 60.22304, 25.18172],
   hanko: ["Ханко", 59.82215, 22.95575], turku: ["Турку", 60.4333, 22.2166],
+  trel: ["Треллеборг", 55.37354, 13.14173],
+  karl: ["Карлскруна (Verkö)", null, null], gdy: ["Гдыня", null, null], ystad: ["Истад", null, null], swin: ["Свиноуйсьце", null, null],
+  nyn: ["Нюнесхамн", null, null], gda: ["Гданьск", null, null], vent: ["Вентспилс", null, null], sthv: ["Стокгольм (Värtahamnen)", null, null],
+  riga: ["Рига", null, null], kshm: ["Карлсхамн", null, null], klp: ["Клайпеда", null, null], gote: ["Гётеборг", null, null],
+  kiel: ["Киль", null, null], malmo: ["Мальмё", null, null], fred: ["Фредериксхавн", null, null], hor: ["Хельсингёр", null, null],
+  hbg: ["Хельсингборг", null, null], gren: ["Грена", null, null], halm: ["Хальмстад", null, null], hirt: ["Хиртсхальс", null, null],
+  krs: ["Кристиансанн", null, null], larv: ["Ларвик", null, null], stav: ["Ставангер (Risavika)", null, null], berg: ["Берген", null, null],
+  cph: ["Копенгаген", null, null], oslo: ["Осло", null, null], helw: ["Хельсинки (West Harbour)", null, null],
+  muuga: ["Таллин (Muuga)", null, null], vana: ["Таллин (Vanasatama)", null, null], kata: ["Хельсинки (Katajanokka)", null, null],
+  kap: ["Капелльшер", null, null], pald: ["Палдиски", null, null], putt: ["Путтгарден", null, null], rodby: ["Рёдбю", null, null],
+  gedser: ["Гедсер", null, null], naan: ["Наантали", null, null], umea: ["Умео (Holmsund)", null, null], vaasa: ["Вааса", null, null],
+  sths: ["Стокгольм (Stadsgården)", null, null], helsh: ["Хельсинки (South Harbour / Olympia)", null, null],
 };
-const LINE_TERMINALS = { 0: ["trav", "vuos"], 1: ["seel", "hanko"], 2: ["rost", "hanko"], 3: ["rost", "turku"], 4: ["rost", "seel", "hanko"] };
+// ключ — номер строки FERRY_DATA (static/ferries-data.js)
+const LINE_TERMINALS = {
+  0: ["trav", "vuos"], 1: ["seel", "hanko"], 2: ["rost", "hanko"], 3: ["rost", "turku"], 4: ["rost", "seel", "hanko"],
+  5: ["karl", "gdy"], 6: ["ystad", "swin"], 7: ["ystad", "swin"], 8: ["nyn", "gda"], 9: ["trel", "swin"], 10: ["nyn", "vent"],
+  11: ["sthv", "riga"], 12: ["kshm", "klp"], 13: ["trel", "klp"], 14: ["trel", "rost"], 15: ["trel", "rost"], 16: ["trel", "trav"],
+  17: ["gote", "kiel"], 18: ["malmo", "trav"], 19: ["fred", "gote"], 20: ["hor", "hbg"], 21: ["gren", "halm"], 22: ["hirt", "krs"],
+  23: ["hirt", "larv"], 24: ["hirt", "krs"], 25: ["hirt", "stav", "berg"], 26: ["cph", "oslo"], 27: ["vuos", "helw", "muuga", "vana"],
+  28: ["vuos", "muuga"], 29: ["kata", "vana"], 30: ["kap", "pald"], 31: ["sthv", "muuga", "vana"], 32: ["putt", "rodby"],
+  33: ["rost", "gedser"], 34: ["kap", "naan"], 35: ["umea", "vaasa"], 36: ["sthv", "turku"], 37: ["sths", "turku"],
+  38: ["sthv", "helsh"], 39: ["sths", "kata"],
+};
 function terminalsHtml(r) {
   const ks = LINE_TERMINALS[r.i];
-  if (!ks) return '<span style="color:var(--muted)">точные координаты не заданы</span>';
+  if (!ks) return '<span style="color:var(--muted)">терминалы не заданы</span>';
   return ks.map((k) => {
-    const [name, lat, lng] = TERMINAL_LL[k], ll = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const [name, lat, lng] = TERMINAL_LL[k];
+    if (lat == null) return `<span class="sched" style="color:var(--muted);font-weight:400" title="Координаты терминала ещё не проверены">${esc(name)} — нет координат</span>`;
+    const ll = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
     return `<a class="sched" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" title="Открыть в Google Maps">📍 ${esc(name)}</a><span>${ll}</span>`;
   }).join("");
 }
