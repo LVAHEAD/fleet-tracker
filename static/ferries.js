@@ -50,7 +50,9 @@ h1 small{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
 .more p{margin:0;overflow-wrap:anywhere}
 .ct{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
 .ct span{user-select:all}
-.tg{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;align-items:center;width:100%}
+.tg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 14px;width:100%}
+.tg-col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.tg-item{display:flex;flex-direction:column;gap:2px;min-width:0}
 .tg-h{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
 .tg-name{min-width:0;overflow-wrap:anywhere}
 .tg-gps{white-space:nowrap;user-select:all}
@@ -287,13 +289,15 @@ const LINE_TERMINALS = {
 function terminalsHtml(r) {
   const ks = LINE_TERMINALS[r.i];
   if (!ks) return '<span style="color:var(--muted)">терминалы не заданы</span>';
-  // 2 колонки: название (ссылка на карту) | ГПС с кнопкой «копировать»
-  return '<div class="tg"><span class="tg-h">Название</span><span class="tg-h">ГПС</span>' + ks.map((k) => {
+  // 2 колонки: «Откуда» — первый терминал линии, «Куда» — остальные (порядок как в маршруте линии)
+  const item = (k) => {
     const [name, lat, lng] = TERMINAL_LL[k];
-    if (lat == null) return `<span class="tg-name" style="color:var(--muted);font-weight:400" title="Координаты терминала ещё не проверены">${esc(name)}</span><span class="tg-gps" style="color:var(--muted)">нет координат</span>`;
+    if (lat == null) return `<div class="tg-item"><span class="tg-name" style="color:var(--muted);font-weight:400" title="Координаты терминала ещё не проверены">${esc(name)}</span><span class="tg-gps" style="color:var(--muted)">нет координат</span></div>`;
     const ll = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    return `<a class="sched tg-name" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" title="Открыть в Google Maps">📍 ${esc(name)}</a><span class="tg-gps"><span>${ll}</span><button type="button" class="copy" data-t="${ll}" title="Копировать координаты">копировать</button></span>`;
-  }).join("") + '</div>';
+    return `<div class="tg-item"><a class="sched tg-name" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" title="Открыть в Google Maps">📍 ${esc(name)}</a><span class="tg-gps"><span>${ll}</span><button type="button" class="copy" data-t="${ll}" title="Копировать координаты">копировать</button></span></div>`;
+  };
+  const col = (title, list) => `<div class="tg-col"><span class="tg-h">${title}</span>${list.map(item).join("")}</div>`;
+  return `<div class="tg">${col("Откуда", ks.slice(0, 1))}${col("Куда", ks.slice(1))}</div>`;
 }
 function lineHtml(r) {
   const lk = OP_LINK[r.op];
