@@ -161,6 +161,7 @@ const PORTS = {
   putt:["Путтгарден",11.22,54.5,-9,8,"end"], rody:["Рёдбю",11.35,54.66,9,-4,"start"], gedser:["Гедсер",11.93,54.57,9,12,"start"],
   naan:["Наантали",21.95,60.47,-9,14,"end"], ume:["Умео",20.3,63.7,-9,4,"end"], vaasa:["Вааса",21.6,63.08,9,4,"start"],
   stav:["Ставангер",5.7,58.97,-9,4,"end"], berg:["Берген",5.3,60.4,-9,4,"end"],
+  liep:["Лиепая",21.0,56.52,9,4,"start"],
 };
 // [номер строки таблицы, от, до, промежуточные точки]
 const SEG = [
@@ -175,6 +176,8 @@ const SEG = [
   [38,"sto","hels",[[19.5,59.5],[22.7,59.7],[24.5,60.0]]],[39,"sto","hels"],
   [32,"putt","rody"],[33,"rost","gedser",[[12.0,54.4]]],
   [26,"cph","oslo",[[12.67,56],[12.2,56.5],[11.4,57.5],[10.7,58.6],[10.6,59.2]]],
+  [40,"trav","liep",[[11.5,54.2],[12.4,54.75],[15.5,55.5],[19.5,56.2]]],[41,"kiel","klai",[[10.9,54.6],[12.4,54.75],[15.5,55.4],[19.5,55.6]]],
+  [42,"kiel","oslo",[[10.9,54.8],[10.9,55.4],[11.2,56.6],[11.0,57.8],[10.7,58.6],[10.6,59.2]]],[43,"fred","oslo",[[10.8,58.2],[10.6,59.2]]],
 ];
 function buildMap() {
   const W = 1000, H = Math.round((LAT1 - 52.8) * KY);
@@ -261,6 +264,7 @@ const TERMINAL_LL = {
   kap: ["Капелльшер", null, null], pald: ["Палдиски", null, null], putt: ["Путтгарден", null, null], rodby: ["Рёдбю", null, null],
   gedser: ["Гедсер", null, null], naan: ["Наантали", null, null], umea: ["Умео (Holmsund)", null, null], vaasa: ["Вааса", null, null],
   sths: ["Стокгольм (Stadsgården)", null, null], helsh: ["Хельсинки (South Harbour / Olympia)", null, null],
+  liep: ["Лиепая", null, null], kielo: ["Киль (Ostuferhafen)", null, null], kieln: ["Киль (Norwegenkai)", null, null],
 };
 // ключ — номер строки FERRY_DATA (static/ferries-data.js)
 const LINE_TERMINALS = {
@@ -272,6 +276,7 @@ const LINE_TERMINALS = {
   28: ["vuos", "muuga"], 29: ["kata", "vana"], 30: ["kap", "pald"], 31: ["sthv", "muuga", "vana"], 32: ["putt", "rodby"],
   33: ["rost", "gedser"], 34: ["kap", "naan"], 35: ["umea", "vaasa"], 36: ["sthv", "turku"], 37: ["sths", "turku"],
   38: ["sthv", "helsh"], 39: ["sths", "kata"],
+  40: ["trav", "liep"], 41: ["kielo", "klp"], 42: ["kieln", "oslo"], 43: ["fred", "oslo"],
 };
 function terminalsHtml(r) {
   const ks = LINE_TERMINALS[r.i];
