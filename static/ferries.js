@@ -256,7 +256,7 @@ const TERMINAL_LL = {
   karl: ["Карлскруна (Verkö)", null, null], gdy: ["Гдыня", null, null], ystad: ["Истад", null, null], swin: ["Свиноуйсьце", null, null],
   nyn: ["Нюнесхамн", null, null], gda: ["Гданьск", null, null], vent: ["Вентспилс", null, null], sthv: ["Стокгольм (Värtahamnen)", null, null],
   riga: ["Рига", null, null], kshm: ["Карлсхамн", null, null], klp: ["Клайпеда", null, null], gote: ["Гётеборг", null, null],
-  kiel: ["Киль", null, null], malmo: ["Мальмё", null, null], fred: ["Фредериксхавн", null, null], hor: ["Хельсингёр", null, null],
+  kiel: ["Киль (Schwedenkai)", null, null], malmo: ["Мальмё", null, null], fred: ["Фредериксхавн", null, null], hor: ["Хельсингёр", null, null],
   hbg: ["Хельсингборг", null, null], gren: ["Грена", null, null], halm: ["Хальмстад", null, null], hirt: ["Хиртсхальс", null, null],
   krs: ["Кристиансанн", null, null], larv: ["Ларвик", null, null], stav: ["Ставангер (Risavika)", null, null], berg: ["Берген", null, null],
   cph: ["Копенгаген", null, null], oslo: ["Осло", null, null], helw: ["Хельсинки (West Harbour)", null, null],
