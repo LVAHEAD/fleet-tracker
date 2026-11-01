@@ -22,7 +22,7 @@ class V3235(unittest.TestCase):
 
     def test_no_contacts_block(self):
         self.assertNotIn("<h4>Контакты</h4>", JS)
-        self.assertIn("<h4>Расписание</h4>", JS)
+        self.assertIn("tg-h\">Расписание</span>", JS)
         self.assertIn('".op.lk"', JS)
 
 
