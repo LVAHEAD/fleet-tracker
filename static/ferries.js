@@ -31,6 +31,7 @@ h1 small{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
 .row{display:grid;grid-template-columns:150px minmax(0,1fr) minmax(170px,230px) 24px;gap:6px 16px;align-items:center;padding:11px 14px;cursor:pointer;width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit}
 .row:hover{background:var(--accent-soft)}
 .line.open>.row{background:#e6f0fb}
+.line.open>.more{background:#f3f8fe}
 .op{display:inline-block;max-width:100%;padding:3px 9px;border-radius:5px;font-weight:600;font-size:13px;background:hsl(var(--h) 60% var(--chip-bg));color:hsl(var(--h) 55% var(--chip-fg));overflow-wrap:anywhere}
 .route{font-weight:600;font-size:14.5px;overflow-wrap:anywhere}
 .ports{color:var(--muted);font-size:12.5px;margin-top:2px;overflow-wrap:anywhere}
@@ -344,7 +345,10 @@ root.getElementById("list").addEventListener("click", (e) => {
   const o = e.target.closest(".op.lk"); if (o) { window.open(o.dataset.href, "_blank", "noopener"); return; }   // v3.235: оператор — ссылка на расписание
   const c = e.target.closest(".copy"); if (c) { copyText(c, c.dataset.t); return; }
   const r = e.target.closest(".row"); if (!r) return;
-  const l = r.parentElement; l.classList.toggle("open"); r.setAttribute("aria-expanded", l.classList.contains("open"));
+  // одна раскрытая строка: при открытии другой предыдущая схлопывается
+  const l = r.parentElement, opening = !l.classList.contains("open");
+  root.querySelectorAll(".line.open").forEach((x) => { if (x !== l) { x.classList.remove("open"); x.querySelector(".row").setAttribute("aria-expanded", "false"); } });
+  l.classList.toggle("open", opening); r.setAttribute("aria-expanded", String(opening));
   focusMap();
 });
 function focusMap() {   // v3.208: раскрытая строка — выделить её линию на схеме, остальные притушить
