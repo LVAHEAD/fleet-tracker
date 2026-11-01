@@ -50,6 +50,10 @@ h1 small{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
 .more p{margin:0;overflow-wrap:anywhere}
 .ct{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
 .ct span{user-select:all}
+.tg{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;align-items:center;width:100%}
+.tg-h{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.tg-name{min-width:0;overflow-wrap:anywhere}
+.tg-gps{white-space:nowrap;user-select:all}
 .copy{font:inherit;font-size:12px;padding:1px 7px;border-radius:5px;border:1px solid var(--accent);background:var(--surface);color:var(--accent);cursor:pointer;margin-left:5px}
 .copy:hover{background:var(--accent);color:#fff}
 .op.lk{cursor:pointer}.op.lk:hover{text-decoration:underline}.sched{color:var(--accent);font-weight:600}
@@ -283,12 +287,13 @@ const LINE_TERMINALS = {
 function terminalsHtml(r) {
   const ks = LINE_TERMINALS[r.i];
   if (!ks) return '<span style="color:var(--muted)">терминалы не заданы</span>';
-  return ks.map((k) => {
+  // 2 колонки: название (ссылка на карту) | ГПС с кнопкой «копировать»
+  return '<div class="tg"><span class="tg-h">Название</span><span class="tg-h">ГПС</span>' + ks.map((k) => {
     const [name, lat, lng] = TERMINAL_LL[k];
-    if (lat == null) return `<span class="sched" style="color:var(--muted);font-weight:400" title="Координаты терминала ещё не проверены">${esc(name)} — нет координат</span>`;
+    if (lat == null) return `<span class="tg-name" style="color:var(--muted);font-weight:400" title="Координаты терминала ещё не проверены">${esc(name)}</span><span class="tg-gps" style="color:var(--muted)">нет координат</span>`;
     const ll = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    return `<a class="sched" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" title="Открыть в Google Maps">📍 ${esc(name)}</a><span>${ll}</span>`;
-  }).join("");
+    return `<a class="sched tg-name" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" title="Открыть в Google Maps">📍 ${esc(name)}</a><span class="tg-gps"><span>${ll}</span><button type="button" class="copy" data-t="${ll}" title="Копировать координаты">копировать</button></span>`;
+  }).join("") + '</div>';
 }
 function lineHtml(r) {
   const lk = OP_LINK[r.op];
@@ -303,7 +308,7 @@ function lineHtml(r) {
         <span class="freq">${tag}${esc(r.rest)}</span></span>
       <span class="chev" aria-hidden="true">▸</span>
     </button>
-    <div class="more"><h4>Условия</h4><p>${esc(r.cond)}</p><h4>Расписание</h4><div class="ct">${ct}</div><h4>Терминалы</h4><div class="ct">${terminalsHtml(r)}</div></div>
+    <div class="more"><h4>Расписание</h4><div class="ct">${ct}</div><h4>Терминалы</h4><div class="ct">${terminalsHtml(r)}</div></div>
   </div>`;
 }
 function render() {
