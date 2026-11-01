@@ -50,7 +50,7 @@ h1 small{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
 .more p{margin:0;overflow-wrap:anywhere}
 .ct{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
 .ct span{user-select:all}
-.tg3{display:grid;grid-template-columns:150px minmax(0,1fr) minmax(170px,230px) 24px;gap:10px 16px;align-items:start}
+.tg3{display:grid;grid-template-columns:150px minmax(170px,230px) minmax(170px,230px);gap:10px 16px;align-items:start}
 .tg-col{display:flex;flex-direction:column;gap:8px;min-width:0}
 .tg-item{display:flex;flex-direction:column;gap:2px;min-width:0}
 .tg-h{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
