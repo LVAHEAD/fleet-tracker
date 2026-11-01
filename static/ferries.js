@@ -44,13 +44,13 @@ h1 small{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
 .tag.direct{background:var(--accent-soft);color:var(--accent)}
 .chev{justify-self:end;color:var(--muted);transition:transform .15s}
 .line.open .chev{transform:rotate(90deg)}
-.more{display:none;padding:2px 14px 14px 14px;grid-template-columns:150px minmax(0,1fr);gap:8px 16px}
+.more{display:none;padding:2px 14px 14px 14px;grid-template-columns:minmax(0,1fr);gap:8px 16px}
 .line.open .more{display:grid}
 .more h4{margin:0;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
 .more p{margin:0;overflow-wrap:anywhere}
 .ct{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
 .ct span{user-select:all}
-.tg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 14px;width:100%}
+.tg3{display:grid;grid-template-columns:minmax(0,.7fr) minmax(0,1fr) minmax(0,1fr);gap:10px 16px;align-items:start}
 .tg-col{display:flex;flex-direction:column;gap:8px;min-width:0}
 .tg-item{display:flex;flex-direction:column;gap:2px;min-width:0}
 .tg-h{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
@@ -116,7 +116,7 @@ aside.side .mapwrap{margin-bottom:10px}aside.side .filters{margin-bottom:6px}
  .row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"op hrs" "rt rt" "bar bar" "fr fr";gap:6px 10px;padding:12px}
  .row>span:first-child{grid-area:op}.row .rt{grid-area:rt}.row .time{display:contents}
  .hrs{grid-area:hrs;justify-self:end}.bar{grid-area:bar}.freq{grid-area:fr}.chev{display:none}
- .more{grid-template-columns:minmax(0,1fr)}.copy{padding:5px 10px;font-size:13px}
+ .more{grid-template-columns:minmax(0,1fr)}.tg3{grid-template-columns:minmax(0,1fr)}.copy{padding:5px 10px;font-size:13px}
 }
 @media (prefers-reduced-motion:reduce){.chev{transition:none}}
 </style>
@@ -299,7 +299,7 @@ function terminalsHtml(r) {
     return `<div class="tg-item"><a class="sched tg-name" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" title="Открыть в Google Maps">📍 ${esc(name)}</a><span class="tg-gps"><span>${ll}</span><button type="button" class="copy copy-ic" data-t="${ll}" title="Копировать координаты" aria-label="Копировать координаты"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V6a2 2 0 0 1 2-2h9"></path></svg></button></span></div>`;
   };
   const col = (title, list) => `<div class="tg-col"><span class="tg-h">${title}</span>${list.map(item).join("")}</div>`;
-  return `<div class="tg">${col("Откуда", ks.slice(0, 1))}${col("Куда", ks.slice(1))}</div>`;
+  return `${col("Откуда", ks.slice(0, 1))}${col("Куда", ks.slice(1))}`;
 }
 function lineHtml(r) {
   const lk = OP_LINK[r.op];
@@ -314,7 +314,7 @@ function lineHtml(r) {
         <span class="freq">${tag}${esc(r.rest)}</span></span>
       <span class="chev" aria-hidden="true">▸</span>
     </button>
-    <div class="more"><h4>Расписание</h4><div class="ct">${ct}</div><h4>Терминалы</h4><div class="ct">${terminalsHtml(r)}</div></div>
+    <div class="more"><div class="tg3"><div class="tg-col"><span class="tg-h">Расписание</span>${ct}</div>${terminalsHtml(r)}</div></div>
   </div>`;
 }
 function render() {
