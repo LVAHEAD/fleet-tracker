@@ -55,7 +55,9 @@ h1 small{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
 .tg-item{display:flex;flex-direction:column;gap:2px;min-width:0}
 .tg-h{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
 .tg-name{min-width:0;overflow-wrap:anywhere}
-.tg-gps{white-space:nowrap;user-select:all}
+.tg-gps{white-space:nowrap;user-select:all;display:flex;align-items:center;gap:4px}
+.copy.copy-ic{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;margin:0 0 0 2px;border:0;border-radius:4px;background:none;color:#888;user-select:none}
+.copy.copy-ic:hover,.copy.copy-ic:focus-visible{color:#2f6fd6;background:none}
 .copy{font:inherit;font-size:12px;padding:1px 7px;border-radius:5px;border:1px solid var(--accent);background:var(--surface);color:var(--accent);cursor:pointer;margin-left:5px}
 .copy:hover{background:var(--accent);color:#fff}
 .op.lk{cursor:pointer}.op.lk:hover{text-decoration:underline}.sched{color:var(--accent);font-weight:600}
@@ -242,7 +244,7 @@ function pair(dir) {
   return `<span class="pair"><span class="cc">${esc(a)}</span>↔<span class="cc">${esc(b)}</span></span>`;
 }
 function copyText(btn, text) {
-  const done = () => { const o = btn.textContent; btn.textContent = "ok"; setTimeout(() => (btn.textContent = o), 900); };
+  const done = () => { const o = btn.innerHTML; btn.textContent = "ok"; setTimeout(() => (btn.innerHTML = o), 900); };
   try { navigator.clipboard.writeText(text).then(done, () => selText(btn)); } catch (e) { selText(btn); }
 }
 function selText(btn) { const s = btn.previousElementSibling; if (s) { const r = document.createRange(); r.selectNodeContents(s); const g = getSelection(); g.removeAllRanges(); g.addRange(r); } }
@@ -294,7 +296,7 @@ function terminalsHtml(r) {
     const [name, lat, lng] = TERMINAL_LL[k];
     if (lat == null) return `<div class="tg-item"><span class="tg-name" style="color:var(--muted);font-weight:400" title="Координаты терминала ещё не проверены">${esc(name)}</span><span class="tg-gps" style="color:var(--muted)">нет координат</span></div>`;
     const ll = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    return `<div class="tg-item"><a class="sched tg-name" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" title="Открыть в Google Maps">📍 ${esc(name)}</a><span class="tg-gps"><span>${ll}</span><button type="button" class="copy" data-t="${ll}" title="Копировать координаты">копировать</button></span></div>`;
+    return `<div class="tg-item"><a class="sched tg-name" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" title="Открыть в Google Maps">📍 ${esc(name)}</a><span class="tg-gps"><span>${ll}</span><button type="button" class="copy copy-ic" data-t="${ll}" title="Копировать координаты" aria-label="Копировать координаты"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V6a2 2 0 0 1 2-2h9"></path></svg></button></span></div>`;
   };
   const col = (title, list) => `<div class="tg-col"><span class="tg-h">${title}</span>${list.map(item).join("")}</div>`;
   return `<div class="tg">${col("Откуда", ks.slice(0, 1))}${col("Куда", ks.slice(1))}</div>`;
