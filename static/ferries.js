@@ -303,7 +303,7 @@ function terminalsHtml(r) {
 }
 function lineHtml(r) {
   const lk = OP_LINK[r.op];
-  const ct = lk ? `<a class="sched" href="${esc(lk)}" target="_blank" rel="noopener">Расписание ${esc(r.op)} ↗</a>` : '<span style="color:var(--muted)">ссылки на расписание нет</span>';
+  const ct = lk ? `<a class="sched" href="${esc(lk)}" target="_blank" rel="noopener" title="Расписание ${esc(r.op)}" aria-label="Расписание ${esc(r.op)}">🗓 ${esc(r.op)} ↗</a>` : '<span style="color:var(--muted)">ссылки нет</span>';
   const tag = r.tag ? `<span class="tag ${r.tag === "Прямой" ? "direct" : ""}">${esc(r.tag)}</span>` : "";
   const pct = r.h != null ? Math.max(3, Math.min(100, (r.h / MAXH) * 100)) : 0;
   return `<div class="line" data-i="${r.i}">
