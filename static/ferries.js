@@ -247,36 +247,38 @@ const OP_LINK = {"Finnlines": "https://www.finnlines.com/freight/schedules/", "T
   "DFDS Seaways": "https://www.dfds.com/en/freight-ferries-and-logistics/routes-and-schedules", "Color Line": "https://www.colorline.com/timetable",
   "Fjord Line": "https://fjordline.com/en/timetable", "Scandlines": "https://www.scandlines.com/"};
 // Терминалы линий. С координатами — проверенные (у линий расчёта ETA — те же, что PORTS в fetat/domain/ferries.py; сверяет tests/test_ferries.py).
-// null — координаты ещё не проверены (Владимир присылает по мере проверки) — показываем название серым.
+// null — координаты ещё не проверены — показываем название серым. 1.11: координаты остальных терминалов — от Владимира.
 const TERMINAL_LL = {
-  trav: ["Травемюнде (Skandinavienkai)", 53.94068, 10.85824], seel: ["Любек (Seelandkai)", 53.90090, 10.77848],
-  rost: ["Росток (Überseehafen)", 54.14616, 12.09899], vuos: ["Хельсинки (Vuosaari)", 60.22304, 25.18172],
-  hanko: ["Ханко", 59.82215, 22.95575], turku: ["Турку", 60.4333, 22.2166],
-  trel: ["Треллеборг", 55.37354, 13.14173],
-  karl: ["Карлскруна (Verkö)", null, null], gdy: ["Гдыня", null, null], ystad: ["Истад", null, null], swin: ["Свиноуйсьце", null, null],
-  nyn: ["Нюнесхамн", null, null], gda: ["Гданьск", null, null], vent: ["Вентспилс", null, null], sthv: ["Стокгольм (Värtahamnen)", null, null],
-  riga: ["Рига", null, null], kshm: ["Карлсхамн", null, null], klp: ["Клайпеда", null, null], gote: ["Гётеборг", null, null],
-  kiel: ["Киль (Schwedenkai)", null, null], malmo: ["Мальмё", null, null], fred: ["Фредериксхавн", null, null], hor: ["Хельсингёр", null, null],
-  hbg: ["Хельсингборг", null, null], gren: ["Грена", null, null], halm: ["Хальмстад", null, null], hirt: ["Хиртсхальс", null, null],
-  krs: ["Кристиансанн", null, null], larv: ["Ларвик", null, null], stav: ["Ставангер (Risavika)", null, null], berg: ["Берген", null, null],
-  cph: ["Копенгаген", null, null], oslo: ["Осло", null, null], helw: ["Хельсинки (West Harbour)", null, null],
-  muuga: ["Таллин (Muuga)", null, null], vana: ["Таллин (Vanasatama)", null, null], kata: ["Хельсинки (Katajanokka)", null, null],
-  kap: ["Капелльшер", null, null], pald: ["Палдиски", null, null], putt: ["Путтгарден", null, null], rodby: ["Рёдбю", null, null],
-  gedser: ["Гедсер", null, null], naan: ["Наантали", null, null], umea: ["Умео (Holmsund)", null, null], vaasa: ["Вааса", null, null],
-  sths: ["Стокгольм (Stadsgården)", null, null], helsh: ["Хельсинки (South Harbour / Olympia)", null, null],
-  liep: ["Лиепая", null, null], kielo: ["Киль (Ostuferhafen)", null, null], kieln: ["Киль (Norwegenkai)", null, null],
+  trav: ["Травемюнде (Skandinavienkai)", 53.94068, 10.85824], seel: ["Любек (Seelandkai)", 53.90090, 10.77848], rost: ["Росток (Überseehafen)", 54.14616, 12.09899],
+  vuos: ["Хельсинки (Vuosaari)", 60.22304, 25.18172], hanko: ["Ханко", 59.82215, 22.95575], turku: ["Турку", 60.4333, 22.2166],
+  trel: ["Треллеборг", 55.37354, 13.14173], sthv: ["Стокгольм (Värtahamnen)", 59.35150, 18.11280], hirt: ["Хиртсхальс", 57.59270, 9.98330],
+  swin: ["Свиноуйсьце", 53.90130, 14.26290], muuga: ["Таллин (Muuga)", 59.48199, 24.97981], vana: ["Таллин (Vanasatama)", 59.44430, 24.76450],
+  ystad: ["Истад", 55.42620, 13.82910], nyn: ["Нюнесхамн", 58.93963, 17.97497], gote: ["Гётеборг (Majnabbe / Danmarksterminalen)", 57.69538, 11.91533],
+  fred: ["Фредериксхавн", 57.43445, 10.54051], krs: ["Кристиансанн", 58.14513, 7.98472], kap: ["Капелльшер", 59.72140, 19.06280],
+  kata: ["Хельсинки (Katajanokka)", 60.16433, 24.96730], helw: ["Хельсинки (West Harbour / Länsiterminaali 2)", 60.15014, 24.91509], helsh: ["Хельсинки (South Harbour / Olympia)", 60.16113, 24.95743],
+  sths: ["Стокгольм (Stadsgården)", 59.31563, 18.09775], kiel: ["Киль (Schwedenkai)", 54.31972, 10.13872], kielo: ["Киль (Ostuferhafen)", 54.33352, 10.17716],
+  kieln: ["Киль (Norwegenkai)", 54.31577, 10.13948], karl: ["Карлскруна (Verkö)", 56.16581, 15.63422], kshm: ["Карлсхамн (Stilleryd)", 56.16569, 14.83013],
+  malmo: ["Мальмё (Norra Hamnen)", 55.62872, 12.99936], hbg: ["Хельсингборг", 56.04079, 12.69393], hor: ["Хельсингёр", 56.03273, 12.61464],
+  halm: ["Хальмстад", 56.65133, 12.85834], gren: ["Грена", 56.40755, 10.92517], gdy: ["Гдыня (Publiczny Terminal Promowy)", 54.53298, 18.54457],
+  gda: ["Гданьск (Westerplatte)", 54.40465, 18.67864], vent: ["Вентспилс (Plosta iela)", 57.39818, 21.57524], liep: ["Лиепая (Terrabalt / Brīvostas iela)", 56.52804, 20.99718],
+  riga: ["Рига (Eksporta iela)", 56.95760, 24.09700], pald: ["Палдиски (Northern Port)", 59.35504, 24.04243], cph: ["Копенгаген (Dampfærgevej)", 55.70144, 12.59575],
+  larv: ["Ларвик (Revet)", 59.04124, 10.04633], stav: ["Ставангер (Risavika)", 58.92047, 5.58226], berg: ["Берген (Nøstegaten)", 60.38920, 5.31290],
+  putt: ["Путтгарден (Fehmarn)", 54.49901, 11.22377], rodby: ["Рёдбю (Rødbyhavn)", 54.65741, 11.35564], gedser: ["Гедсер", 54.57711, 11.92499],
+  naan: ["Наантали", 60.45904, 22.04067], umea: ["Умео (Holmsund)", 63.68227, 20.33961], vaasa: ["Вааса (Vaskilot)", 63.08819, 21.55793],
+  klpD: ["Клайпеда (Baltijos pr. / CKT)", 55.68420, 21.14440], klpT: ["Клайпеда (Minijos g.)", 55.65370, 21.16590], osloD: ["Осло (Akershusstranda)", 59.90523, 10.74465],
+  osloC: ["Осло (Hjortnes)", 59.91030, 10.71070],
 };
 // ключ — номер строки FERRY_DATA (static/ferries-data.js)
 const LINE_TERMINALS = {
   0: ["trav", "vuos"], 1: ["seel", "hanko"], 2: ["rost", "hanko"], 3: ["rost", "turku"], 4: ["rost", "seel", "hanko"],
   5: ["karl", "gdy"], 6: ["ystad", "swin"], 7: ["ystad", "swin"], 8: ["nyn", "gda"], 9: ["trel", "swin"], 10: ["nyn", "vent"],
-  11: ["sthv", "riga"], 12: ["kshm", "klp"], 13: ["trel", "klp"], 14: ["trel", "rost"], 15: ["trel", "rost"], 16: ["trel", "trav"],
+  11: ["sthv", "riga"], 12: ["kshm", "klpD"], 13: ["trel", "klpT"], 14: ["trel", "rost"], 15: ["trel", "rost"], 16: ["trel", "trav"],
   17: ["gote", "kiel"], 18: ["malmo", "trav"], 19: ["fred", "gote"], 20: ["hor", "hbg"], 21: ["gren", "halm"], 22: ["hirt", "krs"],
-  23: ["hirt", "larv"], 24: ["hirt", "krs"], 25: ["hirt", "stav", "berg"], 26: ["cph", "oslo"], 27: ["vuos", "helw", "muuga", "vana"],
+  23: ["hirt", "larv"], 24: ["hirt", "krs"], 25: ["hirt", "stav", "berg"], 26: ["cph", "osloD"], 27: ["vuos", "helw", "muuga", "vana"],
   28: ["vuos", "muuga"], 29: ["kata", "vana"], 30: ["kap", "pald"], 31: ["sthv", "muuga", "vana"], 32: ["putt", "rodby"],
   33: ["rost", "gedser"], 34: ["kap", "naan"], 35: ["umea", "vaasa"], 36: ["sthv", "turku"], 37: ["sths", "turku"],
   38: ["sthv", "helsh"], 39: ["sths", "kata"],
-  40: ["trav", "liep"], 41: ["kielo", "klp"], 42: ["kieln", "oslo"], 43: ["fred", "oslo"],
+  40: ["trav", "liep"], 41: ["kielo", "klpD"], 42: ["kieln", "osloC"], 43: ["fred", "osloD"],
 };
 function terminalsHtml(r) {
   const ks = LINE_TERMINALS[r.i];
