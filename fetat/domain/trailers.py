@@ -190,3 +190,68 @@ def find_hitch(unit, units, truck_ids):
         if best is None or (sure, -d) > (best["sure"], -best["km"]):
             best = {"number": o.get("number") or o.get("label"), "sure": sure, "km": round(d, 3)}
     return best
+
+
+# v3.258: лог рефа прицепа (Truck Info): включения по истории Mapon reefer/historic_period
+REEFER_LOG_GAP_MIN = 5      # паузы короче — одно включение
+REEFER_LOG_OK_MIN = 60      # подзарядка аккумулятора: не меньше часа
+REEFER_LOG_GOOD_MIN = 120   # желательно два
+
+
+def reefer_log_events(state):
+    """state: {"compartment_0": [{"value": "on"|"off", "gmt": ISO}], ...} -> [(ts, on)] по времени; реф включён, если включён любой отсек."""
+    from datetime import datetime, timezone
+    ev = []
+    for comp, lst in (state or {}).items():
+        if not isinstance(lst, list):
+            continue
+        for x in lst:
+            try:
+                t = datetime.strptime(str(x.get("gmt")), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+            except (ValueError, AttributeError):
+                continue
+            ev.append((t, comp, str(x.get("value")).lower() == "on"))
+    ev.sort()
+    cur, out = {}, []
+    for t, comp, on in ev:
+        cur[comp] = on
+        out.append((t, any(cur.values())))
+    return out
+
+
+def reefer_log_kind(minutes):
+    return "good" if minutes >= REEFER_LOG_GOOD_MIN else "ok" if minutes >= REEFER_LOG_OK_MIN else "low"
+
+
+def reefer_log(events, frm, till):
+    """events [(ts, on)] -> {"on": [{from, till, min, kind}], "summary": {...}}; ts — секунды UTC, интервал [frm, till].
+    До первого события реф считаем выключенным; включён на конец — работает до till; паузы короче REEFER_LOG_GAP_MIN склеиваем."""
+    spans, since = [], None
+    for t, on in events:
+        if on and since is None:
+            since = t
+        elif not on and since is not None:
+            spans.append([since, t])
+            since = None
+    if since is not None:
+        spans.append([since, till])
+    merged = []
+    for a, b in spans:
+        a, b = max(a, frm), min(b, till)
+        if b <= a:
+            continue
+        if merged and a - merged[-1][1] < REEFER_LOG_GAP_MIN * 60:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    on = [{"from": a, "till": b, "min": (b - a) / 60.0, "kind": reefer_log_kind((b - a) / 60.0)} for a, b in merged]
+    gaps, t = [], frm
+    for o in on:
+        gaps.append(o["from"] - t)
+        t = o["till"]
+    gaps.append(till - t)
+    ok = [o for o in on if o["min"] >= REEFER_LOG_OK_MIN]
+    return {"on": on, "summary": {
+        "count": len(on), "ok": len(ok), "good": sum(1 for o in on if o["min"] >= REEFER_LOG_GOOD_MIN),
+        "total_min": sum(o["min"] for o in on), "longest_idle_min": max(gaps) / 60.0,
+        "last_on": on[-1]["till"] if on else None, "last_ok": ok[-1]["till"] if ok else None}}

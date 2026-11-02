@@ -3,7 +3,7 @@
    Данные — в памяти страницы (в макете не сохраняются), записи для примера выдуманы. */
 (function () {
   "use strict";
-  var ME = "VL", mode = "A", openId = null;
+  var ME = "VL", mode = "B", openId = null;
   var LAST_SEEN = {};        // строка -> сколько записей видели в последний раз (для «новое»)
   var DATA = {};             // строка -> [{t, who, text}]
   var SEED = [
@@ -128,73 +128,12 @@
     tab = document.createElement("div"); tab.className = "dj-tab"; tab.textContent = "📝 Дневник"; tab.title = "Закрыть панель дневника"; document.body.appendChild(tab);
     tab.addEventListener("click", closeAll);
     var bar = document.createElement("div"); bar.id = "sbx-bar";
-    bar.innerHTML = 'Дневник трипа: <button data-m="A">A · окошко у референса</button><button data-m="B">B · 4-я панель справа</button><button data-m="C">C · строка под трипом</button><button data-m="off">выкл</button>';
+    bar.innerHTML = 'Дневник трипа: <button data-m="B">B · 4-я панель справа</button><button data-m="off">выкл</button>';
     bar.addEventListener("click", function (e) { var b = e.target.closest("button[data-m]"); if (b) setMode(b.dataset.m); });
     document.body.appendChild(bar);
     var tb = document.getElementById("fleet-tbody");
     if (tb) new MutationObserver(function () { inject(); }).observe(tb, { childList: true });
-    inject(); setMode("A");
-  }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
-})();
-
-/* v3.244: проверка частичной перерисовки при sync. Кнопки кладут «чужую правку» в очередь stub.js (/api/fleet?since)
-   и сразу зовут приём изменений; перерисованные строки вспыхивают, внизу — сколько строк перерисовано. */
-(function () {
-  "use strict";
-  var info, flash = true;
-  function trs() { return Array.prototype.slice.call(document.querySelectorAll("#fleet-tbody tr[data-id]")); }
-  function hms() { return new Date().toLocaleTimeString("ru-RU"); }
-  function metaOf(id, extra) {
-    var s = window.fleetSync, m = (s && s.meta && s.meta[String(id)]) || {};
-    return Object.assign({}, m, { updated_by: "dispatcher2@example.com", updated_at: Date.now() }, extra || {});
-  }
-  function send(chs) {
-    var q = window.__stubChanges = window.__stubChanges || [];
-    q.push.apply(q, chs);
-    document.dispatchEvent(new Event("visibilitychange"));   // sync.js: pull() сразу, не ждать интервала
-  }
-  function onScreen() {   // строки с машиной в порядке экрана
-    var ids = trs().map(function (t) { return t.dataset.id; });
-    return rows.filter(function (r) { return r.unit && ids.indexOf(String(r.id)) >= 0; })
-      .sort(function (a, b) { return ids.indexOf(String(a.id)) - ids.indexOf(String(b.id)); });
-  }
-  function edit(n) {
-    var list = onScreen(), step = Math.max(1, Math.floor(list.length / n)), chs = [];
-    for (var i = 0; i < n && i * step < list.length; i++) {
-      var r = JSON.parse(JSON.stringify(list[i * step]));
-      r.note = "чужая правка " + hms();
-      chs.push({ row: r, meta: metaOf(r.id) });
-    }
-    send(chs);
-  }
-  function addRow() {
-    var src = onScreen()[0]; if (!src) return;
-    var r = JSON.parse(JSON.stringify(src));
-    r.id = rows.reduce(function (m, x) { return Math.max(m, x.id); }, 0) + 1000;
-    r.note = "чужая новая строка " + hms();
-    send([{ row: r, meta: metaOf(r.id, { created_by: "dispatcher2@example.com", created_at: Date.now() }) }]);
-  }
-  function init() {
-    var bar = document.createElement("div"); bar.id = "sbx-bar2";
-    bar.innerHTML = 'v3.244 · чужая правка (sync): <button data-a="1">1 строка</button><button data-a="3">3 строки</button>' +
-      '<button data-a="new">новая строка</button><label><input type="checkbox" checked> подсветка</label><span class="sbx-info">—</span>';
-    info = bar.querySelector(".sbx-info");
-    bar.addEventListener("click", function (e) {
-      var b = e.target.closest("button[data-a]"); if (!b) return;
-      if (b.dataset.a === "new") addRow(); else edit(+b.dataset.a);
-    });
-    bar.querySelector("input").addEventListener("change", function (e) { flash = e.target.checked; });
-    document.body.appendChild(bar);
-    var tb = document.getElementById("fleet-tbody");
-    new MutationObserver(function (recs) {
-      var added = [];
-      recs.forEach(function (rc) { rc.addedNodes.forEach(function (n) { if (n.nodeType === 1 && n.matches("tr[data-id]")) added.push(n); }); });
-      if (!added.length) return;
-      var all = trs().length;
-      info.textContent = hms() + " — перерисовано " + added.length + " из " + all + (added.length >= all ? " (вся таблица)" : " (только изменённые)");
-      if (flash) added.forEach(function (t) { t.classList.add("sbx-flash"); setTimeout(function () { t.classList.remove("sbx-flash"); }, 1600); });
-    }).observe(tb, { childList: true });
+    inject(); setMode("B");
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

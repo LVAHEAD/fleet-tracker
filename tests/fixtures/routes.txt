@@ -41,6 +41,7 @@
 /api/notebook/<rid>/comments POST
 /api/notebook/<rid>/comments/<cid> DELETE
 /api/presence GET
+/api/reefer-log GET
 /api/reefer-probe GET
 /api/refresh-stat GET
 /api/refresh-stat POST

@@ -12,7 +12,7 @@ from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.points import find_unit_exact, object_at
 from fetat.domain.regions import nearest_region_code
 from fetat.domain.tacho import tacho_no_subscription, WEEKLY_FULL_SEC, weekly_status
-from fetat.domain.trailers import is_trailer
+from fetat.domain.trailers import is_trailer, reefer_log, reefer_log_events
 from fetat.utils.geo import haversine_km, _wkt_center, _wkt_vertices
 from fetat.utils.timefmt import _hm, _lv, _utc_iso
 from fetat.utils.log import warn
@@ -133,6 +133,8 @@ def api_truck_info():
     if not unit:
         return jsonify({"error": "трак не найден"}), 404
     uid = unit["unit_id"]
+    if is_trailer(unit):   # v3.258: у прицепа нет водителей и тахографа — страница покажет лог рефа (/api/reefer-log)
+        return jsonify({"unit_id": uid, "number": unit.get("number") or unit.get("label"), "trailer": True, "drivers": []})
     try:
         days = max(1, min(int(request.args.get("days") or 3), ACT_DAYS))
     except ValueError:
@@ -385,6 +387,63 @@ def _tacho_subscriptions():
            "тахограф отвечает": len(ok)}
     return current_app.response_class(json.dumps(out, ensure_ascii=False, indent=1),
                                       mimetype="application/json; charset=utf-8")
+
+# v3.258: лог рефа прицепа — включения за N суток (Mapon reefer/historic_period; нужны права ключа на reefer/*)
+REEFER_LOG_TTL = 300
+_reefer_log_cache = {}
+
+
+def _iso_z(ts):
+    from datetime import datetime, timezone
+    return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+@bp.route("/api/reefer-log")
+def api_reefer_log():
+    """/api/reefer-log?unit=<номер или id>&days=14 — интервалы работы рефа, сводка, время UTC (ISO)."""
+    import time
+    if not MAPON_API_KEY:
+        return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
+    try:
+        days = max(1, min(int(request.args.get("days") or 14), 30))
+    except ValueError:
+        days = 14
+    try:
+        unit = _find_unit(request.args.get("unit"))
+    except Exception as e:
+        return jsonify({"error": f"Mapon: {e}"}), 502
+    if not unit:
+        return jsonify({"error": "юнит не найден"}), 404
+    uid = unit["unit_id"]
+    key = (uid, days)
+    hit = _reefer_log_cache.get(key)
+    if hit and time.time() - hit[0] < REEFER_LOG_TTL:
+        return jsonify(hit[1])
+    till = int(time.time())
+    frm = till - days * 86400
+    try:
+        d = mapon_get(f"{MAPON_BASE}/reefer/historic_period.json",
+                      {"key": MAPON_API_KEY, "unit_id": uid, "from": _iso_z(frm), "till": _iso_z(till)}, timeout=40)
+    except Exception as e:
+        return jsonify({"error": f"Mapon: {e}"}), 502
+    data = d.get("data") if isinstance(d, dict) else None
+    state = (data or {}).get("state") if isinstance(data, dict) else None
+    out = {"unit_id": uid, "number": unit.get("number") or unit.get("label"), "days": days,
+           "from": _iso_z(frm), "till": _iso_z(till)}
+    if not isinstance(state, dict) or not state:
+        out["no_reefer"] = True       # у юнита нет данных рефа за период
+    else:
+        res = reefer_log(reefer_log_events(state), frm, till)
+        iso = lambda t: _iso_z(t) if t else None
+        out["on"] = [{"from": _iso_z(o["from"]), "till": _iso_z(o["till"]), "min": round(o["min"], 1), "kind": o["kind"]} for o in res["on"]]
+        sm = dict(res["summary"])
+        sm["last_on"], sm["last_ok"] = iso(sm["last_on"]), iso(sm["last_ok"])
+        sm["total_min"], sm["longest_idle_min"] = round(sm["total_min"]), round(sm["longest_idle_min"])
+        out["summary"] = sm
+    _reefer_log_cache[key] = (time.time(), out)
+    return jsonify(out)
+
+
 
 # v3.257: пробный запрос истории рефа прицепа — есть ли у Mapon история за N суток (не для постоянной работы)
 REEFER_PROBE_METHODS = ("reefer/runmodes", "reefer/list_temperature_data", "reefer/alert_list")

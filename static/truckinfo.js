@@ -86,6 +86,50 @@ Fleet ETA Tracker — вкладка "Truck Info"
     out.querySelectorAll(".ti-pick").forEach((b) => b.addEventListener("click", () => { inp.value = b.dataset.n; load(); }));
   }
 
+  // v3.258: лог рефа прицепа — сводка и полоса по суткам (время — Рига); подзарядка: до 1 ч «мало», от 1 ч «достаточно», от 2 ч «хорошо»
+  const RIGA = { timeZone: "Europe/Riga" };
+  const fD = new Intl.DateTimeFormat("ru", Object.assign({ day: "2-digit", month: "2-digit" }, RIGA));
+  const fT = new Intl.DateTimeFormat("ru", Object.assign({ hour: "2-digit", minute: "2-digit", hourCycle: "h23" }, RIGA));
+  const rlDt = (ms) => fD.format(ms) + " " + fT.format(ms);
+  const rlHm = (m) => { if (m < 1) return "< 1 мин"; m = Math.round(m); return m >= 60 ? Math.floor(m / 60) + " ч" + (m % 60 ? " " + (m % 60) + " мин" : "") : m + " мин"; };
+  function reeferHtml(j) {
+    if (j.no_reefer) return `<div class="rl-h"><b>Реф</b></div><div class="ti-err">У этого юнита нет данных рефа за период.</div>`;
+    const sm = j.summary || {}, now = Date.parse(j.till), from = Date.parse(j.from);
+    const ago = (iso) => { const t = iso ? Date.parse(iso) : 0; return t ? `${rlDt(t)} (${rlHm((now - t) / 6e4)} назад)` : "нет за период"; };
+    const rows = [["Включений", `${sm.count || 0} · достаточных (≥ 1 ч): ${sm.ok || 0} · хороших (≥ 2 ч): ${sm.good || 0}`],
+      ["Работал всего", rlHm(sm.total_min || 0)], ["Самый долгий простой", rlHm(sm.longest_idle_min || 0)],
+      ["Последнее включение", ago(sm.last_on)], ["Последнее достаточное", ago(sm.last_ok)]];
+    const key = (ms) => fD.format(ms), mins = (ms) => { const p = fT.format(ms).split(":"); return (+p[0]) * 60 + (+p[1]); };
+    const byDay = {};
+    (j.on || []).forEach((o) => {                       // включение через полночь режем по суткам
+      const a = Date.parse(o.from), b = Date.parse(o.till);
+      for (let cur = a; cur < b;) {
+        const k = key(cur), st = mins(cur), left = (b - cur) / 6e4, len = Math.min(left, 1440 - st);
+        (byDay[k] = byDay[k] || []).push(`<i class="rl-seg rl-s-${o.kind}" style="left:${st / 14.4}%;width:${Math.max(len / 14.4, 0.5)}%" title="${esc(rlDt(a))} · ${esc(rlHm(o.min))}"></i>`);
+        cur += Math.max(len, 1) * 6e4 + 1000;
+      }
+    });
+    const keys = [];
+    for (let d = from; d <= now; d += 864e5) keys.push(key(d));
+    if (keys.indexOf(key(now)) < 0) keys.push(key(now));
+    return `<div class="rl-h"><b>Реф</b> <span class="rl-demo">время — Рига, за ${esc(j.days)} сут.</span></div>`
+      + `<div class="rl-sum">${rows.map((r) => `<div class="rl-k">${r[0]}</div><div>${esc(r[1])}</div>`).join("")}</div>`
+      + `<div class="rl-days"><div class="rl-axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>`
+      + keys.map((k) => `<div class="rl-day"><span class="rl-dl">${k}</span><span class="rl-bar">${(byDay[k] || []).join("")}</span></div>`).join("")
+      + `<div class="rl-leg"><i class="rl-seg rl-s-low"></i> мало (&lt; 1 ч) <i class="rl-seg rl-s-ok"></i> достаточно (≥ 1 ч) <i class="rl-seg rl-s-good"></i> хорошо (≥ 2 ч)</div></div>`;
+  }
+  async function loadReefer(q, days) {
+    const box = () => document.getElementById("ti-reefer");
+    try {
+      const r = await fetch(`/api/reefer-log?unit=${encodeURIComponent(q)}&days=${encodeURIComponent(days)}`);
+      const j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error || r.status);
+      if (box()) box().innerHTML = reeferHtml(j);
+    } catch (e) {
+      if (box()) box().innerHTML = `<div class="ti-err">Реф: ${esc(e.message)}</div>`;
+    }
+  }
+
   async function load() {
     const q = inp.value.trim();
     if (!q) return;
@@ -97,6 +141,10 @@ Fleet ETA Tracker — вкладка "Truck Info"
       if (r.status === 404) return searchDrivers(q);      // не номер трака — ищем водителя по имени
       if (!r.ok || j.error) throw new Error(j.error || r.status);
       let h = `<div class="ti-title">${esc(j.number)}</div>`;
+      if (j.trailer) {   // v3.258: прицеп — вместо водителей лог рефа
+        out.innerHTML = h + `<div class="rl-card" id="ti-reefer"><div class="ti-loading">Реф: загрузка…</div></div>`;
+        return loadReefer(q, days);
+      }
       if (j.tacho_error) h += `<div class="ti-err">Тахограф: ${esc(j.tacho_error)}</div>`;
       h += `<div class="ti-drivers">${(j.drivers || []).map(driverHtml).join("")}</div>`;
       if (j.stops && j.stops.length) {
