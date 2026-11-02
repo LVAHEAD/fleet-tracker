@@ -123,9 +123,15 @@ function unitFilterMark() {
       rerender();
     });
     pop.querySelector(".mt-only input").addEventListener("change", (e) => {   // v3.247
-      unitMultiOnly = e.target.checked;
+      const on = e.target.checked;
+      if (on) {   // v3.255: включили — полный сброс остальных фильтров (клиент, дата / T +1 +2, машины, диспетчер, L / O)
+        (window.fleetFltResets || []).forEach((f) => { try { f(); } catch (err) {} });
+        ["button[data-own=\"all\"]", "button[data-flt=\"all\"]"].forEach((q) => { const b = document.querySelector(q); if (b) b.click(); });
+      }
+      unitMultiOnly = on;
       try { localStorage.setItem("fleet-unit-multi", unitMultiOnly ? "1" : ""); } catch (err) {}
-      rerender();
+      mark();
+      if (typeof resort === "function") resort(); else rerender();   // v3.255: пары собираются при пересортировке
     });
     pop.querySelector(".cf-reset").addEventListener("click", () => {
       unitMultiOnly = false;

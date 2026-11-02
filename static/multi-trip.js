@@ -28,15 +28,43 @@ function mtLine(r) {
 }
 
 // Б: пунктир под номером у всех строк, чья машина есть во Флоте ещё раз (зовётся после каждой перерисовки — renderRowsTail)
+function pairBadge(tr, row, pair) {
+  const cell = tr.querySelector(".unit-cell");
+  if (!cell) return;
+  let b = cell.querySelector(".mt-pair");
+  const t = pair.get(tr.dataset.id);
+  if (!t) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement("span"); b.className = "mt-pair"; cell.appendChild(b); }
+  if (b.textContent !== t) b.textContent = t;
+}
+
 function markMultiTrips() {
   const byId = new Map(rows.map((r) => [String(r.id), r]));
   const cnt = new Map();
   rows.forEach((r) => { const k = r && r.unit ? unitKey(r.unit) : ""; if (k) cnt.set(k, (cnt.get(k) || 0) + 1); });
+  // v3.255: значок «1/2», «2/2» — только при «2+ трипа» и сортировке «По загрузке»; порядок — как на экране
+  const pairOn = typeof unitMultiOnly !== "undefined" && unitMultiOnly && typeof sortMode !== "undefined" && sortMode === "load";
+  const pair = new Map();
+  if (pairOn) {
+    const vis = new Map();
+    document.querySelectorAll("#fleet-tbody tr[data-id]").forEach((tr) => {
+      const r = byId.get(tr.dataset.id), k = r && r.unit ? unitKey(r.unit) : "";
+      if (k) vis.set(k, (vis.get(k) || 0) + 1);
+    });
+    const seen = new Map();
+    document.querySelectorAll("#fleet-tbody tr[data-id]").forEach((tr) => {
+      const r = byId.get(tr.dataset.id), k = r && r.unit ? unitKey(r.unit) : "";
+      if (!k || vis.get(k) < 2) return;
+      seen.set(k, (seen.get(k) || 0) + 1);
+      pair.set(tr.dataset.id, `${seen.get(k)}/${vis.get(k)}`);
+    });
+  }
   document.querySelectorAll("#fleet-tbody tr[data-id]").forEach((tr) => {
     const row = byId.get(tr.dataset.id);
     const inp = tr.querySelector(".unit-input");
     if (!row || !inp) return;
     const many = !!row.unit && (cnt.get(unitKey(row.unit)) || 0) > 1;
+    pairBadge(tr, row, pair);
     if (inp.classList.contains("mt-dot") === many) return;
     inp.classList.toggle("mt-dot", many);
     // подсказка браузера мешала бы карточке: «кто и когда правил» переезжает в низ карточки
@@ -80,16 +108,23 @@ function markMultiTrips() {
       const xt = trOf(x.id), e = etaEnd(xt), st = mtSlotStart(x), de = dispEntry(rowDisp(x));
       const dc = (de && de.color) || "#f4f6fa", db = shadeHex(dc, 0.18) || "#c9d3e3";
       const cd = codes(xt);
+      // v3.255: у последней точки главная — плановая дата, ETA в скобках; запас считаем от плана (нет плана — от ETA)
+      const nPts = 1 + (x.extra ? x.extra.length : 0), lp = typeof pointOf === "function" ? pointOf(x, nPts - 1) : null;
+      let pw = null; try { pw = lp && lp.delivery ? parseDeliveryWindow(String(lp.delivery)) : null; } catch (err) { pw = null; }
+      const plan = pw && (pw.end || pw.start) || null;
+      const pd = plan ? `${fmtD(plan)} ${p2(plan.getHours())}:${p2(plan.getMinutes())}` : "";
+      const lastTxt = plan ? `Дата ${pd}${e.t ? ` (ETA ${escapeHtml(e.t)})` : ""}` : `ETA ${escapeHtml(e.t || "—")}`;
       h += `<div class="mtc-r${x === me ? " me" : ""}" data-id="${x.id}" style="--mtd:${escapeHtml(dc)};--mtdb:${escapeHtml(db)}"`
         + `${x === me ? "" : ' title="Клик — к этому трипу"'}><span class="mtc-n">${i + 1}/${list.length}</span>`
         + `<span class="mtc-m"><b>${escapeHtml(x.client || "без клиента")}</b>${x.ref ? " · " + escapeHtml(x.ref) : ""}${cd ? `<i>${escapeHtml(cd)}</i>` : ""}</span>`
-        + `<span class="mtc-d">① ${st ? fmtD(st) : "—"}<br>ETA ${escapeHtml(e.t || "—")}</span><span class="mtc-w">${escapeHtml(dispLabel(rowDisp(x)))}</span></div>`;
+        + `<span class="mtc-d">① ${st ? fmtD(st) : "—"}<br>${lastTxt}</span><span class="mtc-w">${escapeHtml(dispLabel(rowDisp(x)))}</span></div>`;
       if (i < list.length - 1) {   // стык: конец этого трипа против начала слота ① следующего
         const nx = mtSlotStart(list[i + 1]);
-        if (e.d && nx) {
-          const hrs = (nx - e.d) / 36e5, bad = hrs < 0, a = Math.abs(hrs);
+        const from = plan || e.d;
+        if (from && nx) {
+          const hrs = (nx - from) / 36e5, a = Math.abs(hrs);
           const dur = a >= 36 ? (a / 24).toFixed(1).replace(".", ",") + " сут" : Math.round(a) + " ч";
-          h += `<div class="mtc-gap${bad ? " bad" : ""}">${bad ? `⚠ не успевает на ① трипа ${i + 2} — опоздание ${dur}` : `↓ запас до ① трипа ${i + 2}: ${dur}`}</div>`;
+          h += `<div class="mtc-gap">${hrs < 0 ? `↓ ① трипа ${i + 2} раньше конца этого трипа по плану` : `↓ запас до ① трипа ${i + 2}: ${dur}`}</div>`;   // «не успевает» не показываем (02.11)
         } else {
           h += '<div class="mtc-gap">↓ стык не посчитать — нет ETA или даты ①</div>';
         }

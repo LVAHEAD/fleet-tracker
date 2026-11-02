@@ -108,7 +108,7 @@ function computeBaseOrder() {
     const idx = new Map(rows.map((r, i) => [r.id, i]));
     const key = new Map(rows.map((r) => [r.id, loadKey(r)]));
     const cl = (r) => String(r.client || "").trim();
-    return rows.slice().sort((x, y) => {
+    const sorted = rows.slice().sort((x, y) => {
       const kx = key.get(x.id), ky = key.get(y.id);
       if ((kx == null) !== (ky == null)) return kx == null ? 1 : -1;
       if (kx && kx.day !== ky.day) return kx.day - ky.day;
@@ -116,9 +116,25 @@ function computeBaseOrder() {
       if (c) return c;
       if (kx && kx.t !== ky.t) return kx.t - ky.t;
       return idx.get(x.id) - idx.get(y.id);
-    }).map((r) => r.id);
+    });
+    return loadPairs(sorted);
   }
   return rows.map((r) => r.id);
+}
+
+// v3.255: при «только машины с 2+ трипами» трипы одной машины идут подряд; пара стоит там, где её ранний трип (дата ①)
+function loadPairs(sorted) {
+  const ids = sorted.map((r) => r.id);
+  if (typeof unitMultiOnly === "undefined" || !unitMultiOnly) return ids;
+  const by = new Map();
+  sorted.forEach((r) => { const k = r.unit ? unitKey(r.unit) : ""; if (k) { if (!by.has(k)) by.set(k, []); by.get(k).push(r.id); } });
+  const out = [], done = new Set();
+  sorted.forEach((r) => {
+    if (done.has(r.id)) return;
+    const g = r.unit ? by.get(unitKey(r.unit)) : null;
+    (g && g.length > 1 ? g : [r.id]).forEach((id) => { out.push(id); done.add(id); });
+  });
+  return out;
 }
 
 function resort() {
