@@ -386,6 +386,69 @@ def _tacho_subscriptions():
     return current_app.response_class(json.dumps(out, ensure_ascii=False, indent=1),
                                       mimetype="application/json; charset=utf-8")
 
+# v3.257: пробный запрос истории рефа прицепа — есть ли у Mapon история за N суток (не для постоянной работы)
+REEFER_PROBE_METHODS = ("reefer/runmodes", "reefer/list_temperature_data", "reefer/alert_list")
+
+
+@bp.route("/api/reefer-probe")
+def api_reefer_probe():
+    """/api/reefer-probe?unit=<номер или id>&days=14[&m=reefer/runmodes][&raw=1]: что отдают методы reefer/* Mapon за период.
+    Показывает число записей, первую / последнюю запись и ключи; raw=1 — сырой ответ (до 20 КБ на метод)."""
+    import json
+    from datetime import datetime, timedelta, timezone
+    if not MAPON_API_KEY:
+        return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
+    norm = lambda x: re.sub(r"[^0-9a-zа-я]", "", str(x or "").lower())
+    q = norm(request.args.get("unit"))
+    if not q:
+        return jsonify({"error": "укажите ?unit=<номер или id прицепа>"}), 400
+    try:
+        days = max(1, min(60, int(request.args.get("days") or 14)))
+    except ValueError:
+        days = 14
+    try:
+        units = fetch_units(MAPON_API_KEY)
+    except Exception as e:
+        return jsonify({"error": f"unit/list: {e}"}), 502
+    unit = next((u for u in units if str(u["unit_id"]) == q), None) or next(
+        (u for u in units if q in norm(u.get("number")) or q in norm(u.get("label"))), None)
+    if not unit:
+        return jsonify({"error": f"юнит '{request.args.get('unit')}' не найден"}), 404
+    till = datetime.now(timezone.utc).replace(microsecond=0)
+    frm = till - timedelta(days=days)
+    fmt = lambda d: d.strftime("%Y-%m-%dT%H:%M:%SZ")
+    raw = request.args.get("raw") == "1"
+    methods = [request.args["m"]] if request.args.get("m") else REEFER_PROBE_METHODS
+    out = {"юнит": {"unit_id": unit["unit_id"], "номер": unit.get("number") or unit.get("label")},
+           "период": {"from": fmt(frm), "till": fmt(till), "суток": days}, "методы": {}}
+    for m in methods:
+        if not str(m).startswith(("reefer/", "unit_data/")):
+            out["методы"][m] = {"ok": False, "ошибка": "только reefer/* и unit_data/*"}
+            continue
+        try:
+            d = mapon_get(f"https://mapon.com/api/v1/{m}.json",
+                          {"key": MAPON_API_KEY, "unit_id": unit["unit_id"], "from": fmt(frm), "till": fmt(till)}, timeout=40)
+            data = d.get("data") if isinstance(d, dict) else d
+            items = data if isinstance(data, list) else None
+            if items is None and isinstance(data, dict):   # вложенный список (units → [..]) — берём самый длинный
+                lists = [v for v in data.values() if isinstance(v, list)]
+                items = max(lists, key=len) if lists else None
+            info = {"ok": True, "тип": type(data).__name__}
+            if items is not None:
+                info["записей"] = len(items)
+                if items:
+                    info["первая"], info["последняя"] = items[0], items[-1]
+                    if isinstance(items[0], dict):
+                        info["ключи"] = sorted(items[0].keys())
+            else:
+                info["ответ"] = data
+            if raw:
+                info["raw"] = json.dumps(data, ensure_ascii=False)[:20000]
+            out["методы"][m] = info
+        except Exception as e:
+            out["методы"][m] = {"ok": False, "ошибка": str(e)[:300]}
+    return jsonify(out)
+
 
 @bp.route("/api/mapon-check")
 def api_mapon_check():
