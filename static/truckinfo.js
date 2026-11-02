@@ -100,13 +100,16 @@ Fleet ETA Tracker — вкладка "Truck Info"
       ["Работал всего", rlHm(sm.total_min || 0)], ["Самый долгий простой", rlHm(sm.longest_idle_min || 0)],
       ["Последнее включение", ago(sm.last_on)], ["Последнее достаточное", ago(sm.last_ok)]];
     const key = (ms) => fD.format(ms), mins = (ms) => { const p = fT.format(ms).split(":"); return (+p[0]) * 60 + (+p[1]); };
-    const byDay = {};
+    const byDay = {}, txt = {};
     (j.on || []).forEach((o) => {                       // включение через полночь режем по суткам
       const a = Date.parse(o.from), b = Date.parse(o.till);
       for (let cur = a; cur < b;) {
         const k = key(cur), st = mins(cur), left = (b - cur) / 6e4, len = Math.min(left, 1440 - st);
+        const first = cur === a, last = left <= 1440 - st;   // подпись к полосе: когда включили и на сколько (через сутки — с … / весь день / до …)
+        (txt[k] = txt[k] || []).push(first && last ? `${fT.format(cur)} · ${rlHm(o.min)}` : first ? `с ${fT.format(cur)} · всего ${rlHm(o.min)}` : last ? `до ${fT.format(b)}` : "весь день");
         (byDay[k] = byDay[k] || []).push(`<i class="rl-seg rl-s-${o.kind}" style="left:${st / 14.4}%;width:${Math.max(len / 14.4, 0.5)}%" title="${esc(rlDt(a))} · ${esc(rlHm(o.min))}"></i>`);
         cur += Math.max(len, 1) * 6e4 + 1000;
+        while (cur < b && key(cur) === k) cur += 36e5;   // сутки с переводом часов длиннее 24 ч — не повторяем день
       }
     });
     const keys = [];
@@ -114,8 +117,8 @@ Fleet ETA Tracker — вкладка "Truck Info"
     if (keys.indexOf(key(now)) < 0) keys.push(key(now));
     return `<div class="rl-h"><b>Реф</b> <span class="rl-demo">время — Рига, за ${esc(j.days)} сут.</span></div>`
       + `<div class="rl-sum">${rows.map((r) => `<div class="rl-k">${r[0]}</div><div>${esc(r[1])}</div>`).join("")}</div>`
-      + `<div class="rl-days"><div class="rl-axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>`
-      + keys.map((k) => `<div class="rl-day"><span class="rl-dl">${k}</span><span class="rl-bar">${(byDay[k] || []).join("")}</span></div>`).join("")
+      + `<div class="rl-days"><div class="rl-day"><span class="rl-dl"></span><span class="rl-axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></span><span class="rl-dd"></span></div>`
+      + keys.map((k) => `<div class="rl-day"><span class="rl-dl">${k}</span><span class="rl-bar">${(byDay[k] || []).join("")}</span><span class="rl-dd" title="${esc((txt[k] || []).join(" · "))}">${esc((txt[k] || []).join(" · "))}</span></div>`).join("")
       + `<div class="rl-leg"><i class="rl-seg rl-s-low"></i> мало (&lt; 1 ч) <i class="rl-seg rl-s-ok"></i> достаточно (≥ 1 ч) <i class="rl-seg rl-s-good"></i> хорошо (≥ 2 ч)</div></div>`;
   }
   async function loadReefer(q, days) {
