@@ -17,7 +17,9 @@ if (!["all", "mine"].includes(ownFilter) && !String(ownFilter).includes("@")) ow
 // v3.11: фильтр диспетчера — "all" | "mine" | e-mail. Строки без диспетчера — только в "все".
 // v3.25: кнопки «Все · VL · VJ …» вместо «все · мои · ▾ дисп»; старое "mine" — своя кнопка (resolveMine).
 // Тот же фильтр — для карты: v3.26 — чужие машинки спрятаны (раньше бледные).
+let pinnedRowId = null;   // v3.254: строка, у которой меняют диспетчера — не уходит из вида до ухода из поля
 function rowPassesOwn(row) {
+  if (pinnedRowId != null && String(row.id) === String(pinnedRowId)) return true;
   if (ownFilter === "all") return true;
   const d = rowDisp(row);
   if (ownFilter === "mine") return !fleetMe() || !meInSheet() || d === fleetMe();   // v3.15: нет в листе — «мои» = все

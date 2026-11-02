@@ -671,11 +671,16 @@ function attachRowHandlers(one) {
       if (v.trim() && typeof multiTripWarn === "function") multiTripWarn(id, v);   // v3.247: у машины уже есть трип во Флоте
     });
     const dsel = tr.querySelector(".disp-sel");
-    if (dsel) dsel.addEventListener("change", (e) => {   // v2.01
-      setRowField(id, "disp", e.target.value);
-      renderRows();
-      refreshBadgeLooks();
-    });
+    if (dsel) {
+      dsel.addEventListener("change", (e) => {   // v2.01; v3.254: строка остаётся в виде до ухода из поля
+        setRowField(id, "disp", e.target.value);
+        pinnedRowId = id;
+        refreshBadgeLooks();
+      });
+      dsel.addEventListener("blur", () => {
+        if (pinnedRowId != null && String(pinnedRowId) === String(id)) { pinnedRowId = null; renderRows(); }
+      });
+    }
     tr.querySelector(".target-input").addEventListener("change", (e) => {
       updateRowField(id, "target", e.target.value);
     });
