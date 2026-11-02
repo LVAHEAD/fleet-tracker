@@ -127,11 +127,12 @@ function loadPairs(sorted) {
   const ids = sorted.map((r) => r.id);
   if (typeof unitMultiOnly === "undefined" || !unitMultiOnly) return ids;
   const by = new Map();
-  sorted.forEach((r) => { const k = r.unit ? unitKey(r.unit) : ""; if (k) { if (!by.has(k)) by.set(k, []); by.get(k).push(r.id); } });
+  const live = (r) => !awaitsComplete(r);   // v3.256: «Завершить» в пары не входит
+  sorted.forEach((r) => { const k = r.unit && live(r) ? unitKey(r.unit) : ""; if (k) { if (!by.has(k)) by.set(k, []); by.get(k).push(r.id); } });
   const out = [], done = new Set();
   sorted.forEach((r) => {
     if (done.has(r.id)) return;
-    const g = r.unit ? by.get(unitKey(r.unit)) : null;
+    const g = r.unit && live(r) ? by.get(unitKey(r.unit)) : null;
     (g && g.length > 1 ? g : [r.id]).forEach((id) => { out.push(id); done.add(id); });
   });
   return out;

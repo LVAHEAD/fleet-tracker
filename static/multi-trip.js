@@ -48,12 +48,12 @@ function markMultiTrips() {
   if (pairOn) {
     const vis = new Map();
     document.querySelectorAll("#fleet-tbody tr[data-id]").forEach((tr) => {
-      const r = byId.get(tr.dataset.id), k = r && r.unit ? unitKey(r.unit) : "";
+      const r = byId.get(tr.dataset.id), k = r && r.unit && !awaitsComplete(r) ? unitKey(r.unit) : "";   // v3.256: «Завершить» не в счёт
       if (k) vis.set(k, (vis.get(k) || 0) + 1);
     });
     const seen = new Map();
     document.querySelectorAll("#fleet-tbody tr[data-id]").forEach((tr) => {
-      const r = byId.get(tr.dataset.id), k = r && r.unit ? unitKey(r.unit) : "";
+      const r = byId.get(tr.dataset.id), k = r && r.unit && !awaitsComplete(r) ? unitKey(r.unit) : "";
       if (!k || vis.get(k) < 2) return;
       seen.set(k, (seen.get(k) || 0) + 1);
       pair.set(tr.dataset.id, `${seen.get(k)}/${vis.get(k)}`);

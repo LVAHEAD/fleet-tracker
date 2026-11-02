@@ -27,7 +27,8 @@ try { unitMultiOnly = localStorage.getItem("fleet-unit-multi") === "1"; } catch 
 function unitTripCount(unit) {
   const k = unitKey(unit);
   if (!k || typeof rows === "undefined") return 0;
-  return rows.filter((r) => r && r.unit && unitKey(r.unit) === k).length;
+  // v3.256: трип, ждущий «✓ Завершить», в счёт не идёт
+  return rows.filter((r) => r && r.unit && unitKey(r.unit) === k && !(typeof awaitsComplete === "function" && awaitsComplete(r))).length;
 }
 function unitSlot() {
   let who = "all", lo = "all";
