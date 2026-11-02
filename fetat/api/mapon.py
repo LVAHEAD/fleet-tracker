@@ -422,7 +422,7 @@ def api_reefer_log():
     till = int(time.time())
     frm = till - days * 86400
     try:
-        d = mapon_get(f"{MAPON_BASE}/reefer/historic_period.json",
+        d = mapon_get(MAPON_BASE + "reefer/historic_period.json",
                       {"key": MAPON_API_KEY, "unit_id": uid, "from": _iso_z(frm), "till": _iso_z(till)}, timeout=40)
     except Exception as e:
         return jsonify({"error": f"Mapon: {e}"}), 502
