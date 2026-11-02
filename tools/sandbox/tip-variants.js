@@ -1,7 +1,7 @@
 /* Песочница Флота: «Подсказка у значка страны» — три варианта карточки вместо браузерного title (02.11, //обс Владимира).
    Правило: если есть объект Mapon — указать его; если нет — что сейчас (код зоны) и ГПС.
    A — объект Mapon, иначе код зоны + ГПС; B — всегда код зоны, объект Mapon второй строкой; C — только объект или только ГПС (без кода зоны).
-   Данные демонстрационные. Переключатель внизу слева. Браузерный title у значка убирается на время показа. */
+   Показ только в столбце «Статус», задержка 0.5 с; в «Таргете» наведение без изменений. Данные демонстрационные. Переключатель внизу слева. */
 (function () {
   "use strict";
   var MODE = "A";
@@ -50,17 +50,27 @@
     });
     document.body.appendChild(bar);
 
+    var timer = null, cur = null;
+    function statusCol() { var th = document.getElementById("status-th"); return th ? th.cellIndex : -1; }
     document.addEventListener("mouseover", function (e) {
-      var c = e.target.closest && e.target.closest("#fleet-tbody .cc-badge.x-cc, #fleet-tbody .cc-badge");
-      if (!c) return;
+      var c = e.target.closest && e.target.closest("#fleet-tbody .cc-badge");
+      var td = c && c.closest("td");
+      if (!c || !td || td.cellIndex !== statusCol()) return;          // только столбец «Статус»; «Таргет» не трогаем
+      if (cur === c) return;
+      cur = c;
       if (c.dataset.tipTitle === undefined) c.dataset.tipTitle = c.getAttribute("title") || "";
       c.removeAttribute("title");
-      var r = c.getBoundingClientRect();
-      card(r.left, r.bottom + 6, /* демонстрация: с объектом и без */ MODE === "C" ? SAMPLE.noObj : SAMPLE.withObj);
+      clearTimeout(timer);
+      timer = setTimeout(function () {                                  // задержка 0.5 с
+        var r = c.getBoundingClientRect();
+        card(r.left, r.bottom + 6, MODE === "C" ? SAMPLE.noObj : SAMPLE.withObj);
+      }, 500);
     });
     document.addEventListener("mouseout", function (e) {
       var c = e.target.closest && e.target.closest("#fleet-tbody .cc-badge");
-      if (c && c.dataset.tipTitle !== undefined) c.setAttribute("title", c.dataset.tipTitle);
+      if (!c) return;
+      clearTimeout(timer); cur = null;
+      if (c.dataset.tipTitle !== undefined) c.setAttribute("title", c.dataset.tipTitle);
       hide();
     });
     mark();
