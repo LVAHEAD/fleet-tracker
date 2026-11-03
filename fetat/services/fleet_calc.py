@@ -662,7 +662,8 @@ def _add_route_to_target(result, unit, target_lat, target_lng, payload, tm=None)
         result["corridor"] = corridor_info(cc, wps, corridor, (cur_lat, cur_lng, target_lat, target_lng))
     if tm:
         tm.mark("r_cor")
-    dist_km, polyline = road_distance_km_google(cur_lat, cur_lng, target_lat, target_lng, GOOGLE_API_KEY, wps)
+    dist_km, polyline = road_distance_km_google(cur_lat, cur_lng, target_lat, target_lng, GOOGLE_API_KEY, wps,
+                                                moving_target=bool(result.get("target_is_truck")))   # v3.262
     if tm:
         tm.mark("r_gmaps")
     if wps:

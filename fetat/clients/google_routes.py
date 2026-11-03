@@ -29,6 +29,17 @@ LEG_TTL = 30 * 24 * 3600
 TRUCK_MOVE_KM = 3.0
 
 
+# v3.262: разбор [gmiss] 03.11 — машина, которая стоит в пределах TRUCK_MOVE_KM от места своего прошлого запроса,
+# получает прошлый ответ до SAME_PLACE_TTL (было 15 мин): стоянки, паром (ГПС застыл в море), парковка вдали от дороги.
+SAME_PLACE_TTL = 24 * 3600
+
+
+AT_TARGET_KM = 1.0            # v3.262: машина у самой точки — Google не спрашиваем, км по прямой
+
+
+MOVING_TARGET_TTL = 30 * 60   # v3.262: таргет — едущая машина: Google не чаще раза в 30 мин
+
+
 ROUTES_CACHE_COLL = "routes_cache"
 
 
@@ -332,13 +343,41 @@ def _wps_key(waypoints):
     return tuple((round(a, 4), round(b, 4)) for a, b in (waypoints or []))
 
 
-def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None, kind="truck", cache_only=False):
+def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None, kind="truck", cache_only=False,
+                            moving_target=False):
     """(км, линия маршрута). kind="leg" — плечо между двумя неподвижными точками,
     kind="truck" — от машины до точки (начало маршрута движется).
-    v3.226: cache_only (только kind="leg") — берём плечо из кеша, в Google не ходим; нет в кеше — (None, None)."""
+    v3.226: cache_only (только kind="leg") — берём плечо из кеша, в Google не ходим; нет в кеше — (None, None).
+    v3.262: moving_target — таргет сам машина (встреча / перецеп): Google не чаще MOVING_TARGET_TTL."""
     if kind == "leg":
         return _leg_route(lat1, lng1, lat2, lng2, api_key, waypoints, cache_only)
+    if not waypoints and haversine_km(lat1, lng1, lat2, lng2) <= AT_TARGET_KM:
+        _route_stat("cache_hits", "truck")       # v3.262: машина у точки — км по прямой, без Google
+        return haversine_km(lat1, lng1, lat2, lng2), _encode_polyline([(lat1, lng1), (lat2, lng2)])
+    if moving_target:
+        return _moving_target_route(lat1, lng1, lat2, lng2, api_key, waypoints)
     return _truck_route(lat1, lng1, lat2, lng2, api_key, waypoints)
+
+
+def _moving_target_route(lat1, lng1, lat2, lng2, api_key, waypoints):
+    """v3.262: таргет — едущая машина. Ключ не зависит от места таргета (иначе каждый пересчёт — «новая цель»):
+    в пределах MOVING_TARGET_TTL км = прямая сейчас × (км по дорогам / прямая в момент запроса)."""
+    import time
+    key = ("truckmv", getattr(_ctx, "unit", "") or "", _wps_key(waypoints))
+    now = time.time()
+    with _route_cache_lock:
+        hit = _route_cache.get(key)
+    straight = haversine_km(lat1, lng1, lat2, lng2)
+    if hit and now - hit["at"] < MOVING_TARGET_TTL:
+        _route_stat("cache_hits", "truck")
+        return straight * hit["factor"], hit["poly"]
+    _route_stat("calls", "truck", miss="moving")
+    res = _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints)
+    factor = (res[0] / straight) if straight > 0.5 and res[0] else 1.0
+    with _route_cache_lock:
+        _trim(now)
+        _route_cache[key] = {"at": now, "factor": max(1.0, min(factor, 3.0)), "poly": res[1]}
+    return res
 
 
 def _leg_route(lat1, lng1, lat2, lng2, api_key, waypoints, cache_only=False):
@@ -399,14 +438,15 @@ def _log_gmiss(miss, tkey, lat, lng):
         off = f"{best[0]:.1f}" if best else "-"
         print(f"[gmiss] unit={getattr(_ctx, 'unit', '') or '-'} why={getattr(_ctx, 'why', 'other')} "
               f"user={getattr(_ctx, 'user', 'anon')} miss={miss} off_km={off} "
-              f"from={lat:.3f},{lng:.3f} to={tkey[1]:.3f},{tkey[2]:.3f} wps={len(tkey[3])}", flush=True)
+              f"from={lat:.3f},{lng:.3f} to={tkey[-3]:.3f},{tkey[-2]:.3f} wps={len(tkey[-1])}", flush=True)
     except Exception as _e:
         warn("gmiss", _e)
 
 
 def _truck_route(lat1, lng1, lat2, lng2, api_key, waypoints):
     import time
-    tkey = ("truck", round(lat2, 4), round(lng2, 4), _wps_key(waypoints))
+    # v3.262: в ключе — машина: раньше две машины к одной точке затирали линию друг друга (пинг-понг, [gmiss] 03.11)
+    tkey = ("truck", getattr(_ctx, "unit", "") or "", round(lat2, 4), round(lng2, 4), _wps_key(waypoints))
     now = time.time()
     with _route_cache_lock:
         mem = _route_cache.get(tkey)
@@ -443,7 +483,7 @@ def _truck_from_entry(entry, tkey, lat, lng, now):
     иначе — остаток по известной линии маршрута, если машина на ней."""
     if not entry:
         return None
-    if now - entry["at"] < ROUTE_CACHE_TTL and haversine_km(lat, lng, entry["olat"], entry["olng"]) <= TRUCK_MOVE_KM:
+    if now - entry["at"] < SAME_PLACE_TTL and haversine_km(lat, lng, entry["olat"], entry["olng"]) <= TRUCK_MOVE_KM:
         return entry["res"]
     with _route_cache_lock:
         return _along_lookup(tkey, lat, lng, now)
@@ -455,7 +495,7 @@ def _trim(now):
         for k in list(_route_cache):
             v = _route_cache[k]
             at = v["at"] if isinstance(v, dict) else v[0]
-            ttl = LEG_TTL if k and k[0] == "leg" else ALONG_ROUTE_TTL
+            ttl = LEG_TTL if k and k[0] in ("leg", "corr2") else ALONG_ROUTE_TTL
             if now - at >= ttl:
                 _route_cache.pop(k, None)
     if len(_along_cache) > 500:
