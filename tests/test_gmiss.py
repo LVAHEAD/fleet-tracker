@@ -21,3 +21,14 @@ class GMiss(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GLeg(unittest.TestCase):
+    def test_line(self):
+        gr.set_route_ctx("edit", "vl@x.lv", "OI-1780")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            gr._log_gleg(56.9, 24.1, 54.6, 25.3, [(55.0, 24.5)])
+        s = buf.getvalue()
+        for part in ("[gleg]", "unit=OI-1780", "why=edit", "from=56.90000,24.10000", "to=54.60000,25.30000", "wps=1"):
+            self.assertIn(part, s)

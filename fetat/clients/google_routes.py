@@ -399,12 +399,24 @@ def _leg_route(lat1, lng1, lat2, lng2, api_key, waypoints, cache_only=False):
     if cache_only:
         return None, None
     _route_stat("calls", "leg")
+    _log_gleg(lat1, lng1, lat2, lng2, waypoints)
     res = _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints)
     with _route_cache_lock:
         _trim(now)
         _route_cache[key] = (now, res)
     _shared_put(key, {"at": now, "dist": res[0], "poly": res[1] or ""})
     return res
+
+
+def _log_gleg(lat1, lng1, lat2, lng2, waypoints):
+    """Строка лога на каждый запрос «точка → точка» в Google — разбор плеч (03.11): новые точки или лишние
+    (та же точка, набранная чуть иначе; промежуточные правки; точка-машина). Фильтр Cloud Run Logs — textPayload:"[gleg]"."""
+    try:
+        print(f"[gleg] unit={getattr(_ctx, 'unit', '') or '-'} why={getattr(_ctx, 'why', 'other')} "
+              f"user={getattr(_ctx, 'user', 'anon')} from={lat1:.5f},{lng1:.5f} to={lat2:.5f},{lng2:.5f} "
+              f"wps={len(waypoints or [])}", flush=True)
+    except Exception as _e:
+        warn("gleg", _e)
 
 
 def _truck_miss_reason(tkey, had_entry, now, lat=None, lng=None):
