@@ -515,6 +515,13 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
                     info["badge"], info["badge_hint"] = target_badge_info(tstr, lat, lng, t.get("target_address"))
                     info["chain_geo"] = chain_geo(lat, lng, info["badge"])   # v3.226
                     info["cc"] = _country_at(lat, lng)   # v3.143: страна точки — для местного времени ✓
+                    if not t.get("target_address") and not t.get("target_is_truck"):
+                        try:                              # v3.263: объект Mapon у точки по ГПС (ошибка — просто без названия)
+                            _on = (object_at(lat, lng) or {}).get("name")
+                            if _on:
+                                info["obj"] = _on
+                        except Exception as _e:
+                            warn("points:obj", _e)
             except Exception as e:
                 warn("points:resolve", e)   # v3.98: раньше молча — точка «не пройдена» без следа
                 t = None

@@ -601,6 +601,10 @@ def _add_code_badges(result, target_str):
             result["target_badge"], result["target_code_hint"] = target_badge_info(
                 target_str, result["target_lat"], result["target_lng"], result.get("target_address"))
             result["target_chain_geo"] = chain_geo(result["target_lat"], result["target_lng"], result["target_badge"])   # v3.226
+            if not result.get("target_address") and not result.get("target_is_truck"):   # v3.263: название объекта Mapon
+                _on = (object_at(result["target_lat"], result["target_lng"]) or {}).get("name")
+                if _on:
+                    result["target_object"] = _on
     except Exception as _e:
         warn("fleet_calc:387", _e)
         pass

@@ -71,7 +71,7 @@ function remapDone(data) {
     done_by: dn[i].by != null ? dn[i].by : null, done_zone: dn[i].zone || null,
     done_leg_km: dn[i].leg_km != null ? dn[i].leg_km : null,   // v3.122: плечо пройденной точки ②③…
     chain_geo: !!dn[i].chain_geo,                              // v3.226: точка в NO / в 200 км от Стокгольма
-    badge: dn[i].badge || null, badge_hint: dn[i].badge_hint || null });
+    badge: dn[i].badge || null, badge_hint: dn[i].badge_hint || null, obj: dn[i].obj || null });   // v3.263: объект Mapon
   const main = data.target_lat != null ? {
     dist_km: data.dist_km, leg_km: data.dist_km, eta_local: data.eta_local, eta_tacho: data.eta_tacho,
     tacho_weeklimit: data.tacho_weeklimit, eta_tz: data.eta_tz || null, badge: data.target_badge, badge_hint: data.target_code_hint, chain_geo: !!data.target_chain_geo,
