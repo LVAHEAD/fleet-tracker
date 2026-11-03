@@ -136,6 +136,12 @@
     "по истории недели: соло",
     "едет или стоит меньше 9 ч — ETA простой, без отдыхов"
    ],
+   "unit_cc_tip": {
+    "gps": "45.40000, 11.90000",
+    "obj": "",
+    "state": "move",
+    "zone": "IT30"
+   },
    "unit_code_hint": "IT · около IT30",
    "unit_country": "IT",
    "unit_lat": 45.4,
@@ -223,6 +229,12 @@
    "target_code_hint": "LV · около LV10",
    "target_lat": 56.9456,
    "target_lng": 24.1063,
+   "unit_cc_tip": {
+    "gps": "45.40000, 11.90000",
+    "obj": "",
+    "state": "move",
+    "zone": "IT30"
+   },
    "unit_code_hint": "IT · около IT30",
    "unit_country": "IT",
    "unit_lat": 45.4,
@@ -355,6 +367,12 @@
    "target_code_hint": "IT · около IT31",
    "target_lat": 45.78075,
    "target_lng": 12.01714,
+   "unit_cc_tip": {
+    "gps": "45.40000, 11.90000",
+    "obj": "",
+    "state": "move",
+    "zone": "IT30"
+   },
    "unit_code_hint": "IT · около IT30",
    "unit_country": "IT",
    "unit_lat": 45.4,
@@ -450,6 +468,12 @@
    "target_code_hint": "LV · около LV10",
    "target_lat": 56.9456,
    "target_lng": 24.1063,
+   "unit_cc_tip": {
+    "gps": "56.95000, 24.03000",
+    "obj": "",
+    "state": "none",
+    "zone": "LV10"
+   },
    "unit_code_hint": "LV · около LV10",
    "unit_country": "LV",
    "unit_lat": 56.95,
@@ -557,6 +581,12 @@
    "target_code_hint": "DE · около DE20",
    "target_lat": 53.5544,
    "target_lng": 9.9946,
+   "unit_cc_tip": {
+    "gps": "45.40000, 11.90000",
+    "obj": "",
+    "state": "move",
+    "zone": "IT30"
+   },
    "unit_code_hint": "IT · около IT30",
    "unit_country": "IT",
    "unit_lat": 45.4,
@@ -637,6 +667,12 @@
    "target_code_hint": "DE · около DE20",
    "target_lat": 53.5544,
    "target_lng": 9.9946,
+   "unit_cc_tip": {
+    "gps": "56.95000, 24.03000",
+    "obj": "",
+    "state": "none",
+    "zone": "LV10"
+   },
    "unit_code_hint": "LV · около LV10",
    "unit_country": "LV",
    "unit_lat": 56.95,
@@ -659,6 +695,12 @@
    "status": "standing",
    "status_ru": "стоит",
    "tacho_error": null,
+   "unit_cc_tip": {
+    "gps": "56.95010, 24.03010",
+    "obj": "",
+    "state": "none",
+    "zone": "LV10"
+   },
    "unit_code_hint": "LV · около LV10",
    "unit_country": "LV",
    "unit_lat": 56.9501,

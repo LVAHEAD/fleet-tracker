@@ -1432,7 +1432,7 @@ async function calcRow(id, why, pre) {
     // v1.31: плашка страны, где машина сейчас
     const flagBg = FLAG_BG[data.unit_country];   // v3.167: цвета флага страны
     const ccBadge = data.unit_country
-      ? `<span class="cc-badge${flagBg ? " cc-flag" : ""}"${flagBg ? ` style="background:${flagBg}"` : ""} title="${escapeHtml(data.unit_code_hint || data.unit_country)}">${escapeHtml(data.unit_country)}</span>`
+      ? `<span class="cc-badge${flagBg ? " cc-flag" : ""}"${flagBg ? ` style="background:${flagBg}"` : ""} title="${escapeHtml(data.unit_code_hint || data.unit_country)}"${data.unit_cc_tip ? ` data-cc-tip="${escapeHtml(JSON.stringify(data.unit_cc_tip))}"` : ""}>${escapeHtml(data.unit_country)}</span>`
       : "";
     // v1.43: одна строка — страна, ■/▶, время, скорость, ⏸
     const icon = data.status === "driving"

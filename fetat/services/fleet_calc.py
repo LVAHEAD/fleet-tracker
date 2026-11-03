@@ -11,7 +11,7 @@ from fetat.config import GOOGLE_API_KEY, HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.bans import (bans_hits_text, bans_near_text, bans_on_route, countries_times_text, country_chain,
                                needs_at_night_ban)
 from fetat.domain.points import (
-    chain_geo, find_unit_by_label, find_unit_exact, NEAR_LABEL_MAX_KM, on_target, points_done, site_arrival,
+    chain_geo, find_unit_by_label, find_unit_exact, NEAR_LABEL_MAX_KM, object_at, on_target, points_done, site_arrival,
     resolve_fleet_target, STATUS_RU, target_badge_info,
 )
 from fetat.domain.regions import nearest_region_code
@@ -561,6 +561,32 @@ def _add_route_context(result, unit):
             result["bans_status"] = f"ошибка: {e}"
 
 
+MOVING_KMH = 5   # v3.261: от этой скорости машина «в движении» (подсказка у значка страны)
+
+
+def _unit_cc_tip(code, result):
+    """v3.261: данные подсказки у значка страны в Статусе: код зоны, объект Mapon, ГПС, состояние
+    (в движении → объекта нет → на объекте). Объект — только если машина стоит."""
+    lat, lng = result["unit_lat"], result["unit_lng"]
+    try:
+        speed = float(result.get("speed") or 0)
+    except (TypeError, ValueError):
+        speed = 0.0
+    obj = None
+    if speed < MOVING_KMH:
+        try:
+            obj = object_at(lat, lng)
+        except Exception as e:
+            warn("fleet_calc:cc_tip", e)
+    if speed >= MOVING_KMH:
+        state = "move"
+    elif obj:
+        state = "obj"
+    else:
+        state = "none"
+    return {"zone": code, "obj": (obj or {}).get("name") or "", "gps": f"{lat:.5f}, {lng:.5f}", "state": state}
+
+
 def _add_code_badges(result, target_str):
     """v1.31: страна машины и код региона таргета (плашки в таблице)."""
     # v1.31: страна машины и код региона таргета (плашки в таблице)
@@ -570,6 +596,7 @@ def _add_code_badges(result, target_str):
             if code:
                 result["unit_country"] = code[:2]
                 result["unit_code_hint"] = f"{code[:2]} · около {code}" + (f" ({round(d)} км)" if d > NEAR_LABEL_MAX_KM else "")
+                result["unit_cc_tip"] = _unit_cc_tip(code, result)
         if result.get("target_lat") is not None:
             result["target_badge"], result["target_code_hint"] = target_badge_info(
                 target_str, result["target_lat"], result["target_lng"], result.get("target_address"))
