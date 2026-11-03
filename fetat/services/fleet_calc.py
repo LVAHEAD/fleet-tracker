@@ -53,6 +53,7 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
     n_stops = 0          # сколько точек уже пройдено (на каждой UNLOAD_STOP_SEC)
     deps = deps or {}     # v3.192: {текст точки: отход (epoch, сек)} — из «Даты» точек
     prev_str = str(first_str or "").strip().lower()
+    prev_truck = bool(first.get("target_is_truck"))   # v3.264: предыдущая точка — машина (встреча / перецеп)
     ferry_late = False
     ferry_extra = 0.0    # v3.191: сек. парома (рейс + Gate-In) сверх обычной стоянки — в простой ETA
     fb = None            # v3.191: точка отсчёта тахо-плана после парома (приход в порт + рейс)
@@ -77,8 +78,10 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
             leg_km, leg_poly = road_distance_km_google(fr["to"][0], fr["to"][1], lat, lng, GOOGLE_API_KEY, None, kind="leg")
         else:
             leg_wps = fleet_waypoints(prev_lat, prev_lng, lat, lng, corridor)   # v2.03; v3.32: + выбор коридора
+            # v3.13: плечо — долгий общий кеш; v3.264: конец плеча — машина (едет) — Google не чаще раза в 30 мин
+            mv = prev_truck or bool(t.get("target_is_truck"))
             leg_km, leg_poly = road_distance_km_google(prev_lat, prev_lng, lat, lng, GOOGLE_API_KEY, leg_wps,
-                                                       kind="leg")   # v3.13: плечо — долгий общий кеш
+                                                       kind="leg", moving_target=mv, moving_tag=xi if mv else None)
         if not fr and "corridor" not in first:                       # v3.32: плашка коридора — по первому такому плечу
             cc = fleet_corridor_cands(prev_lat, prev_lng, lat, lng)
             if cc:
@@ -167,6 +170,7 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
         out.append(item)
         prev_lat, prev_lng, prev_arr = lat, lng, arr
         prev_str = str(tstr or "").strip().lower()
+        prev_truck = bool(t.get("target_is_truck"))
     return out
 
 

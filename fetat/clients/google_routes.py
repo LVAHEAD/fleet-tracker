@@ -344,11 +344,14 @@ def _wps_key(waypoints):
 
 
 def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None, kind="truck", cache_only=False,
-                            moving_target=False):
+                            moving_target=False, moving_tag=None):
     """(км, линия маршрута). kind="leg" — плечо между двумя неподвижными точками,
     kind="truck" — от машины до точки (начало маршрута движется).
     v3.226: cache_only (только kind="leg") — берём плечо из кеша, в Google не ходим; нет в кеше — (None, None).
-    v3.262: moving_target — таргет сам машина (встреча / перецеп): Google не чаще MOVING_TARGET_TTL."""
+    v3.262: moving_target — таргет сам машина (встреча / перецеп): Google не чаще MOVING_TARGET_TTL.
+    v3.264: kind="leg" + moving_target — плечо, у которого конец — машина (moving_tag — номер точки в трипе)."""
+    if kind == "leg" and moving_target and not cache_only:
+        return _moving_target_route(lat1, lng1, lat2, lng2, api_key, waypoints, tag=f"leg{moving_tag}", what="leg")
     if kind == "leg":
         return _leg_route(lat1, lng1, lat2, lng2, api_key, waypoints, cache_only)
     if not waypoints and haversine_km(lat1, lng1, lat2, lng2) <= AT_TARGET_KM:
@@ -359,19 +362,19 @@ def road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints=None, kin
     return _truck_route(lat1, lng1, lat2, lng2, api_key, waypoints)
 
 
-def _moving_target_route(lat1, lng1, lat2, lng2, api_key, waypoints):
+def _moving_target_route(lat1, lng1, lat2, lng2, api_key, waypoints, tag="", what="truck"):
     """v3.262: таргет — едущая машина. Ключ не зависит от места таргета (иначе каждый пересчёт — «новая цель»):
     в пределах MOVING_TARGET_TTL км = прямая сейчас × (км по дорогам / прямая в момент запроса)."""
     import time
-    key = ("truckmv", getattr(_ctx, "unit", "") or "", _wps_key(waypoints))
+    key = ("truckmv", getattr(_ctx, "unit", "") or "", tag, _wps_key(waypoints))
     now = time.time()
     with _route_cache_lock:
         hit = _route_cache.get(key)
     straight = haversine_km(lat1, lng1, lat2, lng2)
     if hit and now - hit["at"] < MOVING_TARGET_TTL:
-        _route_stat("cache_hits", "truck")
+        _route_stat("cache_hits", what)
         return straight * hit["factor"], hit["poly"]
-    _route_stat("calls", "truck", miss="moving")
+    _route_stat("calls", what, miss="moving" if what == "truck" else None)
     res = _road_distance_km_google(lat1, lng1, lat2, lng2, api_key, waypoints)
     factor = (res[0] / straight) if straight > 0.5 and res[0] else 1.0
     with _route_cache_lock:

@@ -66,3 +66,22 @@ class TruckCacheV3262(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MovingLegV3264(unittest.TestCase):
+    def test_leg_to_truck(self):
+        gr._route_cache.clear()
+        calls = []
+        def fake(lat1, lng1, lat2, lng2, api_key, waypoints=None):
+            calls.append(1)
+            return 500.0, None
+        gr.set_route_ctx("auto", "t", "OB-3279")
+        t0 = time.time()
+        with mock.patch.object(gr, "_road_distance_km_google", side_effect=fake):
+            with mock.patch("time.time", return_value=t0):
+                gr.road_distance_km_google(56.95, 24.03, 60.5, 24.8, "k", kind="leg", moving_target=True, moving_tag=0)
+            with mock.patch("time.time", return_value=t0 + 10 * 60):
+                gr.road_distance_km_google(56.95, 24.03, 60.3, 24.8, "k", kind="leg", moving_target=True, moving_tag=0)
+                gr.road_distance_km_google(56.95, 24.03, 60.2, 24.8, "k", kind="leg", moving_target=True, moving_tag=1)
+        self.assertEqual(len(calls), 2)   # точка 0 — из кеша, точка 1 — своя
+        gr.set_route_ctx("auto", "t", "")
