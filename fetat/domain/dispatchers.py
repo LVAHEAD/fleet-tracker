@@ -14,7 +14,7 @@ DISP_TTL_SEC = 600   # перечитываем лист не чаще раза 
 # список по умолчанию (как было в коде до v3.11); v3.25: порядок — как кнопки фильтра (VL VJ JZ JB AA VV)
 DEFAULT_DISPATCHERS = [
     {"email": "vladimirs.head@gmail.com", "tag": "VL", "color": "#ebebeb", "assign": True},
-    {"email": "vadims@gmail.com", "tag": "VJ", "color": "#fde6cc", "assign": False},
+    {"email": "vadim.siahead@gmail.com", "tag": "VJ", "color": "#fde6cc", "assign": False},
     {"email": "jzemesarajs@gmail.com", "tag": "JZ", "color": "#eceefc", "assign": False},
     {"email": "jekaterina@gmail.com", "tag": "JB", "color": "#dcf1e0", "assign": False},
     {"email": "antons@gmail.com", "tag": "AA", "color": "#ffffff", "assign": False},

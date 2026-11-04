@@ -62,7 +62,7 @@ function knownDispatchers() {
 // v3.09: инициалы и цвет диспетчера (первая клетка строки); ключ — имя из e-mail до точки/@
 // v3.11: диспетчеры — из листа «Диспетчеры» (/api/dispatchers); до загрузки — список по умолчанию
 let DISP_LIST = [
-  { email: "vladimirs.head@gmail.com", tag: "VL", color: "#ebebeb" }, { email: "vadims@gmail.com", tag: "VJ", color: "#fde6cc" },
+  { email: "vladimirs.head@gmail.com", tag: "VL", color: "#ebebeb" }, { email: "vadim.siahead@gmail.com", tag: "VJ", color: "#fde6cc" },
   { email: "jzemesarajs@gmail.com", tag: "JZ", color: "#eceefc" }, { email: "jekaterina@gmail.com", tag: "JB", color: "#dcf1e0" },
   { email: "antons@gmail.com", tag: "AA", color: "#ffffff" }, { email: "ladins@gmail.com", tag: "VV", color: "#e8dcf7" },
 ];
