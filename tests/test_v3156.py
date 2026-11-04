@@ -20,7 +20,7 @@ class FleetCountTest(unittest.TestCase):
         self.assertIn("function updateFleetCount()", js)
         self.assertIn("rows.filter((r) => r.unit).length", js)
         self.assertIn("updateFleetCount();\n}", js)           # вызов в конце renderRows
-        self.assertIn('field === "unit") { delete row.done; updateFleetCount(); }', js)
+        self.assertIn('if (field === "unit") updateFleetCount();', js)   # v3.268: ✓ при смене машины не сбрасываем
 
     def test_auto_refresh_skips_hidden_rows(self):
         js = read("static", "app.js")

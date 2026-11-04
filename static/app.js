@@ -871,7 +871,7 @@ function attachRowHandlers(one) {
       if (!x) return;
       x.target = e.target.value;
       e.target.title = e.target.value;
-      if (row.done) delete row.done[Number(inp.dataset.k)];   // v1.79: новая точка — ✓ заново
+      // v3.268: правка текста точки не сбрасывает её ручную ✓ (состояние трипа не меняем при редактировании)
       saveRows();
       calcRow(id);
     }));
@@ -1380,8 +1380,8 @@ function updateRowField(id, field, value) {
   const row = rows.find((r) => r.id === id);
   if (row) {
     row[field] = value;
-    if (field === "target" && row.done) delete row.done[0];   // v1.79
-    if (field === "unit") { delete row.done; updateFleetCount(); }
+    // v3.268: правка машины / таргета не сбрасывает ручные ✓ — отметки остаются у точек трипа
+    if (field === "unit") updateFleetCount();
     saveRows();
     calcRow(id);
   }
