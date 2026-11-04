@@ -88,8 +88,8 @@
 
   // ---------- вкладки: "Локатор" и меню "⋯" ----------
   const nav = document.querySelector(".main-tabs");
-  const locTab = document.querySelector(".main-tab-btn[data-locator]");
-  if (locTab) locTab.addEventListener("click", () => {
+  // v3.267: «Локатор» есть и в мобильной, и в настольной строке вкладок — открываем карту с любой
+  document.querySelectorAll(".main-tab-btn[data-tab=\"maps\"]").forEach((locTab) => locTab.addEventListener("click", () => {
     const lb = document.getElementById("locatorBtn");
     const view = document.getElementById("locatorView");
     if (lb && view && view.hidden) lb.click();
@@ -97,7 +97,7 @@
       const inp = document.getElementById("locatorInput");
       if (inp && !inp.value) inp.focus();
     }, 50);
-  });
+  }));
 
   if (nav) {
     const hiddenTabs = [...nav.querySelectorAll(".main-tab-btn.ref-tab:not(.notes-hidden), .main-tab-btn[data-tab='gf']")];
