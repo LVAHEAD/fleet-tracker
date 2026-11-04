@@ -95,7 +95,8 @@ function markForeign(tr, row) {
   });
 }
 
-// Справка → «Погасить везде»: снять отметки чужих правок во всех трипах Флота.
+// v3.264: кнопка 💡 в верхней строке (была «Погасить везде» в Справке) — один клик, без подтверждения.
+// Снять отметки чужих правок во всех трипах Флота.
 // Админ снимает во всех трипах, остальные — в своих (сервер пропустит только это).
 function chgClearableRows() {
   const admin = !!(window.fleetSync && window.fleetSync.admin);
@@ -107,16 +108,9 @@ document.addEventListener("DOMContentLoaded", () => {
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
     const list = chgClearableRows();
-    const n = list.reduce((s, r) => s + Object.keys(r.chg).length, 0);
-    if (!list.length) {
-      openSwapPop(btn, "Чужих правок нет", "Гасить нечего.", [{ text: "OK", ok: true }]);
-      return;
-    }
-    openSwapPop(btn, "Погасить чужие правки?", `Отметок: ${n}, трипов: ${list.length}. Рамки пропадут у всех диспетчеров.`,
-      [{ text: "Погасить", ok: true, fn: () => {
-        list.forEach((r) => { delete r.chg; });
-        saveRows();
-        renderRows();
-      } }, { text: "Отмена" }]);
+    if (!list.length) return;                       // гасить нечего
+    list.forEach((r) => { delete r.chg; });
+    saveRows();
+    renderRows();
   });
 });
