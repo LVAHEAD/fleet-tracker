@@ -287,6 +287,14 @@ def _apply_points_done(result, payload, target_str, unit, units, tm=None):
         except Exception as e:
             warn("fleet:points_done", e)      # v3.98: раньше молча — вся строка без ✓
             dn = [{"done": False} for _ in pts_all]
+        # v3.269: точка-перецеп, где стоит сам тягач строки (после обмена текст ②: «OC-3156»), — уже пройдена:
+        # тягач ушёл с этой встречи. Иначе она становится открытым таргетом и даёт «Таргет — та же машина».
+        for k in range(1, len(pts_all)):
+            if not pts_all[k] or dn[k].get("done"):
+                continue
+            tu = find_unit_exact(units, pts_all[k])
+            if tu is not None and unit is not None and (tu is unit or tu.get("unit_id") == unit.get("unit_id")):
+                dn[k] = {**dn[k], "done": True, "auto": False, "swap_done": True}
         if tm:
             tm.mark("d_pts")                          # v3.124: подшаги done
         _add_done_legs(dn, pts_all, units, unit, clean_corridor(payload.get("corridor")))   # v3.122; v3.226: из кеша, с коридором трипа
