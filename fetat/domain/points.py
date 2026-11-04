@@ -596,7 +596,9 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None, 
                         at=ts_west(auto_at).strftime("%d/%m %H:%M"),
                         arr=ts_west(auto_arr).strftime("%d/%m %H:%M") if auto_arr else None)
         if info["done"]:      # v3.200: граница для следующих точек
-            f = auto_at or _parse_west_ts(info.get("at"))
+            # v3.266 (OM-6749): время нажатия ручной ✓ (msrc=click) — не отъезд: отметили позже, чем трак проехал дальше;
+            # нижней границей его не берём, иначе точки, пройденные до нажатия, уже не поймать. Остаётся граница прошлой точки
+            f = auto_at or (None if info.get("msrc") == "click" else _parse_west_ts(info.get("at")))
             if f and (floor is None or f > floor):
                 floor = f
         if info["done"]:

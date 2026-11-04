@@ -105,3 +105,20 @@ class RowDebug(unittest.TestCase):
         self.assertTrue(p[2]["gated"])               # ② открыта — ③ закрыта порядком
         self.assertEqual(p[2]["prev_open"], 1)
         self.assertEqual(p[1]["result"].get("stood_later"), 2)
+
+
+class ClickFloor(unittest.TestCase):
+    def test_click_time_is_not_floor(self):    # v3.266, OM-6749: ✓ у ② (точка-машина) нажата позже, чем трак проехал ③ — граница не по нажатию
+        floors = {}
+
+        def fa(tstr, t, lat, lng, unit, stops_box, floor):
+            floors[tstr] = floor
+            return {"A": 1000.0}.get(tstr), None, None
+        with mock.patch.object(points, "resolve_fleet_target", return_value={"lat": 1.0, "lng": 2.0}), \
+             mock.patch.object(points, "target_badge_info", return_value=(None, None)), \
+             mock.patch.object(points, "_country_at", return_value="NO"), \
+             mock.patch.object(points, "_manual_done_stop", return_value=None), \
+             mock.patch.object(points, "_auto_done", side_effect=fa):
+            r = points_done(["A", "B", "C"], [None, True, None], UNIT, {}, None, None, ["", "03/11 05:38", ""])
+        self.assertEqual(r[1].get("msrc"), "click")
+        self.assertEqual(floors["C"], 1000.0)      # граница — отъезд с ①, а не время нажатия у ②
