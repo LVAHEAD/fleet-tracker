@@ -970,6 +970,14 @@ function attachRowHandlers(one) {
         return;
       }
       const cc = e.target.closest && e.target.closest(".cc-badge");
+      if (cc && !cc.hidden && cc.closest(".status-cell")) {           // v3.271: флаг в «Статусе» без таргета — машина на карте, зум 15
+        const row0 = rows.find((r) => r.id === id);
+        const c0 = lastCalcText[id];
+        if (row0 && !row0.target && c0 && c0.unit_lat != null && c0.unit_lng != null) {
+          showUnitOnMap(c0.unit_lat, c0.unit_lng, 15);
+          return;
+        }
+      }
       if (cc && !cc.hidden) {                                         // v3.48: значок страны — открыть ⏱ с данными строки
         const w = cc.closest(".x-stop");                              // у точки ②③… — расчёт до неё
         ecFromRow(id, true, w ? Number(w.dataset.k) : null);
@@ -2356,3 +2364,12 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
     .observe(tb, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
   pass();
 })();
+
+// v3.271: показать точку с зумом z. Открыт ⏱ — показываем в его карте; иначе — панель 🗺 Флота (выезжает, если закрыта)
+function showUnitOnMap(lat, lng, z) {
+  if (window.etaCalc && window.etaCalc.isOpen()) { window.etaCalc.focusMap(lat, lng, z); return; }
+  const panel = document.getElementById("map-panel");
+  const tab = document.getElementById("map-tab");
+  const go = () => { if (typeof map !== "undefined" && map) { map.setCenter({ lat, lng }); map.setZoom(z); } };
+  if (panel && tab && !panel.classList.contains("open")) { tab.click(); setTimeout(go, 320); } else go();
+}
