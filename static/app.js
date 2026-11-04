@@ -1180,7 +1180,16 @@ function removeStop(id, k, anchor, confirmed) {
       [{ text: "Удалить", ok: true, fn: () => removeStop(id, k, null, true) }, { text: "Отмена" }]);
     return;
   }
-  delete row.done;   // v1.79: номера точек сдвигаются — ручные ✓ сбрасываем
+  // v1.79 / v3.267: ручные ✓ по номерам точек — сдвигаем вместе с точками: у удалённой точки ✓ уходит, у следующих номер на -1
+  if (row.done) {
+    const nd = {};
+    Object.keys(row.done).forEach((key) => {
+      const i = Number(key);
+      if (i === k) return;
+      nd[i > k ? i - 1 : i] = row.done[key];
+    });
+    if (Object.keys(nd).length) row.done = nd; else delete row.done;
+  }
   if (k === 0) {
     const nx = row.extra.shift();
     row.lo = nx.lo || "";
