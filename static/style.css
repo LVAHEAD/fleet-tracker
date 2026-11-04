@@ -1901,3 +1901,8 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 
 .rl-bar { flex: 1 1 55%; } .rl-dd { flex: 1 1 45%; min-width: 0; font-size: 11px; color: #6b7785; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rl-card { max-width: 900px; } .rl-day .rl-axis { flex: 1 1 55%; margin: 0; display: grid; grid-template-columns: repeat(5, 1fr); }
+
+/* плашка «на точке» — у правого края ячейки статуса, у всех строк в одной колонке */
+.status-cell .status-line .ot-pill { margin-left: auto; }
+/* цифра активного таргета (первая непройденная точка) — жирнее */
+.stop-n-act .pn-chip { font-weight: 900; font-size: 12.5px; -webkit-text-stroke: 0.5px currentColor; }

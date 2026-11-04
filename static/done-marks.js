@@ -107,9 +107,12 @@ function applyDoneClasses(tr, row, c) {
      h === 0 ? pick(".note-wrap:not(.xn-wrap)") : pick(`.xn-input[data-k="${h}"]`) && pick(`.xn-input[data-k="${h}"]`).closest(".xn-wrap"),
     ].forEach((el) => { if (el) el.classList.add("pt-here"); });
   }
+  const actK = flags.length ? flags.findIndex((x) => !(x && x.done)) : -1;   // активная точка — первая непройденная
   tr.querySelectorAll("#fleet-tbody .target-wrap, .target-wrap").forEach((w) => {
     const k = w.classList.contains("x-stop") ? Number(w.dataset.k) : 0;
     const f = flags[k];
+    const nChip = w.querySelector(".stop-n");
+    if (nChip) nChip.classList.toggle("stop-n-act", k === actK);
     w.classList.toggle("pt-done", !!(f && f.done));
     // v3.81: окно Delivery пройденной точки — тоже зачёркнуто
     const dl = k === 0 ? tr.querySelector(".delivery-input") : tr.querySelector(`.xd-input[data-k="${k}"]`);
