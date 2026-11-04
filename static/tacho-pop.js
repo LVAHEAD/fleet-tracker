@@ -6,6 +6,7 @@
 
   const DAY_CAP = 36000, WEEK_CAP = 201600, NOW_CAP = 16200;     // 10:00, 56:00, 4:30 — шкалы полосок
   let tip = null, anchor = null, pinned = false, showT = 0, hideT = 0, tab = 0, cur = null;
+  let posEl = null, wkNote = "";   // v3.265: окно можно позвать от значка «24ка» — ставим рядом с ним и дописываем его подсказку
 
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const num = (v) => (typeof v === "number" && isFinite(v) ? v : null);
@@ -128,7 +129,7 @@
     try { return JSON.parse(el.getAttribute("data-tp") || "null"); } catch (e) { return null; }
   }
 
-  function open(el) {
+  function open(el, at) {
     const c = load(el);
     if (!c || !c.p) return;
     if (!tip) {
@@ -144,19 +145,21 @@
       document.body.appendChild(tip);
     }
     if (anchor !== el) tab = Math.max(0, (c.p.drivers || []).findIndex((d) => d.state === "DRIVING"));
+    posEl = at || (anchor === el && posEl ? posEl : el);
     anchor = el; cur = c;
     tip.classList.toggle("pin", pinned);
-    tip.innerHTML = render(c);
+    tip.innerHTML = render(c) + (wkNote
+      ? '<div class="tp-plan"><b>Недельный отдых</b>' + wkNote.split("\n").filter(Boolean).map((x) => "<div>" + esc(x) + "</div>").join("") + "</div>" : "");
     const ds = c.p.drivers || [];
     tip.classList.toggle("tp-pink", (c.p.team && ds.length < 2) || ds.some((d) => d && !cardOk(d)));   // Mapon отдал не всё — бледно-розовая карточка
     tip.hidden = false;
-    place(el);
+    place(posEl);
   }
 
   function close() {
     pinned = false; clearTimeout(showT); clearTimeout(hideT);
     if (tip) { tip.hidden = true; tip.classList.remove("pin"); }
-    anchor = null;
+    anchor = null; posEl = null; wkNote = "";
   }
 
   function strip(el) {                   // родную подсказку прячем, пока наведено (текст хранится рядом)
@@ -176,7 +179,24 @@
     return t.closest(".status-line[data-tp]");
   };
 
+  // v3.265 (Владимир): значок недельного отдыха «24ка» / «45ка» у ETA — наведение (1 с) или клик зовёт ту же всплывашку Mapon
+  const wkChip = (t) => (t && t.closest ? t.closest(".wk-rest") : null);
+  const wkHost = (chip) => { const tr = chip.closest("tr"); return tr ? tr.querySelector(".status-line[data-tp]") : null; };
+  const wkOpen = (chip, delay) => {
+    const h = wkHost(chip);
+    if (!h || !load(h) || !load(h).p) return false;
+    wkNote = chip.getAttribute("title") || chip.getAttribute("data-tp-title") || "";
+    strip(chip);
+    clearTimeout(hideT); clearTimeout(showT);
+    if (!delay) { open(h, chip); return true; }
+    if (pinned || (anchor === h && tip && !tip.hidden)) return true;
+    showT = setTimeout(() => open(h, chip), delay);
+    return true;
+  };
+  document.addEventListener("click", (e) => { const ch = wkChip(e.target); if (ch) wkOpen(ch, 0); });
   document.addEventListener("mouseover", (e) => {
+    const chip = wkChip(e.target);
+    if (chip) { wkOpen(chip, 1000); return; }
     const el = host(e);
     if (!el) { if (!pinned && e.target.closest && e.target.closest(".ot-pill")) { close(); } return; }
     // 30.10 (Владимир): всплывашка — только по наведению на значок экипажа, 1 с; флаг страны её не вызывает.
@@ -191,6 +211,14 @@
     showT = setTimeout(() => open(el), 1000);   // 30.10: 1 с — одна задержка для всех всплывашек (было 1,5 с)
   });
   document.addEventListener("mouseout", (e) => {
+    const chip = wkChip(e.target);
+    if (chip && !pinned) {
+      clearTimeout(showT);
+      const to = e.relatedTarget;
+      if (to && tip && tip.contains(to)) return;
+      hideT = setTimeout(() => { close(); restore(); }, 160);
+      return;
+    }
     const el = host(e);
     if (!el || pinned) return;
     clearTimeout(showT);
