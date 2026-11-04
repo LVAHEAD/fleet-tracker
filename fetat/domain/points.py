@@ -355,6 +355,26 @@ def _auto_done(tstr, t, lat, lng, unit, stops_box, since=None):
     return auto_at, auto_arr, zone
 
 
+def done_row_debug(row, unit, units):
+    """v3.264: /api/done-debug?unit=… без target — то же, что считает расчёт строки Флота по её сохранённым отметкам:
+    по каждой точке — ручная отметка, запомненная ✓, «закрыта порядком» (gated), нижняя граница по времени, итог.
+    Только чтение."""
+    pts = [str(row.get("target") or "").strip()] + [str((x or {}).get("target") or "").strip() for x in (row.get("extra") or [])][:11]
+    d = row.get("done") or {}
+    by = row.get("doneBy") or {}
+    g = lambda m, k: m.get(str(k), m.get(k)) if isinstance(m, dict) else None
+    manual = [(g(d, i) if g(d, i) in (True, False) else None) for i in range(len(pts))]
+    seen = [((row.get("doneSeen") or {}).get(t) if t else None) for t in pts]
+    seen_arr = [((row.get("doneArr") or {}).get(t) if t else None) for t in pts]
+    click = [((g(by, i) or {}).get("eu") if g(d, i) is True and isinstance(g(by, i), dict) else None) for i in range(len(pts))]
+    trace = []
+    out = points_done(pts, manual, unit, units, seen, seen_arr, click, trace)
+    for tr, o in zip(trace, out):
+        tr["result"] = {k: o.get(k) for k in ("done", "auto", "at", "arr", "by", "kept", "gated", "stood_later", "zone", "msrc") if k in o}
+    return {"row_id": row.get("id"), "number": unit.get("number"), "points": trace,
+            "raw": {"done": row.get("done"), "doneSeen": row.get("doneSeen"), "doneArr": row.get("doneArr"), "doneBy": row.get("doneBy")}}
+
+
 def site_arrival(unit):
     """v3.82: трак стоит на объекте точки — время ПРИЕЗДА «dd/mm HH:MM»: начало текущей стоянки из истории Mapon
     (стоянка «сейчас» рядом с траком), запасной вариант — «сейчас минус длительность состояния». Нет данных — None."""
@@ -484,7 +504,7 @@ def _parse_west_ts(v):
     return None
 
 
-def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
+def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None, trace=None):
     """pts — строки точек (① + следующие), manual — [True/False/None] ручные отметки,
     seen — [время|None] уже запомненные в строке авто-✓ (v3.17: не теряются, когда стоянка
     уходит из окна истории Mapon); seen_arr — [время приезда|None] к ним (v3.57).
@@ -503,6 +523,7 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
     any_done = False      # в трипе уже есть пройденная точка
     for i, tstr in enumerate(pts):
         m = manual[i] if i < len(manual) else None
+        floor_in, any_in = floor, any_done      # для trace (done-debug по строке)
         # v3.236: ещё и когда раньше есть непройденная точка — стоянка на ⑤ не закрывает открытую ④ (OI-2078)
         # (точки раньше ручной ✓ закроет каскад v3.29 — их не считаем, кроме ручного «не пройдена»)
         prev_open = next((k for k in range(i) if pts[k] and not out[k]["done"]
@@ -580,6 +601,12 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
                 floor = f
         if info["done"]:
             any_done = True
+        if trace is not None:     # v3.264: done-debug по строке — почему у точки есть / нет ✓
+            trace.append({"i": i, "target": tstr, "manual": m, "seen": seen_at, "gated": bool(gated), "prev_open": prev_open,
+                          "last_manual": last_manual, "any_done_before": any_in, "since": floor_in,
+                          "since_loc": ts_west(floor_in).strftime("%d/%m %H:%M") if floor_in else None,
+                          "auto_at": auto_at, "resolved": t is not None and lat is not None,
+                          "is_truck_point": bool(t and t.get("target_is_truck")), "done": info["done"]})
         out.append(info)
     # v3.29: пройдена следующая точка — значит, пройдены и предыдущие (ручное «не пройдена» не трогаем)
     last = max((i for i, x in enumerate(out) if x["done"]), default=-1)

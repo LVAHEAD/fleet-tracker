@@ -87,3 +87,21 @@ class OrderRule(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RowDebug(unittest.TestCase):
+    def test_trace_and_row_debug(self):        # v3.264: done-debug по строке
+        from fetat.domain.points import done_row_debug
+        AUTO.clear()
+        AUTO.update({"A": 1000.0, "C": 3000.0})
+        row = {"id": 7, "target": "A", "extra": [{"target": "B"}, {"target": "C"}], "done": {}}
+        with mock.patch.object(points, "resolve_fleet_target", return_value={"lat": 1.0, "lng": 2.0}), \
+             mock.patch.object(points, "target_badge_info", return_value=(None, None)), \
+             mock.patch.object(points, "_country_at", return_value="NO"), \
+             mock.patch.object(points, "_auto_done", side_effect=fake_auto):
+            r = done_row_debug(row, UNIT, {})
+        p = r["points"]
+        self.assertTrue(p[0]["done"])
+        self.assertTrue(p[2]["gated"])               # ② открыта — ③ закрыта порядком
+        self.assertEqual(p[2]["prev_open"], 1)
+        self.assertEqual(p[1]["result"].get("stood_later"), 2)

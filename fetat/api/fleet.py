@@ -393,4 +393,15 @@ def api_done_debug():
     unit = find_unit_exact(units, request.args.get("unit"))
     if not unit:
         return jsonify({"error": "машина не найдена"}), 404
+    if not request.args.get("target"):
+        # v3.264: без target — по сохранённой строке Флота этой машины (/api/done-debug?unit=OM-6749[&row=<id>])
+        from fetat.domain.points import done_row_debug
+        want = request.args.get("row")
+        rows = [dict(_fleet_row_out(d)["row"]) for d in FLEET_STORE.query(None) if not d["meta"].get("deleted")]
+        rows = [r for r in rows if str(r.get("id")) == str(want)] if want else [
+            r for r in rows if str(r.get("unit") or "").upper().replace(" ", "").replace("-", "")
+            == str(unit.get("number") or "").upper().replace(" ", "").replace("-", "")]
+        if not rows:
+            return jsonify({"error": "строка Флота с этой машиной не найдена"}), 404
+        return jsonify({"rows": [done_row_debug(r, unit, units) for r in rows]})
     return jsonify(done_debug(request.args.get("target") or "", unit, units))
