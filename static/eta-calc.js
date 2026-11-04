@@ -874,6 +874,9 @@ const EtaCalc = (() => {
     // v3.51: старт — машина кружком, как на картах Флота / Локатора; без машины — плашка 📍 ETD
     if (unitNum && unitData && window.UnitsLayer) {
       const drv = unitData.st === "driving";
+      // v3.264: машина в Mapon дальше ~20 км от начала линии — расчёт строки старый (линия и отдыхи от прежнего места)
+      const p0 = L.path[0], dLat = (unitData.lat - p0.lat()) * 111, dLng = (unitData.lng - p0.lng()) * 111 * Math.cos(p0.lat() * Math.PI / 180);
+      if (Math.hypot(dLat, dLng) > 20) $(".ec-mnote").textContent = "данные строки устарели — машина уже в другом месте, нажмите ↻ у строки";
       add(new google.maps.Marker({ map: gmap, position: { lat: unitData.lat, lng: unitData.lng }, zIndex: 5,
         icon: UnitsLayer.icon(unitData), title: UnitsLayer.title(unitData) + "\nETD " + fdt(new Date(S.etd)),
         label: { text: String(unitData.number), className: "ul-lab " + (drv ? "ul-drv" : "ul-std"), color: "#1a1a1a", fontSize: "12px", fontWeight: "600" } }));

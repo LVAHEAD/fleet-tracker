@@ -1986,7 +1986,7 @@ try {
   else if (localStorage.getItem("fleetAuto") === "0") autoRefreshMin = 0;   // была снята галочка
 } catch (e) { /* ignore */ }
 let lastAutoAt = Date.now();
-setInterval(() => {
+function autoTick() {
   if (!autoRefreshMin || document.hidden) return;
   if (document.querySelector(".com-ed")) return;                 // не мешать правке комментария
   const a = document.activeElement;
@@ -1994,7 +1994,10 @@ setInterval(() => {
   if (Date.now() - lastAutoAt < autoRefreshMin * 60000 - 5000) return;
   lastAutoAt = Date.now();
   calcAllRows({ auto: true });
-}, 30 * 1000);
+}
+setInterval(autoTick, 30 * 1000);
+// v3.264: вернулись во вкладку, а последний автопроход старше периода — сразу, не ждать тика (до 30 с)
+document.addEventListener("visibilitychange", () => { if (!document.hidden) autoTick(); });
 (function () {
   const sel = document.getElementById("auto-refresh");
   if (!sel) return;
