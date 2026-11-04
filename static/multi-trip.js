@@ -166,12 +166,17 @@ function markMultiTrips() {
   document.addEventListener("mouseover", (e) => {
     const inp = e.target.closest && e.target.closest(MT_HOVER);
     if (!inp || document.activeElement === inp) return;   // в поле печатают — карточку не показываем
+    if (inp.title && inp.dataset.mtT === undefined) { inp.dataset.mtT = inp.title; inp.title = ""; }   // подсказка браузера мешает карточке — на время наведения убираем
     clearTimeout(tHide);
     clearTimeout(tShow);
     tShow = setTimeout(() => show(inp), 1000);
   });
   document.addEventListener("mouseout", (e) => {
-    if (e.target.closest && e.target.closest(MT_HOVER)) { clearTimeout(tShow); tHide = setTimeout(hide, 250); }
+    const o = e.target.closest && e.target.closest(MT_HOVER);
+    if (o) {
+      clearTimeout(tShow); tHide = setTimeout(hide, 250);
+      if (o.dataset.mtT !== undefined) { if (!o.title) o.title = o.dataset.mtT; delete o.dataset.mtT; }
+    }
   });
   document.addEventListener("mousedown", (e) => { if (card && !card.contains(e.target)) hide(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
