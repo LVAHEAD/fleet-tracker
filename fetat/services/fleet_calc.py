@@ -11,7 +11,7 @@ from fetat.config import GOOGLE_API_KEY, HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.bans import (bans_hits_text, bans_near_text, bans_on_route, countries_times_text, country_chain,
                                needs_at_night_ban)
 from fetat.domain.points import (
-    chain_geo, find_unit_by_label, find_unit_exact, NEAR_LABEL_MAX_KM, object_at, on_target, points_done, site_arrival,
+    chain_geo, find_unit_by_label, is_gps_text, find_unit_exact, NEAR_LABEL_MAX_KM, object_at, on_target, points_done, site_arrival,
     resolve_fleet_target, STATUS_RU, target_badge_info,
 )
 from fetat.domain.regions import nearest_region_code
@@ -605,7 +605,7 @@ def _add_code_badges(result, target_str):
             result["target_badge"], result["target_code_hint"] = target_badge_info(
                 target_str, result["target_lat"], result["target_lng"], result.get("target_address"))
             result["target_chain_geo"] = chain_geo(result["target_lat"], result["target_lng"], result["target_badge"])   # v3.226
-            if not result.get("target_address") and not result.get("target_is_truck"):   # v3.263: название объекта Mapon
+            if is_gps_text(target_str) and not result.get("target_address") and not result.get("target_is_truck"):   # v3.263: название объекта Mapon — только у координат
                 _on = (object_at(result["target_lat"], result["target_lng"]) or {}).get("name")
                 if _on:
                     result["target_object"] = _on

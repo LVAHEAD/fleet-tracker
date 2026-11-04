@@ -90,6 +90,12 @@ def find_unit_exact(units, query):
     return None
 
 
+def is_gps_text(s):
+    """v3.263: таргет набран именно координатами (не код зоны ES04, не название, не город)."""
+    s = (s or "").strip()
+    return looks_like_gps_or_code(s) and s.upper().replace(" ", "") not in REGION_CODES
+
+
 def looks_like_gps_or_code(s):
     s = (s or "").strip()
     if s.upper().replace(" ", "") in REGION_CODES:
@@ -515,7 +521,7 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None):
                     info["badge"], info["badge_hint"] = target_badge_info(tstr, lat, lng, t.get("target_address"))
                     info["chain_geo"] = chain_geo(lat, lng, info["badge"])   # v3.226
                     info["cc"] = _country_at(lat, lng)   # v3.143: страна точки — для местного времени ✓
-                    if not t.get("target_address") and not t.get("target_is_truck"):
+                    if is_gps_text(tstr) and not t.get("target_address") and not t.get("target_is_truck"):
                         try:                              # v3.263: объект Mapon у точки по ГПС (ошибка — просто без названия)
                             _on = (object_at(lat, lng) or {}).get("name")
                             if _on:
