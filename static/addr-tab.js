@@ -477,14 +477,19 @@
   }
 
   // один адрес — подставляем сразу; несколько — выбор у поля (v3.166)
+  // v3.272: координаты → адрес из базы (в 150 м) или объект Mapon в точке; ничего нет — поле не меняем
   function gpsSubstitute(inp) {
     const g = parseGps(inp.value);
     if (!g) return false;
     const list = gpsCandidates(g);
-    if (!list.length) return false;
     if (list.length === 1) { applyPoint(inp, list[0].a.name); return true; }
-    showGpsPick(inp, list);
-    return true;
+    if (list.length > 1) { showGpsPick(inp, list); return true; }
+    const typed = inp.value;
+    fetch("/api/mapon-object-at?lat=" + encodeURIComponent(g.lat) + "&lng=" + encodeURIComponent(g.lng))
+      .then((r) => r.json())
+      .then((d) => { const o = d && d.object; if (o && o.name && inp.value === typed) applyPoint(inp, o.name); })
+      .catch(() => {});
+    return false;
   }
 
   let gpsPickEl = null;

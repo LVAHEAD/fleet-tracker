@@ -1608,13 +1608,8 @@ async function calcRow(id, why, pre) {
     if (data.first_done) {                     // v1.80: у пройденной ① — её код (ESxx)
       data.target_badge = data.first_done.badge; data.target_code_hint = data.first_done.badge_hint; data.target_dovoz = null;
     }
-    // v3.263: у точки по ГПС — название объекта Mapon рядом с кодом (NO17 SVINESUND Border)
-    // v3.272: подпись только если текст таргета — координаты; иначе объект старого места (после смены адреса) не показываем
-    const tgtIsGps = /^\s*-?\d{1,3}(\.\d+)?\s*,\s*-?\d{1,3}(\.\d+)?\s*$/.test(String(row.target || ""));
-    const tgtObj = !tgtIsGps ? null : (data.first_done ? data.first_done.obj : data.target_object);
-    const objTag = tgtObj ? `<span class="tgt-obj" title="Объект Mapon: ${escapeHtml(tgtObj)}">${escapeHtml(tgtObj)}</span>` : "";
     const targetBadge = data.target_badge
-      ? `<span class="target-cc-wrap target-cc"><span class="cc-badge${ptFlagCls(data.target_badge)}"${ptFlagStyle(data.target_badge)} title="${escapeHtml(data.target_code_hint || data.target_badge)}">${escapeHtml(data.target_badge)}</span>${objTag}${dovoz}</span>`
+      ? `<span class="target-cc-wrap target-cc"><span class="cc-badge${ptFlagCls(data.target_badge)}"${ptFlagStyle(data.target_badge)} title="${escapeHtml(data.target_code_hint || data.target_badge)}">${escapeHtml(data.target_badge)}</span>${dovoz}</span>`
       : '<span class="cc-badge target-cc" hidden></span>';
     const oldTb = tr.querySelector(".target-cc");
     if (oldTb) oldTb.outerHTML = targetBadge;
