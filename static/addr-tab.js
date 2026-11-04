@@ -193,7 +193,7 @@
       if (withCountry) {
         key.classList.add("addr-card-key-col");
         const flag = typeof FLAG_BG !== "undefined" ? FLAG_BG[a.country] : "";
-        const cc = el("span", "cc-badge" + (flag ? " cc-flag" : ""), a.country);
+        const cc = el("span", "cc-badge" + (flag ? " cc-flag" : ""), a.code || a.country);   // код региона (ES30), флаг — по стране
         if (flag) cc.style.background = flag;
         key.appendChild(cc);
       }

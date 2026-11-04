@@ -34,9 +34,10 @@
     const row = (k, v, c) => (v ? `<div class="tt-k">${k}</div><div${c ? ' class="tt-cp"' : ""}>${esc(v)}${c ? cp(k.toLowerCase(), v) : ""}</div>` : "");
     const gps = a.lat != null && a.lng != null ? `${Number(a.lat).toFixed(5)}, ${Number(a.lng).toFixed(5)}` : "";
     const kind = [(typeof ADDR_TYPE_RU !== "undefined" && ADDR_TYPE_RU[a.type]) || a.type, a.client, a.supplier].filter(Boolean).join(" · ");
-    return `<div class="mtc-h tt-cp"><b>${esc(a.name)}</b>${a.country ? ` <span class="tt-cc">${esc(a.country)}</span>` : ""}${cp("название", a.name)}</div>`
+    return `<div class="mtc-h tt-cp"><b>${esc(a.name)}</b>${(a.code || a.country) ? ` <span class="tt-cc">${esc(a.code || a.country)}</span>` : ""}${cp("название", a.name)}</div>`
       + `<div class="tt-g">${row("Адрес", a.full, 1)}${row("GPS", gps, 1)}${row("Open", a.open)}${row("Тип", kind)}${row("Заметка", a.notes)}</div>`
-      + extra.map((l) => `<div class="tt-l">${esc(l)}</div>`).join("");
+      + extra.map((l) => `<div class="tt-l">${esc(l)}</div>`).join("")
+      + `<div class="addr-actions"><button type="button" class="addr-btn-primary tt-edit" data-addr="${esc(a.name)}">Редактировать</button></div>`;
   }
   function hide() {
     clearTimeout(tShow);
@@ -58,6 +59,8 @@
     card.addEventListener("mouseenter", () => clearTimeout(tHide));
     card.addEventListener("mouseleave", () => { tHide = setTimeout(hide, 250); });
     card.addEventListener("click", (ev) => {
+      const ed = ev.target.closest(".tt-edit");
+      if (ed) { hide(); if (typeof window.addrOpenFor === "function") window.addrOpenFor(ed.dataset.addr); return; }   // правка — панель «Адреса»
       const b = ev.target.closest(".addr-copy");
       if (!b) return;
       copyText(b.dataset.cp).then(() => { b.classList.add("ok"); setTimeout(() => b.classList.remove("ok"), 1500); }).catch(() => {});

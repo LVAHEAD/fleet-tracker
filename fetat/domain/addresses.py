@@ -2,6 +2,7 @@
 import re
 
 from fetat.clients.sheets import read_sheet_values
+from fetat.domain.regions import nearest_region_code
 from fetat.config import ADDRESS_SHEET
 from fetat.utils.geo import parse_gps
 from fetat.utils.text import _hkey, normalize
@@ -70,6 +71,7 @@ def parse_address_rows(values):
             "city": city,
             "full": full,
             "lat": gps[0], "lng": gps[1],
+            "code": nearest_region_code(gps[0], gps[1])[0] or "",   # код региона (ES30) по GPS — один раз на загрузку листа
         })
     return items, problems
 
@@ -112,7 +114,8 @@ def find_address(query):
 
 
 def address_public(a):
-    return {k: a[k] for k in ("name", "alias", "type", "open", "notes", "client", "supplier", "country", "city", "full")}
+    return {**{k: a[k] for k in ("name", "alias", "type", "open", "notes", "client", "supplier", "country", "city", "full")},
+            "code": a.get("code", "")}   # код региона (ES30); пусто, если записи без GPS-кода
 
 
 # ~99% грузов в Финляндию и ~70% в Эстонию основная машина везёт до Базы (Рига),
