@@ -81,6 +81,7 @@ function markMultiTrips() {
 (function () {
   if (typeof document === "undefined") return;
   let card = null, tShow = null, tHide = null;
+  const MT_HOVER = ".unit-input.mt-dot, #fleet-tbody .target-input.mt-dot, #fleet-tbody .xt-input.mt-dot";
   const p2 = (n) => String(n).padStart(2, "0");
   const fmtD = (d) => `${p2(d.getDate())}/${p2(d.getMonth() + 1)}`;
   const trOf = (id) => document.querySelector(`#fleet-tbody tr[data-id="${id}"]`);
@@ -107,9 +108,11 @@ function markMultiTrips() {
     const tr = inp.closest("tr[data-id]");
     const me = tr && rows.find((r) => String(r.id) === tr.dataset.id);
     if (!me) return;
-    const list = mtSorted(multiTripRows(me.unit));
-    if (list.length < 2) return;
-    let h = `<div class="mtc-h"><b>${escapeHtml(String(me.unit).trim())}</b> — трипов во Флоте: ${list.length}</div>`;
+    const isT = inp.matches(".target-input, .xt-input");   // машина в таргете: трипы этой машины, без стыков
+    const unit = isT ? String(inp.value || "").trim() : me.unit;
+    const list = mtSorted(multiTripRows(unit));
+    if (list.length < (isT ? 1 : 2)) return;
+    let h = `<div class="mtc-h"><b>${escapeHtml(String(unit).trim().toUpperCase())}</b> — трипов во Флоте: ${list.length}</div>`;
     list.forEach((x, i) => {
       const xt = trOf(x.id), e = etaEnd(xt), st = mtSlotStart(x), de = dispEntry(rowDisp(x));
       const dc = (de && de.color) || "#f4f6fa", db = shadeHex(dc, 0.18) || "#c9d3e3";
@@ -124,7 +127,7 @@ function markMultiTrips() {
         + `${x === me ? "" : ' title="Клик — к этому трипу"'}><span class="mtc-n">${i + 1}/${list.length}</span>`
         + `<span class="mtc-m"><b>${escapeHtml(x.client || "без клиента")}</b>${x.ref ? " · " + escapeHtml(x.ref) : ""}${cd ? `<i>${escapeHtml(cd)}</i>` : ""}</span>`
         + `<span class="mtc-d">① ${st ? fmtD(st) : "—"}<br>${lastTxt}</span><span class="mtc-w">${escapeHtml(dispLabel(rowDisp(x)))}</span></div>`;
-      if (i < list.length - 1) {   // стык: конец этого трипа против начала слота ① следующего
+      if (!isT && i < list.length - 1) {   // стык: конец этого трипа против начала слота ① следующего
         const nx = mtSlotStart(list[i + 1]);
         const from = plan || e.d;
         if (from && nx) {
@@ -136,7 +139,7 @@ function markMultiTrips() {
         }
       }
     });
-    const meta = window.fleetMetaTitle ? window.fleetMetaTitle(me.id) : "";
+    const meta = !isT && window.fleetMetaTitle ? window.fleetMetaTitle(me.id) : "";
     if (meta) h += `<div class="mtc-f">${escapeHtml(meta).replace(/\n/g, "<br>")}</div>`;
     card = document.createElement("div");
     card.className = "mt-card";
@@ -161,14 +164,14 @@ function markMultiTrips() {
     });
   }
   document.addEventListener("mouseover", (e) => {
-    const inp = e.target.closest && e.target.closest(".unit-input.mt-dot");
+    const inp = e.target.closest && e.target.closest(MT_HOVER);
     if (!inp || document.activeElement === inp) return;   // в поле печатают — карточку не показываем
     clearTimeout(tHide);
     clearTimeout(tShow);
     tShow = setTimeout(() => show(inp), 1000);
   });
   document.addEventListener("mouseout", (e) => {
-    if (e.target.closest && e.target.closest(".unit-input.mt-dot")) { clearTimeout(tShow); tHide = setTimeout(hide, 250); }
+    if (e.target.closest && e.target.closest(MT_HOVER)) { clearTimeout(tShow); tHide = setTimeout(hide, 250); }
   });
   document.addEventListener("mousedown", (e) => { if (card && !card.contains(e.target)) hide(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
