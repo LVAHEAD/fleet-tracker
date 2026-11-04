@@ -70,6 +70,12 @@ function markMultiTrips() {
     // подсказка браузера мешала бы карточке: «кто и когда правил» переезжает в низ карточки
     inp.title = many ? "" : (window.fleetMetaTitle ? window.fleetMetaTitle(row.id) : "");
   });
+  // v3.273: машина в таргете (перецеп / встреча — номер тягача из Флота) — тот же синий пунктир, что у машин в нескольких трипах
+  const fleetUnits = new Set(rows.filter((r) => r && r.unit).map((r) => unitKey(r.unit)));
+  document.querySelectorAll("#fleet-tbody .target-input, #fleet-tbody .xt-input").forEach((inp) => {
+    const v = unitKey(inp.value);
+    inp.classList.toggle("mt-dot", !!v && fleetUnits.has(v));
+  });
 }
 
 (function () {
