@@ -101,6 +101,9 @@ Fleet ETA Tracker — вкладка "Запреты" (справочная)
     calEl.innerHTML += d.error
       ? `<div class="bans-err">Обновление не удалось${d.error_at ? ` в ${esc(d.error_at)}` : ""} (${esc(d.error)}) — показаны ${when || "прошлые данные"}</div>`
       : (when ? `<div class="bans-when">${when}</div>` : "");
+    // v3.278: страны без живого источника и страны «общего запрета нет» — чтобы «—» не читалось как «запретов нет»
+    if (d.nosrc && d.nosrc.length) calEl.innerHTML += `<div class="bans-when">Нет источника данных: ${d.nosrc.map(esc).join(", ")} — «—» здесь не значит «запретов нет», смотрите страницы стран.</div>`;
+    if (d.local && d.local.length) calEl.innerHTML += `<div class="bans-when">${d.local.map(esc).join(", ")}: общего запрета нет, бывают местные и сезонные — смотрите страницы стран.</div>`;
   }
 
   // v1.84: последние удачные данные — в браузере (после деплоя у сервера кеш пустой)

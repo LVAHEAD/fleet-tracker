@@ -1,5 +1,6 @@
 """Запреты движения: сборка фида (полные запреты, без ADR), запреты по пути по тахо-времени,
 ночь Австрии 22:00–05:00 для MAN без L-наклейки (только предупреждение), страны по маршруту."""
+import os
 import re
 import threading
 from datetime import datetime, timedelta, timezone
@@ -8,6 +9,7 @@ from fetat.clients.nakordoni import (
     _bans_cache, _bans_cc, _bans_fetch_group, _bans_fetch_lock, _bans_lock, _bans_window,
     BansRateLimited,
 )
+from fetat.clients import sava_bans
 from fetat.domain.regions import _country_at, OUR_COUNTRIES
 from fetat.domain.tacho import TACHO_SPEED_KMH
 from fetat.domain.trailers import is_trailer
@@ -24,6 +26,19 @@ BANS_COOLDOWN_429 = 1800     # после 429 не трогаем фид 30 ми
 
 
 BANS_GROUP = 3               # стран в одном запросе: фид принимает не больше 3 (иначе 400)
+
+
+# v3.278: страны, на которые у нас оплачен тариф nakordoni (Explorer — 4 страны; выбираются в кабинете «Ваши рынки»).
+# Остальные берём у SAVA (clients/sava_bans.py) или честно пишем «нет источника». Сменили страны в кабинете — переменная NAKORDONI_COUNTRIES в Cloud Run.
+BANS_NK_COUNTRIES = {c.strip().upper() for c in (os.environ.get("NAKORDONI_COUNTRIES") or "AT,DE,FR,IT").split(",")
+                     if c.strip()} & set(OUR_COUNTRIES)
+
+
+def _bans_sources():
+    """(nakordoni, sava, без источника): наши страны по источникам."""
+    nk = set(BANS_NK_COUNTRIES)
+    sv = (set(sava_bans._sava_state["cover"]) & set(OUR_COUNTRIES)) - nk
+    return nk, sv, set(OUR_COUNTRIES) - nk - sv
 
 
 BANS_FULL_TYPES = {"Sunday", "Holiday", "General"}   # запрет по всей стране — выделяем
@@ -43,6 +58,7 @@ def _bans_build():
         cc_data = dict(_bans_cc)
         window = _bans_window["w"]
     codes = sorted(OUR_COUNTRIES)
+    nosrc = _bans_sources()[2]
     seen, upcoming, current = set(), [], []
     for cc in codes:
         src = cc_data.get(cc)
@@ -75,20 +91,26 @@ def _bans_build():
         "now": current,
         "days": [{"date": d, "bans": by_day[d]} for d in sorted(by_day)],
         "countries": codes,
-        "missing": [c for c in codes if c not in cc_data],
+        "missing": [c for c in codes if c not in cc_data and c not in nosrc],
+        "nosrc": sorted(nosrc),                                   # v3.278: ни nakordoni, ни SAVA не знают
+        "local": sorted(set(sava_bans._sava_state["local"]) & set(OUR_COUNTRIES) - set(BANS_NK_COUNTRIES)),   # общего запрета нет, есть местные
     }
 
 
 def _bans_refresh(max_age=BANS_TTL):
     """v1.84: докачать страны старше max_age. Вызывать под _bans_fetch_lock.
-    Удачные группы сохраняются сразу; на 429 — стоп и пауза."""
+    Удачные группы сохраняются сразу; на 429 — стоп и пауза. v3.278: nakordoni — только оплаченные страны, остальные — SAVA."""
     import time
     now = time.time()
+    nk, sv, _nosrc = _bans_sources()
     with _bans_lock:
-        if now < _bans_cache["blocked_until"]:
-            return
-        need = [c for c in sorted(OUR_COUNTRIES)
-                if c not in _bans_cc or now - _bans_cc[c]["at"] > max_age]
+        nk_blocked = now < _bans_cache["blocked_until"]
+        stale = [c for c in sorted(OUR_COUNTRIES)
+                 if c not in _bans_cc or now - _bans_cc[c]["at"] > max_age]
+    need = [] if nk_blocked else [c for c in stale if c in nk]
+    need_sva = [c for c in stale if c in sv]
+    if nk_blocked and not need_sva:
+        return
     err = None
     try:
         for k in range(0, len(need), BANS_GROUP):
@@ -101,6 +123,15 @@ def _bans_refresh(max_age=BANS_TTL):
         err = str(e)
         with _bans_lock:
             _bans_cache["blocked_until"] = time.time() + 300
+    if need_sva and time.time() >= sava_bans._sava_state["blocked_until"]:
+        try:
+            part, local, cover = sava_bans.sava_fetch()
+            with _bans_lock:
+                _bans_cc.update({c: v for c, v in part.items() if c in OUR_COUNTRIES and c not in nk})
+            sava_bans._sava_state.update(local=set(local), cover=set(cover) | set(sava_bans.SAVA_COVER))
+        except Exception as e:
+            sava_bans._sava_state["blocked_until"] = time.time() + sava_bans.SAVA_BLOCK_SEC
+            err = (err + "; " if err else "") + f"SAVA: {e}"
     with _bans_lock:
         have = bool(_bans_cc)
         oldest = min((v["at"] for v in _bans_cc.values()), default=0.0)

@@ -55,6 +55,8 @@ def fake(method, url, *a, **kw):
     if "nominatim" in url: return R([{"lat": "52.52", "lon": "13.40", "display_name": "Berlin", "address": {"country_code": "de"}}])
     if "photon" in url: return R({"features": []})
     if "nakordoni" in url: return R({"ok": True, "api_version": "v2", "data": {"success": True, "upcoming_bans": [], "current_bans": [], "truncated": False}})
+    if "savaexpress" in url: return R({"apiVersion": "1.1", "bans": [], "countries": [{"code": c} for c in ("AT", "CZ", "DE", "FR", "HU", "IT", "LU", "SI", "SK")],
+                                       "countriesWithoutDatedBans": [{"code": c} for c in ("BE", "ES", "NL", "PL", "RO")]})
     if "object/list" in url: return R({"data": {"objects": []}})
     return R({"data": {"units": []}})
 requests.get = lambda url, *a, **kw: fake("GET", url, *a, **kw)
