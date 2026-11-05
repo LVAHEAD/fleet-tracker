@@ -308,7 +308,11 @@
       return;
     }
     clearInterval(S.lockTimer);
-    S.lockTimer = setInterval(() => { if (S.lockedId) lockReq(S.lockedId, false); }, 25000);
+    S.lockTimer = setInterval(() => {
+      if (!S.lockedId) return;
+      if (Date.now() - lastAct > LOCK_IDLE_MS) { release(); return; }   // v3.279: курсор забыт в строке — замок снимаем, не продлеваем вечно
+      lockReq(S.lockedId, false);
+    }, 25000);
   }
   function release() {
     if (!S.lockedId) return;
@@ -317,9 +321,21 @@
     clearInterval(S.lockTimer);
     lockReq(id, true);
   }
+  // v3.279: 🔒 строка не должна висеть часами, если человек ушёл, оставив курсор в строке (замок продлевался каждые 25 с, пока вкладка открыта).
+  // Нет нажатий / ввода / кликов 3 минуты — замок снимаем; вернулся и начал печатать — берём снова.
+  const LOCK_IDLE_MS = 3 * 60 * 1000;
+  let lastAct = Date.now();
+  const touch = () => {
+    lastAct = Date.now();
+    if (S.lockedId) return;
+    const a = document.activeElement;
+    const tr = a && a.closest && a.closest("#fleet-tbody tr");
+    if (tr && tr.dataset.id) acquire(tr.dataset.id);
+  };
+  ["keydown", "input", "mousedown", "wheel", "touchstart"].forEach((ev) => document.addEventListener(ev, touch, true));
   document.addEventListener("focusin", (e) => {
     const tr = e.target && e.target.closest && e.target.closest("#fleet-tbody tr");
-    if (tr && tr.dataset.id) acquire(tr.dataset.id);
+    if (tr && tr.dataset.id) { lastAct = Date.now(); acquire(tr.dataset.id); }
   });
   document.addEventListener("focusout", () => {
     setTimeout(() => {
