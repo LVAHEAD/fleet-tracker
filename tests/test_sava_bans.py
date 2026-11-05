@@ -45,7 +45,8 @@ class SavaTest(unittest.TestCase):
 
     def test_sources_split(self):
         nk, sv, none = bans._bans_sources()
-        self.assertEqual(nk, {"AT", "DE", "FR", "IT"})
+        self.assertEqual(nk, set())                 # v3.281: страны nakordoni (AT DE FR IT) знает и SAVA — берём у SAVA
+        self.assertTrue({"AT", "DE", "FR", "IT"} <= sv)
         self.assertFalse(nk & sv or nk & none or sv & none)
         self.assertEqual(nk | sv | none, set(bans.OUR_COUNTRIES))
         self.assertIn("NO", none)    # у Норвегии нет ни nakordoni (вне тарифа), ни SAVA

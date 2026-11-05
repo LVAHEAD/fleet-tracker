@@ -35,9 +35,11 @@ BANS_NK_COUNTRIES = {c.strip().upper() for c in (os.environ.get("NAKORDONI_COUNT
 
 
 def _bans_sources():
-    """(nakordoni, sava, без источника): наши страны по источникам."""
-    nk = set(BANS_NK_COUNTRIES)
-    sv = (set(sava_bans._sava_state["cover"]) & set(OUR_COUNTRIES)) - nk
+    """(nakordoni, sava, без источника): наши страны по источникам.
+    v3.281: SAVA — основной источник (бесплатно, без ключа): всё, что она знает, берём у неё;
+    nakordoni — только для стран вне SAVA (если они оплачены в кабинете и перечислены в NAKORDONI_COUNTRIES)."""
+    sv = set(sava_bans._sava_state["cover"]) & set(OUR_COUNTRIES)
+    nk = set(BANS_NK_COUNTRIES) - sv
     return nk, sv, set(OUR_COUNTRIES) - nk - sv
 
 
@@ -58,7 +60,7 @@ def _bans_build():
         cc_data = dict(_bans_cc)
         window = _bans_window["w"]
     codes = sorted(OUR_COUNTRIES)
-    nosrc = _bans_sources()[2]
+    nk, _sv, nosrc = _bans_sources()
     seen, upcoming, current = set(), [], []
     for cc in codes:
         src = cc_data.get(cc)
@@ -93,7 +95,8 @@ def _bans_build():
         "countries": codes,
         "missing": [c for c in codes if c not in cc_data and c not in nosrc],
         "nosrc": sorted(nosrc),                                   # v3.278: ни nakordoni, ни SAVA не знают
-        "local": sorted(set(sava_bans._sava_state["local"]) & set(OUR_COUNTRIES) - set(BANS_NK_COUNTRIES)),   # общего запрета нет, есть местные
+        "local": sorted(set(sava_bans._sava_state["local"]) & set(OUR_COUNTRIES) - nk),   # общего запрета нет, есть местные
+        "nk": sorted(c for c in nk if c in cc_data),              # v3.281: страны, реально пришедшие от nakordoni (для подписи «Data by»)
     }
 
 
@@ -112,9 +115,12 @@ def _bans_refresh(max_age=BANS_TTL):
     if nk_blocked and not need_sva:
         return
     err = None
+    bad = []                     # v3.281: страны, на которые nakordoni ответил 400 — в кеш не кладём, показываем ошибку
     try:
         for k in range(0, len(need), BANS_GROUP):
-            _bans_fetch_group(need[k:k + BANS_GROUP])
+            _bans_fetch_group(need[k:k + BANS_GROUP], bad)
+        if bad:
+            err = "nakordoni: 400 для " + ", ".join(bad)
     except BansRateLimited as e:
         err = str(e)
         with _bans_lock:

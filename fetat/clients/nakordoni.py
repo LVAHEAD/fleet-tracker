@@ -102,9 +102,10 @@ def _bans_store(codes, d):
             _bans_window["w"] = d["window"]
 
 
-def _bans_fetch_group(codes):
-    """Запрос по группе стран (не больше 3 кодов); 400 — делим группу пополам;
-    страну, на которую фид отвечает 400, пропускаем. 429 — пробрасываем (стоп)."""
+def _bans_fetch_group(codes, bad=None):
+    """Запрос по группе стран (не больше 3 кодов); 400 — делим группу пополам.
+    v3.281: страну, на которую фид отвечает 400, в кеш НЕ кладём (раньше её молча отмечали «без запретов») —
+    код добавляется в список bad, вызывающий показывает ошибку. 429 — пробрасываем (стоп)."""
     import time
     try:
         d = _bans_get({"country": ",".join(codes)})
@@ -112,10 +113,10 @@ def _bans_fetch_group(codes):
         time.sleep(BANS_PAUSE)
         if len(codes) > 1:
             half = len(codes) // 2
-            _bans_fetch_group(codes[:half])
-            _bans_fetch_group(codes[half:])
-        else:
-            _bans_store(codes, {})   # фид не знает страну — считаем "без запретов", не спрашиваем снова
+            _bans_fetch_group(codes[:half], bad)
+            _bans_fetch_group(codes[half:], bad)
+        elif bad is not None:
+            bad.append(codes[0])
         return
     time.sleep(BANS_PAUSE)
     _bans_store(codes, d)
