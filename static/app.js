@@ -958,6 +958,12 @@ function attachRowHandlers(one) {
         window.addrOpenFor(e.target.value);
         return;
       }
+      // v3.280: Ctrl/Cmd+клик по свободному месту трипа (статус, КМ, ETA, пустые поля ячеек) — обновить трип, как ↻ в строке
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !(e.target.closest && e.target.closest("input, button, select, textarea, a, .com-tri"))) {
+        const rb = tr.querySelector(".refresh-row-btn");
+        if (rb && !rb.disabled) rb.click();
+        return;
+      }
       if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
       if (e.target.closest && e.target.closest(".com-tri")) return;
       const chip = e.target.closest && e.target.closest(".stop-n");
