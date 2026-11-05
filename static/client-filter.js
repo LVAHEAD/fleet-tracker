@@ -65,7 +65,7 @@ function clientList(rowsArr, selected, tag) {
 function rowPassesClient(row) {
   const pre = clientPrefixKeys();
   if (!clientFilter.length && !pre.length) return true;
-  if (!row || !row.unit) return true;     // пустые строки видны всегда, как у остальных фильтров
+  if (!row || (!row.unit && !clientName(row))) return true;   // v3.278: пустая строка без машины и без клиента — судить не по чему; с клиентом фильтр действует как у всех
   const key = clientKey(clientName(row));
   return clientFilter.includes(key) || pre.some((p) => key.startsWith(p));
 }

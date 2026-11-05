@@ -41,7 +41,7 @@ class FrontendSourceTest(unittest.TestCase):
         # v3.188: плюс фильтр даты (TimeSlot) — кроме только что добавленной строки
         self.assertIn('if (!row.unit) {', src)
         self.assertIn('if (loFilter === "O" && !freshEmptyIds.has(row.id)) return false;', src)
-        self.assertIn('return ownPass(row) && (freshEmptyIds.has(row.id) || rowPassesSlot(row));', src)
+        self.assertIn('return ownPass(row) && rowPassesClient(row) && (freshEmptyIds.has(row.id) || rowPassesSlot(row));', src)   # v3.278: + клиент
         self.assertIn("rowPassesFilterWith(row, rowPassesOwn)", src)
 
     def test_add_row_switches_filter_to_self(self):

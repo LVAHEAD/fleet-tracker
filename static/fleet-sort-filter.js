@@ -224,11 +224,11 @@ function rowPassesFilterWith(row, ownPass) {
   // v3.188: дата (TimeSlot) относится и к ней; только что добавленную пустую строку не прячем, чтобы не пропала при вводе
   if (!row.unit) {
     if (loFilter === "O" && !freshEmptyIds.has(row.id)) return false;
-    return ownPass(row) && (freshEmptyIds.has(row.id) || rowPassesSlot(row));
+    return ownPass(row) && rowPassesClient(row) && (freshEmptyIds.has(row.id) || rowPassesSlot(row));   // v3.278: если клиент уже вписан — фильтр по клиентам действует
   }
   if (!ownPass(row)) return false;   // v2.01 / v3.11
-  // v3.246: строку, созданную в этой вкладке, не прячем фильтрами L / O, клиента, машин и даты, пока у её точек нет метки L / O
-  if (freshEmptyIds.has(row.id) && !rowHasLo(row)) return true;
+  // v3.246: строку, созданную в этой вкладке, не прячем фильтрами L / O, клиента, машин и даты, пока у её точек нет метки L / O (v3.278: и пока не вписан клиент)
+  if (freshEmptyIds.has(row.id) && !rowHasLo(row) && !clientName(row)) return true;   // v3.278: «свежая» — только пока не вписан клиент; дальше — фильтры как у всех (раньше такая строка висела до перезагрузки вкладки)
   if (awaitsComplete(row)) return true;   // v3.81: ждущие «✓ Завершён» видны при любом L/O и фильтре по клиентам, но не при чужом диспетчере
   if (!rowPassesClient(row)) return false;   // v3.114: фильтр по клиентам (client-filter.js)
   if (!rowPassesUnit(row)) return false;     // v3.204: фильтр по машинам (unit-filter.js)

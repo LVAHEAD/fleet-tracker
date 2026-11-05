@@ -55,14 +55,15 @@ class ClientLettersTest(unittest.TestCase):
         self.assertEqual(self.r["none"], [True] * 8)
 
     def test_b_prefix(self):
-        # Bama и Bama Supliers; пустая строка без машины видна всегда
+        # Bama и Bama Supliers; пустая строка без машины, но с клиентом Bama, проходит как все (v3.278)
         self.assertEqual(self.r["b"], [True, True, False, False, False, False, False, True])
 
     def test_multi_select(self):
         self.assertEqual(self.r["bg"], [True, True, True, True, False, False, False, True])
 
     def test_letter_plus_window_is_union(self):
-        self.assertEqual(self.r["kPlusWindow"], [False, False, False, False, True, True, False, True])
+        # v3.278: пустая строка без машины, но с клиентом (Bama), под фильтром клиента K + окном не проходит
+        self.assertEqual(self.r["kPlusWindow"], [False, False, False, False, True, True, False, False])
 
     def test_not_vl_ignores_letters(self):
         self.assertEqual(self.r["notVl"], [True] * 8)
