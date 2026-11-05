@@ -1091,6 +1091,8 @@ input.pt-here { background: #f3fbf4 !important; box-shadow: 0 0 0 3px #dff3e3; }
 #fleet-tbody tr.row-locked input, #fleet-tbody tr.row-locked select { color: #777; }
 #fleet-tbody tr.row-locked .stop-n, #fleet-tbody tr.row-locked .drag-h { pointer-events: none; }
 #fleet-tbody .lock-chip { display: inline-block; margin-top: 2px; font-size: 11px; color: #b7791f; font-weight: 600; }
+#fleet-tbody .lock-chip.lock-chip-adm { cursor: pointer; }   /* админ: два клика — снять блокировку */
+#fleet-tbody .lock-chip.armed { background: #2f6fd6; color: #fff; border-radius: 4px; padding: 0 4px; }
 #fleet-tbody tr.no-del .del-btn, #fleet-tbody tr.no-del .del-btn-w { display: none; }
 .sort-bar .trash-btn { margin-left: 8px; }
 .trash-pop { position: absolute; z-index: 3000; width: 360px; max-height: 60vh; overflow: auto; background: #fff;

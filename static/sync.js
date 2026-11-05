@@ -314,6 +314,26 @@
       lockReq(S.lockedId, false);
     }, 25000);
   }
+  // админ: снять чужую 🔒 (зависшая вкладка владельца) — замок переходит к админу, его вкладка держит как обычный (до 3 мин простоя)
+  window.fleetIsAdmin = function () { return S.mode === "server" && !!S.admin; };
+  window.fleetForceUnlock = async function (id) {
+    if (!window.fleetIsAdmin()) return;
+    try {
+      const r = await fetch("/api/fleet/lock", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: key(id), force: true }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.ok) { toast(d.error || "Не удалось снять блокировку"); return; }
+      S.meta[key(id)] = Object.assign(S.meta[key(id)] || {}, { lock_by: S.user, lock_until: d.lock_until });
+      S.lockSig = lockSig();
+      renderRows();
+      toast("🔒 Блокировка снята — строка у вас");
+      acquire(id);    // дальше замок держит эта вкладка (продление, снятие после 3 мин простоя)
+    } catch (e) {
+      toast("Не удалось снять блокировку");
+    }
+  };
   function release() {
     if (!S.lockedId) return;
     const id = S.lockedId;

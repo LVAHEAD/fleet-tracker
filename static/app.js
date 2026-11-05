@@ -617,10 +617,26 @@ function buildRowTr(row) {
       ch.className = "lock-chip";
       ch.textContent = "🔒 " + dispShort(lockBy);
       ch.title = `Строку сейчас правит ${lockBy}. Блокировка снимается, когда он выйдет из строки (или через минуту).`;
+      if (window.fleetIsAdmin && window.fleetIsAdmin()) {   // админ: два клика — снять чужую блокировку
+        ch.classList.add("lock-chip-adm");
+        ch.title += "\nАдмин: два клика по замку — снять блокировку.";
+        ch.addEventListener("click", (e) => { e.stopPropagation(); lockChipForce(ch, row.id, lockBy); });
+      }
       tr.querySelector("td").appendChild(ch);
     }
     if (window.fleetCanDelete && !window.fleetCanDelete(row)) tr.classList.add("no-del");
     return tr;
+}
+
+// админ: первый клик по замку — «снять?» (3 с), второй — снять блокировку (window.fleetForceUnlock, sync.js)
+function lockChipForce(ch, id, lockBy) {
+  if (!ch.classList.contains("armed")) {
+    ch.classList.add("armed");
+    ch.textContent = "🔒 снять?";
+    setTimeout(() => { ch.classList.remove("armed"); ch.textContent = "🔒 " + dispShort(lockBy); }, 3000);
+    return;
+  }
+  window.fleetForceUnlock(id);
 }
 
 function finishRowTr(tr, row) {

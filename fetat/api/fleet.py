@@ -285,7 +285,7 @@ def api_warm():
 @bp.route("/api/fleet/lock", methods=["POST"])
 def api_fleet_lock():
     """v2.02: 🔒 строку правит один человек. {id} — занять/продлить на 60 с, {id, release:true} — отпустить.
-    Занято другим — 409 {locked_by}."""
+    Занято другим — 409 {locked_by}. Админ: {id, force:true} — забрать чужой замок себе (иначе 403)."""
     body = request.get_json(force=True, silent=True) or {}
     user, now = _fleet_user(), _now_ms()
     try:
@@ -295,6 +295,12 @@ def api_fleet_lock():
             return jsonify({"ok": True, "now": now, "none": True})
         m = d["meta"]
         other = m.get("lock_by") and m.get("lock_by") != user and (m.get("lock_until") or 0) > now
+        if body.get("force"):
+            # админ забирает замок себе на 60 с (владелец с зависшей вкладкой не снимается иначе): его продление получит 409 и не перехватит строку
+            if user not in FLEET_ADMINS and user != "local":
+                return jsonify({"ok": False, "error": "Снять чужую блокировку может только админ"}), 403
+            FLEET_STORE.patch(rid, meta={"lock_by": user, "lock_until": now + FLEET_LOCK_MS, "updated_at": now})
+            return jsonify({"ok": True, "now": now, "lock_until": now + FLEET_LOCK_MS, "forced": True})
         if body.get("release"):
             if m.get("lock_by") == user:
                 FLEET_STORE.patch(rid, meta={"lock_by": "", "lock_until": 0, "updated_at": now})
