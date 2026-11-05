@@ -54,6 +54,8 @@
 
 - **Вход JZ (15.10): адрес `jzemesarajs@gmail.com` (без точки).** Нужно руками: (1) Cloud Shell: `gcloud iap web add-iam-policy-binding --member=user:jzemesarajs@gmail.com --role=roles/iap.httpsResourceAccessor --region=europe-west1 --resource-type=cloud-run --service=fleet-eta-tracker` (доступ через 5–10 мин); (2) в листе «Диспетчеры» заменить `j.zemesarajs@gmail.com` на этот адрес. Сопоставление адресов без точек Gmail уже в коде (v3.127).
 
+- **Суббота 07.11: проверить `/gusage` (05.11, Владимир).** Сколько запросов к Google Routes в сутки после v3.262: если меньше ~330 в сутки (~10 000 в месяц) — Routes бесплатны (Essentials, `TRAFFIC_UNAWARE`), дальше $5 за 1000. Прислать текст или скрин `/gusage` (там прогноз на месяц) → посчитать цену на 4 диспетчеров (Routes + Cloud Run, оценка 05.11: $0–40 в месяц) и решить, резать ли дальше (прошлый ответ для стоящей машины 48–72 ч, `polylineQuality`, двойной запрос edit + sync). Связано с апгрейдом Google Cloud ниже и с пунктом «Оптимизация нагрузки — вариант А».
+
 - **Апгрейд Google Cloud до ~21.12.2026** — my-n8n-bot на free trial, без апгрейда Cloud Run может встать.
   Решено 08.10 — платный аккаунт (вариант 1), всё остаётся как есть. Чек-лист (в консоли, без кода):
   (1) Billing → «Activate full account» / «Upgrade»; (2) бюджет-алерт ~$20 / мес.; (3) дневная квота Compute Routes ~800 (пики 601–662 в сутки, 26.10);
