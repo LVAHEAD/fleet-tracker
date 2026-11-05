@@ -255,10 +255,10 @@ function emptyRow(disp) {
   return r;   // v2.00: уникальный id на всех
 }
 
-// Строка, добавленная кнопкой («+ строка» / «+ строка ниже»): при фильтре «Показывать: L» первая точка сразу L,
-// иначе строка пропадает из списка, как только вписан клиент (rowPassesFilterWith)
+// Строка, добавленная кнопкой («+ строка» / «+ строка ниже»): при фильтре «Показывать: L» (или «O») первая точка сразу L (или O),
+// иначе строка пропадает из списка, как только вписан клиент (rowPassesFilterWith); при «все» — пустая
 function newRowLo(nr) {
-  if (typeof loFilter !== "undefined" && loFilter === "L" && !nr.lo) nr.lo = "L";
+  if (typeof loFilter !== "undefined" && (loFilter === "L" || loFilter === "O") && !nr.lo) nr.lo = loFilter;
   return nr;
 }
 
