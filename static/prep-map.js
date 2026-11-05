@@ -30,14 +30,18 @@ markAllowed, escapeHtml). PrepMap.sync() — из saveRows, renderRows, initMap 
     const a = list.find((x) => x.lat != null && x.lng != null && (norm(x.name) === n || (x.alias && norm(x.alias) === n)));
     return a ? { lat: a.lat, lng: a.lng } : null;
   }
+  // v3.282: аутсорс (номера нет в Mapon) — та же картина, что у трипа без машины: флажки точек + линия маршрута с сервера (outsource.js)
+  const isOut = (row) => typeof isOutsourceRow === "function" && isOutsourceRow(row);
   // точки трипа: k = 0 — основная, k ≥ 1 — row.extra[k - 1]
   function points(row) {
     const n = 1 + (row.extra ? row.extra.length : 0);
+    const info = isOut(row) ? window.outsourceInfo[row.id] : null;
     const out = [];
     for (let k = 0; k < n; k++) {
       const text = k === 0 ? row.target : ((row.extra[k - 1] && row.extra[k - 1].target) || "");
       const p = pointOf(row, k) || {};
-      out.push({ k, text: String(text || "").trim(), lo: p.lo || "", pos: resolve(text) });
+      const sp = info && info.pts && info.pts[k];   // координаты точки — от сервера (адреса, GPS, коды, города)
+      out.push({ k, text: String(text || "").trim(), lo: p.lo || "", pos: sp ? { lat: sp[0], lng: sp[1] } : resolve(text) });
     }
     return out;
   }
@@ -57,7 +61,7 @@ markAllowed, escapeHtml). PrepMap.sync() — из saveRows, renderRows, initMap 
   function hiddenHtml(cls) { return `<span class="cc-badge ${cls}" hidden></span>`; }
   function fill() {
     rows.forEach((row) => {
-      if (row.unit) return;
+      if (row.unit && !isOut(row)) return;
       const tr = document.querySelector(`#fleet-tbody tr[data-id="${row.id}"]`);
       if (!tr) return;
       points(row).forEach((p) => {
@@ -88,13 +92,14 @@ markAllowed, escapeHtml). PrepMap.sync() — из saveRows, renderRows, initMap 
   function clearSel() {
     if (!sel) return;
     sel.items.forEach((o) => { o.marker.setMap(null); o.badge.setMap(null); });
+    (sel.lines || []).forEach((l) => l.setMap(null));
     sel = null;
   }
   function select(rowId, keepView) {
     clearSel();
     if (typeof map === "undefined" || !map || !window.google || !google.maps) return false;
     const row = rows.find((r) => String(r.id) === String(rowId));
-    if (!row || row.unit) return false;
+    if (!row || (row.unit && !isOut(row))) return false;
     const placed = points(row).filter((p) => p.pos);
     if (!placed.length) return false;
     const mk = markAllowed() ? MARK_COLORS[Number(row.mark) || 0] : null;
@@ -103,7 +108,7 @@ markAllowed, escapeHtml). PrepMap.sync() — из saveRows, renderRows, initMap 
     placed.forEach((p) => {
       const base = targetColors(p.lo);
       const colors = mk ? { fill: mk[0], stroke: mk[1] } : base;
-      const title = `${row.client ? row.client + " · " : ""}${p.text} (${p.k + 1}, без машины)`;
+      const title = `${row.client ? row.client + " · " : ""}${p.text} (${p.k + 1}, ${row.unit ? "аутсорс" : "без машины"})`;
       const marker = new google.maps.Marker({ position: p.pos, map, icon: flag(colors), title, zIndex: 50 });
       const html = `${numChip(p.k + 1, p.lo)} ${escapeHtml(p.text)}`;
       const badge = makeBadge(p.pos.lat, p.pos.lng, html, "mk-tbadge mk-prep", 34, null);
@@ -113,7 +118,16 @@ markAllowed, escapeHtml). PrepMap.sync() — из saveRows, renderRows, initMap 
       items.push({ marker, badge });
       bounds.extend(p.pos);
     });
-    sel = { id: String(row.id), items };
+    // v3.282: линия маршрута по плечам (аутсорс) — тем же цветом, что у трипов с машиной
+    const lines = [];
+    const info = isOut(row) ? window.outsourceInfo[row.id] : null;
+    ((info && info.polys) || []).forEach((enc) => {
+      if (!enc || !google.maps.geometry) return;
+      const path = google.maps.geometry.encoding.decodePath(enc);
+      lines.push(new google.maps.Polyline({ path, strokeColor: "#4285F4", strokeOpacity: 0.85, strokeWeight: 4, map }));
+      path.forEach((pt) => bounds.extend(pt));
+    });
+    sel = { id: String(row.id), items, lines };
     if (!keepView) {
       if (placed.length === 1) { map.setCenter(placed[0].pos); map.setZoom(Math.max(map.getZoom() || 0, 9)); }
       else map.fitBounds(bounds, 60);

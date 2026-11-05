@@ -75,6 +75,7 @@ td input::placeholder { color: #9aa5b5; }
 
 .muted { color: #999; }
 
+.status-cell .out-st { color: #c0392b; font-weight: 700; }   /* v3.282: аутсорс — номера нет в Mapon */
 .status-cell.status-driving { background: #e9f7ee; }
 .status-cell.status-standing { background: #fdecec; }
 

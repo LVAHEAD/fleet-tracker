@@ -666,6 +666,47 @@ def _find_unit(units, unit_query):
     return matches[0], None
 
 
+OUTSOURCE_MAX_POINTS = 13
+
+
+def _outsource_row(payload, unit_query):
+    """v3.282: аутсорс — номера нет в Mapon (GPS и тахографа нет). ETA не считаем, запретов по пути и карточки
+    нескольких трипов нет. Показываем км по дорогам между точками трипа и линию маршрута.
+    Плечи берутся из кеша плеч Google (kind="leg", 30 дней, общий между инстансами), поэтому без правки точек
+    новых запросов к Google нет."""
+    texts = [str(payload.get("target") or "").strip()]
+    extra = payload.get("extra")
+    if isinstance(extra, list):
+        texts += [str(t or "").strip() for t in extra[:OUTSOURCE_MAX_POINTS - 1]]
+    pts = []
+    for t in texts:
+        ll = None
+        if t:
+            try:
+                r = resolve_fleet_target(t, [], None)
+                ll = [r["lat"], r["lng"]]
+            except Exception:        # точка не распознана — без неё плечи пропускаем
+                ll = None
+        pts.append(ll)
+    legs, polys, total, got = [], [], 0.0, False
+    for a, b in zip(pts, pts[1:]):
+        km = poly = None
+        if a and b and GOOGLE_API_KEY:
+            try:
+                wps = fleet_waypoints(a[0], a[1], b[0], b[1])
+                km, poly = road_distance_km_google(a[0], a[1], b[0], b[1], GOOGLE_API_KEY, wps, kind="leg")
+            except Exception as e:
+                warn("outsource-leg", e)
+                km = poly = None
+        legs.append(round(km, 1) if km is not None else None)
+        polys.append(poly)
+        if km is not None:
+            total += km
+            got = True
+    return {"outsource": True, "number": unit_query, "dist_km": round(total, 1) if got else None,
+            "legs_km": legs, "pts": pts, "polys": polys}
+
+
 def _add_route_to_target(result, unit, target_lat, target_lng, payload, tm=None):
     """Маршрут «машина → цель»: коридор, км, ETA по простой скорости, линия."""
     cur_lat, cur_lng = unit["lat"], unit["lng"]
@@ -780,6 +821,8 @@ def _calc_row(payload, tm):
         tm.mark("units")
         unit, err = _find_unit(units, unit_query)
         if err:
+            if err[1] == 404 and units:    # v3.282: номера нет в Mapon — аутсорс (список машин пуст — сбой Mapon, не аутсорс)
+                return _outsource_row(payload, unit_query), 200
             return err
         result = _unit_status(unit)
 

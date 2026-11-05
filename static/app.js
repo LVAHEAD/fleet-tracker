@@ -1459,6 +1459,10 @@ async function calcRow(id, why, pre) {
       return;
     }
 
+    // v3.282: номера нет в Mapon — аутсорс: красная пометка, км по точкам, маршрут на карте (static/outsource.js)
+    if (data.outsource) { renderOutsource(id, tr, data); return; }
+    clearOutsource(id);
+
     // v1.31: плашка страны, где машина сейчас
     const flagBg = FLAG_BG[data.unit_country];   // v3.167: цвета флага страны
     const ccBadge = data.unit_country
