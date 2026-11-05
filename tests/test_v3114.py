@@ -143,7 +143,7 @@ class WiringTest(unittest.TestCase):
         self.assertIn('id="client-flt-th"', html)
         self.assertLess(html.index("client-filter.js"), html.index("app.js"))
         sf = _read("static", "fleet-sort-filter.js")
-        self.assertLess(sf.index("awaitsComplete(row)) return true"), sf.rindex("rowPassesClient(row)"))   # v3.278: клиент проверяется ещё и у строк без машины — берём последнее вхождение (у строк с машиной)
+        self.assertNotIn("awaitsComplete(row)) return true", sf)   # v3.278: исключения для ждущих «✓ Завершён» больше нет — фильтры действуют на все трипы
 
 
 DRIVER = r"""

@@ -13,11 +13,11 @@ def _src(*parts):
 class FleetV381Test(unittest.TestCase):
     """v3.81: ждущие «✓ Завершён» наверх, TimeSlot зачёркнут, ETA — время отъезда, единая высота подстрок."""
 
-    def test_pending_complete_goes_up_and_passes_filter(self):
+    def test_pending_complete_goes_up_and_obeys_filter(self):
         js = _src("static", "fleet-sort-filter.js")
         self.assertIn("function awaitsComplete(row)", js)
         self.assertIn("computeBaseOrder()", js)
-        self.assertRegex(js, r"if \(awaitsComplete\(row\)\) return true;")
+        self.assertNotRegex(js, r"if \(awaitsComplete\(row\)\) return true;")   # v3.278: наверху — да, но фильтры действуют и на них
 
     def test_done_marks(self):
         js = _src("static", "done-marks.js")

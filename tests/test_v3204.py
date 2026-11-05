@@ -100,7 +100,7 @@ class WiringTest(unittest.TestCase):
         self.assertIn('id="unit-flt-th"', html)
         self.assertLess(html.index("unit-filter.js"), html.index("app.js"))
         sf = _read("static", "fleet-sort-filter.js")
-        self.assertLess(sf.index("awaitsComplete(row)) return true"), sf.index("rowPassesUnit(row)"))   # «ждущие ✓» видны при любом фильтре
+        self.assertNotIn("awaitsComplete(row)) return true", sf)   # v3.278: «ждущие ✓» подчиняются и фильтру по машинам
         self.assertLess(sf.index("rowPassesClient(row)"), sf.index("rowPassesUnit(row)"))
         css = _read("static", "style.css")
         self.assertIn("th.th-unit.unit-on", css)

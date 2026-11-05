@@ -229,7 +229,7 @@ function rowPassesFilterWith(row, ownPass) {
   if (!ownPass(row)) return false;   // v2.01 / v3.11
   // v3.246: строку, созданную в этой вкладке, не прячем фильтрами L / O, клиента, машин и даты, пока у её точек нет метки L / O (v3.278: и пока не вписан клиент)
   if (freshEmptyIds.has(row.id) && !rowHasLo(row) && !clientName(row)) return true;   // v3.278: «свежая» — только пока не вписан клиент; дальше — фильтры как у всех (раньше такая строка висела до перезагрузки вкладки)
-  if (awaitsComplete(row)) return true;   // v3.81: ждущие «✓ Завершён» видны при любом L/O и фильтре по клиентам, но не при чужом диспетчере
+  // v3.278: ждущие «✓ Завершён» (v3.81) тоже подчиняются фильтрам — при любом включённом фильтре видны только подходящие трипы (решение Владимира 05.11); наверху списка они по-прежнему
   if (!rowPassesClient(row)) return false;   // v3.114: фильтр по клиентам (client-filter.js)
   if (!rowPassesUnit(row)) return false;     // v3.204: фильтр по машинам (unit-filter.js)
   if (!rowPassesSlot(row)) return false;     // v3.144: фильтр-календарь по TimeSlot (slot-filter.js)
