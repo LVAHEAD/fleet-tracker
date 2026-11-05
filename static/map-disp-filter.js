@@ -19,6 +19,7 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
 
   let box = null;
   let isOpen = false;
+  const MDF_NARROW_PX = 640;   // уже — «Дисп.» на второй строке (иначе налезает на кнопки слева)
 
   // строка проходит фильтр диспетчера карты (для rowPassesFilterWith)
   function pass(row) {
@@ -106,6 +107,13 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
     box.addEventListener("mousedown", (e) => e.stopPropagation());
     render();
     map.controls[google.maps.ControlPosition.TOP_CENTER].push(box);
+    // узкая карта (боковая панель ~500 px): слева «№ / Группировать / 🚩» занимают всю первую строку — кнопку «Дисп.» опускаем на вторую
+    try {
+      const div = map.getDiv();
+      const fit = () => box.classList.toggle("mdf-narrow", div.clientWidth > 0 && div.clientWidth < MDF_NARROW_PX);
+      new ResizeObserver(fit).observe(div);
+      fit();
+    } catch (e) { /* без ResizeObserver — кнопка остаётся вверху */ }
     map.addListener("click", () => { if (isOpen) setOpen(false); });
     document.addEventListener("click", (e) => { if (isOpen && box && !box.contains(e.target)) setOpen(false); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && isOpen) setOpen(false); });
