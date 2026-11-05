@@ -21,6 +21,31 @@ function mtSlotStart(r) {
 function mtSorted(list) {
   return list.slice().sort((a, b) => { const x = mtSlotStart(a), y = mtSlotStart(b); return (x ? +x : 9e15) - (y ? +y : 9e15); });
 }
+// v3.277: стык между трипами — км по дороге от последней точки трипа до ① следующего (вместо запаса по времени); /api/trip-gap, кеш на странице
+const MT_KM = {}, MT_PEND = {};
+function mtLastTarget(r) {
+  const ex = r.extra || [];
+  for (let i = ex.length - 1; i >= 0; i--) { const t = ex[i] && String(ex[i].target || "").trim(); if (t) return t; }
+  return String(r.target || "").trim();
+}
+function mtGapText(n, v) {
+  if (v === undefined) return `↓ … км до ① трипа ${n}`;
+  if (typeof v === "number") return `↓ ${Math.round(v).toLocaleString("ru-RU")} км до ① трипа ${n}`;
+  return `↓ до ① трипа ${n}: ${v}`;
+}
+function mtGapLoad(a, b) {   // → число км или текст ошибки; числа помнятся (плечо на сервере кешируется 30 дней)
+  const k = a + "|" + b;
+  if (!a || !b) return Promise.resolve("нет точки");
+  if (typeof MT_KM[k] === "number") return Promise.resolve(MT_KM[k]);
+  if (!MT_PEND[k]) {
+    MT_PEND[k] = fetch("/api/trip-gap", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: a, to: b }) })
+      .then((r) => r.json())
+      .then((d) => { if (typeof d.km === "number") MT_KM[k] = d.km; return typeof d.km === "number" ? d.km : (d.error || "не посчитать"); })
+      .catch(() => "не посчитать")
+      .finally(() => { delete MT_PEND[k]; });
+  }
+  return MT_PEND[k];
+}
 function mtLine(r) {
   const d = mtSlotStart(r);
   const p = (n) => String(n).padStart(2, "0");
@@ -127,16 +152,9 @@ function markMultiTrips() {
         + `${x === me ? "" : ' title="Клик — к этому трипу"'}><span class="mtc-n">${i + 1}/${list.length}</span>`
         + `<span class="mtc-m"><b>${escapeHtml(x.client || "без клиента")}</b>${x.ref ? " · " + escapeHtml(x.ref) : ""}${cd ? `<i>${escapeHtml(cd)}</i>` : ""}</span>`
         + `<span class="mtc-d">① ${st ? fmtD(st) : "—"}<br>${lastTxt}</span><span class="mtc-w">${escapeHtml(dispLabel(rowDisp(x)))}</span></div>`;
-      if (!isT && i < list.length - 1) {   // стык: конец этого трипа против начала слота ① следующего
-        const nx = mtSlotStart(list[i + 1]);
-        const from = plan || e.d;
-        if (from && nx) {
-          const hrs = (nx - from) / 36e5, a = Math.abs(hrs);
-          const dur = a >= 36 ? (a / 24).toFixed(1).replace(".", ",") + " сут" : Math.round(a) + " ч";
-          h += `<div class="mtc-gap">${hrs < 0 ? `↓ ① трипа ${i + 2} раньше конца этого трипа по плану` : `↓ запас до ① трипа ${i + 2}: ${dur}`}</div>`;   // «не успевает» не показываем (02.11)
-        } else {
-          h += '<div class="mtc-gap">↓ стык не посчитать — нет ETA или даты ①</div>';
-        }
+      if (!isT && i < list.length - 1) {   // стык: км по дороге до ① следующего трипа (v3.277)
+        const ga = mtLastTarget(x), gb = String(list[i + 1].target || "").trim(), gk = ga + "|" + gb;
+        h += `<div class="mtc-gap" data-n="${i + 2}" data-a="${escapeHtml(ga)}" data-b="${escapeHtml(gb)}">${mtGapText(i + 2, MT_KM[gk])}</div>`;
       }
     });
     const meta = !isT && window.fleetMetaTitle ? window.fleetMetaTitle(me.id) : "";
@@ -145,6 +163,10 @@ function markMultiTrips() {
     card.className = "mt-card";
     card.innerHTML = h;
     document.body.appendChild(card);
+    card.querySelectorAll(".mtc-gap[data-a]").forEach((g) => {   // цифры — с сервера, карточка уже на экране
+      if (typeof MT_KM[g.dataset.a + "|" + g.dataset.b] === "number") return;
+      mtGapLoad(g.dataset.a, g.dataset.b).then((v) => { if (g.isConnected) g.textContent = mtGapText(g.dataset.n, v); });
+    });
     const r = inp.getBoundingClientRect();
     const z = typeof uiZoom === "function" ? uiZoom() : 1;
     const top = r.bottom + card.offsetHeight * z + 8 > window.innerHeight ? Math.max(8, r.top - card.offsetHeight * z - 4) : r.bottom + 4;

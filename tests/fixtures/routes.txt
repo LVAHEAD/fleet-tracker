@@ -47,6 +47,7 @@
 /api/refresh-stat POST
 /api/region-codes GET
 /api/route POST
+/api/trip-gap POST
 /api/truck-info GET
 /api/unit-seed POST
 /api/units GET
