@@ -255,6 +255,13 @@ function emptyRow(disp) {
   return r;   // v2.00: уникальный id на всех
 }
 
+// Строка, добавленная кнопкой («+ строка» / «+ строка ниже»): при фильтре «Показывать: L» первая точка сразу L,
+// иначе строка пропадает из списка, как только вписан клиент (rowPassesFilterWith)
+function newRowLo(nr) {
+  if (typeof loFilter !== "undefined" && loFilter === "L" && !nr.lo) nr.lo = "L";
+  return nr;
+}
+
 async function loadUnitsList() {
   try {
     const res = await fetch("/api/units");
@@ -806,7 +813,7 @@ function attachRowHandlers(one) {
     tr.querySelector(".add-btn").addEventListener("click", (e) => {
       e.stopPropagation();
       const idx = rows.findIndex((r) => r.id === id);
-      const nr = emptyRow(idx >= 0 ? rowDisp(rows[idx]) : "");
+      const nr = newRowLo(emptyRow(idx >= 0 ? rowDisp(rows[idx]) : ""));
       freshEmptyIds.add(nr.id);
       rows.splice(idx + 1, 0, nr);
       if (displayOrder) {
@@ -2220,7 +2227,7 @@ function emptyOwnRow() {
 }
 
 document.getElementById("add-row-btn").addEventListener("click", () => {
-  const nr = emptyRow(String(ownFilter).includes("@") ? ownFilter : "");
+  const nr = newRowLo(emptyRow(String(ownFilter).includes("@") ? ownFilter : ""));
   freshEmptyIds.add(nr.id);
   rows.push(nr);
   saveRows();
