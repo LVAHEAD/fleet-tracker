@@ -105,3 +105,37 @@ def geocode_city(q):
     if not g:
         return None, None, None, None
     return g["lat"], g["lng"], g["name"], g["cc"]
+
+
+NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
+_cc_cache = {}
+
+
+def country_at(lat, lng):
+    """v3.286: код страны (ES, FR…) по координате — обратный геокодинг Nominatim, кеш на сутки (ключ — 3 знака, ≈100 м).
+    Нет ответа / ошибка — None (вызывающий откатывается на ближайший код региона)."""
+    import time
+    key = (round(float(lat), 3), round(float(lng), 3))
+    now = time.time()
+    hit = _cc_cache.get(key)
+    if hit and now - hit[0] < GEO_CACHE_TTL:
+        return hit[1]
+    cc = None
+    try:
+        with _geo_lock:
+            wait = 1.05 - (time.time() - _geo_last_nominatim[0])
+            if wait > 0:
+                time.sleep(wait)
+            _geo_last_nominatim[0] = time.time()
+        resp = requests.get(NOMINATIM_REVERSE_URL, params={"lat": key[0], "lon": key[1], "format": "json", "zoom": 3, "addressdetails": 1},
+                            headers=GEO_UA, timeout=8)
+        resp.raise_for_status()
+        cc = ((resp.json().get("address") or {}).get("country_code") or "").upper() or None
+    except Exception as e:
+        print(f"country_at failed for {key}: {type(e).__name__}", flush=True)
+        return None
+    _cc_cache[key] = (now, cc)
+    if len(_cc_cache) > GEO_CACHE_MAX:
+        for k, v in sorted(_cc_cache.items(), key=lambda kv: kv[1][0])[:GEO_CACHE_MAX // 4]:
+            _cc_cache.pop(k, None)
+    return cc

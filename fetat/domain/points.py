@@ -8,7 +8,7 @@ from fetat.domain.addresses import (
     address_public, base_point, dovoz_country, find_address, is_base_word,
 )
 from fetat.domain.regions import (
-    get_region_country, nearest_region_code, OUR_COUNTRIES, REGION_CODES, _country_at,
+    get_region_country, nearest_region_code, nearest_region_code_geo, OUR_COUNTRIES, REGION_CODES, _country_at,
 )
 from fetat.utils.geo import haversine_km, parse_gps, poly_dist_km, _point_in_poly
 from fetat.utils.log import warn
@@ -193,7 +193,7 @@ def _place_point(raw):
     if country:
         code = raw.strip().upper().replace(" ", "")  # введён сам код региона
     else:
-        near_code, d = nearest_region_code(lat, lng)
+        near_code, d = nearest_region_code_geo(lat, lng)   # v3.286: у границы страна по координате
         country = near_code[:2] if near_code else None
         if near_code and d <= NEAR_LABEL_MAX_KM:
             label = f"{label} (около {near_code})"
@@ -257,7 +257,7 @@ def target_badge_info(target_str, lat, lng, address=None):
         tcode, tcc, td = key, key[:2], 0.0
     else:
         acc = (address or {}).get("country")
-        tcode, td = nearest_region_code(lat, lng, acc)   # v3.285: страна адреса известна — код из неё (La Jonquera: ES17, не FR66)
+        tcode, td = nearest_region_code_geo(lat, lng, acc)   # v3.286: нет адреса — страна по координате; # v3.285: страна адреса известна — код из неё (La Jonquera: ES17, не FR66)
         tcc = acc or (tcode[:2] if tcode else None)
         for a_code, a_lat, a_lng, a_r in BADGE_ANCHORS:
             if lat is not None and lng is not None and haversine_km(lat, lng, a_lat, a_lng) <= a_r:

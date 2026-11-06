@@ -67,6 +67,28 @@ def nearest_region_code(lat, lng, country=None):
     return best_code, best_d
 
 
+BORDER_NEAR_KM = 60.0   # v3.286: центр зоны другой страны не дальше чем на столько дальше ближайшего — точка «у границы»
+
+
+def nearest_region_code_geo(lat, lng, country=None):
+    """v3.286: как nearest_region_code, но для точки без адреса (страна неизвестна) у границы страну берём по координате
+    (обратный геокодинг, кеш): иначе выигрывает центр соседней страны. Вдали от границы запросов нет."""
+    code, d = nearest_region_code(lat, lng, country)
+    if country or not code:
+        return code, d
+    other = min((haversine_km(lat, lng, v["lat"], v["lng"]) for c, v in REGION_CODES.items() if c[:2] != code[:2]), default=None)
+    if other is None or other - d > BORDER_NEAR_KM:
+        return code, d
+    try:
+        from fetat.clients.geocode import country_at
+        cc = country_at(lat, lng)
+    except Exception:
+        cc = None
+    if cc and cc != code[:2]:
+        return nearest_region_code(lat, lng, cc)
+    return code, d
+
+
 _cc_points = None
 
 

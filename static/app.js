@@ -359,26 +359,61 @@ async function loadAddressList(refresh) {
 }
 
 // Подсказки для Таргет / From → To / Локатора: машины + склады из базы
+// v3.286: поиск быстрее (вариант А): индекс строится один раз при загрузке списков, в datalist — только до 40 совпадений
+// после паузы 200 мс (раньше в нём лежали тысячи option, браузер их фильтровал при каждой букве).
+let ptsIndex = [];
+const PTS_MAX = 40;
+const ptsNorm = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 function rebuildPointsList() {
-  const dl = document.getElementById("points-list");
-  if (!dl) return;
-  dl.innerHTML = "";
-  (unitsCache || []).forEach((u) => {
-    const o = document.createElement("option");
-    o.value = u.number;
-    o.label = u.kind === "trailer" ? "прицеп" : "машина";
-    dl.appendChild(o);
-  });
+  const idx = [];
+  (unitsCache || []).forEach((u) => idx.push({ v: u.number, l: u.kind === "trailer" ? "прицеп" : "машина", k: ptsNorm(u.number) }));
   (window.addressList || []).forEach((a) => {
     const extra = [a.supplier, ADDR_TYPE_RU[a.type] || a.type, a.city, a.country].filter(Boolean).join(" · ");
-    [a.name, a.alias].filter(Boolean).forEach((v) => {
-      const o = document.createElement("option");
-      o.value = v;
-      o.label = extra;
-      dl.appendChild(o);
-    });
+    const k2 = ptsNorm([a.city, a.country].filter(Boolean).join(" "));
+    [a.name, a.alias].filter(Boolean).forEach((v) => idx.push({ v, l: extra, k: ptsNorm(v), k2 }));
   });
+  ptsIndex = idx;
+  const dl = document.getElementById("points-list");
+  if (dl && !dl.childNodes.length) fillPointsList("");
 }
+function fillPointsList(q) {
+  const dl = document.getElementById("points-list");
+  if (!dl) return;
+  const toks = ptsNorm(q).split(" ").filter(Boolean);
+  const starts = [], rest = [];
+  for (const it of ptsIndex) {
+    if (starts.length + rest.length >= PTS_MAX * 4) break;
+    if (toks.length && !toks.every((t) => it.k.includes(t) || (it.k2 && it.k2.includes(t)))) continue;
+    (toks.length && it.k.startsWith(toks[0]) ? starts : rest).push(it);
+  }
+  const all = starts.concat(rest);
+  const part = all.slice(0, PTS_MAX);
+  const frag = document.createDocumentFragment();
+  part.forEach((it) => {
+    const o = document.createElement("option");
+    o.value = it.v;
+    o.label = it.l;
+    frag.appendChild(o);
+  });
+  if (all.length > PTS_MAX) {
+    const o = document.createElement("option");
+    o.value = String(q || "");
+    o.label = "уточните запрос — показаны первые " + PTS_MAX;
+    frag.appendChild(o);
+  }
+  dl.replaceChildren(frag);
+}
+let ptsTimer = null;
+document.addEventListener("input", (e) => {
+  const inp = e.target.closest && e.target.closest('input[list="points-list"]');
+  if (!inp) return;
+  clearTimeout(ptsTimer);
+  ptsTimer = setTimeout(() => fillPointsList(inp.value), 200);
+});
+document.addEventListener("focusin", (e) => {
+  const inp = e.target.closest && e.target.closest('input[list="points-list"]');
+  if (inp) fillPointsList(inp.value);   // при фокусе список свежий под текущий текст
+});
 
 // v3.155: при наведении на любое поле таргета (points-list) — полный адрес из «Full address» и второй строкой type · client · supplier
 function addressTipFor(v) {
