@@ -110,9 +110,10 @@ def looks_like_gps_or_code(s):
     return False
 
 
-def _near(lat, lng):
-    """Ближайший код региона и «код для подписи», если он не дальше NEAR_LABEL_MAX_KM."""
-    code, d = nearest_region_code(lat, lng)
+def _near(lat, lng, country=None):
+    """Ближайший код региона и «код для подписи», если он не дальше NEAR_LABEL_MAX_KM.
+    v3.285: country — страна адреса из базы: код ищем в ней (у границы иначе выигрывает сосед)."""
+    code, d = nearest_region_code(lat, lng, country)
     return code, d, (code if d <= NEAR_LABEL_MAX_KM else None)
 
 
@@ -156,7 +157,7 @@ def _base_point(dovoz=None):
 def _address_point(addr):
     """v1.28: точка из адресной базы."""
     lat, lng = addr["lat"], addr["lng"]
-    code, d, near_code = _near(lat, lng)
+    code, d, near_code = _near(lat, lng, addr.get("country"))
     near = f" (около {code})" if code and d <= NEAR_LABEL_MAX_KM else ""
     return {
         "lat": lat, "lng": lng,
@@ -255,8 +256,9 @@ def target_badge_info(target_str, lat, lng, address=None):
     if key in REGION_CODES:
         tcode, tcc, td = key, key[:2], 0.0
     else:
-        tcode, td = nearest_region_code(lat, lng)
-        tcc = (address or {}).get("country") or (tcode[:2] if tcode else None)
+        acc = (address or {}).get("country")
+        tcode, td = nearest_region_code(lat, lng, acc)   # v3.285: страна адреса известна — код из неё (La Jonquera: ES17, не FR66)
+        tcc = acc or (tcode[:2] if tcode else None)
         for a_code, a_lat, a_lng, a_r in BADGE_ANCHORS:
             if lat is not None and lng is not None and haversine_km(lat, lng, a_lat, a_lng) <= a_r:
                 tcode, td, tcc = a_code, 0.0, a_code[:2]

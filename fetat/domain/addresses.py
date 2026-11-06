@@ -71,7 +71,7 @@ def parse_address_rows(values):
             "city": city,
             "full": full,
             "lat": gps[0], "lng": gps[1],
-            "code": nearest_region_code(gps[0], gps[1])[0] or "",   # код региона (ES30) по GPS — один раз на загрузку листа
+            "code": nearest_region_code(gps[0], gps[1], get(row, "country"))[0] or "",   # код региона (ES30) по GPS в стране адреса (v3.285) — один раз на загрузку листа
         })
     return items, problems
 

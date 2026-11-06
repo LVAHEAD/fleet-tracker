@@ -47,16 +47,23 @@ def get_region_country(code_str):
     return key[:2] if key in REGION_CODES else None
 
 
-def nearest_region_code(lat, lng):
+def nearest_region_code(lat, lng, country=None):
     """Ближайший код региона из REGION_CODES по прямой: (code, dist_km).
     Нужен, чтобы узнать страну точки, заданной GPS/городом/машиной, — по ней
     выбираются правила маршрутов. Для стран без кодов в справочнике (AT, CH,
-    LU, HU...) вернётся код соседней страны."""
+    LU, HU...) вернётся код соседней страны.
+    v3.285: country (ES, FR…) — страна точки известна (адресная база): ищем среди кодов этой страны, иначе у границы
+    (La Jonquera → FR66 вместо ES17) выигрывает центр соседнего региона. Нет кодов этой страны — как без country."""
+    cc = (country or "").strip().upper()[:2]
     best_code, best_d = None, float("inf")
     for code, v in REGION_CODES.items():
+        if cc and code[:2] != cc:
+            continue
         d = haversine_km(lat, lng, v["lat"], v["lng"])
         if d < best_d:
             best_code, best_d = code, d
+    if best_code is None and cc:
+        return nearest_region_code(lat, lng)
     return best_code, best_d
 
 
