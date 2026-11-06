@@ -111,8 +111,8 @@ const EtaCalc = (() => {
           <div class="ec-rn-form" hidden>
             <span class="ec-hmw"><input type="text" class="ec-hm ec-rn-t" inputmode="numeric" value="00:00" title="ЧЧ:ММ · ↑ ↓ — шаг 15 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+15 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−15 мин">▾</button></span></span>
             <span class="ec-rn-post">назад</span>
-            <span class="ec-seg ec-sm ec-rn-len"><button type="button" data-v="9" class="on">9 ч</button><button type="button" data-v="11">11 ч</button></span>
-            <button type="button" class="ec-rn-ok">Применить</button><button type="button" class="ec-rn-no">Сбросить</button>
+            <span class="ec-seg ec-sm ec-rn-len"><button type="button" data-v="9" class="on">9 ч</button><button type="button" data-v="11">11 ч</button><button type="button" data-v="24">24 ч</button><button type="button" data-v="45">45 ч</button></span>
+            <button type="button" class="ec-rn-ok" title="Применить">ОК</button><button type="button" class="ec-rn-no" title="Сбросить">Сброс</button>
           </div>
           <span class="ec-mut2 ec-rn-info"></span>
         </div>
@@ -470,7 +470,7 @@ const EtaCalc = (() => {
       st.restLen = len();
       st.restEndMs = st.restStartMs + len() * 3600000;
       setSh(Math.max(0, Math.ceil((st.restEndMs - Date.now()) / 900000) / 4));
-      if (!st.team) { st.rest = len(); if (len() === 9 && !st.shorts) st.shorts = 3; }   // как кнопки «9 / 11 ч» в «Отдыхе»
+      if (!st.team && (len() === 9 || len() === 11)) { st.rest = len(); if (len() === 9 && !st.shorts) st.shorts = 3; }   // как кнопки «9 / 11 ч» в «Отдыхе»
       restUI(); restNowInfo(); form.hidden = true; calc(); manual(false);
     });
     $(".ec-rn-no").addEventListener("click", () => { st.restStartMs = null; st.restEndMs = null; restNowInfo(); form.hidden = true; calc(); });
