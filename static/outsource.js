@@ -29,6 +29,13 @@ function renderOutsource(id, tr, data) {
   etaCell.classList.remove("eta-late");
   delete lastCalcText[id];
   window.outsourceInfo[id] = { pts: data.pts || [], polys: data.polys || [], km: data.dist_km };
+  // v3.287: у аутсорса нет трека Mapon, но ручные ✓ работают: рисуем их (раньше отрисовка ✓ пропускалась и отметка была не видна)
+  const row = typeof rows !== "undefined" ? rows.find((r) => r.id === id) : null;
+  if (row && typeof applyDoneClasses === "function") {
+    const n = 1 + (row.extra ? row.extra.length : 0), d = row.done || {};
+    const doneFlags = Array.from({ length: n }, (_, i) => (d[i] === true ? { done: true } : { done: false }));
+    applyDoneClasses(tr, row, { doneFlags, allDone: doneFlags.every((f) => f.done) });
+  }
   if (window.PrepMap) PrepMap.sync();
 }
 
