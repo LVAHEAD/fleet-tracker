@@ -24,7 +24,13 @@ function initMap() {
   MapsCommon.refreshBtn(map, async () => { await refreshFleetPositions(); if (window.fleetMapUnits) await window.fleetMapUnits.refresh(); });   // ↻ на карте Флота — только позиции машин из Mapon (и все машины, если слой включён), без пересчёта строк и Google
   if (window.ObjLayer) ObjLayer.attach(map);   // v3.55: объекты Mapon — 🏭 под ↻
   if (window.PrepMap) PrepMap.sync();           // v3.178: трипы без машины с меткой VL
-  ensureOverlap();                              // v3.58: машины в одной точке — счётчик и веер
+  ensureOverlap();                              // v3.288: «живые» машины — раз в 30 с только позиции (кеш Mapon на сервере 45 с), пока карта открыта и вкладка видна;
+// без Google и без пересчёта строк
+setInterval(() => {
+  if (document.hidden || !map || !window.fleetMapPanel || !window.fleetMapPanel.isOpen()) return;
+  refreshFleetPositions().catch(() => {});
+}, 30 * 1000);
+// v3.58: машины в одной точке — счётчик и веер
   if (window.MapDispFilter) MapDispFilter.attach(map);   // после v3.132: свои кнопки диспетчеров на карте
   // v3.180: фильтр карты «Дисп.: Все» — показываем все машины Mapon (слой как в Локаторе), кроме тех, что уже стоят плашками трипов
   if (window.UnitsLayer) window.fleetMapUnits = UnitsLayer.attach(map, { follow: () => !!window.MapDispFilter && MapDispFilter.get() === "mapon", skip: fleetUnitInRows });
@@ -265,6 +271,7 @@ function updateMarker(rowId, lat, lng, label, status, heading, km, trailer, tgt)
     if (Math.abs(prev.lat - lat) + Math.abs(prev.lng - lng) > 0.003) heading = bearingDeg(prev, { lat, lng });
     else heading = prev.heading;
   }
+  const from = lastTruckPos[rowId] ? { lat: lastTruckPos[rowId].lat, lng: lastTruckPos[rowId].lng } : null;   // v3.288: откуда плыть
   lastTruckPos[rowId] = { lat, lng, heading };
 
   const pos = { lat, lng };
@@ -273,7 +280,7 @@ function updateMarker(rowId, lat, lng, label, status, heading, km, trailer, tgt)
   truckTrailer[rowId] = !!trailer;
   const icon = truckIcon(rowId);
   if (markers[rowId]) {
-    markers[rowId].setPosition(pos);
+    if (!glideOk(from, pos)) markers[rowId].setPosition(pos);   // v3.288: иначе — плавно, ниже
     markers[rowId].setIcon(icon);
     markers[rowId].setTitle(label || "");
   } else {
@@ -285,11 +292,41 @@ function updateMarker(rowId, lat, lng, label, status, heading, km, trailer, tgt)
   }
   const cls = `mk-badge ${status === "driving" ? "mk-driving" : "mk-standing"}${trailer ? " mk-trailer" : ""}`;
   const html = truckBadgeHtml(label, status, heading, km, tgt);
-  if (truckBadges[rowId]) truckBadges[rowId].update(new google.maps.LatLng(lat, lng), html, cls);
+  const gl = markers[rowId] && glideOk(from, pos);
+  if (truckBadges[rowId]) truckBadges[rowId].update(new google.maps.LatLng(gl ? from.lat : lat, gl ? from.lng : lng), html, cls);
   else truckBadges[rowId] = makeBadge(lat, lng, html, cls, 14, () => selectFromMap(rowId));
   applyBadgeLook(rowId);
+  if (gl) glideTruck(rowId, from, pos);
   scheduleMapSync();
   scheduleOverlap();   // v3.58
+}
+
+// v3.288: машина плавно переезжает на новую позицию (~1,5 с), а не прыгает; кружок и плашка вместе
+const GLIDE_MS = 1500;
+const truckGlide = {};
+function glideOk(from, to) {
+  if (!from || !window.requestAnimationFrame || document.hidden) return false;
+  const d = Math.abs(from.lat - to.lat) + Math.abs(from.lng - to.lng);
+  return d > 0.00005 && d < 0.2;   // сдвиг меньше ~5 м — не двигаем; больше ~20 км — прыжок (данные устарели)
+}
+function glideTruck(rowId, from, to) {
+  const token = (truckGlide[rowId] || 0) + 1;
+  truckGlide[rowId] = token;
+  const t0 = performance.now();
+  const step = (now) => {
+    if (truckGlide[rowId] !== token) return;      // пришла новая позиция или машину убрали
+    const m = markers[rowId];
+    if (!m) return;
+    const k = Math.min(1, (now - t0) / GLIDE_MS);
+    const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;   // плавный разгон и торможение
+    const ll = new google.maps.LatLng(from.lat + (to.lat - from.lat) * e, from.lng + (to.lng - from.lng) * e);
+    m.setPosition(ll);
+    const b = truckBadges[rowId];
+    if (b) { b.pos = ll; b.draw(); }
+    if (k < 1) requestAnimationFrame(step);
+    else scheduleOverlap();                        // веер перекрытий — по конечной позиции
+  };
+  requestAnimationFrame(step);
 }
 
 // v3.11: плашка машины — фон цвета диспетчера, рамка темнее, слева полоска статуса (едет/стоит)
