@@ -18,10 +18,10 @@ function ptTruckNo(p) {
   if (!p || !p.target) return null;
   return findUnitNo(p.target, "truck");
 }
-// тип точки для показа / сортировки: у встречи с траком и у перецепа — пусто («L/O»)
+// тип точки для показа / сортировки: у перецепа — пусто («L/O»); v3.287: у точки-машины L / O — как у обычной (клик меняет)
 function ptLo(p) {
   if (!p) return "";
-  if (p.swap || ptTruckNo(p)) return "";
+  if (p.swap) return "";
   return p.lo || "";
 }
 // у точки k можно спросить про перецеп: цель — чужой трак, перецепа ещё не было → номер трака

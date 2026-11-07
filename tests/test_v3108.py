@@ -62,9 +62,9 @@ class TrailerSwapTest(unittest.TestCase):
         cls.r = json.loads(out.stdout)
 
     def test_neutral_type_for_truck_target(self):
-        # цель-трак — тип нейтральный (даже если был «O»), обычная точка и ① свой тип сохраняют
-        self.assertEqual(self.r["lo"], ["", "O", "L", ""])
-        self.assertEqual(self.r["btn_before"][:2], ["L/O", ""])
+        # v3.287: у точки-машины L / O меняется как у обычной (был «O» — остаётся «O»); нейтральный тип — только у перецепа (swap)
+        self.assertEqual(self.r["lo"], ["O", "O", "L", ""])
+        self.assertEqual(self.r["btn_before"][:2], ["O", "lo-O"])
         self.assertIn("Встреча с OI-3577", self.r["btn_before"][2])
         self.assertEqual(self.r["btn_before"][3], "O")
 

@@ -801,7 +801,7 @@ function attachRowHandlers(one) {
       e.stopPropagation();
       const row = rows.find((r) => r.id === id);
       if (!row) return;
-      if (row.swap || ptTruckNo(row)) return;   // v3.108: у встречи с траком / перецепа тип не меняем
+      if (row.swap) return;   // v3.108: у перецепа тип не меняем (v3.287: у точки-машины L / O меняется, значок тягача остаётся)
       row.lo = LO_CYCLE[row.lo || ""];
       saveRows();
       applyLoToRow(tr, row);
@@ -956,7 +956,7 @@ function attachRowHandlers(one) {
       const k = Number(b.dataset.k);
       const x = row && row.extra && row.extra[k - 1];
       if (!x) return;
-      if (x.swap || ptTruckNo(x)) return;   // v3.108
+      if (x.swap) return;   // v3.108 (v3.287: точка-машина — L / O меняется)
       x.lo = LO_CYCLE[x.lo || ""];
       saveRows();
       b.className = `lo-btn xlo-btn ${loClass(x.lo)}`;
