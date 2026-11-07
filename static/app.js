@@ -621,7 +621,7 @@ function buildRowTr(row) {
           <button class="add-btn-w" title="Добавить строку ниже">+</button>
           <button class="trl-btn-w" title="Сцепка: у тягача — привязать прицеп, у прицепа — привязать к тягачу">🔗</button>
           <span class="acts-br"></span>
-          <button class="del-btn-w" title="Удалить строку (два клика)">🗑</button>
+          <button class="del-btn-w" title="Удалить строку">🗑</button>
           <button class="mv-up-w manual-inline" title="Выше">↑</button>
           <button class="mv-down-w manual-inline" title="Ниже">↓</button>
           <span class="drag-h drag-h-w" draggable="true" title="Перетащить строку">⠿</span>
@@ -845,21 +845,14 @@ function attachRowHandlers(one) {
     tr.querySelector(".refresh-row-btn-w").addEventListener("click", (e) => { e.stopPropagation(); tr.querySelector(".refresh-row-btn").click(); });   // v3.35
     tr.querySelector(".mv-up-w").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, -1); });
     tr.querySelector(".mv-down-w").addEventListener("click", (e) => { e.stopPropagation(); moveManual(id, 1); });
-    // v1.66: удаление в два клика — первый "взводит", уход мыши сбрасывает
-    // v3.37: при «взводе» размер кнопки не меняется (было «удалить?» — кнопка шире, в узкой колонке уезжала
-    // на новый ряд из-под мыши, взвод тут же сбрасывался) — та же 🗑 на красном, подсказка в title
+    // v3.287: удаление — карточка у места клика (было: два клика v1.66, взвод 🗑)
     const delW = tr.querySelector(".del-btn-w");
-    const delTitle = delW.title;
+    delW.title = "Удалить строку";
     delW.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (!delW.classList.contains("armed")) {
-        delW.classList.add("armed");
-        delW.title = "Ещё клик — удалить";
-        return;
-      }
-      tr.querySelector(".del-btn").click();
+      openSwapPop(delW, "Удалить строку", "Уйдёт в корзину, вернуть можно.",
+        [{ text: "Отмена" }, { text: "Удалить", ok: true, fn: () => tr.querySelector(".del-btn").click() }]);
     });
-    delW.addEventListener("mouseleave", () => { delW.classList.remove("armed"); delW.title = delTitle; });
 
     tr.querySelector(".add-btn").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1029,8 +1022,7 @@ function attachRowHandlers(one) {
         const w = chip.closest(".target-wrap");
         const kk = w.classList.contains("x-stop") ? Number(w.dataset.k) : 0;
         if (swapChipClick(id, kk, chip)) return;   // v3.108: точка с траком в цели — вопрос про перецеп
-        if (armDoneClick(chip, id, kk)) return;    // v3.159: отметка ✓ — первый клик взводит, второй ставит / снимает
-        toggleDone(id, kk);
+        openDonePop(chip, id, kk);                 // v3.287: карточка выбора «Пройдена / Не пройдена / Авто» (было: два клика v3.159)
         return;
       }
       const cc = e.target.closest && e.target.closest(".cc-badge");

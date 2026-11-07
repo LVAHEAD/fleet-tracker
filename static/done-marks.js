@@ -124,7 +124,7 @@ function applyDoneClasses(tr, row, c) {
         : f.auto ? `Пройдена (авто: стоял ${f.zone ? "в зоне «" + f.zone + "»" : "здесь"}, уехал ${f.at})` : "Пройдена (вручную)")
         : (m === false ? "Не пройдена (вручную)" : "Не пройдена"))
         + (m != null && row.doneBy && row.doneBy[k] ? `\n${m === true ? "Пройдена" : "Не пройдена"} вручную · ${row.doneBy[k].who} · ${row.doneBy[k].at}` : "")
-        + "\nДва клика — " + (m == null ? (f && f.done ? "отметить непройденной" : "отметить пройденной") : "вернуть автоопределение");
+        + "\nКлик — выбрать: пройдена / не пройдена / авто";
       chip.classList.add("stop-n-click");
       chip.classList.toggle("stop-n-manual", m != null);
     }
@@ -172,6 +172,51 @@ function doneClickArray(row) {
   const n = 1 + (row.extra ? row.extra.length : 0);
   const d = row.done || {}, by = row.doneBy || {};
   return Array.from({ length: n }, (_, i) => (d[i] === true && by[i] && by[i].eu ? by[i].eu : null));
+}
+
+// v3.287: явная установка ручной отметки: true — пройдена, false — не пройдена, null — авто (вместо «двух кликов»)
+function setDoneState(id, k, v) {
+  const row = rows.find((r) => r.id === id);
+  if (!row) return;
+  row.done = row.done || {};
+  row.doneBy = row.doneBy || {};
+  if (v === null) { delete row.done[k]; delete row.doneBy[k]; }
+  else {
+    row.done[k] = v;
+    const me = fleetMe();
+    row.doneBy[k] = { who: (me && dispTag(me)) || me || "local", at: doneNowStr(), eu: nowEuStr() };
+  }
+  if (!Object.keys(row.doneBy).length) delete row.doneBy;
+  saveRows();
+  calcRow(id);
+}
+
+// v3.287: клик по кружку точки — карточка выбора у места клика (вместо двух кликов): Пройдена / Не пройдена / Авто
+function openDonePop(chip, id, k) {
+  const row = rows.find((r) => r.id === id);
+  if (!row) return;
+  const m = row.done && (row.done[k] === true || row.done[k] === false) ? row.done[k] : null;
+  const items = [
+    { v: true, text: "✓ Пройдена", hint: "вручную, авто не трогает" },
+    { v: false, text: "✗ Не пройдена", hint: "вручную, даже если трак был рядом" },
+    { v: null, text: "Авто", hint: "по треку Mapon" },
+  ];
+  closeSwapPop();
+  swapPop = document.createElement("div");
+  swapPop.className = "trl-ed swap-pop choice-pop";
+  swapPop.innerHTML = `<div class="trl-ed-t">Точка ${STOP_NUM[k + 1]}</div>` + items.map((it, i) =>
+    `<button type="button" class="choice-it${it.v === m ? " cur" : ""}" data-i="${i}"><span>${it.text}</span><span class="choice-h">${it.hint}</span></button>`).join("");
+  document.body.appendChild(swapPop);
+  const r = chip.getBoundingClientRect(), z = uiZoom();
+  swapPop.style.width = "240px";
+  swapPop.style.top = Math.min(window.innerHeight - swapPop.offsetHeight * z - 8, r.bottom + 4) / z + "px";
+  swapPop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - swapPop.offsetWidth * z - 8)) / z + "px";
+  swapPop.querySelectorAll(".choice-it").forEach((b) => b.addEventListener("click", () => {
+    const it = items[Number(b.dataset.i)];
+    closeSwapPop();
+    if (it.v !== m) setDoneState(id, k, it.v);
+  }));
+  swapPop.addEventListener("mousedown", (e) => e.stopPropagation());
 }
 
 function toggleDone(id, k) {

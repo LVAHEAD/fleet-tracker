@@ -172,6 +172,7 @@ function openSwapPop(anchor, title, note, buttons, chk) {
   swapPop.addEventListener("mousedown", (e) => e.stopPropagation());
 }
 document.addEventListener("mousedown", () => closeSwapPop());
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSwapPop(); });   // v3.287: Esc закрывает карточку
 
 // другие строки Флота с тем же тягачом: чужая строка для обмена — первая непустая, место встречи в ней
 function swapDupInfo(row, to) {
