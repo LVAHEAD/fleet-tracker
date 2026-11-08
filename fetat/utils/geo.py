@@ -118,9 +118,14 @@ def poly_dist_km(lat, lng, poly):
 _GPS_RE = re.compile(r"(-?\d{1,2}\.\d+)\s*[,;]\s*(-?\d{1,3}\.\d+)")
 
 
+_GPS_SPACE_RE = re.compile(r"(?<![\d.])(-?\d{1,2}\.\d{3,})\s+(-?\d{1,3}\.\d{3,})(?![\d.])")
+
+
 def parse_gps(text):
-    """Первая пара "lat, lng" в тексте -> (lat, lng) или None."""
-    m = _GPS_RE.search(str(text or ""))
+    """Первая пара "lat, lng" в тексте -> (lat, lng) или None.
+    v3.292: пара через пробел «38.13739 -1.06771» (без запятой, как копируют из Google Maps / Mapon) — тоже; только если оба числа
+    с ≥3 знаками после точки, чтобы не принять за координаты числа из адреса."""
+    m = _GPS_RE.search(str(text or "")) or _GPS_SPACE_RE.search(str(text or ""))
     if not m:
         return None
     lat, lng = float(m.group(1)), float(m.group(2))
