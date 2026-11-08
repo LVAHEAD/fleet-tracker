@@ -35,7 +35,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
     if (d.weekly_error) h += `<div class="ti-err">${esc(d.weekly_error)}</div>`;
     if (d.weekly && d.weekly.length) {
       h += `<table class="ti-table"><tr><th>Недельный отдых</th><th>часов</th><th></th></tr>` +
-        d.weekly.slice().reverse().map((w) => `<tr>
+        d.weekly.map((w) => `<tr>
           <td>${esc(w.from)} → ${esc(w.to)}</td><td>${esc(w.hours)}</td>
           <td>${w.full ? '<span class="ti-tag ti-full">45+</span>' : '<span class="ti-tag ti-red">сокращ.</span>'}
               ${w.nocard ? '<span class="ti-tag" title="часть отдыха без карты — данные с CAN">без карты</span>' : ""}</td>
@@ -44,7 +44,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
     if (d.comp && d.comp.length) {
       const CST = { ok: ["ti-full", "компенсирован"], open: ["ti-red", "нужно добрать"], overdue: ["ti-red", "просрочено"] };
       h += `<table class="ti-table"><tr><th>Компенсация сокращённого отдыха</th><th>недобор</th><th>осталось</th><th></th></tr>` +
-        d.comp.map((c) => `<tr>
+        d.comp.slice().reverse().map((c) => `<tr>
           <td>${esc(c.from)} → ${esc(c.to)} (${esc(c.hours)})</td><td>${esc(c.deficit)}</td>
           <td>${c.left ? "<b>" + esc(c.left) + "</b> до " + esc(c.deadline) : "—"}</td>
           <td><span class="ti-tag ${CST[c.status][0]}">${CST[c.status][1]}</span></td></tr>`).join("") +
@@ -68,13 +68,13 @@ Fleet ETA Tracker — вкладка "Truck Info"
     // события карты — отдельными строками по времени начала (формат «дд.мм чч:мм» сортируется по датам внутри периода)
     const key = (s) => s.slice(3, 5) + s.slice(0, 2) + s.slice(6);
     const all = rows.concat(ev).sort((a, b) => (key(b.at) > key(a.at) ? 1 : key(b.at) < key(a.at) ? -1 : 0));
-    return `<table class="ti-table ti-hist"><tr><th colspan="4">История водителя</th></tr>` + all.map((r) => {
+    return `<details class="ti-hist-d"><summary>История водителя</summary><table class="ti-table ti-hist">` + all.map((r) => {
       if (r.card) return `<tr class="ti-h-card"><td>${esc(r.at)}</td><td colspan="3">${esc(r.card)}</td></tr>`;
       const g = r.g, a = ACT[g.status] || [g.status, ""];
       const nocard = (g.src || []).some((s) => s === "can" || s === "unkn");
       return `<tr class="${a[1]}"><td>${esc(g.from)} → ${esc(g.to)}</td><td><span class="ti-tag ${a[1]}">${esc(a[0])}</span></td>
         <td>${esc(g.hours)}</td><td>${nocard ? '<span class="ti-tag" title="данные с CAN, карты не было">без карты</span>' : ""}</td></tr>`;
-    }).join("") + `</table>`;
+    }).join("") + `</table></details>`;
   }
 
   // Поиск водителя по имени: один найден — сразу его трак, несколько — список
