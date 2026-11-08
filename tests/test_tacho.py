@@ -150,6 +150,15 @@ class WeeklyCompensationTests(unittest.TestCase):
         self.assertEqual(r[-1]["status"], "overdue")
         self.assertEqual(r[-1]["deadline"], self.T0 + 28 * 86400)
 
+    def test_big_daily_in_same_week_is_not_weekly(self):
+        """OI-4311 08.11: 32,3 ч и через 5 ч ещё 26,4 ч в одной неделе — недельный только длинный, второй — «большая 9-ка»."""
+        b, c = self.rest(10, 32.3), self.rest(10 + 32.3 + 5.65, 26.4)
+        rests = [b, c]
+        self.assertEqual(A.designate_weekly(rests, self.FROM), [b])
+        r = self.comp(rests, 120)
+        self.assertEqual(len(r), 1)                                  # долг один — у 32,3 ч
+        self.assertEqual(r[0]["status"], "ok")                       # излишек «большой 9-ки» над 11 ч (15,4 ч) его закрывает
+
 
 if __name__ == "__main__":
     unittest.main()

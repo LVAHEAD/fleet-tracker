@@ -134,6 +134,21 @@ def _week_start_utc(ts):
     return (d - timedelta(days=d.weekday())).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
 
 
+def designate_weekly(rests, t0=0):
+    """Недельный отдых по правилу диспетчеров (08.11): в неделе (пн–вс, UTC) недельный — один, самый длинный из
+    отдыхов от 24 ч; остальные такие отдыхи недели — суточные («большая 9-ка»). Только для Truck Info:
+    расчёт ETA (`weekly_status`) не трогаем. Отдых, обрезанный началом окна, не берём."""
+    best = {}
+    for r in rests:
+        dur = r["end"] - r["start"]
+        if r["start"] <= t0 + 60 or dur < WEEKLY_MIN_SEC:
+            continue
+        k = _week_start_utc(r["start"])
+        if k not in best or dur > best[k]["end"] - best[k]["start"]:
+            best[k] = r
+    return sorted(best.values(), key=lambda r: r["start"])
+
+
 def weekly_compensation(hist, now_ts=None):
     """Компенсация сокращённых недельных отдыхов (561/2006, ст. 8(6)) по истории отдыхов водителя.
     Сокращённый отдых 24–45 ч даёт долг 45 ч − длительность; срок — конец третьей недели (пн–вс, UTC)
@@ -146,15 +161,19 @@ def weekly_compensation(hist, now_ts=None):
     rests = sorted((hist or {}).get("rests") or [], key=lambda r: r["start"])
     t0 = (hist or {}).get("from") or 0
     debts = []
+    desig = {id(r) for r in designate_weekly(rests, t0)}
     for r in rests:
         if r["start"] <= t0 + 60:            # отдых, обрезанный началом окна, не берём
             continue
         dur = r["end"] - r["start"]
-        if WEEKLY_MIN_SEC <= dur < WEEKLY_FULL_SEC:
+        if id(r) in desig and WEEKLY_MIN_SEC <= dur < WEEKLY_FULL_SEC:
             debts.append({"start": r["start"], "end": r["end"], "hours": dur, "deficit": WEEKLY_FULL_SEC - dur,
                           "done": 0.0, "deadline": _week_start_utc(r["start"]) + 28 * 86400})
             continue
-        spare = dur - WEEKLY_FULL_SEC if dur >= WEEKLY_FULL_SEC else (dur - DAILY_REST_SEC if dur >= COMP_MIN_REST_SEC else 0)
+        if id(r) in desig and dur >= WEEKLY_FULL_SEC:
+            spare = dur - WEEKLY_FULL_SEC
+        else:                                # суточный или «большая 9-ка»: излишек над 11 ч
+            spare = dur - DAILY_REST_SEC if dur >= COMP_MIN_REST_SEC else 0
         for dbt in debts:
             if spare <= 0:
                 break

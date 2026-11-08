@@ -1,4 +1,5 @@
 """Машины и прицепы из Mapon: список, Truck Info, ближайшие, выгрузки юнитов и объектов, служебная проверка."""
+import math
 import re
 
 from flask import Blueprint, current_app, jsonify, request
@@ -11,7 +12,7 @@ from fetat.clients.mapon import (
 from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.points import find_unit_exact, object_at
 from fetat.domain.regions import nearest_region_code
-from fetat.domain.tacho import tacho_no_subscription, WEEKLY_FULL_SEC, weekly_compensation, weekly_status
+from fetat.domain.tacho import tacho_no_subscription, WEEKLY_FULL_SEC, WEEKLY_PERIOD_SEC, designate_weekly, weekly_compensation, weekly_status
 from fetat.domain.trailers import is_trailer, reefer_log, reefer_log_events
 from fetat.utils.geo import haversine_km, _wkt_center, _wkt_vertices
 from fetat.utils.timefmt import _hm, _lv, _utc_iso
@@ -171,9 +172,22 @@ def api_truck_info():
                 row["weekly_error"] = w.get("error")
                 hist, _ = get_driver_rests(did)
                 row["comp"] = [{"from": _lv(c["start"]), "to": _lv(c["end"]), "hours": _hm(c["hours"]),
-                                "deficit": _hm(c["deficit"]), "left": _hm(c["left"]) if c["left"] >= 60 else None,
+                                "deficit": f"{math.ceil(c['deficit'] / 3600)} ч",      # округляем вверх до часа (как диспетчеры)
+                                "left": f"{math.ceil(c['left'] / 3600)} ч" if c["left"] >= 60 else None,
                                 "deadline": _lv(c["deadline"]), "status": c["status"]}
                                for c in weekly_compensation(hist)]
+                # правило диспетчеров (только Truck Info): недельный — один в неделе, самый длинный; остальные — «большая 9-ка»
+                desig = designate_weekly((hist or {}).get("rests") or [], (hist or {}).get("from") or 0)
+                dstarts = {x["start"] for x in desig}
+                for x, src in zip(row["weekly"], w["weekly"]):
+                    x["daily"] = src["start"] not in dstarts
+                if desig and not w.get("ongoing"):
+                    import time
+                    last = desig[-1]
+                    red = last["end"] - last["start"] < WEEKLY_FULL_SEC
+                    dl = last["end"] + WEEKLY_PERIOD_SEC
+                    row["deadline"], row["deadline_in"] = _lv(dl), _hm(dl - time.time())
+                    row["need"] = "45 ч" if red else "24 ч (можно сокращённый)"
                 row["cards"] = [{"at": _lv(c["ts"]), "what": "вставил" if c["what"] == "CARD_INSERTED" else "вынул"}
                                 for c in (hist or {}).get("cards", [])][-6:]
             else:

@@ -37,7 +37,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
       h += `<table class="ti-table"><tr><th>Недельный отдых</th><th>часов</th><th></th></tr>` +
         d.weekly.map((w) => `<tr>
           <td>${esc(w.from)} → ${esc(w.to)}</td><td>${esc(w.hours)}</td>
-          <td>${w.full ? '<span class="ti-tag ti-full">45+</span>' : '<span class="ti-tag ti-red">сокращ.</span>'}
+          <td>${w.daily ? '<span class="ti-tag" title="второй отдых от 24 ч в неделе — считаем суточным">большая 9ка</span>' : w.full ? '<span class="ti-tag ti-full">45+</span>' : '<span class="ti-tag ti-red">сокращ.</span>'}
               ${w.nocard ? '<span class="ti-tag" title="часть отдыха без карты — данные с CAN">без карты</span>' : ""}</td>
         </tr>`).join("") + `</table>`;
     }
