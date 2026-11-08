@@ -243,7 +243,19 @@ const EtaCalc = (() => {
       if (cn) notes.push(cn);
       panel.querySelectorAll(".ec-team button").forEach((x) => x.classList.toggle("on", (x.dataset.v === "1") === st.team));
       st.lfManual = false;   // v3.185: данные машины — остаток снова не ручной
-      setLf(s.left_h || 0);
+      // v3.292: остаток вождения — реальный: не больше, чем успеют до конца окна смены (начало суточного отдыха, Mapon «Daily rest start»)
+      // за вычетом обязательных перерывов 45 мин после каждых 4.5 ч езды (окно идёт по часам, остаток вождения — только езда)
+      let lfSeed = s.left_h || 0;
+      if (s.end_ts && !s.resting && !(s.shift_h > 0)) {
+        const t = (s.end_ts * 1000 - Date.now()) / 3600000;
+        if (t > 0) {
+          let d = t;
+          while (d > 0 && d + 0.75 * (Math.ceil(d / 4.5) - 1) > t) d -= 0.25;
+          d = Math.floor(Math.max(0, d) * 4) / 4;
+          if (d < lfSeed) lfSeed = d;
+        }
+      }
+      setLf(lfSeed);
       setSh(s.shift_h || 0);
       st.startMs = s.used_h > 0 ? Date.now() - s.used_h * 3600000 : null;   // v3.106: окно смены уже идёт
       st.winEndMs = s.end_ts && !s.resting ? s.end_ts * 1000 : null;   // v3.291: конец окна смены (начало суточного отдыха) — подсказка под остатком
@@ -260,7 +272,7 @@ const EtaCalc = (() => {
         const hh = (h) => Math.floor(h) + ":" + String(Math.round((h % 1) * 60)).padStart(2, "0");
         let t = "смена с " + hm(s.start_ts) + " (" + s.used_h.toFixed(1) + " ч) · окно до " + hm(s.end_ts);
         if (s.driven_h != null) t += " · выезжено " + hh(s.driven_h) + " (GPS)";
-        t += " · остаток " + hh(s.left_h || 0) + (s.shift_src === "gps" ? " · начало — по GPS" : " · по тахографу");
+        t += " · остаток " + hh(lfSeed) + (lfSeed < (s.left_h || 0) ? " (по окну; тахограф " + hh(s.left_h || 0) + ")" : "") + (s.shift_src === "gps" ? " · начало — по GPS" : " · по тахографу");
         notes.push(t);
       }
       if (s.gps_fix) notes.push("тахограф отстаёт от GPS — остаток по GPS");   // v3.104
@@ -553,7 +565,7 @@ const EtaCalc = (() => {
     // показываем, что на деле ограничивает (значение поля и расчёт не меняем: окно в расчёте уже учтено)
     const wl = $("#ec-lf-win");
     const untilH = !auto && st.winEndMs && st.shH === 0 ? (st.winEndMs - Date.now()) / 3600000 : null;
-    wl.textContent = untilH != null && untilH > 0 && untilH < st.lfH ? "до отдыха " + fmtHM(untilH) + " (окно до " + new Date(st.winEndMs).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) + ")" : "";
+    wl.textContent = untilH != null && untilH > 0 ? "до отдыха " + fmtHM(untilH) + " (окно до " + new Date(st.winEndMs).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) + ")" : "";
     lf.title = auto ? `Сдвиг выезда ≥ отдыха (${st.rest || 9} ч): день свежий. Впиши свой остаток, если смену нужно уменьшить` : "ЧЧ:ММ · ↑ ↓ — шаг 15 мин";
     $(".ec-wk").hidden = st.team;
     request();
