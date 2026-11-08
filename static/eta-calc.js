@@ -103,7 +103,7 @@ const EtaCalc = (() => {
             <div class="ec-ln"><input type="number" id="ec-km-n" min="70" step="10" value="1500"></div></div>
           <div><div class="ec-lb"><span title="Через сколько часов выезд. Если машина уже стоит на отдыхе — сколько ей осталось отдыхать: остаток вождения и смена начнутся заново">Сдвиг выезда / отдых, ч</span><span class="ec-now"></span></div>
             <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-sh-n" class="ec-hm" inputmode="numeric" value="00:00" title="ЧЧ:ММ · ↑ ↓ — шаг 30 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+30 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−30 мин">▾</button></span></span></div></div>
-          <div><div class="ec-lb"><span id="ec-lf-lb">Остаток вождения, ч</span></div>
+          <div><div class="ec-lb"><span id="ec-lf-lb">Остаток вождения, ч</span><span class="ec-now" id="ec-lf-win"></span></div>
             <div class="ec-ln"><span class="ec-hmw"><input type="text" id="ec-lf-n" class="ec-hm" inputmode="numeric" value="18:00" title="ЧЧ:ММ · ↑ ↓ — шаг 15 мин"><span class="ec-spin"><button type="button" data-d="1" tabindex="-1" title="+15 мин">▴</button><button type="button" data-d="-1" tabindex="-1" title="−15 мин">▾</button></span></span></div></div>
         </div>
         <div class="ec-sec ec-restnow">
@@ -246,6 +246,7 @@ const EtaCalc = (() => {
       setLf(s.left_h || 0);
       setSh(s.shift_h || 0);
       st.startMs = s.used_h > 0 ? Date.now() - s.used_h * 3600000 : null;   // v3.106: окно смены уже идёт
+      st.winEndMs = s.end_ts && !s.resting ? s.end_ts * 1000 : null;   // v3.291: конец окна смены (начало суточного отдыха) — подсказка под остатком
       st.standH = s.stand_h || 0;   // v3.125: сколько уже стоит (GPS)
       st.restTachoH = s.rest_h || 0;   // v3.145: сколько уже стоит по тахографу — резерв
       if (!st.team) {
@@ -267,7 +268,7 @@ const EtaCalc = (() => {
       else if (s.nocard) notes.push("тахографа нет — стоит ≥ 9 ч, свежий день");
     } else {
       setSh(0);
-      st.startMs = null;
+      st.startMs = null; st.winEndMs = null;
       st.standH = 0; st.restTachoH = 0;
       const nn = noSeedNote != null ? noSeedNote : "тахографа нет — состав и остаток прежние";
       if (nn) notes.push(nn);
@@ -548,6 +549,11 @@ const EtaCalc = (() => {
     else if (st.lfAutoShown) lf.value = fmtHM(st.lfH);
     st.lfAutoShown = auto;
     $("#ec-lf-lb").textContent = auto ? "Остаток вождения — свежий день" : "Остаток вождения, ч";
+    // v3.291: у реальной машины остаток вождения может быть больше, чем осталось до начала суточного отдыха (конец окна смены) —
+    // показываем, что на деле ограничивает (значение поля и расчёт не меняем: окно в расчёте уже учтено)
+    const wl = $("#ec-lf-win");
+    const untilH = !auto && st.winEndMs && st.shH === 0 ? (st.winEndMs - Date.now()) / 3600000 : null;
+    wl.textContent = untilH != null && untilH > 0 && untilH < st.lfH ? "до отдыха " + fmtHM(untilH) + " (окно до " + new Date(st.winEndMs).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) + ")" : "";
     lf.title = auto ? `Сдвиг выезда ≥ отдыха (${st.rest || 9} ч): день свежий. Впиши свой остаток, если смену нужно уменьшить` : "ЧЧ:ММ · ↑ ↓ — шаг 15 мин";
     $(".ec-wk").hidden = st.team;
     request();
