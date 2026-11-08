@@ -11,7 +11,7 @@ from fetat.clients.mapon import (
 from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.points import find_unit_exact, object_at
 from fetat.domain.regions import nearest_region_code
-from fetat.domain.tacho import tacho_no_subscription, WEEKLY_FULL_SEC, weekly_status
+from fetat.domain.tacho import tacho_no_subscription, WEEKLY_FULL_SEC, weekly_compensation, weekly_status
 from fetat.domain.trailers import is_trailer, reefer_log, reefer_log_events
 from fetat.utils.geo import haversine_km, _wkt_center, _wkt_vertices
 from fetat.utils.timefmt import _hm, _lv, _utc_iso
@@ -170,6 +170,10 @@ def api_truck_info():
                     row["need"] = "45 ч" if w["need_sec"] >= WEEKLY_FULL_SEC else "24 ч (можно сокращённый)"
                 row["weekly_error"] = w.get("error")
                 hist, _ = get_driver_rests(did)
+                row["comp"] = [{"from": _lv(c["start"]), "to": _lv(c["end"]), "hours": _hm(c["hours"]),
+                                "deficit": _hm(c["deficit"]), "left": _hm(c["left"]) if c["left"] >= 60 else None,
+                                "deadline": _lv(c["deadline"]), "status": c["status"]}
+                               for c in weekly_compensation(hist)]
                 row["cards"] = [{"at": _lv(c["ts"]), "what": "вставил" if c["what"] == "CARD_INSERTED" else "вынул"}
                                 for c in (hist or {}).get("cards", [])][-6:]
             else:

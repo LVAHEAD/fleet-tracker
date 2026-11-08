@@ -120,5 +120,36 @@ class PointsDoneTest(unittest.TestCase):
         self.assertTrue(res[0]["done"])
 
 
+class WeeklyCompensationTests(unittest.TestCase):
+    """v3.289: компенсация сокращённого недельного отдыха (ст. 8(6) 561/2006)."""
+    T0 = datetime(2026, 10, 5, tzinfo=timezone.utc).timestamp()     # пн
+    FROM = T0 - 3 * 86400
+
+    def rest(self, start_h, hours):
+        return {"start": self.T0 + start_h * H, "end": self.T0 + (start_h + hours) * H, "src": ["ddd"]}
+
+    def comp(self, rests, now_h):
+        return A.weekly_compensation({"rests": rests, "from": self.FROM}, self.T0 + now_h * H)
+
+    def test_reduced_open_then_closed_by_long_daily(self):
+        red = self.rest(10, 36)                                     # недобор 9 ч
+        r = self.comp([red], 100)
+        self.assertEqual((r[0]["status"], round(r[0]["left"] / H)), ("open", 9))
+        r = self.comp([red, self.rest(200, 20)], 300)               # суточный 20 ч: излишек над 11 ч = 9 ч
+        self.assertEqual(r[0]["status"], "ok")
+
+    def test_weekly_45_surplus_and_short_daily_do_not_close(self):
+        red = self.rest(10, 36)
+        self.assertEqual(self.comp([red, self.rest(200, 9)], 300)[0]["status"], "open")        # 9 ч — излишка нет
+        self.assertEqual(self.comp([red, self.rest(200, 54)], 300)[0]["status"], "ok")         # 54 − 45 = 9 ч
+
+    def test_overdue_after_third_week_and_late_rest_ignored(self):
+        red = self.rest(10, 36)                                     # неделя пн 05.10 → срок пн 02.11 00:00
+        late = self.rest(28 * 24 + 5, 24)                           # после срока — не считается
+        r = self.comp([red, late], 28 * 24 + 40)
+        self.assertEqual(r[-1]["status"], "overdue")
+        self.assertEqual(r[-1]["deadline"], self.T0 + 28 * 86400)
+
+
 if __name__ == "__main__":
     unittest.main()

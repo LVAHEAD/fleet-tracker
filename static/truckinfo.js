@@ -41,6 +41,15 @@ Fleet ETA Tracker — вкладка "Truck Info"
               ${w.nocard ? '<span class="ti-tag" title="часть отдыха без карты — данные с CAN">без карты</span>' : ""}</td>
         </tr>`).join("") + `</table>`;
     }
+    if (d.comp && d.comp.length) {
+      const CST = { ok: ["ti-full", "компенсирован"], open: ["ti-red", "нужно добрать"], overdue: ["ti-red", "просрочено"] };
+      h += `<table class="ti-table"><tr><th>Компенсация сокращённого отдыха</th><th>недобор</th><th>осталось</th><th></th></tr>` +
+        d.comp.map((c) => `<tr>
+          <td>${esc(c.from)} → ${esc(c.to)} (${esc(c.hours)})</td><td>${esc(c.deficit)}</td>
+          <td>${c.left ? "<b>" + esc(c.left) + "</b> до " + esc(c.deadline) : "—"}</td>
+          <td><span class="ti-tag ${CST[c.status][0]}">${CST[c.status][1]}</span></td></tr>`).join("") +
+        `</table><div class="ti-note">Недобор добирают отдыхом не короче 9 ч до конца третьей недели после сокращения; считаем за ${28} дн. истории.</div>`;
+    }
     if (d.cards && d.cards.length) {
       h += `<div class="ti-cards">Карта: ` + d.cards.slice().reverse()
         .map((c) => `<span>${esc(c.at)} ${esc(c.what)}</span>`).join("") + `</div>`;

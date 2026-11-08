@@ -124,6 +124,50 @@ def weekly_rest_info(tacho, now_ts=None):
     return out
 
 
+DAILY_REST_SEC = 11 * 3600       # обычный суточный отдых: всё сверх него в отдыхе от 9 ч — запас на компенсацию
+COMP_MIN_REST_SEC = 9 * 3600     # компенсацию присоединяют к отдыху не короче 9 ч (561/2006, ст. 8(6))
+
+
+def _week_start_utc(ts):
+    """Понедельник 00:00 UTC недели, в которую попадает ts."""
+    d = datetime.fromtimestamp(ts, timezone.utc)
+    return (d - timedelta(days=d.weekday())).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+
+
+def weekly_compensation(hist, now_ts=None):
+    """Компенсация сокращённых недельных отдыхов (561/2006, ст. 8(6)) по истории отдыхов водителя.
+    Сокращённый отдых 24–45 ч даёт долг 45 ч − длительность; срок — конец третьей недели (пн–вс, UTC)
+    после недели сокращения. Гасят долг (по очереди, старые первыми) отдыхи после сокращённого, не короче 9 ч,
+    закончившиеся до срока: излишек над 45 ч у недельного и над 11 ч у суточного. Окно — ACT_DAYS дней:
+    сокращённый отдых до начала окна не виден. Возвращает список от новых к старым:
+    {start, end, hours, deficit, done, left, deadline, status: ok | open | overdue} (часы — секундами)."""
+    import time
+    now = float(now_ts or time.time())
+    rests = sorted((hist or {}).get("rests") or [], key=lambda r: r["start"])
+    t0 = (hist or {}).get("from") or 0
+    debts = []
+    for r in rests:
+        if r["start"] <= t0 + 60:            # отдых, обрезанный началом окна, не берём
+            continue
+        dur = r["end"] - r["start"]
+        if WEEKLY_MIN_SEC <= dur < WEEKLY_FULL_SEC:
+            debts.append({"start": r["start"], "end": r["end"], "hours": dur, "deficit": WEEKLY_FULL_SEC - dur,
+                          "done": 0.0, "deadline": _week_start_utc(r["start"]) + 28 * 86400})
+            continue
+        spare = dur - WEEKLY_FULL_SEC if dur >= WEEKLY_FULL_SEC else (dur - DAILY_REST_SEC if dur >= COMP_MIN_REST_SEC else 0)
+        for dbt in debts:
+            if spare <= 0:
+                break
+            if dbt["end"] <= r["start"] and r["end"] <= dbt["deadline"] and dbt["deficit"] - dbt["done"] > 0:
+                take = min(spare, dbt["deficit"] - dbt["done"])
+                dbt["done"] += take
+                spare -= take
+    for dbt in debts:
+        dbt["left"] = max(0.0, dbt["deficit"] - dbt["done"])
+        dbt["status"] = "ok" if dbt["left"] < 60 else ("overdue" if now > dbt["deadline"] else "open")
+    return debts[::-1]
+
+
 def _reduced_this_week(tacho, week_start):
     """Начало сокращённого недельного отдыха (24–45 ч), начатого на текущей неделе, любого водителя; иначе None."""
     for d in (tacho.get("drivers") or [])[:2]:
