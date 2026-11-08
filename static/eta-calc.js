@@ -250,7 +250,7 @@ const EtaCalc = (() => {
         const t = (s.end_ts * 1000 - Date.now()) / 3600000;
         if (t > 0) {
           let d = t;
-          while (d > 0 && d + 0.75 * (Math.ceil(d / 4.5) - 1) > t) d -= 0.25;
+          if (!s.team) while (d > 0 && d + 0.75 * (Math.ceil(d / 4.5) - 1) > t) d -= 0.25;   // экипаж: пока один едет, другой отдыхает — перерывы 45 мин в окне не вычитаем
           d = Math.floor(Math.max(0, d) * 4) / 4;
           if (d < lfSeed) lfSeed = d;
         }
