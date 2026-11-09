@@ -1928,7 +1928,8 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 .choice-it:hover .choice-h, .choice-it.cur .choice-h { color: #dbe7fb; }
 
 /* v3.295: ETA позже срока недельного отдыха — вариант B (Владимир, 09.11): сплошная красная плашка + красный ETA, мягкое мигание */
-.wk-over { display: inline-block; font-size: 11px; font-weight: 600; color: #fff; background: #c0392b; border: 1px solid #c0392b; border-radius: 4px; padding: 0 4px; line-height: 15px; animation: wk-blink 1.2s ease-in-out infinite; }
+.wk-over { display: inline-block; font-size: 10px; font-weight: 600; color: #fff; background: #c0392b; border: 1px solid #c0392b; border-radius: 4px; padding: 0 3px; line-height: 14px; margin-left: 4px; flex: none; animation: wk-blink 1.2s ease-in-out infinite; }
+.sl:has(.wk-over) .wk-rest { display: none; }   /* метка ⚠ дублирует плашку и не влезает в узкую колонку ETA */
 .sl:has(.wk-over) { color: #c0392b; }
 .sl:has(.wk-over) .eta-x-t { font-weight: 600; }
 @keyframes wk-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
