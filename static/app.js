@@ -1182,11 +1182,11 @@ function weeklyChipHtml(w) {
   tip.push("Неделя тахографа — с пн 00:00 UTC");
   return ` <span class="wk-rest${soon ? " wk-soon" : ""}${w.unconfirmed ? " wk-unc" : ""}" title="" data-wk-note="${escapeHtml(tip.join("\n"))}">${h}ка${w.rule45 ? "*" : ""}${w.unconfirmed ? "?" : ""}</span>`;
 }
-// v3.295: ETA точки позже срока начала недельного отдыха (Mapon / ddd — что раньше) — мигающая пометка у ETA, сам ETA не меняем
+// v3.295: ETA точки позже срока начала недельного отдыха (срок Mapon, как в окне Тахографа) — мигающая пометка у ETA, сам ETA не меняем
 function weeklyOverHtml(w, etaStr) {
   if (!w || !w.need) return "";
-  const dl = Math.min(...[w.mapon, w.ddd].filter((x) => x > 1e9));
-  if (!isFinite(dl)) return "";
+  const dl = w.mapon > 1e9 ? w.mapon : w.ddd; // срок как в окне Тахографа (Mapon); ddd — только если Mapon нет
+  if (!(dl > 1e9)) return "";
   const e = parseEta(etaStr);
   if (!e || e.getTime() <= dl * 1000) return "";
   const fmt = (ts) => new Date(ts * 1000).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
