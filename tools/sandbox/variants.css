@@ -69,3 +69,21 @@ tr.dj-row .dj-list { max-height: 30vh; }
 #sbx-bar2 .sbx-info { color: #374151; font-variant-numeric: tabular-nums; }
 @keyframes sbxFlash { from { box-shadow: inset 0 0 0 9999px rgba(255, 196, 0, .45); } to { box-shadow: inset 0 0 0 9999px rgba(255, 196, 0, 0); } }
 tr.sbx-flash > td { animation: sbxFlash 1.6s ease-out; }
+
+/* ===== Метка «⚠ 45ка» у ETA позже срока недельного отдыха — три варианта (09.11): A рамка мигает, B сплошная плашка + красный ETA, C пульсирует вся строка ETA ===== */
+#wkv { margin: 10px 12px; padding: 10px 12px; border: 1px solid #2f6fd6; border-radius: 8px; background: #fff; font-size: 13px; }
+#wkv h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+#wkv .wkv-bar { display: flex; gap: 6px; align-items: center; margin: 0 0 8px; flex-wrap: wrap; }
+#wkv .wkv-bar button { border: 1px solid #2f6fd6; background: #fff; color: #2f6fd6; border-radius: 6px; height: 26px; padding: 0 10px; cursor: pointer; font: inherit; }
+#wkv .wkv-bar button:hover, #wkv .wkv-bar button.on { background: #2f6fd6; color: #fff; }
+#wkv .wkv-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+#wkv .wkv-card { border: 1px solid #d5dbe6; border-radius: 6px; padding: 6px 8px; }
+#wkv .wkv-card b { display: block; font-size: 12px; margin: 0 0 4px; color: #555; }
+#wkv .sl { padding: 2px 0; }
+#wkv .done-ok { color: #2a7a2a; }
+[data-wkv="b"] .wk-over { background: #c0392b; color: #fff; animation: wk-blink-soft 1.2s ease-in-out infinite; }
+[data-wkv="b"] .sl:has(.wk-over) .eta-x-t { color: #c0392b; font-weight: 600; }
+[data-wkv="c"] .wk-over { animation: none; background: #fff; }
+[data-wkv="c"] .sl:has(.wk-over) { animation: wk-pulse 1.3s ease-in-out infinite; border-radius: 4px; }
+@keyframes wk-blink-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@keyframes wk-pulse { 0%, 100% { background: transparent; } 50% { background: #f9d0cc; } }

@@ -137,3 +137,33 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();
+
+/* Метка «⚠ 45ка» у ETA позже срока недельного отдыха — три варианта вида (09.11). Образцы — выдуманные; переключатель меняет и метки в самой таблице, если они там есть. */
+(function () {
+  "use strict";
+  function card(k, name) {
+    return '<div class="wkv-card" data-wkv="' + k + '"><b>' + name + '</b>' +
+      '<div class="sl"><span class="done-ok">✓ пройдена</span></div>' +
+      '<div class="sl"><span class="eta-x-t">⏱ 09/11 21:00</span> <span class="wk-over">⚠ 45ка</span></div>' +
+      '<div class="sl"><span class="eta-x-t">⏱ 09/11 23:30</span> <span class="wk-over">⚠ 45ка</span></div>' +
+      '<div class="sl"><span class="eta-x-t">⏱ 09/11 14:10</span></div></div>';
+  }
+  function init() {
+    if (document.getElementById("wkv")) return;
+    var host = document.getElementById("fleet-tbody");
+    var box = document.createElement("div"); box.id = "wkv";
+    box.innerHTML = '<h4>ETA позже срока недельного отдыха — три варианта метки (образцы: срок 20:49, точки в 21:00 и 23:30 — позже; 14:10 — до срока)</h4>' +
+      '<div class="wkv-bar">Вид в таблице: <button type="button" data-v="a" class="on">A</button><button type="button" data-v="b">B</button><button type="button" data-v="c">C</button></div>' +
+      '<div class="wkv-cards">' + card("a", "A · красная рамка, мигает вся плашка") + card("b", "B · сплошная плашка + красный ETA") + card("c", "C · пульсирует вся строка ETA") + '</div>';
+    var tbl = host ? host.closest("table") : null;
+    if (tbl && tbl.parentNode) tbl.parentNode.insertBefore(box, tbl); else document.body.insertBefore(box, document.body.firstChild);
+    document.body.setAttribute("data-wkv", "a");
+    box.querySelectorAll(".wkv-bar button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        box.querySelectorAll(".wkv-bar button").forEach(function (x) { x.classList.toggle("on", x === b); });
+        document.body.setAttribute("data-wkv", b.dataset.v);
+      });
+    });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else setTimeout(init, 0);
+})();
