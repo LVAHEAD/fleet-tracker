@@ -14,6 +14,20 @@ function hmOf(h, m, ap, apFallback) {
 }
 function parseDeliveryWindow(txt) {
   const s = String(txt || "");
+  // v3.294: окно по дням без времени — «09-10/11» (дни 9–10 ноября) и «09/11-10/11»: с 00:00 первого дня до 23:59 последнего
+  {
+    const okD = (d, m) => d >= 1 && d <= 31 && m >= 1 && m <= 12;
+    const dash = "\\s*[-–—]\\s*", Y = "(?:[\\/.]\\d{2,4})?";
+    const r1 = s.match(new RegExp("^\\s*(\\d{1,2})" + dash + "(\\d{1,2})[\\/.](\\d{1,2})" + Y + "\\s*$"));
+    const r2 = s.match(new RegExp("^\\s*(\\d{1,2})[\\/.](\\d{1,2})" + dash + "(\\d{1,2})[\\/.](\\d{1,2})" + Y + "\\s*$"));
+    let a = null;
+    if (r1) a = [+r1[1], +r1[3], +r1[2], +r1[3]];
+    else if (r2) a = [+r2[1], +r2[2], +r2[3], +r2[4]];
+    if (a && okD(a[0], a[1]) && okD(a[2], a[3])) {
+      const start = mkDate(a[0], a[1], 0, 0), end = mkDate(a[2], a[3], 23, 59);
+      if (end > start) return { start, end };
+    }
+  }
   // v3.10: окно «с–по» через даты: "03.10 22:00 – 04.10 06:00", "с 03/10 22 по 04/10 06"
   const DD = "(\\d{1,2})[\\/.](\\d{1,2})(?:[\\/.]\\d{2,4})?\\s+";
   const two = s.toLowerCase().match(new RegExp(DD + DT_T + "\\s*(?:-|–|—|to|till|until|до|по)\\s*" + DD + DT_T));
