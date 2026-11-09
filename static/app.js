@@ -1182,6 +1182,16 @@ function weeklyChipHtml(w) {
   tip.push("Неделя тахографа — с пн 00:00 UTC");
   return ` <span class="wk-rest${soon ? " wk-soon" : ""}${w.unconfirmed ? " wk-unc" : ""}" title="" data-wk-note="${escapeHtml(tip.join("\n"))}">${h}ка${w.rule45 ? "*" : ""}${w.unconfirmed ? "?" : ""}</span>`;
 }
+// v3.295: ETA точки позже срока начала недельного отдыха (Mapon / ddd — что раньше) — мигающая пометка у ETA, сам ETA не меняем
+function weeklyOverHtml(w, etaStr) {
+  if (!w || !w.need) return "";
+  const dl = Math.min(...[w.mapon, w.ddd].filter((x) => x > 1e9));
+  if (!isFinite(dl)) return "";
+  const e = parseEta(etaStr);
+  if (!e || e.getTime() <= dl * 1000) return "";
+  const fmt = (ts) => new Date(ts * 1000).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return ` <span class="wk-over" title="${escapeHtml(`ETA позже срока начала недельного отдыха (${Math.round(w.need / 3600)}ка) — ${fmt(dl)}. Раньше этого срока машина не доедет без нарушения`)}">⚠ ${Math.round(w.need / 3600)}ка</span>`;
+}
 // v3.236: у открытой точки j после неё уже была стоянка на более поздней — подсказка отметить ✓ вручную
 function holdHtml(c, j) {
   const h = c && c.hold;
@@ -1191,7 +1201,9 @@ function holdHtml(c, j) {
 function etaCellHtml(row, c, composed) {
   // v1.82: ① пройдена — кнопка NB/🚫 на строке первой непройденной точки (c.nbAt — её индекс в extra)
   const nbAt = c.nbAt != null ? c.nbAt : null;
-  const first = (composed && nbAt == null ? composed.html : (c.eta || "—")) + weeklyChipHtml(c.weekly) + holdHtml(c, 0);
+  const firstEta = c.eta_tacho || c.eta_local || c.eta;
+  const first = (composed && nbAt == null ? composed.html : (c.eta || "—")) + weeklyChipHtml(c.weekly)
+    + (c.eta && !c.done && !/✓|пройден/.test(c.eta) ? weeklyOverHtml(c.weekly, firstEta) : "") + holdHtml(c, 0);
   if (!row.extra || !row.extra.length) return first;
   const lines = [`<div class="sl${hideK(row, 0) ? " fold-hide" : ""}">${first}</div>`];
   row.extra.forEach((x, i) => {
@@ -1212,7 +1224,7 @@ function etaCellHtml(row, c, composed) {
     } else if (ce && (ce.eta_tacho || ce.eta_local)) {
       const wk = ce.tacho_weeklimit ? '<span class="wk-mark" title="Недельный лимит вождения кончится по пути">56</span>' : "";
       const fb = ce.ferry ? `<button type="button" class="fer-b${ce.ferry.manual ? " fer-man" : ""}${ce.ferry.late ? " fer-late" : ""}" data-i="${i}" title="Паром: ${escapeHtml(ce.ferry.label)}${ce.ferry.manual ? " (выбран вручную)" : " (авто)"}. Клик — выбрать другую линию">⛴${ce.ferry.late ? "⚠" : ""}</button>` : "";   // v3.193
-      inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}${tzBadge(ce.eta_tz)}</span>${fb}`;
+      inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}${tzBadge(ce.eta_tz)}</span>${weeklyOverHtml(c.weekly, ce.eta_tacho || ce.eta_local)}${fb}`;
       const fv = fixViewAllowed() ? fixVerdict(x.delivery, ce.eta_tacho || ce.eta_local, ce.tacho_left) : null;   // v3.229
       if (fv && !(nbAt === i && c.onArr)) { inner = fixRollHtml(inner, fv); chk.lines.unshift("🎯 " + fv.text); }
       tip = [`Точка ${STOP_NUM[i + 2]}: ${x.target}`,

@@ -1926,3 +1926,8 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 .choice-it .choice-h { display: block; font-size: 11px; color: #888; }
 .choice-it:hover, .choice-it.cur { background: #2f6fd6; color: #fff; }
 .choice-it:hover .choice-h, .choice-it.cur .choice-h { color: #dbe7fb; }
+
+/* v3.295: ETA позже срока недельного отдыха — мигающая красная пометка */
+.wk-over { display: inline-block; font-size: 11px; font-weight: 600; color: #c0392b; border: 1px solid #c0392b; border-radius: 4px; padding: 0 4px; line-height: 15px; animation: wk-blink 1.1s ease-in-out infinite; }
+@keyframes wk-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .wk-over { animation: none; } }
