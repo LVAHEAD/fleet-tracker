@@ -163,7 +163,7 @@
   }
 
   function strip(el) {                   // родную подсказку прячем, пока наведено (текст хранится рядом)
-    if (el.hasAttribute("title")) { el.setAttribute("data-tp-title", el.getAttribute("title")); el.removeAttribute("title"); }
+    if (el.getAttribute("title")) { el.setAttribute("data-tp-title", el.getAttribute("title")); el.removeAttribute("title"); }
   }
   function restore() {
     document.querySelectorAll("[data-tp-title]").forEach((n) => {
@@ -185,7 +185,7 @@
   const wkOpen = (chip, delay) => {
     const h = wkHost(chip);
     if (!h || !load(h) || !load(h).p) return false;
-    wkNote = chip.getAttribute("title") || chip.getAttribute("data-tp-title") || "";
+    wkNote = chip.getAttribute("data-wk-note") || chip.getAttribute("title") || chip.getAttribute("data-tp-title") || "";
     strip(chip);
     clearTimeout(hideT); clearTimeout(showT);
     if (!delay) { open(h, chip); return true; }

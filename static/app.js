@@ -1180,7 +1180,7 @@ function weeklyChipHtml(w) {
   if (w.ddd) tip.push(`Срок по тахографу (ddd): ${fmt(w.ddd)}`);
   if (w.unconfirmed) tip.push(w.ddd ? "⚠ Срок Mapon построен на отдыхе только из CAN — тахографом не подтверждён, ближе срок по ddd" : "⚠ Срок Mapon не подтверждён тахографом (нет недельного отдыха в ddd)");
   tip.push("Неделя тахографа — с пн 00:00 UTC");
-  return ` <span class="wk-rest${soon ? " wk-soon" : ""}${w.unconfirmed ? " wk-unc" : ""}" title="${escapeHtml(tip.join("\n"))}">${h}ка${w.rule45 ? "*" : ""}${w.unconfirmed ? "?" : ""}</span>`;
+  return ` <span class="wk-rest${soon ? " wk-soon" : ""}${w.unconfirmed ? " wk-unc" : ""}" title="" data-wk-note="${escapeHtml(tip.join("\n"))}">${h}ка${w.rule45 ? "*" : ""}${w.unconfirmed ? "?" : ""}</span>`;
 }
 // v3.236: у открытой точки j после неё уже была стоянка на более поздней — подсказка отметить ✓ вручную
 function holdHtml(c, j) {
