@@ -48,7 +48,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
           <td>${esc(c.from)} → ${esc(c.to)} (${esc(c.hours)})</td><td>${esc(c.deficit)}</td>
           <td>${c.left ? "<b>" + esc(c.left) + "</b> до " + esc(c.deadline) : "—"}</td>
           <td><span class="ti-tag ${CST[c.status][0]}">${CST[c.status][1]}</span></td></tr>`).join("") +
-        `</table><div class="ti-note">Недобор добирают отдыхом не короче 9 ч до конца третьей недели после сокращения; считаем за ${28} дн. истории.</div>`;
+        `</table><div class="ti-note">Недобор добирают одним куском к отдыху не короче 9 ч (к 9-ке или 45-ке) до конца третьей недели после сокращения; считаем за ${28} дн. истории.</div>`;
     }
     if (d.cards && d.cards.length) {
       h += `<div class="ti-cards">Карта: ` + d.cards.slice().reverse()

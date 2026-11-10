@@ -131,6 +131,12 @@ class WeeklyCompensationTests(unittest.TestCase):
     def comp(self, rests, now_h):
         return A.weekly_compensation({"rests": rests, "from": self.FROM}, self.T0 + now_h * H)
 
+    def test_compensation_only_one_block(self):
+        red = self.rest(10, 36)                                     # недобор 9 ч
+        # два отдыха с излишком по 5 ч над 11 ч: суммой (10 ч) долг не гасится — нужен один кусок
+        r = self.comp([red, self.rest(200, 16), self.rest(250, 16)], 300)
+        self.assertEqual((r[0]["status"], round(r[0]["left"] / H)), ("open", 9))
+
     def test_reduced_open_then_closed_by_long_daily(self):
         red = self.rest(10, 36)                                     # недобор 9 ч
         r = self.comp([red], 100)

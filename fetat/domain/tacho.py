@@ -152,7 +152,7 @@ def designate_weekly(rests, t0=0):
 def weekly_compensation(hist, now_ts=None):
     """Компенсация сокращённых недельных отдыхов (561/2006, ст. 8(6)) по истории отдыхов водителя.
     Сокращённый отдых 24–45 ч даёт долг 45 ч − длительность; срок — конец третьей недели (пн–вс, UTC)
-    после недели сокращения. Гасят долг (по очереди, старые первыми) отдыхи после сокращённого, не короче 9 ч,
+    после недели сокращения. Гасит долг целиком один отдых (одним куском, не суммой; старые долги первыми) после сокращённого, не короче 9 ч,
     закончившиеся до срока: излишек над 45 ч у недельного и над 11 ч у суточного. Окно — ACT_DAYS дней:
     сокращённый отдых до начала окна не виден. Возвращает список от новых к старым:
     {start, end, hours, deficit, done, left, deadline, status: ok | open | overdue} (часы — секундами)."""
@@ -177,10 +177,10 @@ def weekly_compensation(hist, now_ts=None):
         for dbt in debts:
             if spare <= 0:
                 break
-            if dbt["end"] <= r["start"] and r["end"] <= dbt["deadline"] and dbt["deficit"] - dbt["done"] > 0:
-                take = min(spare, dbt["deficit"] - dbt["done"])
-                dbt["done"] += take
-                spare -= take
+            # компенсация — одним куском к одному отдыху (к 9-ке или 45-ке); сумма излишков разных отдыхов не годится
+            if dbt["end"] <= r["start"] and r["end"] <= dbt["deadline"] and dbt["done"] == 0 and spare >= dbt["deficit"]:
+                dbt["done"] = dbt["deficit"]
+                spare -= dbt["deficit"]
     for dbt in debts:
         dbt["left"] = max(0.0, dbt["deficit"] - dbt["done"])
         dbt["status"] = "ok" if dbt["left"] < 60 else ("overdue" if now > dbt["deadline"] else "open")
