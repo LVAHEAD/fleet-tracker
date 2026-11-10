@@ -263,30 +263,41 @@ function newRowLo(nr) {
   return nr;
 }
 
+// v3.300: подсказки машин по набранному тексту: units-list — все, trailers-list — прицепы, trucks-list — тягачи; пустое поле — без списка
+const UNIT_LIST_KIND = { "units-list": null, "trailers-list": "trailer", "trucks-list": "truck" };
+function fillUnitList(dlId, q) {
+  const dl = document.getElementById(dlId);
+  if (!dl) return;
+  const t = ptsNorm(q).replace(/\s/g, "");
+  if (!t) { dl.replaceChildren(); return; }
+  const kind = UNIT_LIST_KIND[dlId];
+  const frag = document.createDocumentFragment();
+  let n = 0;
+  for (const u of unitsCache || []) {
+    if (kind && u.kind !== kind) continue;
+    if (!ptsNorm(u.number).replace(/\s/g, "").includes(t)) continue;
+    const o = document.createElement("option");
+    o.value = u.number;
+    if (u.kind === "trailer" && !kind) o.label = "прицеп";
+    frag.appendChild(o);
+    if (++n >= PTS_MAX) break;
+  }
+  dl.replaceChildren(frag);
+}
+["input", "focusin"].forEach((ev) => document.addEventListener(ev, (e) => {
+  const inp = e.target.closest && e.target.closest("input[list]");
+  const id = inp && inp.getAttribute("list");
+  if (id && id in UNIT_LIST_KIND) fillUnitList(id, inp.value);
+}));
+
 async function loadUnitsList() {
   try {
     const res = await fetch("/api/units");
     const data = await res.json();
     if (data.units) {
       unitsCache = data.units;
-      const datalist = document.getElementById("units-list");
-      datalist.innerHTML = "";
-      unitsCache.forEach((u) => {
-        const opt = document.createElement("option");
-        opt.value = u.number;
-        if (u.kind === "trailer") opt.label = "прицеп";
-        datalist.appendChild(opt);
-      });
-      [["trailers-list", "trailer"], ["trucks-list", "truck"]].forEach(([dlId, kind]) => {
-        const dl = document.getElementById(dlId);
-        if (!dl) return;
-        dl.innerHTML = "";
-        unitsCache.filter((u) => u.kind === kind).forEach((u) => {
-          const o = document.createElement("option");
-          o.value = u.number;
-          dl.appendChild(o);
-        });
-      });
+      // v3.300: списки машин не заливаем целиком — подсказки по набранному тексту (fillUnitList), пустое поле — без списка
+      ["units-list", "trailers-list", "trucks-list"].forEach((dlId) => { const dl = document.getElementById(dlId); if (dl) dl.replaceChildren(); });
       rebuildPointsList();
       // v3.108: точки с траком в цели узнаём по списку машин — если строки уже нарисованы без него, перерисовать
       if (typeof rows !== "undefined" && rows.some((r) => ptTruckNo(r) || (r.extra || []).some((x) => ptTruckNo(x)))) renderRows();
