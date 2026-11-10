@@ -189,12 +189,15 @@ Fleet ETA Tracker — вкладка "Truck Info"
     clearTimeout(dlTimer);
     if (!q) { dl.replaceChildren(); return; }
     const t = ptsNorm(q).replace(/\s/g, "");
-    const units = [];
+    if (t.length < 2) { dl.replaceChildren(); return; }   // с одной буквы — слишком много машин
+    const starts = [], rest = [];
     for (const u of (typeof unitsCache !== "undefined" && unitsCache) || []) {
-      if (ptsNorm(u.number).replace(/\s/g, "").includes(t)) { units.push({ v: u.number, l: u.kind === "trailer" ? "прицеп" : "машина" }); if (units.length >= 40) break; }
+      const n = ptsNorm(u.number).replace(/\s/g, "");
+      if (!n.includes(t)) continue;
+      (n.startsWith(t) ? starts : rest).push({ v: u.number, l: u.kind === "trailer" ? "прицеп" : "машина" });
     }
+    const units = starts.concat(rest).slice(0, 10);   // начало номера — первым, не больше 10
     optsOf(units, []);
-    if (t.length < 2) return;
     dlTimer = setTimeout(async () => {
       try {
         const r = await fetch(`/api/driver-search?q=${encodeURIComponent(q)}`);
