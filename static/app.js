@@ -381,6 +381,7 @@ function fillPointsList(q) {
   const dl = document.getElementById("points-list");
   if (!dl) return;
   const toks = ptsNorm(q).split(" ").filter(Boolean);
+  if (!toks.length) { dl.replaceChildren(); return; }   // v3.300: пустое поле — без «простыни» из первых 40 машин; список — после первой буквы
   const starts = [], rest = [];
   for (const it of ptsIndex) {
     if (starts.length + rest.length >= PTS_MAX * 4) break;
