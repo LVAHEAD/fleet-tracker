@@ -29,6 +29,7 @@ lo — "" | "L" (погрузка) | "O" (выгрузка). У старых с�
 const STORAGE_KEY = "fleet-rows";
 let rows = [];
 let unitsCache = [];
+let lastGoodCalc = {};   // v3.298: последний удачный расчёт строки — показываем серым, пока свежего нет (паром)
 let lastCalcText = {}; // rowId -> {status, statusClass, dist, eta} — чтобы renderRows не стирал уже посчитанное
 
 // v1.24: несколько вкладок могут ждать загрузки Google Maps — очередь вместо одного колбэка
@@ -897,7 +898,7 @@ function attachRowHandlers(one) {
       }
       row.open = true;
       shiftDoneFlags(id, k + 1, 1);   // v3.136: авто-✓ едут вместе с точками — строка не меняет L / O и не прячется фильтром
-      delete lastCalcText[id];
+      delete lastCalcText[id]; delete lastGoodCalc[id];
       saveRows();
       renderRows();
       const inp = document.querySelector(`#fleet-tbody tr[data-id="${id}"] .xt-input[data-k="${k + 1}"]`);
@@ -992,7 +993,7 @@ function attachRowHandlers(one) {
       removeMarker(id);
       removeTargetMarker(id);
       delete rowPositions[id];
-      delete lastCalcText[id];
+      delete lastCalcText[id]; delete lastGoodCalc[id];
       if (rows.length === 0) rows.push(emptyRow());
       saveRows();
       renderRows();
@@ -1282,7 +1283,7 @@ function removeStop(id, k, anchor, confirmed) {
   if (!row.extra.length) delete row.extra;
   removeTargetMarker(id);
   shiftDoneFlags(id, k, -1);   // v3.136: то же при удалении точки
-  delete lastCalcText[id];
+  delete lastCalcText[id]; delete lastGoodCalc[id];
   saveRows();
   renderRows();
   calcRow(id);
@@ -1398,7 +1399,7 @@ function dropRow(id) {
   removeTargetMarker(id);
   removeExtraTargets(id);
   delete rowPositions[id];
-  delete lastCalcText[id];
+  delete lastCalcText[id]; delete lastGoodCalc[id];
   if (displayOrder) displayOrder = displayOrder.filter((x) => x !== id);
   if (sortMode === "manual") { manualOrder = manualOrder.filter((x) => x !== id); saveSortState(); }
 }
@@ -1505,12 +1506,24 @@ async function calcRow(id, why, pre) {
     })).json();
     if (!data.error) { keepDoneSeen(row, data); keepCrewSeen(row, data); remapDone(data); }
 
+    if (data.error && lastGoodCalc[id]) {   // v3.298: нет свежего расчёта (паром, нет данных Mapon) — серый последний известный, ✓ не сбрасываем
+      const g = lastGoodCalc[id];
+      lastCalcText[id] = g;
+      statusCell.innerHTML = `<div class="status-line stale-note" title="${escapeHtml(data.error + " — показан последний расчёт. Вернётся сам, когда появятся данные")}">⛴ нет данных</div>`;
+      statusCell.className = "status-cell muted";
+      distCell.innerHTML = distCellHtml(row, g);
+      etaCell.innerHTML = g.etaCore ? etaCellHtml(row, g, composeEta(row, g))
+        : (g.extra && g.extra.length ? etaCellHtml(row, g, null) : (g.eta || "—"));
+      tr.classList.add("calc-stale");
+      applyDoneClasses(tr, row, g);
+      return;
+    }
     if (data.error) {
       statusCell.textContent = data.error;
       statusCell.className = "status-cell";
       distCell.textContent = "—";
       etaCell.textContent = "—";
-      delete lastCalcText[id];
+      delete lastCalcText[id]; delete lastGoodCalc[id];
       return;
     }
 
@@ -1706,6 +1719,8 @@ async function calcRow(id, why, pre) {
                          nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };
     lastDoneFlags[id] = lastCalcText[id].doneFlags;   // v3.136: запас для пересчёта после вставки / удаления точки
     applyDoneClasses(tr, row, lastCalcText[id]);
+    lastGoodCalc[id] = lastCalcText[id];   // v3.298
+    tr.classList.remove("calc-stale");
     // v3.81: трип стал «ждущим завершения» (или перестал) — поднять / опустить; не во время набора текста
     if (awaitsComplete(row) !== wasWait) {
       const ae = document.activeElement;

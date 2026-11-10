@@ -1934,3 +1934,7 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 .sl:has(.wk-over) .eta-x-t { font-weight: 600; }
 @keyframes wk-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 @media (prefers-reduced-motion: reduce) { .wk-over { animation: none; } }
+
+/* v3.298: нет свежего расчёта (паром) — последний известный, серым */
+#fleet-tbody tr.calc-stale .dist-cell, #fleet-tbody tr.calc-stale .eta-cell, #fleet-tbody tr.calc-stale .status-cell { opacity: .55; }
+#fleet-tbody tr.calc-stale .stale-note { color: #5a6a85; font-weight: 600; }
