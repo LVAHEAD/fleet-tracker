@@ -485,7 +485,7 @@
     if (list.length === 1) { applyPoint(inp, list[0].a.name); return true; }
     if (list.length > 1) { showGpsPick(inp, list); return true; }
     const typed = inp.value;
-    fetch("/api/mapon-object-at?lat=" + encodeURIComponent(g.lat) + "&lng=" + encodeURIComponent(g.lng))
+    fetch("/api/mapon-object-at?lat=" + encodeURIComponent(g.lat) + "&lng=" + encodeURIComponent(g.lng) + "&strict=1")
       .then((r) => r.json())
       .then((d) => { const o = d && d.object; if (o && o.name && inp.value === typed) applyPoint(inp, o.name); })
       .catch(() => {});

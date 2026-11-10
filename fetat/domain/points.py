@@ -624,6 +624,7 @@ def points_done(pts, manual, unit, units, seen=None, seen_arr=None, click=None, 
 ON_TARGET_OBJ_KM = 0.5      # объект Mapon относится к таргету, если таргет внутри или центр ближе 500 м
 
 
+STRICT_EDGE_KM = 0.025     # v3.300: подстановка имени объекта по введённому GPS — внутри зоны или не дальше 25 м от края
 ON_TARGET_EDGE_KM = 0.3     # v3.29: …или край зоны ближе 300 м (длинные зоны: границы, порты, терминалы)
 
 
@@ -636,7 +637,7 @@ DONE_IN_ZONE_KM = 0.1       # v3.29: стоянка «в зоне» — внут
 DONE_LEFT_ZONE_KM = 0.5     # v3.29: «уехал» — дальше 500 м от зоны
 
 
-def target_object(glat, glng):
+def target_object(glat, glng, strict=False):
     """v3.29: объект Mapon, связанный с точкой (glat, glng): точка внутри полигона, край ближе ON_TARGET_EDGE_KM
     или центр ближе ON_TARGET_OBJ_KM; из нескольких — ближайший. -> объект или None."""
     best = None
@@ -646,16 +647,22 @@ def target_object(glat, glng):
             continue
         edge = poly_dist_km(glat, glng, o["poly"])
         center = haversine_km(glat, glng, o["c"][0], o["c"][1])
-        if edge <= ON_TARGET_EDGE_KM or center <= ON_TARGET_OBJ_KM:
+        if strict:   # v3.300: GPS, введённый вручную — только внутри зоны или у самого края (склады рядом друг с другом)
+            if edge > STRICT_EDGE_KM:
+                continue
+            d = edge
+        elif edge <= ON_TARGET_EDGE_KM or center <= ON_TARGET_OBJ_KM:
             d = min(edge, center)
-            if best is None or d < best[0]:
-                best = (d, o)
+        else:
+            continue
+        if best is None or d < best[0]:
+            best = (d, o)
     return best[1] if best else None
 
 
-def object_at(lat, lng):
+def object_at(lat, lng, strict=False):
     """v3.231: объект Mapon у точки (для карточки адреса) -> {"name", "group"} или None; правило то же, что у target_object."""
-    o = target_object(lat, lng)
+    o = target_object(lat, lng, strict)
     if not o:
         return None
     return {"name": o["name"], "group": mapon_group_names().get(o.get("gid") or "", "")}

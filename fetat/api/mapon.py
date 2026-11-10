@@ -340,7 +340,7 @@ def api_mapon_object_at():
     if not MAPON_API_KEY:
         return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
     try:
-        return jsonify({"object": object_at(lat, lng)})
+        return jsonify({"object": object_at(lat, lng, request.args.get("strict") == "1")})
     except Exception as e:
         warn("mapon:object_at", e)
         return jsonify({"error": "Mapon недоступен"}), 502
