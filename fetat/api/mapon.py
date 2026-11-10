@@ -157,12 +157,14 @@ def api_truck_info():
         return jsonify({"error": "трак не найден"}), 404
     uid = unit["unit_id"]
     if is_trailer(unit):   # v3.258: у прицепа нет водителей и тахографа — страница покажет лог рефа (/api/reefer-log)
-        return jsonify({"unit_id": uid, "number": unit.get("number") or unit.get("label"), "trailer": True, "drivers": []})
+        return jsonify({"unit_id": uid, "number": unit.get("number") or unit.get("label"), "trailer": True, "drivers": [],
+                        "lat": unit.get("lat"), "lng": unit.get("lng")})
     try:
         days = max(1, min(int(request.args.get("days") or 3), ACT_DAYS))
     except ValueError:
         days = 3
-    out = {"unit_id": uid, "number": unit.get("number") or unit.get("label"), "drivers": [], "days": days}
+    out = {"unit_id": uid, "number": unit.get("number") or unit.get("label"), "drivers": [], "days": days,
+           "lat": unit.get("lat"), "lng": unit.get("lng")}
     tacho, terr = get_tacho(uid)
     if not tacho:
         out["tacho_error"] = terr

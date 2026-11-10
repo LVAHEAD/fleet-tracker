@@ -1316,6 +1316,8 @@
   {
    "days": 3,
    "drivers": [],
+   "lat": 45.4,
+   "lng": 11.9,
    "number": "OI-1778",
    "stops": [],
    "tacho_error": "нет данных водителя",

@@ -152,6 +152,8 @@ Fleet ETA Tracker — вкладка "Truck Info"
       const j = await r.json();
       if (r.status === 404) return searchDrivers(q);      // не номер трака — ищем водителя по имени
       if (!r.ok || j.error) throw new Error(j.error || r.status);
+      // v3.302: карта Флота — на машину / прицеп, зум 9 (закрытая панель выезжает сама)
+      if (typeof showUnitOnMap === "function" && typeof j.lat === "number" && typeof j.lng === "number") showUnitOnMap(j.lat, j.lng, 9);
       let h = `<div class="ti-title">${esc(j.number)}</div>`;
       if (j.trailer) {   // v3.258: прицеп — вместо водителей лог рефа
         out.innerHTML = h + `<div class="rl-card" id="ti-reefer"><div class="ti-loading">Реф: загрузка…</div></div>`;
@@ -171,6 +173,38 @@ Fleet ETA Tracker — вкладка "Truck Info"
       out.innerHTML = `<div class="ti-err">Ошибка: ${esc(e.message)}</div>`;
     }
   }
+  // v3.302: подсказки по набранному тексту — номера тягачей и прицепов (unitsCache) и имена водителей (/api/driver-search)
+  const dl = document.createElement("datalist");
+  dl.id = "ti-list";
+  inp.setAttribute("list", "ti-list");
+  inp.after(dl);
+  let dlTimer = null, dlSeq = 0;
+  const optsOf = (units, drivers) => {
+    const frag = document.createDocumentFragment();
+    units.concat(drivers).forEach((x) => { const o = document.createElement("option"); o.value = x.v; o.label = x.l; frag.appendChild(o); });
+    dl.replaceChildren(frag);
+  };
+  function fillList() {
+    const q = inp.value.trim(), seq = ++dlSeq;
+    clearTimeout(dlTimer);
+    if (!q) { dl.replaceChildren(); return; }
+    const t = ptsNorm(q).replace(/\s/g, "");
+    const units = [];
+    for (const u of (typeof unitsCache !== "undefined" && unitsCache) || []) {
+      if (ptsNorm(u.number).replace(/\s/g, "").includes(t)) { units.push({ v: u.number, l: u.kind === "trailer" ? "прицеп" : "машина" }); if (units.length >= 40) break; }
+    }
+    optsOf(units, []);
+    if (t.length < 2) return;
+    dlTimer = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/driver-search?q=${encodeURIComponent(q)}`);
+        const j = await r.json();
+        if (seq !== dlSeq || !j.drivers) return;
+        optsOf(units, j.drivers.map((d) => ({ v: d.number, l: `${d.name} · ${STATE[d.state] || d.state || ""}` })));
+      } catch (e) { /* подсказки по водителям не критичны */ }
+    }, 250);
+  }
+  ["input", "focus"].forEach((ev) => inp.addEventListener(ev, fillList));
   btn.addEventListener("click", load);
   inp.addEventListener("keydown", (e) => { if (e.key === "Enter") load(); });
   inp.addEventListener("change", load);
