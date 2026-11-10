@@ -61,6 +61,28 @@ def api_units():
         return jsonify({"error": str(e)}), 502
 
 
+@bp.route("/api/positions")
+def api_positions():
+    """v3.299: лёгкий список позиций тягачей для живой карты Флота — номер, координаты, едет / стоит, курс.
+    Без прицепов, кодов регионов, скорости и длительности; тот же кеш Mapon, что у /api/units."""
+    if not MAPON_API_KEY:
+        return jsonify({"error": "MAPON_API_KEY не настроен на сервере"}), 500
+    try:
+        all_units = fetch_units(MAPON_API_KEY)
+        group_ids = fetch_group_unit_ids(MAPON_API_KEY, HEAD_TRUCK_GROUP_ID)
+        result = [
+            {"number": u.get("number") or u.get("label"), "kind": "truck", "lat": u.get("lat"), "lng": u.get("lng"),
+             "st": "driving" if (u.get("state") or {}).get("name") == "driving" else "standing",
+             "dir": next((u.get(k) for k in ("direction", "course", "heading", "angle")
+                          if isinstance(u.get(k), (int, float))), None)}
+            for u in all_units
+            if u["unit_id"] in group_ids and u.get("lat") is not None and u.get("lng") is not None
+        ]
+        return jsonify({"units": result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
 def _find_unit(q_raw):
     norm = lambda x: re.sub(r"[^0-9a-zа-я]", "", str(x or "").lower())
     q = norm(q_raw)
