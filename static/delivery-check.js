@@ -53,7 +53,12 @@ function parseDeliveryWindow(txt) {
     const dd = mkDate(day, mon, 12, 0).getTime() - Date.now();
     return dd > -2 * 86400000 && dd < 60 * 86400000;
   })();
-  const explicitDate = iso || /\d{1,2}\/\d{1,2}|\d{1,2}\.\d{1,2}\.\d{2,4}/.test(s);
+  // дд.мм с текстом после («05.11. 15:00», «05.11 15:00») — дата, а не время; голое «22.30» — по-прежнему время
+  const dotDate = (() => {
+    const m = s.match(/(?:^|\D)(\d{1,2})\.(\d{1,2})(?:\.\s+|\s+(?=\d))/);
+    return !!m && +m[1] >= 1 && +m[1] <= 31 && +m[2] >= 1 && +m[2] <= 12;
+  })();
+  const explicitDate = iso || dotDate || /\d{1,2}\/\d{1,2}|\d{1,2}\.\d{1,2}\.\d{2,4}/.test(s);
   if (!dateOk && !explicitDate) {
     if (!/\d/.test(s)) return null;
     const now = new Date();
