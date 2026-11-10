@@ -750,8 +750,54 @@ const EtaCalc = (() => {
     unitFor = num;
     if (!num || !window.UnitsLayer) { unitData = null; return; }
     const u = await UnitsLayer.findUnit(num, fresh).catch(() => null);
-    if (unitFor === num) { unitData = u; drawMapSoon(); }
+    if (unitFor === num) { unitData = u; unitShown = u ? { lat: u.lat, lng: u.lng } : null; unitGlide++; drawMapSoon(); }
   }
+  // v3.300: живая машина на мини-карте — как на карте Флота (v3.299): опрос /api/positions раз в 30 с, пока Калькулятор открыт,
+  // карта не свёрнута и вкладка видна; 5 мин без мыши / клавиатуры — пауза; едущая плывёт ровно 30 с, стоящая — быстро
+  const LIVE_POLL_MS = 30000, LIVE_IDLE_MS = 5 * 60 * 1000, LIVE_GLIDE_MS = 30000, LIVE_QUICK_MS = 1500;
+  let unitMk = null, unitShown = null, unitGlide = 0, liveAct = Date.now(), livePaused = false;
+  const liveOk = () => !document.hidden && isOpen() && !st.mapFolded && !!unitFor && !!gmap;
+  function liveNote() {
+    liveAct = Date.now();
+    if (livePaused) { livePaused = false; if (liveOk()) pollUnit(); }
+  }
+  ["mousemove", "keydown", "pointerdown", "wheel", "touchstart"].forEach((ev) => window.addEventListener(ev, liveNote, { passive: true, capture: true }));
+  function glideUnit(to, ms) {
+    const from = unitShown ? { lat: unitShown.lat, lng: unitShown.lng } : null;
+    const token = ++unitGlide;
+    if (!from || !window.requestAnimationFrame || Math.abs(from.lat - to.lat) + Math.abs(from.lng - to.lng) < 0.00005
+        || Math.abs(from.lat - to.lat) + Math.abs(from.lng - to.lng) > 0.2) { unitShown = { lat: to.lat, lng: to.lng }; drawMapSoon(); return; }
+    const t0 = performance.now();
+    const step = (now) => {
+      if (unitGlide !== token) return;
+      const k = Math.min(1, (now - t0) / ms);
+      const e = ms > LIVE_QUICK_MS ? k : (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
+      unitShown = { lat: from.lat + (to.lat - from.lat) * e, lng: from.lng + (to.lng - from.lng) * e };
+      if (unitMk && unitMk.getMap()) unitMk.setPosition(unitShown);
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  async function pollUnit() {
+    const num = unitFor;
+    if (!num || !unitData) return;
+    try {
+      const d = await fetch("/api/positions?t=" + Date.now()).then((r) => r.json());
+      if (unitFor !== num) return;
+      const nrm = (x) => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      const u = (d.units || []).find((x) => nrm(x.number) === nrm(num) && x.lat != null && x.lng != null);
+      if (!u) return;
+      const drv = u.st === "driving";
+      unitData = Object.assign({}, unitData, { lat: u.lat, lng: u.lng, st: u.st, dir: u.dir });
+      if (unitMk && unitMk.getMap()) unitMk.setIcon(UnitsLayer.icon(unitData));
+      glideUnit(u, drv ? LIVE_GLIDE_MS : LIVE_QUICK_MS);
+    } catch (e) { /* без сети — оставляем как есть */ }
+  }
+  setInterval(() => {
+    if (!liveOk()) return;
+    if (Date.now() - liveAct > LIVE_IDLE_MS) { livePaused = true; return; }
+    pollUnit();
+  }, LIVE_POLL_MS);
   let gmap = null, lays = [], codes = null, codesLoading = false, mapRaf = 0, lineKey = "", lineCache = null;
   function mapFold(folded, init) {
     st.mapFolded = folded;
@@ -895,7 +941,7 @@ const EtaCalc = (() => {
       // v3.264: машина в Mapon дальше ~20 км от начала линии — расчёт строки старый (линия и отдыхи от прежнего места)
       const p0 = L.path[0], dLat = (unitData.lat - p0.lat()) * 111, dLng = (unitData.lng - p0.lng()) * 111 * Math.cos(p0.lat() * Math.PI / 180);
       if (Math.hypot(dLat, dLng) > 20) $(".ec-mnote").textContent = "данные строки устарели — машина уже в другом месте, нажмите ↻ у строки";
-      add(new google.maps.Marker({ map: gmap, position: { lat: unitData.lat, lng: unitData.lng }, zIndex: 5,
+      unitMk = add(new google.maps.Marker({ map: gmap, position: unitShown || { lat: unitData.lat, lng: unitData.lng }, zIndex: 5,
         icon: UnitsLayer.icon(unitData), title: UnitsLayer.title(unitData) + "\nETD " + fdt(new Date(S.etd)),
         label: { text: String(unitData.number), className: "ul-lab " + (drv ? "ul-drv" : "ul-std"), color: "#1a1a1a", fontSize: "12px", fontWeight: "600" } }));
     } else if (unitNum) {

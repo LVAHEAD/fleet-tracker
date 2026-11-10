@@ -32,7 +32,9 @@ class EtaCalcWiringTest(unittest.TestCase):
         # v3.51: Routes — только из полей From / To (/api/route, как вкладка From → To);
         # v3.114: машина в From без To — данные машины (/api/unit-seed, Google не нужен)
         js = read("static/eta-calc.js")
-        self.assertEqual(js.count("fetch("), 4)
+        # v3.300: + позиции своей машины на мини-карте (/api/positions, лёгкий, без Google)
+        self.assertEqual(js.count("fetch("), 5)
+        self.assertIn('fetch("/api/positions?t="', js)
         self.assertIn('fetch("/api/unit-seed"', js)
         self.assertIn('fetch("/api/region-codes")', js)
         self.assertIn('fetch("/api/eta-plan"', js)
