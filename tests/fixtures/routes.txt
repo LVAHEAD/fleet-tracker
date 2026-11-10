@@ -40,6 +40,7 @@
 /api/notebook/<rid> PATCH
 /api/notebook/<rid>/comments POST
 /api/notebook/<rid>/comments/<cid> DELETE
+/api/positions GET
 /api/presence GET
 /api/reefer-log GET
 /api/reefer-probe GET
