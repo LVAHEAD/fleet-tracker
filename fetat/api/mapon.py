@@ -179,7 +179,7 @@ def api_truck_info():
         if did:
             w, werr = weekly_status(did)
             if w:
-                row["weekly"] = [{"from": _lv(x["start"]), "to": _lv(x["end"]), "hours": x["hours"],
+                row["weekly"] = [{"from": _lv(x["start"]), "to": _lv(x["end"]), "hours": _hm(x["end"] - x["start"]),
                                   "full": x["full"], "nocard": any(s in ("can", "unkn") for s in x["src"])}
                                  for x in w["weekly"]]
                 row["ongoing"] = w.get("ongoing")
@@ -194,8 +194,8 @@ def api_truck_info():
                 row["weekly_error"] = w.get("error")
                 hist, _ = get_driver_rests(did)
                 row["comp"] = [{"from": _lv(c["start"]), "to": _lv(c["end"]), "hours": _hm(c["hours"]),
-                                "deficit": f"{math.ceil(c['deficit'] / 3600)} ч",      # округляем вверх до часа (как диспетчеры)
-                                "left": f"{math.ceil(c['left'] / 3600)} ч" if c["left"] >= 60 else None,
+                                "deficit": _hm(c["deficit"]),      # v3.301: ЧЧ:ММ (раньше — целые часы вверх)
+                                "left": _hm(c["left"]) if c["left"] >= 60 else None,
                                 "deadline": _lv(c["deadline"]), "status": c["status"]}
                                for c in weekly_compensation(hist)]
                 # правило диспетчеров (только Truck Info): недельный — один в неделе, самый длинный; остальные — «большая 9-ка»
