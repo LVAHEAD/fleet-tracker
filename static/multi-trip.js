@@ -216,3 +216,46 @@ function multiTripWarn(id, unit) {
       others.map((r) => "• " + escapeHtml(mtLine(r))).join("<br>"), [{ text: "Понятно", ok: true }]);
   }, 60);
 }
+
+// v3.305: карта Флота, машина в 2+ трипах — у ВЫБРАННОЙ строки две линии «до этого трипа»:
+// (1) машина → последняя точка предыдущего трипа, по прямой, цветом его диспетчера;
+// (2) эта точка → ① выбранного трипа, по дорогам (плечо /api/trip-gap, тот же кеш Google), пунктиром, тем же цветом.
+// Линии лежат в routeExtraLines (map-core.js) — стираются и перерисовываются вместе с маршрутом.
+const MT_LINE = {};
+function mtGapLine(a, b) {
+  const k = a + "|" + b;
+  if (MT_LINE[k]) return MT_LINE[k];
+  MT_LINE[k] = fetch("/api/trip-gap", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: a, to: b, line: true }) })
+    .then((r) => r.json())
+    .then((d) => { if (typeof d.km !== "number") delete MT_LINE[k]; else MT_KM[k] = d.km; return d; })
+    .catch(() => { delete MT_LINE[k]; return {}; });
+  return MT_LINE[k];
+}
+function mtLineColor(prev) {
+  const e = dispEntry(rowDisp(prev));
+  return (e && e.color && shadeHex(e.color, 0.42)) || "#7b4fc0";
+}
+let MT_DRAW = 0;   // номер последней перерисовки: запоздавший ответ старой не рисуем (иначе линии задвоятся)
+function drawGapLines(rowId) {
+  const my = ++MT_DRAW;
+  if (typeof map === "undefined" || !map) return;
+  const row = rows.find((r) => String(r.id) === String(rowId));
+  if (!row || !row.unit) return;
+  const list = mtSorted(multiTripRows(row.unit)), idx = list.indexOf(row);
+  if (idx <= 0) return;                    // первый трип машины — линий «до него» нет
+  const prev = list[idx - 1];
+  const a = mtLastTarget(prev), b = String(row.target || "").trim();
+  if (!a || !b) return;
+  const pos = rowPositions[rowId] || rowPositions[prev.id];
+  const color = mtLineColor(prev);
+  mtGapLine(a, b).then((d) => {
+    if (!d || !d.from_ll || my !== MT_DRAW || !isSelected(rowId)) return;   // за время запроса выбрали другую строку
+    if (pos && pos.unitLat != null) {
+      routeExtraLines.push(new google.maps.Polyline({ path: [{ lat: pos.unitLat, lng: pos.unitLng }, { lat: d.from_ll[0], lng: d.from_ll[1] }],
+        strokeColor: color, strokeOpacity: 0.9, strokeWeight: 3, map: map, zIndex: 4 }));
+    }
+    const path = d.polyline ? google.maps.geometry.encoding.decodePath(d.polyline) : [{ lat: d.from_ll[0], lng: d.from_ll[1] }, { lat: d.to_ll[0], lng: d.to_ll[1] }];
+    routeExtraLines.push(new google.maps.Polyline({ path: path, strokeOpacity: 0, map: map, zIndex: 4,
+      icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.9, strokeColor: color, scale: 3 }, offset: "0", repeat: "12px" }] }));
+  });
+}

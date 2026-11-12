@@ -35,3 +35,22 @@ class TripGapTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TripGapLineTest(unittest.TestCase):
+    """v3.305: линия плеча для карты Флота."""
+
+    def test_line_has_ll_and_polyline(self):
+        pts = iter([_pt(41.0, 2.0), _pt(43.0, 3.0)])
+        with mock.patch.object(tg, "resolve_fleet_target", side_effect=lambda *a: next(pts)), \
+             mock.patch.object(tg, "fleet_waypoints", return_value=None), \
+             mock.patch.object(tg, "road_distance_km_google", return_value=(100.0, "abc")):
+            body, _ = tg.trip_gap_line("A", "B")
+        self.assertEqual(body, {"km": 100.0, "polyline": "abc", "from_ll": [41.0, 2.0], "to_ll": [43.0, 3.0]})
+
+    def test_plain_gap_stays_km_only(self):
+        pts = iter([_pt(41.0, 2.0), _pt(43.0, 3.0)])
+        with mock.patch.object(tg, "resolve_fleet_target", side_effect=lambda *a: next(pts)), \
+             mock.patch.object(tg, "fleet_waypoints", return_value=None), \
+             mock.patch.object(tg, "road_distance_km_google", return_value=(100.0, "abc")):
+            self.assertEqual(tg.trip_gap("A", "B")[0], {"km": 100.0})

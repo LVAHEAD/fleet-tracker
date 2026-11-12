@@ -13,7 +13,7 @@ from fetat.domain.tacho import calc_plan
 from fetat.services.corridors import corridor_options
 from fetat.services.fleet_calc import calc_row
 from fetat.services.route_calc import from_crew, route_calc, unit_seed
-from fetat.services.trip_gap import trip_gap
+from fetat.services.trip_gap import trip_gap, trip_gap_line
 from fetat.utils.log import warn
 
 bp = Blueprint("calc", __name__)
@@ -111,7 +111,8 @@ def api_trip_gap():
     body: {"from": текст последней точки трипа 1, "to": текст ① трипа 2}."""
     p = request.get_json(force=True, silent=True) or {}
     set_route_ctx("tripgap", current_user_email())
-    body, code = trip_gap(p.get("from"), p.get("to"))
+    # v3.305: "line": true — ещё координаты концов и линия плеча (карта Флота, машина в 2 трипах)
+    body, code = (trip_gap_line if p.get("line") else trip_gap)(p.get("from"), p.get("to"))
     return jsonify(body), code
 
 
