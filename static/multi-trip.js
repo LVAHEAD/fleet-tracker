@@ -272,8 +272,9 @@ function drawGapLines(rowId) {
     }
     // маркер последней точки предыдущего трипа
     const mk = new google.maps.Marker({ position: from, map: map, icon: mtFlagIcon(color), zIndex: 18, title: "Конец трипа " + idx + ": " + a });
-    const txt = a.length > 30 ? a.slice(0, 29) + "…" : a;
-    const bd = makeBadge(from.lat, from.lng, `<span class="tb-ic">🏁</span> Конец трипа ${idx} · ${escapeHtml(txt)}`, "mk-tbadge", 34, null);
+    const gps = a.match(/^(-?\d+(?:\.\d+)?)\s*[,;]\s*(-?\d+(?:\.\d+)?)$/);   // GPS — до 3 знаков, название — до 15 символов
+    const txt = gps ? `${(+gps[1]).toFixed(3)}, ${(+gps[2]).toFixed(3)}` : (a.length > 15 ? a.slice(0, 14).trim() + "…" : a);
+    const bd = makeBadge(from.lat, from.lng, `<span class="tb-ic">🏁</span> Конец трипа ${idx}<span class="mk-tgt">${escapeHtml(txt)}</span>`, "mk-tbadge", 34, null);
     const paint = () => { if (bd.div) bd.div.style.borderColor = color; };
     paint(); setTimeout(paint, 0);
     MT_OBJS.push(mk, bd);
