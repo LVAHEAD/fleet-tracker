@@ -762,13 +762,15 @@ function drawRoute(rowId, keepView) {   // v3.84: keepView — перерисо�
   }
 
   const path = google.maps.geometry.encoding.decodePath(pos.polyline);
-  routePolyline = new google.maps.Polyline({
-    path: path,
-    strokeColor: "#4285F4",
-    strokeOpacity: 0.85,
-    strokeWeight: 4,
-    map: map,
-  });
+  if (!mtHideTruckLeg(rowId)) {   // v3.307: КМ «от точек» (multi-trip.js) — участок машина → ① заменяют линии 1 и 2
+    routePolyline = new google.maps.Polyline({
+      path: path,
+      strokeColor: "#4285F4",
+      strokeOpacity: 0.85,
+      strokeWeight: 4,
+      map: map,
+    });
+  }
 
   const bounds = new google.maps.LatLngBounds();
   path.forEach((p) => bounds.extend(p));

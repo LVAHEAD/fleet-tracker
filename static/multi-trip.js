@@ -249,7 +249,8 @@ function drawGapLines(rowId) {
   const pos = rowPositions[rowId] || rowPositions[prev.id];
   const color = mtLineColor(prev);
   mtGapLine(a, b).then((d) => {
-    if (!d || !d.from_ll || my !== MT_DRAW || !isSelected(rowId)) return;   // за время запроса выбрали другую строку
+    if (!d || !d.from_ll || my !== MT_DRAW || !isSelected(rowId)) return;
+    if (routePolyline && mtHideTruckLeg(rowId)) { routePolyline.setMap(null); routePolyline = null; }   // v3.307: голубой участок машина → ① уже нарисован, а теперь он лишний   // за время запроса выбрали другую строку
     if (pos && pos.unitLat != null) {
       routeExtraLines.push(new google.maps.Polyline({ path: [{ lat: pos.unitLat, lng: pos.unitLng }, { lat: d.from_ll[0], lng: d.from_ll[1] }],
         strokeColor: color, strokeOpacity: 0.9, strokeWeight: 3, map: map, zIndex: 4 }));
@@ -264,7 +265,7 @@ function drawGapLines(rowId) {
 // плечо от его последней точки до ① (то же число, что «↓ N км до ①» в карточке; кеш), а не от текущей позиции машины.
 // Только показ (ячейка КМ, бейдж км на карте): ETA, ⏱ калькулятор и серверный расчёт не меняются.
 // → число км из кеша или null (нет предыдущего трипа / он закончен / плечо ещё не посчитано — тогда грузим и пересчитываем строку).
-function mtKmOverride(row) {
+function mtPrevOpen(row) {   // → {a, b} (последняя точка предыдущего трипа, ① этого), если предыдущий трип машины не закончен; иначе null
   try {
     if (!row || !row.unit) return null;
     const list = mtSorted(multiTripRows(row.unit)), idx = list.indexOf(row);
@@ -272,10 +273,20 @@ function mtKmOverride(row) {
     const prev = list[idx - 1], pc = lastCalcText[prev.id];
     if (!pc || pc.allDone) return null;               // нет данных о предыдущем или он закончен — считаем от машины, как раньше
     const a = mtLastTarget(prev), b = String(row.target || "").trim();
-    if (!a || !b) return null;
-    const v = MT_KM[a + "|" + b];
-    if (typeof v === "number") return v;
-    mtGapLoad(a, b).then((r) => { if (typeof r === "number" && typeof calcRow === "function") calcRow(row.id); });
-    return null;
+    return a && b ? { a, b } : null;
   } catch (e) { return null; }
+}
+function mtKmOverride(row) {
+  const g = mtPrevOpen(row);
+  if (!g) return null;
+  const v = MT_KM[g.a + "|" + g.b];
+  if (typeof v === "number") return v;
+  mtGapLoad(g.a, g.b).then((r) => { if (typeof r === "number" && typeof calcRow === "function") calcRow(row.id); });
+  return null;
+}
+// v3.307: при КМ «от точек» голубой участок машина → ① на карте не рисуем (его заменяют линии 1 и 2)
+function mtHideTruckLeg(rowId) {
+  const row = rows.find((r) => String(r.id) === String(rowId));
+  const g = mtPrevOpen(row);
+  return !!g && typeof MT_KM[g.a + "|" + g.b] === "number";
 }
