@@ -1730,10 +1730,12 @@ async function calcRow(id, why, pre) {
                          ecSeed: data.calc_seed || null,
                          corridor: data.corridor || null,          // v3.32: плашка коридора ИТ ↔ Бенелюкс
                          chainGeo0: data.first_done ? !!data.first_done.chain_geo : !!data.target_chain_geo,   // v3.226: ① в NO / в 200 км от Стокгольма
-                         nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null };
+                         nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null,
+                         mtKm: mtKm };   // v3.310: показали ли КМ «от точек»
     lastDoneFlags[id] = lastCalcText[id].doneFlags;   // v3.136: запас для пересчёта после вставки / удаления точки
     applyDoneClasses(tr, row, lastCalcText[id]);
     lastGoodCalc[id] = lastCalcText[id];   // v3.298
+    try { mtAfterCalc(row); } catch (e) { /* v3.310: следующие трипы этой машины — пересчитать, если ждали этот */ }
     tr.classList.remove("calc-stale");
     // v3.81: трип стал «ждущим завершения» (или перестал) — поднять / опустить; не во время набора текста
     if (awaitsComplete(row) !== wasWait) {

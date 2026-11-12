@@ -330,3 +330,14 @@ function mtHideTruckLeg(rowId) {
   const g = mtPrevOpen(row);
   return !!g && typeof MT_KM[g.a + "|" + g.b] === "number";
 }
+
+// v3.310: строка посчиталась — следующие трипы этой машины, которые считались раньше (когда данных о ней ещё не было)
+// и потому показали КМ от машины, пересчитываем: теперь есть «предыдущий трип не закончен». Один раз: после пересчёта у них mtKm уже есть.
+function mtAfterCalc(row) {
+  if (!row || !row.unit) return;
+  multiTripRows(row.unit).forEach((r) => {
+    if (r === row) return;
+    const c = lastCalcText[r.id];
+    if (c && c.mtKm == null && mtPrevRow(r) === row && typeof calcRow === "function") calcRow(r.id);
+  });
+}
