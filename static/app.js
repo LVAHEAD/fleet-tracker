@@ -1594,6 +1594,7 @@ async function calcRow(id, why, pre) {
     statusCell.innerHTML = statusHtml;
     statusCell.className = `status-cell ${statusClass}`;
 
+    const mtKm = data.first_done ? null : mtKmOverride(row);   // v3.306: КМ ① от последней точки предыдущего трипа машины (multi-trip.js)
     let distText = "—";
     let etaText = "—";
     let etaTip = "";
@@ -1603,6 +1604,7 @@ async function calcRow(id, why, pre) {
     let onArr = null;               // v3.82: время приезда, пока трак на объекте первой непройденной точки
     if (data.dist_km != null && !data.first_done) {
       distText = String(Math.round(data.dist_km));   // v3.35: без десятых
+      if (mtKm != null) distText = `<span class="mt-km" title="От последней точки предыдущего трипа этой машины (от машины — ${Math.round(data.dist_km)} км)">${Math.round(mtKm)}</span>`;   // v3.306
       distCell.classList.remove("muted");
       // v1.33: две строки — простой ETA и ⏱ по тахографу; подробности в подсказке
       const tip = ["Простой ETA: км ÷ 70, без остановок"]
@@ -1770,7 +1772,7 @@ async function calcRow(id, why, pre) {
 
     if (data.unit_lat != null && data.unit_lng != null) {
       // ошибка отрисовки на карте не должна ломать строку таблицы
-      try { updateMarker(id, data.unit_lat, data.unit_lng, data.number, data.status, data.direction, data.dist_km, data.is_trailer, badgeTargetText(row)); }
+      try { updateMarker(id, data.unit_lat, data.unit_lng, data.number, data.status, data.direction, mtKm != null ? mtKm : data.dist_km, data.is_trailer, badgeTargetText(row)); }
       catch (err) { console.error("updateMarker", err); }
       try { updateTrailerLink(id, data.unit_lat, data.unit_lng, row.trailer ? data.linked_trailer : null); }
       catch (err) { console.error("updateTrailerLink", err); }
@@ -1812,7 +1814,7 @@ async function calcRow(id, why, pre) {
         const multi = row.extra && row.extra.length;
         const label = data.target_is_truck ? `${row.unit} → ${data.target_unit}` : row.unit;
         updateTargetMarker(id, data.target_lat, data.target_lng, label, markerKind(row), multi ? 1 : null,
-          data.dist_km != null ? fmtKm(data.dist_km) : "", data.target_is_truck ? "" : tgtLine(row.target));
+          mtKm != null ? fmtKm(mtKm) : data.dist_km != null ? fmtKm(data.dist_km) : "", data.target_is_truck ? "" : tgtLine(row.target));
       } else {
         removeTargetMarker(id);
       }

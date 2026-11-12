@@ -259,3 +259,23 @@ function drawGapLines(rowId) {
       icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.9, strokeColor: color, scale: 3 }, offset: "0", repeat: "12px" }] }));
   });
 }
+
+// v3.306: КМ ① следующего трипа машины — «от точек»: пока предыдущий трип машины не закончен (не все ✓), км до ① =
+// плечо от его последней точки до ① (то же число, что «↓ N км до ①» в карточке; кеш), а не от текущей позиции машины.
+// Только показ (ячейка КМ, бейдж км на карте): ETA, ⏱ калькулятор и серверный расчёт не меняются.
+// → число км из кеша или null (нет предыдущего трипа / он закончен / плечо ещё не посчитано — тогда грузим и пересчитываем строку).
+function mtKmOverride(row) {
+  try {
+    if (!row || !row.unit) return null;
+    const list = mtSorted(multiTripRows(row.unit)), idx = list.indexOf(row);
+    if (idx <= 0) return null;
+    const prev = list[idx - 1], pc = lastCalcText[prev.id];
+    if (!pc || pc.allDone) return null;               // нет данных о предыдущем или он закончен — считаем от машины, как раньше
+    const a = mtLastTarget(prev), b = String(row.target || "").trim();
+    if (!a || !b) return null;
+    const v = MT_KM[a + "|" + b];
+    if (typeof v === "number") return v;
+    mtGapLoad(a, b).then((r) => { if (typeof r === "number" && typeof calcRow === "function") calcRow(row.id); });
+    return null;
+  } catch (e) { return null; }
+}
