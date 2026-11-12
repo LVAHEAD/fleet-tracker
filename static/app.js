@@ -1772,7 +1772,7 @@ async function calcRow(id, why, pre) {
 
     if (data.unit_lat != null && data.unit_lng != null) {
       // ошибка отрисовки на карте не должна ломать строку таблицы
-      try { updateMarker(id, data.unit_lat, data.unit_lng, data.number, data.status, data.direction, mtKm != null ? mtKm : data.dist_km, data.is_trailer, badgeTargetText(row)); }
+      try { updateMarker(id, data.unit_lat, data.unit_lng, data.number, data.status, data.direction, (mtTruckKm(row) ?? data.dist_km), data.is_trailer, badgeTargetText(row)); }
       catch (err) { console.error("updateMarker", err); }
       try { updateTrailerLink(id, data.unit_lat, data.unit_lng, row.trailer ? data.linked_trailer : null); }
       catch (err) { console.error("updateTrailerLink", err); }

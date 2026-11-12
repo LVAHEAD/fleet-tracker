@@ -236,8 +236,16 @@ function mtLineColor(prev) {
   return (e && e.color && shadeHex(e.color, 0.42)) || "#7b4fc0";
 }
 let MT_DRAW = 0;   // номер последней перерисовки: запоздавший ответ старой не рисуем (иначе линии задвоятся)
+let MT_OBJS = [];  // маркер и плашка конца предыдущего трипа
+function mtFlagIcon(color) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="30"><line x1="4" y1="2" x2="4" y2="28" stroke="${color}" stroke-width="2.5"/>`
+    + `<path d="M4,3 L22,8 L4,13 Z" fill="#fff" stroke="${color}" stroke-width="2"/></svg>`;
+  return { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg), scaledSize: new google.maps.Size(26, 30), anchor: new google.maps.Point(4, 28) };
+}
 function drawGapLines(rowId) {
   const my = ++MT_DRAW;
+  MT_OBJS.forEach((o) => o.setMap(null));
+  MT_OBJS = [];
   if (typeof map === "undefined" || !map) return;
   const row = rows.find((r) => String(r.id) === String(rowId));
   if (!row || !row.unit) return;
@@ -247,34 +255,65 @@ function drawGapLines(rowId) {
   const a = mtLastTarget(prev), b = String(row.target || "").trim();
   if (!a || !b) return;
   const pos = rowPositions[rowId] || rowPositions[prev.id];
+  const pp = rowPositions[prev.id];
   const color = mtLineColor(prev);
   mtGapLine(a, b).then((d) => {
-    if (!d || !d.from_ll || my !== MT_DRAW || !isSelected(rowId)) return;
-    if (routePolyline && mtHideTruckLeg(rowId)) { routePolyline.setMap(null); routePolyline = null; }   // v3.307: голубой участок машина → ① уже нарисован, а теперь он лишний   // за время запроса выбрали другую строку
-    if (pos && pos.unitLat != null) {
-      routeExtraLines.push(new google.maps.Polyline({ path: [{ lat: pos.unitLat, lng: pos.unitLng }, { lat: d.from_ll[0], lng: d.from_ll[1] }],
+    if (!d || !d.from_ll || my !== MT_DRAW || !isSelected(rowId)) return;   // за время запроса выбрали другую строку
+    if (routePolyline && mtHideTruckLeg(rowId)) { routePolyline.setMap(null); routePolyline = null; }   // v3.307: голубой участок машина → ① уже нарисован, а теперь он лишний
+    const from = { lat: d.from_ll[0], lng: d.from_ll[1] };
+    // линия 1: дорога машина → последняя точка предыдущего трипа — готовые линии его строки (без Google); нет их — прямая
+    const legs = pp && pp.polyline ? [pp.polyline].concat((pp.extraPolys || []).filter(Boolean)) : [];
+    if (legs.length) {
+      legs.forEach((enc) => routeExtraLines.push(new google.maps.Polyline({ path: google.maps.geometry.encoding.decodePath(enc),
+        strokeColor: color, strokeOpacity: 0.9, strokeWeight: 4, map: map, zIndex: 4 })));
+    } else if (pos && pos.unitLat != null) {
+      routeExtraLines.push(new google.maps.Polyline({ path: [{ lat: pos.unitLat, lng: pos.unitLng }, from],
         strokeColor: color, strokeOpacity: 0.9, strokeWeight: 3, map: map, zIndex: 4 }));
     }
-    const path = d.polyline ? google.maps.geometry.encoding.decodePath(d.polyline) : [{ lat: d.from_ll[0], lng: d.from_ll[1] }, { lat: d.to_ll[0], lng: d.to_ll[1] }];
+    // маркер последней точки предыдущего трипа
+    const mk = new google.maps.Marker({ position: from, map: map, icon: mtFlagIcon(color), zIndex: 18, title: "Конец трипа " + idx + ": " + a });
+    const txt = a.length > 30 ? a.slice(0, 29) + "…" : a;
+    const bd = makeBadge(from.lat, from.lng, `<span class="tb-ic">🏁</span> Конец трипа ${idx} · ${escapeHtml(txt)}`, "mk-tbadge", 34, null);
+    const paint = () => { if (bd.div) bd.div.style.borderColor = color; };
+    paint(); setTimeout(paint, 0);
+    MT_OBJS.push(mk, bd);
+    // линия 2: от неё к ① этого трипа, по дорогам
+    const path = d.polyline ? google.maps.geometry.encoding.decodePath(d.polyline) : [from, { lat: d.to_ll[0], lng: d.to_ll[1] }];
     routeExtraLines.push(new google.maps.Polyline({ path: path, strokeOpacity: 0, map: map, zIndex: 4,
       icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.9, strokeColor: color, scale: 3 }, offset: "0", repeat: "12px" }] }));
+    // плашка машины: км до конца предыдущего трипа и два цвета
+    const km = mtTruckKm(row), tp = lastTruckPos[rowId], ma = markerArgs[rowId];
+    if (km != null && tp && ma && ma.km !== km) updateMarker(rowId, tp.lat, tp.lng, ma.label, truckStatus[rowId], truckHeading[rowId], km, ma.trailer, ma.tgt);
+    else applyBadgeLook(rowId);
   });
 }
-
 // v3.306: КМ ① следующего трипа машины — «от точек»: пока предыдущий трип машины не закончен (не все ✓), км до ① =
 // плечо от его последней точки до ① (то же число, что «↓ N км до ①» в карточке; кеш), а не от текущей позиции машины.
 // Только показ (ячейка КМ, бейдж км на карте): ETA, ⏱ калькулятор и серверный расчёт не меняются.
-// → число км из кеша или null (нет предыдущего трипа / он закончен / плечо ещё не посчитано — тогда грузим и пересчитываем строку).
-function mtPrevOpen(row) {   // → {a, b} (последняя точка предыдущего трипа, ① этого), если предыдущий трип машины не закончен; иначе null
+
+function mtPrevRow(row) {   // предыдущий трип той же машины (по дате ①), если он не закончен; иначе null
   try {
     if (!row || !row.unit) return null;
     const list = mtSorted(multiTripRows(row.unit)), idx = list.indexOf(row);
     if (idx <= 0) return null;
     const prev = list[idx - 1], pc = lastCalcText[prev.id];
-    if (!pc || pc.allDone) return null;               // нет данных о предыдущем или он закончен — считаем от машины, как раньше
-    const a = mtLastTarget(prev), b = String(row.target || "").trim();
-    return a && b ? { a, b } : null;
+    return pc && !pc.allDone ? prev : null;   // нет данных о предыдущем или он закончен — считаем от машины, как раньше
   } catch (e) { return null; }
+}
+function mtPrevOpen(row) {   // → {a, b, prev}: последняя точка предыдущего трипа, ① этого
+  const prev = mtPrevRow(row);
+  if (!prev) return null;
+  const a = mtLastTarget(prev), b = String(row.target || "").trim();
+  return a && b ? { a, b, prev } : null;
+}
+// v3.308: км от машины до последней точки предыдущего трипа (уже посчитан в его строке: «от машины всего») — в плашку машины
+function mtTruckKm(row) {
+  const prev = mtPrevRow(row);
+  if (!prev) return null;
+  const pc = lastCalcText[prev.id], n = (prev.extra || []).length;
+  const ce = n ? (pc.extra || [])[n - 1] : null;
+  const v = n ? (ce && !ce.done && ce.dist_km != null ? Number(ce.dist_km) : null) : pc.ecKm;
+  return typeof v === "number" && isFinite(v) ? v : null;
 }
 function mtKmOverride(row) {
   const g = mtPrevOpen(row);

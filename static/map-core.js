@@ -357,9 +357,14 @@ function dispColorOf(rowId) {
 function applyBadgeLook(rowId) {
   const b = truckBadges[rowId];
   if (b && b.setLook) {
-    const bg = dispColorOf(rowId);
+    const bg0 = dispColorOf(rowId);
+    let bg = bg0;
+    const row = rows.find((r) => String(r.id) === String(rowId));
+    const prev = row && typeof mtPrevRow === "function" ? mtPrevRow(row) : null;   // v3.308: машина в 2 трипах — слева цвет предыдущего, справа текущего
+    const pe = prev ? dispEntry(rowDisp(prev)) : null;
+    if (bg0 && pe && pe.color && pe.color !== bg0) bg = `linear-gradient(90deg, ${pe.color} 50%, ${bg0} 50%)`;
     const st = truckStatus[rowId] === "driving" ? "#1D9E75" : "#E24B4A";
-    b.setLook({ bg, bd: bg ? (shadeHex(bg, 0.42) || "#999") : "", st, pale: false });
+    b.setLook({ bg, bd: bg0 ? (shadeHex(bg0, 0.42) || "#999") : "", st, pale: false });
   }
   if (markers[rowId]) markers[rowId].setIcon(truckIcon(rowId));
 }
