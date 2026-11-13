@@ -87,8 +87,15 @@ function remapDone(data) {
   }
   return data;
 }
+// 13.11: расчёта нет (машины нет в Mapon, аутсорс, ошибка) — «все точки пройдены» считаем по ручным ✓
+function manualDoneCalc(row) {
+  const n = 1 + (row && row.extra ? row.extra.length : 0), d = (row && row.done) || {};
+  const f = Array.from({ length: n }, (_, i) => ({ done: d[i] === true }));
+  return { doneFlags: f, allDone: f.every((x) => x.done) };
+}
 function applyDoneClasses(tr, row, c) {
   if (!tr) return;
+  if (!c && row && row.unit) c = manualDoneCalc(row);
   const flags = (c && c.doneFlags) || [];
   tr.classList.toggle("row-done", !!(c && c.allDone));
   // v3.22: все точки пройдены — строка серая и ждёт подтверждения хозяина / назначающего

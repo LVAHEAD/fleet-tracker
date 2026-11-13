@@ -1537,9 +1537,7 @@ async function calcRow(id, why, pre) {
       etaCell.textContent = "—";
       delete lastCalcText[id]; delete lastGoodCalc[id];
       // 13.11: расчёта нет (машины нет в Mapon и т. п.), но ручные ✓ работают и должны быть видны — как у аутсорса (outsource.js)
-      const nd = 1 + (row.extra ? row.extra.length : 0), dm = row.done || {};
-      const mf = Array.from({ length: nd }, (_, i) => ({ done: dm[i] === true }));
-      applyDoneClasses(tr, row, { doneFlags: mf, allDone: mf.every((f) => f.done) });
+      applyDoneClasses(tr, row, null);
       return;
     }
 

@@ -69,7 +69,7 @@ function loadKey(row) {
 
 // v3.81: трип ждёт «✓ Завершён» — все точки пройдены и этот человек может его завершить
 function awaitsComplete(row) {
-  const c = lastCalcText[row.id];
+  const c = lastCalcText[row.id] || (row && row.unit && typeof manualDoneCalc === "function" ? manualDoneCalc(row) : null);   // 13.11: без расчёта — по ручным ✓
   return !!(row && row.unit && c && c.allDone && window.fleetCanComplete && window.fleetCanComplete(row));
 }
 // v3.81: такие трипы всегда наверху при любой сортировке (порядок между ними и остальных — прежний)
