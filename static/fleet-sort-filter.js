@@ -234,5 +234,6 @@ function rowPassesFilterWith(row, ownPass) {
   if (!rowPassesUnit(row)) return false;     // v3.204: фильтр по машинам (unit-filter.js)
   if (!rowPassesSlot(row)) return false;     // v3.144: фильтр-календарь по TimeSlot (slot-filter.js)
   if (loFilter === "all") return true;
+  if (loFilter === "O" && awaitsComplete(row)) return true;   // 13.11: ждущие «✓ Завершён» видны у диспетчера в фильтре O (остальные фильтры — как раньше, v3.278)
   return rowLoKind(row) === loFilter;
 }
