@@ -73,6 +73,7 @@ def _card(rid, row, owner_tag, res):
 
 @bp.route("/m")
 def mobile_page():
+    """Лёгкая мобильная страница (только просмотр): карточки трипов."""
     return render_template("m.html", app_version=APP_VERSION)
 
 
