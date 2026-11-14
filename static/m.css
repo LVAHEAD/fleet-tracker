@@ -1,0 +1,37 @@
+/* Лёгкая мобильная страница /m. Стиль «Синий Кальк»: кнопки — белый фон, синий текст и контур; нажатие / включено — синий фон. */
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.35 -apple-system, "Segoe UI", Roboto, sans-serif; background: #f4f5f7; color: #1d2330; }
+.mh { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #fafafa; border-bottom: 1px solid #dde1e8; }
+.mh-upd { flex: 1; font-size: 12px; color: #8a93a3; text-align: right; }
+.mb { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid #2f6fd6; background: #fff; color: #2f6fd6; }
+.mb:active, .mb.on { background: #2f6fd6; color: #fff; }
+#m-list { padding: 8px; }
+.m-empty { text-align: center; color: #8a93a3; margin: 30px 0; }
+.mc { background: #fff; border: 1px solid #dde1e8; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+.mc.late { border-color: #d64545; background: #fff6f5; }
+.mc-h { display: flex; align-items: baseline; gap: 8px; }
+.mc-unit { font-weight: 700; font-size: 16px; }
+.mc-disp { font-size: 12px; color: #5b6578; background: #eef0f4; border-radius: 6px; padding: 0 6px; }
+.mc-st { margin-left: auto; font-size: 13px; color: #5b6578; white-space: nowrap; }
+.mc-st .go { color: #1d9a4a; }
+.mc-st .stop { color: #c0392b; }
+.mc-eta { font-size: 22px; font-weight: 700; margin: 4px 0 2px; }
+.mc.late .mc-eta { color: #d64545; }
+.mc-eta small { font-size: 13px; font-weight: 400; color: #5b6578; }
+.mc-next { color: #3a4458; overflow-wrap: anywhere; }
+.mc-err { color: #c0392b; font-size: 13px; }
+.chip { display: inline-block; font-size: 12px; border-radius: 6px; padding: 0 6px; margin-left: 4px; background: #fde8e6; color: #b3261e; }
+.mc-more { display: none; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #dde1e8; }
+.mc.open .mc-more { display: block; }
+.pt { display: flex; gap: 8px; padding: 4px 0; align-items: baseline; }
+.pt.done { color: #8a93a3; }
+.pt-n { width: 20px; flex: none; text-align: center; font-weight: 700; }
+.pt-t { flex: 1; overflow-wrap: anywhere; }
+.pt-r { text-align: right; white-space: nowrap; font-size: 13px; }
+.pt-w { display: block; font-size: 12px; color: #8a93a3; }
+.mc-act { margin-top: 8px; display: flex; gap: 8px; }
+.mc-act a { flex: 1; text-align: center; text-decoration: none; padding: 7px; border: 1px solid #2f6fd6; border-radius: 8px; color: #2f6fd6; background: #fff; }
+.mc-act a:active { background: #2f6fd6; color: #fff; }
+.mc-com { font-size: 13px; color: #5b6578; margin-top: 6px; }
+.mf { text-align: center; font-size: 12px; color: #8a93a3; padding: 12px; }
+.mf a { color: #2f6fd6; }

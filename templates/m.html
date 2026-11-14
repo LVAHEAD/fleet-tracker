@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#fafafa">
+<title>F.ETA.T</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='m.css', v=app_version) }}">
+</head>
+<body>
+<header class="mh">
+  <b>F.ETA.T</b>
+  <span id="m-upd" class="mh-upd"></span>
+  <button type="button" id="m-all" class="mb">Мои</button>
+  <button type="button" id="m-ref" class="mb" aria-label="Обновить">↻</button>
+</header>
+<main id="m-list"><p class="m-empty">Загрузка…</p></main>
+<footer class="mf"><a href="/">Полная версия</a> · v{{ app_version }}</footer>
+<script src="{{ url_for('static', filename='delivery-check.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='m.js', v=app_version) }}"></script>
+</body>
+</html>

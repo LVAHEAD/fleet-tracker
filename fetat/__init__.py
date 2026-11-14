@@ -7,7 +7,7 @@ def create_app():
     """Flask-приложение со всеми Blueprints. Шаблоны и static — от корня проекта."""
     from flask import Flask
 
-    from fetat.api import calc, fleet, fuel, mapon, meta, notebook, reference
+    from fetat.api import calc, fleet, fuel, mapon, meta, mobile, notebook, reference
     from fetat.config import ROOT_DIR
 
     app = Flask("app", root_path=ROOT_DIR)
@@ -84,6 +84,6 @@ def create_app():
             static_ver[fn] = hit
         values["v"] = hit[1]
 
-    for bp in (meta.bp, mapon.bp, calc.bp, reference.bp, fleet.bp, notebook.bp, fuel.bp):
+    for bp in (meta.bp, mapon.bp, calc.bp, reference.bp, fleet.bp, notebook.bp, fuel.bp, mobile.bp):
         app.register_blueprint(bp)
     return app
