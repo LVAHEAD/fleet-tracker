@@ -56,7 +56,7 @@ class SlotFilterTest(unittest.TestCase):
         self.assertIn("rowPassesSlot(row)", sf)
         self.assertLess(sf.index("rowPassesClient(row)"), sf.rindex("rowPassesSlot(row)"))   # у строк с машиной — после клиента
         # v3.188: строки без машины тоже проходят фильтр даты (ранний возврат в rowPassesFilterWith не должен его обходить)
-        self.assertIn("freshEmptyIds.has(row.id) || rowPassesSlot(row)", sf)
+        self.assertIn("(freshEmptyIds.has(row.id) && !clientName(row)) || rowPassesSlot(row)", sf)
 
     def test_logic_on_node(self):
         try:

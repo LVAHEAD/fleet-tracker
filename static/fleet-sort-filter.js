@@ -224,7 +224,7 @@ function rowPassesFilterWith(row, ownPass) {
   // v3.188: дата (TimeSlot) относится и к ней; только что добавленную пустую строку не прячем, чтобы не пропала при вводе
   if (!row.unit) {
     if (loFilter === "O" && !freshEmptyIds.has(row.id)) return false;
-    return ownPass(row) && rowPassesClient(row) && (freshEmptyIds.has(row.id) || rowPassesSlot(row));   // v3.278: если клиент уже вписан — фильтр по клиентам действует
+    return ownPass(row) && rowPassesClient(row) && ((freshEmptyIds.has(row.id) && !clientName(row)) || rowPassesSlot(row));   // v3.278: если клиент уже вписан — фильтр по клиентам действует; v3.313: и фильтр по дате тоже
   }
   if (!ownPass(row)) return false;   // v2.01 / v3.11
   // v3.246: строку, созданную в этой вкладке, не прячем фильтрами L / O, клиента, машин и даты, пока у её точек нет метки L / O (v3.278: и пока не вписан клиент)
