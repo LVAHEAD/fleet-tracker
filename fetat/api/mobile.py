@@ -52,7 +52,8 @@ def _card(rid, row, owner_tag, res):
     """Минимум для карточки: машина, кто, статус, точки (текст, окно, ✓, км, ETA)."""
     extra = row.get("extra") or []
     c = {"id": rid, "unit": row.get("unit") or "", "disp": owner_tag,
-         "trailer": row.get("trailer") or "", "comment": (row.get("comment") or "")[:200]}
+         "trailer": row.get("trailer") or "", "comment": (row.get("comment") or "")[:200],
+         "cl": (row.get("client") or "").strip()}
     if not isinstance(res, dict) or res.get("error"):
         c["error"] = (res or {}).get("error") or "нет расчёта"
         res = {}
@@ -60,12 +61,23 @@ def _card(rid, row, owner_tag, res):
               "wk": bool(res.get("tacho_weeklimit")), "out": bool(res.get("outsource"))})
     dn = res.get("points_done") or []
     ex = res.get("extra") or []
-    pts = [{"t": row.get("target") or "", "w": row.get("delivery") or "",
-            "done": bool(dn and dn[0].get("done")), "km": res.get("dist_km"), "eta": _eta(res)}]
+    man = row.get("done") or {}
+
+    def _done(i):
+        if i < len(dn):
+            return bool(dn[i].get("done"))
+        return man.get(str(i)) is True   # нет расчёта — по ручным ✓
+
+    def _lo(x):
+        x = x or {}
+        return "" if x.get("swap") else (x.get("lo") or "")   # как ptLo: у перецепа тип нейтральный
+
+    pts = [{"t": row.get("target") or "", "w": row.get("delivery") or "", "lo": _lo(row),
+            "done": _done(0), "km": res.get("dist_km"), "eta": _eta(res)}]
     for i, x in enumerate(extra):
         r = ex[i] if i < len(ex) and isinstance(ex[i], dict) else {}
-        pts.append({"t": (x or {}).get("target") or "", "w": (x or {}).get("delivery") or "",
-                    "done": bool(len(dn) > i + 1 and dn[i + 1].get("done")),
+        pts.append({"t": (x or {}).get("target") or "", "w": (x or {}).get("delivery") or "", "lo": _lo(x),
+                    "done": _done(i + 1),
                     "km": r.get("leg_km"), "eta": _eta(r), "err": r.get("error")})
     c["pts"] = pts
     return c

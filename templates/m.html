@@ -14,6 +14,11 @@
   <button type="button" id="m-all" class="mb">Мои</button>
   <button type="button" id="m-ref" class="mb" aria-label="Обновить">↻</button>
 </header>
+<div class="mfl">
+  <button type="button" class="mb" data-lo="all">L/O</button><button type="button" class="mb" data-lo="L">L</button><button type="button" class="mb" data-lo="O">O</button>
+  <span class="mfl-sp"></span>
+  <button type="button" class="mb" data-day="0">T</button><button type="button" class="mb" data-day="1">+1</button><button type="button" class="mb" data-day="2">+2</button>
+</div>
 <main id="m-list"><p class="m-empty">Загрузка…</p></main>
 <footer class="mf"><a href="/">Полная версия</a> · v{{ app_version }}</footer>
 <script src="{{ url_for('static', filename='delivery-check.js', v=app_version) }}"></script>

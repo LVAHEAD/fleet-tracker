@@ -4,14 +4,67 @@
   const list = document.getElementById("m-list"), updEl = document.getElementById("m-upd");
   const allBtn = document.getElementById("m-all"), refBtn = document.getElementById("m-ref");
   const NUM = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩"];
-  let showAll = false, busy = false, openIds = new Set();
-  try { showAll = localStorage.getItem(KEY + "_all") === "1"; } catch (e) { /* ignore */ }
+  let showAll = false, busy = false, openIds = new Set(), cur = null;
+  let loF = "all", days = [];   // фильтр L/O и сдвиги дней (0 = T, 1 = +1, 2 = +2)
+  try {
+    showAll = localStorage.getItem(KEY + "_all") === "1";
+    loF = localStorage.getItem(KEY + "_lo") || "all";
+    days = JSON.parse(localStorage.getItem(KEY + "_days") || "[]");
+  } catch (e) { /* ignore */ }
+  if (!["all", "L", "O"].includes(loF)) loF = "all";
+  if (!Array.isArray(days)) days = [];
 
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   // опаздывает ли точка: окно Delivery из delivery-check.js против её ETA
   function isLate(p) {
     try { return !!(p.w && p.eta && !p.done && deliveryCheck({ delivery: p.w }, p.eta).late); } catch (e) { return false; }
+  }
+
+  // та же логика, что на десктопе (fleet-sort-filter.js): тип строки — L / O первой непройденной точки с отметкой
+  const firstOpen = (t) => (t.pts || []).findIndex((p) => !p.done);
+  function loKind(t) {
+    const pts = t.pts || [];
+    for (let i = firstOpen(t); i >= 0 && i < pts.length; i++) if (pts[i].lo === "L" || pts[i].lo === "O") return pts[i].lo;
+    return "";
+  }
+  const dayKey = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  function winDays(txt) {   // дни окна TimeSlot точки
+    let w = null;
+    try { w = parseDeliveryWindow(txt); } catch (e) { /* ignore */ }
+    if (!w) return [];
+    const a = w.start || w.end, b = w.end || w.start;
+    if (!a || !b) return [];
+    const d = new Date(a.getFullYear(), a.getMonth(), a.getDate()), last = new Date(b.getFullYear(), b.getMonth(), b.getDate()), out = [];
+    for (let i = 0; i < 14 && d <= last; i++) { out.push(dayKey(d)); d.setDate(d.getDate() + 1); }
+    return out;
+  }
+  function passDays(t) {
+    if (!days.length) return true;
+    const k = firstOpen(t);
+    if (k < 0) return true;
+    const set = new Set();
+    t.pts.slice(k).forEach((p) => winDays(p.w).forEach((x) => set.add(x)));
+    if (!set.size) return true;   // даты нет — не прячем
+    return days.some((n) => { const d = new Date(); d.setDate(d.getDate() + n); return set.has(dayKey(d)); });
+  }
+  function loadKey(t) {   // «Загрузка»: дата Delivery первой точки ①
+    let w = null;
+    try { w = t.pts[0] && t.pts[0].w ? parseDeliveryWindow(t.pts[0].w) : null; } catch (e) { /* ignore */ }
+    const x = w ? (w.start || w.end) : null;
+    return x ? { day: new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(), t: x.getTime() } : null;
+  }
+  function view(trips) {
+    const keyed = trips.map((t, i) => ({ t, i, k: loadKey(t) }));
+    keyed.sort((x, y) => {
+      if ((x.k == null) !== (y.k == null)) return x.k == null ? 1 : -1;
+      if (x.k && x.k.day !== y.k.day) return x.k.day - y.k.day;
+      const c = String(x.t.cl || "").localeCompare(String(y.t.cl || ""), "ru", { sensitivity: "base" });
+      if (c) return c;
+      if (x.k && x.k.t !== y.k.t) return x.k.t - y.k.t;
+      return x.i - y.i;
+    });
+    return keyed.map((x) => x.t).filter((t) => (loF === "all" || loKind(t) === loF) && passDays(t));
   }
 
   function card(t) {
@@ -31,13 +84,18 @@
     const rows = pts.map((p, i) => `<div class="pt${p.done ? " done" : ""}"><span class="pt-n">${p.done ? "✓" : NUM[i] || i + 1}</span><span class="pt-t">${esc(p.t)}${p.w ? `<span class="pt-w">${esc(p.w)}</span>` : ""}</span><span class="pt-r">${p.done ? "" : esc(p.eta || "")}${!p.done && p.km != null && i ? `<br>${Math.round(p.km)} км` : ""}</span></div>`).join("");
     const dest = nx.t ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(nx.t)}" target="_blank" rel="noopener">🧭 Маршрут</a>` : "";
     const more = `<div class="mc-more">${rows}${t.trailer ? `<div class="mc-com">Прицеп: ${esc(t.trailer)}</div>` : ""}${t.comment ? `<div class="mc-com">${esc(t.comment)}</div>` : ""}<div class="mc-act">${dest}</div></div>`;
-    return `<div class="mc${late ? " late" : ""}${openIds.has(t.id) ? " open" : ""}" data-id="${esc(t.id)}">${head}${eta}${next}${more}</div>`;
+    const lk = loKind(t);
+    return `<div class="mc${lk ? " lo-" + lk : ""}${late ? " late" : ""}${openIds.has(t.id) ? " open" : ""}" data-id="${esc(t.id)}">${head}${eta}${next}${more}</div>`;
   }
 
   function render(d, stale) {
     allBtn.textContent = showAll ? "Все" : "Мои";
     allBtn.classList.toggle("on", showAll);
-    list.innerHTML = d.trips.length ? d.trips.map(card).join("") : '<p class="m-empty">Трипов нет</p>';
+    cur = d;
+    document.querySelectorAll("[data-lo]").forEach((b) => b.classList.toggle("on", b.dataset.lo === loF));
+    document.querySelectorAll("[data-day]").forEach((b) => b.classList.toggle("on", days.includes(+b.dataset.day)));
+    const v = view(d.trips);
+    list.innerHTML = v.length ? v.map(card).join("") : '<p class="m-empty">Трипов нет</p>';
     const t = new Date(d.at || Date.now());
     updEl.textContent = (stale ? "из памяти · " : "") + String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0");
   }
@@ -78,6 +136,14 @@
     load();
   });
   refBtn.addEventListener("click", load);
+  document.querySelector(".mfl").addEventListener("click", (ev) => {
+    const b = ev.target.closest("button");
+    if (!b || !cur) return;
+    if (b.dataset.lo) loF = b.dataset.lo;
+    if (b.dataset.day) { const n = +b.dataset.day; days = days.includes(n) ? days.filter((x) => x !== n) : days.concat(n); }
+    try { localStorage.setItem(KEY + "_lo", loF); localStorage.setItem(KEY + "_days", JSON.stringify(days)); } catch (e) { /* ignore */ }
+    render(cur, false);
+  });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
   setInterval(() => { if (!document.hidden) load(); }, POLL_MS);
   load();
