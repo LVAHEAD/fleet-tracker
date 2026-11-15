@@ -67,6 +67,17 @@
     return keyed.map((x) => x.t).filter((t) => (loF === "all" || loKind(t) === loF) && passDays(t));
   }
 
+  // v3.317: ETA на /m считается без окон «Даты» и отхода парома (десктоп их учитывает) — помечаем такие трипы значком «≈»
+  function approxEta(t) {
+    const pts = t.pts || [], k = firstOpen(t);
+    if (k < 0) return false;
+    return pts.slice(k).some((p) => {
+      let w = null;
+      try { w = p.w ? parseDeliveryWindow(p.w) : null; } catch (e) { /* ignore */ }
+      return !!(w && w.start);
+    });
+  }
+
   function card(t) {
     const pts = t.pts || [];
     let k = pts.findIndex((p) => !p.done);
@@ -76,7 +87,7 @@
     const late = pts.some(isLate);
     const st = t.st === "driving" ? '<span class="go">▶</span>' : (t.st ? '<span class="stop">■</span>' : "");
     const km = nx.km != null ? ` · ${Math.round(nx.km)} км` : "";
-    const chips = (t.wk ? '<span class="chip">56</span>' : "") + (late ? '<span class="chip">⚠ опоздает</span>' : "") + (t.out ? '<span class="chip">аутсорс</span>' : "");
+    const chips = (t.wk ? '<span class="chip">56</span>' : "") + (late ? '<span class="chip">⚠ опоздает</span>' : "") + (t.out ? '<span class="chip">аутсорс</span>' : "") + (approxEta(t) ? '<span class="chip" title="ETA без учёта окна «Даты» и парома — на десктопе может быть позже">≈</span>' : "");
     const head = `<div class="mc-h"><span class="mc-unit">${esc(t.unit)}</span>${t.disp ? `<span class="mc-disp">${esc(t.disp)}</span>` : ""}${chips}<span class="mc-st">${esc(t.cc || "")} ${st} ${esc(t.dur || "")}</span></div>`;
     const eta = t.error ? `<div class="mc-err">${esc(t.error)}</div>`
       : `<div class="mc-eta">${allDone ? "все точки ✓" : esc(nx.eta || "—")}${allDone ? "" : ` <small>${NUM[k] || k + 1}${km}</small>`}</div>`;
