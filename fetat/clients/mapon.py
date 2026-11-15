@@ -382,6 +382,31 @@ def unit_routes(unit_id, max_age=ROUTES_TTL):
     return routes, _routes_cache[unit_id]["memo"]
 
 
+def unit_moving(unit_id, min_sec=600, max_age=ROUTES_TTL):
+    """v3.327: поездки трака (route/list, type=route) за ROUTES_KEEP_DAYS суток, склеенные, не короче min_sec:
+    [(start, end)] — чем трак точно ехал (для отдыха «без карты» у одиночки). Идущая сейчас поездка — до «сейчас»."""
+    import time
+    routes, memo = unit_routes(unit_id, max_age=max_age)
+    key = ("moving", min_sec)
+    if key in memo:
+        return memo[key]
+    now = time.time()
+    out = []
+    for r in sorted((x for x in routes if x.get("type") == "route"), key=lambda x: _rts(x.get("start")) or 0):
+        s_ts = _rts(r.get("start"))
+        e_raw = (r.get("end") or {}).get("time")
+        e_ts = _rts(r.get("end")) if e_raw else now
+        if s_ts is None or e_ts is None:
+            continue
+        if out and s_ts - out[-1][1] <= 60:
+            out[-1] = (out[-1][0], max(out[-1][1], e_ts))
+        else:
+            out.append((s_ts, e_ts))
+    res = [(s_ts, e_ts) for s_ts, e_ts in out if e_ts - s_ts >= min_sec]
+    memo[key] = res
+    return res
+
+
 def unit_stops(unit_id, days=3, min_sec=2 * 3600, max_age=ROUTES_TTL):
     """Стоянки трака за days суток (куски, разрезанные полуночью, склеены). v3.242: из общего кеша unit_routes."""
     import time

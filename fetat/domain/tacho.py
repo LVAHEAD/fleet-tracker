@@ -38,25 +38,58 @@ WEEKLY_FULL_SEC = 45 * 3600     # от 45 ч — обычный недельны
 WEEKLY_PERIOD_SEC = 144 * 3600  # следующий недельный — не позже 6×24 ч после конца прошлого
 
 
-def weekly_status(driver_id, now_ts=None, ddd_only=False):
+CARD_SRC = ("ddd", "card")      # источники отдыха, подтверждённые картой / файлом тахографа
+
+
+def clip_rests_by_moving(rests, moving):
+    """v3.327: у одиночки отдых «без карты» (Mapon заливает время без карты как REST, источник can / unkn) не может быть
+    там, где трак ехал по GPS. Из таких отдыхов вычитаем поездки moving [(start, end)]; куски короче 1 мин отбрасываем.
+    Отдых с источником ddd / card не трогаем. Обрезанные куски получают clipped=True."""
+    out = []
+    for r in rests:
+        if any(x in CARD_SRC for x in r.get("src") or []):
+            out.append(r)
+            continue
+        pieces, cur, hit = [], r["start"], False
+        for ms, me in moving or []:
+            if me <= cur or ms >= r["end"]:
+                continue
+            hit = True
+            if ms > cur:
+                pieces.append((cur, ms))
+            cur = max(cur, me)
+        if not hit:
+            out.append(r)
+            continue
+        if cur < r["end"]:
+            pieces.append((cur, r["end"]))
+        out += [dict(r, start=a, end=b, clipped=True) for a, b in pieces if b - a >= 60]
+    return out
+
+
+def weekly_status(driver_id, now_ts=None, ddd_only=False, moving=None):
     """Недельный отдых водителя по истории:
     last — последний отдых от 24 ч (идёт сейчас или завершён), prev — предыдущий;
     deadline — начать следующий недельный не позже (конец last + 144 ч);
     need_sec — какой нужен следующий (после сокращённого — 45 ч, иначе 24 ч).
     Если недельный отдых идёт прямо сейчас — ongoing=True, can_go — когда он станет
-    достаточным (начало + need текущего)."""
+    достаточным (начало + need текущего).
+    v3.327: moving — поездки трака по GPS (только у одиночки): отдых «без карты» обрезается по ним."""
     import time
     now = float(now_ts or time.time())
     hist, err = get_driver_rests(driver_id)
     if not hist:
         return None, err
+    if moving:
+        hist = dict(hist, rests=clip_rests_by_moving(hist["rests"], moving))
     weekly = [r for r in hist["rests"] if r["end"] - r["start"] >= WEEKLY_MIN_SEC
               and r["start"] > hist["from"] + 60          # отдых, обрезанный началом окна, не берём
               and (not ddd_only or "ddd" in r["src"])]    # v3.233: ddd_only — только подтверждённые тахографом
     last_rest = hist["rests"][-1] if hist["rests"] else None
     ongoing_rest = last_rest if last_rest and now - last_rest["end"] < 1800 else None
     res = {"weekly": [{"start": r["start"], "end": r["end"], "hours": round((r["end"] - r["start"]) / 3600, 1),
-                       "full": r["end"] - r["start"] >= WEEKLY_FULL_SEC, "src": r["src"]} for r in weekly][-4:],
+                       "full": r["end"] - r["start"] >= WEEKLY_FULL_SEC, "src": r["src"],
+                       "clipped": bool(r.get("clipped"))} for r in weekly][-4:],
            "ongoing": False, "resting_sec": 0}
     if ongoing_rest:
         res["resting_sec"] = int(now - ongoing_rest["start"])

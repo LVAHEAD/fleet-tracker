@@ -7,12 +7,12 @@ from flask import Blueprint, current_app, jsonify, request
 from fetat.clients.mapon import (
     _check_daily_activities, driver_has_data, fetch_group_unit_ids, fetch_units, get_driver_history, get_driver_rests,
     get_tacho,
-    ACT_DAYS, MAPON_API_URL, MAPON_BASE, mapon_get, MAPON_TACHO_URL, unit_stops,
+    ACT_DAYS, MAPON_API_URL, MAPON_BASE, mapon_get, MAPON_TACHO_URL, unit_moving, unit_stops,
 )
 from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.points import find_unit_exact, object_at
 from fetat.domain.regions import nearest_region_code
-from fetat.domain.tacho import tacho_no_subscription, WEEKLY_FULL_SEC, WEEKLY_PERIOD_SEC, designate_weekly, weekly_compensation, weekly_status
+from fetat.domain.tacho import _team, tacho_no_subscription, WEEKLY_FULL_SEC, WEEKLY_PERIOD_SEC, designate_weekly, weekly_compensation, weekly_status
 from fetat.domain.trailers import is_trailer, reefer_log, reefer_log_events
 from fetat.utils.geo import haversine_km, _wkt_center, _wkt_vertices
 from fetat.utils.timefmt import _hm, _lv, _utc_iso
@@ -179,10 +179,17 @@ def api_truck_info():
                "mapon_weekly": _lv(week["weekly_rest_start"]) if week.get("weekly_rest_start") else None}
         did = d.get("driver_id")
         if did:
-            w, werr = weekly_status(did)
+            moving = None
+            if tacho and not _team(tacho):   # v3.327: одиночка — отдых «без карты» не там, где трак ехал
+                try:
+                    moving = unit_moving(uid)
+                except Exception as _e:
+                    warn("truck-info:moving", _e)
+            w, werr = weekly_status(did, moving=moving)
             if w:
                 row["weekly"] = [{"from": _lv(x["start"]), "to": _lv(x["end"]), "hours": _hm(x["end"] - x["start"]),
-                                  "full": x["full"], "nocard": any(s in ("can", "unkn") for s in x["src"])}
+                                  "full": x["full"], "nocard": any(s in ("can", "unkn") for s in x["src"]),
+                                  "clipped": x.get("clipped", False)}
                                  for x in w["weekly"]]
                 row["ongoing"] = w.get("ongoing")
                 row["resting"] = _hm(w.get("resting_sec")) if w.get("resting_sec") else None
