@@ -54,7 +54,7 @@ class V3130(unittest.TestCase):
         self.assertIn("function otPillClick(id)", app)
         self.assertIn("map.setZoom(17)", app)
         self.assertIn("function ecFromRow(id, force, k)", app)
-        self.assertIn("function focusMap(lat, lng, z)", read("static", "eta-calc.js"))
+        self.assertIn("function focusMap(lat, lng, z, label)", read("static", "eta-calc.js"))
         self.assertIn("etaCalc.focusMap(pos0.unitLat, pos0.unitLng, 17)", app)
 
     def test_addr_tab_placeholder(self):
