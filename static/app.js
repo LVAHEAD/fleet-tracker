@@ -2477,19 +2477,24 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
 })();
 
 // v3.271: показать точку с зумом z. Открыт ⏱ — показываем в его карте; иначе — панель 🗺 Флота (выезжает, если закрыта)
-// v3.326: Truck Info — маркер найденного трака (синяя точка с номером и временем снимка) на карте Флота или мини-карте ⏱;
-// один маркер на оба — переезжает при новом поиске
-let tiPin = null;
-function dropTruckPin(m, lat, lng, label) {
+// v3.326 / v3.328: Truck Info — маркер найденного трака на карте Флота или мини-карте ⏱: тот же значок и плашка, что у машинок Флота
+// (прицеп — квадратик; цвет — диспетчера тягача; статус и курс — из Mapon); один маркер на обе карты, переезжает при новом поиске
+let tiPin = null, tiBadge = null;
+function dropTruckPin(m, lat, lng, label, o) {
   if (!m || !window.google || !google.maps) return;
+  o = o || window.tiPinOpts || {};
   const hm = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  const text = label ? `${label} · ${hm}` : hm;
+  const st = o.st === "driving" ? "driving" : "standing";
   if (!tiPin) tiPin = new google.maps.Marker({ zIndex: 9999 });
   tiPin.setOptions({
-    map: m, position: { lat, lng }, title: text + " (позиция на момент поиска)",
-    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: "#2f6fd6", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2, labelOrigin: new google.maps.Point(0, -2.4) },
-    label: { text, color: "#1d2330", fontSize: "12px", fontWeight: "700" },
+    map: m, position: { lat, lng }, title: `${label || ""} · ${hm} (позиция на момент поиска)`,
+    icon: truckIconFor(o.fill, st, o.dir, !!o.trailer),
   });
+  if (tiBadge) { tiBadge.setMap(null); tiBadge = null; }
+  const text = o.tractor ? `${label} ← ${o.tractor}` : label;
+  const html = truckBadgeHtml(text, st, o.dir, null, "");
+  tiBadge = makeBadge(lat, lng, html, `mk-badge mk-${st}${o.trailer ? " mk-trailer" : ""}`, 14, null, m);
+  if (o.fill && tiBadge.setLook) tiBadge.setLook({ bg: o.fill, bd: shadeHex(o.fill, 0.42) || "#999", st: st === "driving" ? "#1D9E75" : "#E24B4A", pale: false });
 }
 window.dropTruckPin = dropTruckPin;
 function showUnitOnMap(lat, lng, z, label) {

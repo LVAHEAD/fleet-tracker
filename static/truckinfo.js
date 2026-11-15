@@ -153,8 +153,17 @@ Fleet ETA Tracker — вкладка "Truck Info"
       if (r.status === 404) return searchDrivers(q);      // не номер трака — ищем водителя по имени
       if (!r.ok || j.error) throw new Error(j.error || r.status);
       // v3.302: карта Флота — на машину / прицеп, зум 9 (закрытая панель выезжает сама)
-      if (typeof showUnitOnMap === "function" && typeof j.lat === "number" && typeof j.lng === "number") showUnitOnMap(j.lat, j.lng, 9, j.number);
-      let h = `<div class="ti-title">${esc(j.number)}</div>`;
+      if (typeof showUnitOnMap === "function" && typeof j.lat === "number" && typeof j.lng === "number") {
+        // v3.328: значок как у машинок Флота; прицеп — квадратик + тягач и цвет диспетчера из строки Флота
+        const nrm = (x) => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+        const fr = (typeof rows !== "undefined" ? rows : []).find((r) => j.trailer ? nrm(r.trailer) && nrm(r.trailer) === nrm(j.number) : nrm(r.unit) === nrm(j.number));
+        let fill = "";
+        try { const e = fr && typeof dispEntry === "function" ? dispEntry(rowDisp(fr)) : null; fill = e && e.color ? e.color : ""; } catch (e) {}
+        window.tiPinOpts = { st: j.st, dir: j.dir, trailer: !!j.trailer, fill, tractor: j.trailer && fr ? fr.unit : "" };
+        j.tractor = window.tiPinOpts.tractor;
+        showUnitOnMap(j.lat, j.lng, 9, j.number);
+      }
+      let h = `<div class="ti-title">${esc(j.number)}${j.tractor ? ` <span class="ti-tag" title="тягач этого прицепа по строке Флота">тягач: ${esc(j.tractor)}</span>` : ""}</div>`;
       if (j.trailer) {   // v3.258: прицеп — вместо водителей лог рефа
         out.innerHTML = h + `<div class="rl-card" id="ti-reefer"><div class="ti-loading">Реф: загрузка…</div></div>`;
         return loadReefer(q, days);

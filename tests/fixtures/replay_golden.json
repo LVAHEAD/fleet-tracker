@@ -1315,10 +1315,12 @@
   "application/json",
   {
    "days": 3,
+   "dir": null,
    "drivers": [],
    "lat": 45.4,
    "lng": 11.9,
    "number": "OI-1778",
+   "st": "driving",
    "stops": [],
    "tacho_error": "нет данных водителя",
    "unit_id": 1

@@ -144,6 +144,15 @@ def api_driver_search():
                                  "state": r["state"]} for r in hit]})
 
 
+def _unit_st(u):
+    """v3.328: едет / стоит (как в /api/positions) — для значка найденного трака."""
+    return "driving" if (u.get("state") or {}).get("name") == "driving" else "standing"
+
+
+def _unit_dir(u):
+    return next((u.get(k) for k in ("direction", "course", "heading", "angle") if isinstance(u.get(k), (int, float))), None)
+
+
 @bp.route("/api/truck-info")
 def api_truck_info():
     """Truck Info: данные машины из Mapon (GET, по номеру)."""
@@ -158,13 +167,13 @@ def api_truck_info():
     uid = unit["unit_id"]
     if is_trailer(unit):   # v3.258: у прицепа нет водителей и тахографа — страница покажет лог рефа (/api/reefer-log)
         return jsonify({"unit_id": uid, "number": unit.get("number") or unit.get("label"), "trailer": True, "drivers": [],
-                        "lat": unit.get("lat"), "lng": unit.get("lng")})
+                        "lat": unit.get("lat"), "lng": unit.get("lng"), "st": _unit_st(unit), "dir": _unit_dir(unit)})
     try:
         days = max(1, min(int(request.args.get("days") or 3), ACT_DAYS))
     except ValueError:
         days = 3
     out = {"unit_id": uid, "number": unit.get("number") or unit.get("label"), "drivers": [], "days": days,
-           "lat": unit.get("lat"), "lng": unit.get("lng")}
+           "lat": unit.get("lat"), "lng": unit.get("lng"), "st": _unit_st(unit), "dir": _unit_dir(unit)}
     tacho, terr = get_tacho(uid)
     if not tacho:
         out["tacho_error"] = terr

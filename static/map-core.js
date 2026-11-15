@@ -376,12 +376,15 @@ function refreshBadgeLooks() {
 // (едет — зелёная, стоит — красная), тонкий тёмный контур (белый цвет AA тоже виден), у едущей — стрелка курса;
 // прицеп — квадратик. Дизайн — потом, сейчас механика.
 function truckIcon(rowId) {
-  const fill = dispColorOf(rowId) || "#c9ced6";
-  const st = truckStatus[rowId] === "driving" ? "#1D9E75" : "#E24B4A";
-  const hd = truckHeading[rowId];
-  const arrow = truckStatus[rowId] === "driving" && hd != null
+  return truckIconFor(dispColorOf(rowId), truckStatus[rowId], truckHeading[rowId], truckTrailer[rowId]);
+}
+// v3.328: значок по параметрам (машинка Флота и маркер найденного трака Truck Info)
+function truckIconFor(fillColor, status, hd, trailer) {
+  const fill = fillColor || "#c9ced6";
+  const st = status === "driving" ? "#1D9E75" : "#E24B4A";
+  const arrow = status === "driving" && hd != null
     ? `<path d="M12 0.5 L15.6 6 L8.4 6 Z" fill="${st}" stroke="#fff" stroke-width="0.8" transform="rotate(${Math.round(hd)} 12 12)"/>` : "";
-  const shape = truckTrailer[rowId]
+  const shape = trailer
     ? `<rect x="6" y="6" width="12" height="12" rx="2" fill="${fill}" stroke="${st}" stroke-width="2.6"/>
        <rect x="4.6" y="4.6" width="14.8" height="14.8" rx="3" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="1"/>`
     : `<circle cx="12" cy="12" r="6.2" fill="${fill}" stroke="${st}" stroke-width="2.6"/>
