@@ -848,7 +848,7 @@ const EtaCalc = (() => {
     return out;
   }
   // v3.131: плашка «на точке» — после любой отрисовки (и с маркерами, и с короткой линией маршрута) центр по машине и свой зум
-  function focusMap(lat, lng, z) { st.focus = { lat, lng, z }; drawMapSoon(); }
+  function focusMap(lat, lng, z, label) { st.focus = { lat, lng, z, label }; drawMapSoon(); }   // v3.326: label — маркер найденного трака
   function drawMap() {
     drawMapBody();
     const f = st.focus;
@@ -857,6 +857,7 @@ const EtaCalc = (() => {
     if (gmap && isOpen() && !st.mapFolded) {
       google.maps.event.trigger(gmap, "resize");
       gmap.setCenter({ lat: f.lat, lng: f.lng }); gmap.setZoom(f.z);
+      if (f.label && window.dropTruckPin) window.dropTruckPin(gmap, f.lat, f.lng, f.label);
     }
   }
   function drawMapBody() {

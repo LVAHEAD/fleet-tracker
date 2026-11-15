@@ -153,7 +153,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
       if (r.status === 404) return searchDrivers(q);      // не номер трака — ищем водителя по имени
       if (!r.ok || j.error) throw new Error(j.error || r.status);
       // v3.302: карта Флота — на машину / прицеп, зум 9 (закрытая панель выезжает сама)
-      if (typeof showUnitOnMap === "function" && typeof j.lat === "number" && typeof j.lng === "number") showUnitOnMap(j.lat, j.lng, 9);
+      if (typeof showUnitOnMap === "function" && typeof j.lat === "number" && typeof j.lng === "number") showUnitOnMap(j.lat, j.lng, 9, j.number);
       let h = `<div class="ti-title">${esc(j.number)}</div>`;
       if (j.trailer) {   // v3.258: прицеп — вместо водителей лог рефа
         out.innerHTML = h + `<div class="rl-card" id="ti-reefer"><div class="ti-loading">Реф: загрузка…</div></div>`;

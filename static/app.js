@@ -2477,10 +2477,25 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
 })();
 
 // v3.271: показать точку с зумом z. Открыт ⏱ — показываем в его карте; иначе — панель 🗺 Флота (выезжает, если закрыта)
-function showUnitOnMap(lat, lng, z) {
-  if (window.etaCalc && window.etaCalc.isOpen()) { window.etaCalc.focusMap(lat, lng, z); return; }
+// v3.326: Truck Info — маркер найденного трака (синяя точка с номером и временем снимка) на карте Флота или мини-карте ⏱;
+// один маркер на оба — переезжает при новом поиске
+let tiPin = null;
+function dropTruckPin(m, lat, lng, label) {
+  if (!m || !window.google || !google.maps) return;
+  const hm = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  const text = label ? `${label} · ${hm}` : hm;
+  if (!tiPin) tiPin = new google.maps.Marker({ zIndex: 9999 });
+  tiPin.setOptions({
+    map: m, position: { lat, lng }, title: text + " (позиция на момент поиска)",
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: "#2f6fd6", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2, labelOrigin: new google.maps.Point(0, -2.4) },
+    label: { text, color: "#1d2330", fontSize: "12px", fontWeight: "700" },
+  });
+}
+window.dropTruckPin = dropTruckPin;
+function showUnitOnMap(lat, lng, z, label) {
+  if (window.etaCalc && window.etaCalc.isOpen()) { window.etaCalc.focusMap(lat, lng, z, label); return; }
   const panel = document.getElementById("map-panel");
   const tab = document.getElementById("map-tab");
-  const go = () => { if (typeof map !== "undefined" && map) { map.setCenter({ lat, lng }); map.setZoom(z); } };
+  const go = () => { if (typeof map !== "undefined" && map) { map.setCenter({ lat, lng }); map.setZoom(z); if (label) dropTruckPin(map, lat, lng, label); } };
   if (panel && tab && !panel.classList.contains("open")) { tab.click(); setTimeout(go, 320); } else go();
 }
