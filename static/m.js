@@ -16,9 +16,9 @@
 
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-  // опаздывает ли точка: окно Delivery из delivery-check.js против её ETA
+  // опаздывает ли точка: окно Delivery из delivery-check.js против её ETA (на объекте — против времени приезда)
   function isLate(p) {
-    try { return !!(p.w && p.eta && !p.done && deliveryCheck({ delivery: p.w }, p.eta).late); } catch (e) { return false; }
+    try { return !!(p.w && (p.arr || p.eta) && !p.done && deliveryCheck({ delivery: p.w }, p.arr || p.eta).late); } catch (e) { return false; }
   }
 
   // та же логика, что на десктопе (fleet-sort-filter.js): тип строки — L / O первой непройденной точки с отметкой
@@ -90,9 +90,9 @@
     const chips = (t.wk ? '<span class="chip">56</span>' : "") + (late ? '<span class="chip">⚠ опоздает</span>' : "") + (t.out ? '<span class="chip">аутсорс</span>' : "") + (approxEta(t) ? '<span class="chip" title="ETA без учёта окна «Даты» и парома — на десктопе может быть позже">≈</span>' : "");
     const head = `<div class="mc-h"><span class="mc-unit">${esc(t.unit)}</span>${t.disp ? `<span class="mc-disp">${esc(t.disp)}</span>` : ""}${chips}<span class="mc-st">${esc(t.cc || "")} ${st} ${esc(t.dur || "")}</span></div>`;
     const eta = t.error ? `<div class="mc-err">${esc(t.error)}</div>`
-      : `<div class="mc-eta">${allDone ? "все точки ✓" : esc(nx.eta || "—")}${allDone ? "" : ` <small>${NUM[k] || k + 1}${km}</small>`}</div>`;
+      : `<div class="mc-eta">${allDone ? "все точки ✓" : (nx.arr ? "📍 " + esc(nx.arr) : esc(nx.eta || "—"))}${allDone ? "" : ` <small>${NUM[k] || k + 1}${km}</small>`}</div>`;
     const next = allDone ? "" : `<div class="mc-next">${esc(nx.t)}</div>`;
-    const rows = pts.map((p, i) => `<div class="pt${p.done ? " done" : ""}"><span class="pt-n">${p.done ? "✓" : NUM[i] || i + 1}</span><span class="pt-t">${esc(p.t)}${p.w ? `<span class="pt-w">${esc(p.w)}</span>` : ""}</span><span class="pt-r">${p.done ? "" : esc(p.eta || "")}${!p.done && p.km != null && i ? `<br>${Math.round(p.km)} км` : ""}</span></div>`).join("");
+    const rows = pts.map((p, i) => `<div class="pt${p.done ? " done" : ""}"><span class="pt-n">${p.done ? "✓" : NUM[i] || i + 1}</span><span class="pt-t">${esc(p.t)}${p.w ? `<span class="pt-w">${esc(p.w)}</span>` : ""}</span><span class="pt-r">${p.done ? "" : (p.arr ? "📍 " + esc(p.arr) : esc(p.eta || ""))}${!p.done && p.km != null && i ? `<br>${Math.round(p.km)} км` : ""}</span></div>`).join("");
     const dest = nx.t ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(nx.t)}" target="_blank" rel="noopener">🧭 Маршрут</a>` : "";
     const more = `<div class="mc-more">${rows}${t.trailer ? `<div class="mc-com">Прицеп: ${esc(t.trailer)}</div>` : ""}${t.comment ? `<div class="mc-com">${esc(t.comment)}</div>` : ""}<div class="mc-act">${dest}</div></div>`;
     const lk = loKind(t);

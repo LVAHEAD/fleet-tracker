@@ -91,6 +91,9 @@ def _card(rid, row, owner_tag, res):
             r = res if j == 0 else (ex[j - 1] if j - 1 < len(ex) and isinstance(ex[j - 1], dict) else {})
             p["km"] = r.get("dist_km") if j == 0 else r.get("leg_km")
             p["eta"] = _eta(r)
+            ot = r.get("on_target") if j == 0 else None
+            if isinstance(ot, dict) and ot.get("arr"):
+                p["arr"] = ot["arr"]   # машина уже на объекте: как на десктопе — время приезда вместо расчётного ETA
             if j and r.get("error"):
                 p["err"] = r.get("error")
         pts.append(p)

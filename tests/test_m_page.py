@@ -26,6 +26,12 @@ class MobilePage(unittest.TestCase):
         self.assertIsNone(c["pts"][0]["eta"])                  # пройденная — без ETA
         self.assertEqual(c["pts"][1]["eta"], "14/11 10:00")    # основной ETA — первой непройденной
 
+    def test_card_on_target_arrival(self):
+        row = {"unit": "A", "target": "P1"}
+        res = {"active_idx": [0], "dist_km": 0, "eta_local": "15/11 01:45", "on_target": {"arr": "15/11 01:15"}}
+        p = _card("1", row, "VL", res)["pts"][0]
+        self.assertEqual(p["arr"], "15/11 01:15")
+
     def test_card_eta_follows_open_points(self):
         row = {"unit": "A", "target": "P1", "extra": [{"target": "P2"}, {"target": "P3"}]}
         res = {"active_idx": [1, 2], "dist_km": 100, "eta_local": "15/11 09:00", "points_done": [{"done": True}, {}, {}],
