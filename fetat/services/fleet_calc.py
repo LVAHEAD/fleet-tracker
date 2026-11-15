@@ -17,7 +17,7 @@ from fetat.domain.points import (
 from fetat.domain.regions import nearest_region_code
 from fetat.services.corridors import fleet_waypoints_resolved as fleet_waypoints   # v3.26: + выбор коридора
 from fetat.services.corridors import clean_corridor, corridor_info, fleet_corridor_cands   # v3.32: выбор диспетчера
-from fetat.domain.ferries import PORT_RADIUS_KM, clean_line_id, ferry_options, ferry_sec, find_ferry
+from fetat.domain.ferries import LINES, PORT_RADIUS_KM, PORTS, clean_line_id, ferry_options, ferry_sec, find_ferry
 from fetat.domain.tacho import (FRESH_SOLO_TACHO, TZ_DEFAULT, plan as tacho_plan, TACHO_SPEED_KMH, calc_eta, calc_seed, country_tz, crew_mode, gps_shift,
                                tacho_eta, tacho_no_subscription,
                                tacho_panel, tacho_summary, week_left_info, weekly_rest_info)
@@ -39,7 +39,8 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
     ETA следующих точек (wait_acc); у каждой точки — tacho_left (остаток вождения и смены на приезде)."""
     import time
     loc = lambda ts: ts_west(ts)
-    now = time.time()
+    ship_ts = first.get("_ship_arr_ts")   # v3.319: машина на пароме — все ETA отсчитываем со схода
+    now = ship_ts or time.time()
     fixes = fixes or []
     prev_lat, prev_lng = first["target_lat"], first["target_lng"]
     cum_km = float(first.get("dist_km") or 0)
@@ -118,7 +119,7 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
         arr = simple_ts
         if tacho and fr:
             try:
-                tm = bool(tacho_eta(tacho, max(cum_km - leg_km, 1.0)).get("team"))
+                tm = bool(tacho_eta(tacho, max(cum_km - leg_km, 1.0), now_ts=ship_ts).get("team"))
                 fb = {"ts": prev_arr + fsec, "km0": cum_km - leg_km, "n0": n_stops, "team": tm, "w0": wait_acc,
                       "tz": country_tz("FI") if fr["to_fi"] else TZ_DEFAULT}
             except Exception as _e:
@@ -137,7 +138,7 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
                 warn("fleet_calc:ferry-plan", _e)
         elif tacho:
             try:
-                sk = tacho_eta(tacho, cum_km)   # v3.39: неделя — только отметка, и на ②③
+                sk = tacho_eta(tacho, cum_km, now_ts=ship_ts)   # v3.39: неделя — только отметка, и на ②③
                 arr = sk["eta_ts"] + dwell + wait_acc
                 lf = sk.get("left")
                 if lf:                                    # v3.229: остаток на приезде — стоянки и ожидание уже прошли
@@ -365,7 +366,7 @@ def _add_tacho(result, unit, trailer, crew=None, x10=False, crew_seen=None, tm=N
                         result["week_next_sec"] = int(wk["next"])
             sim = None
             if result.get("dist_km") is not None:
-                sim = tacho_eta(tacho, result["dist_km"])
+                sim = tacho_eta(tacho, result["dist_km"], now_ts=result.get("_ship_arr_ts"))   # v3.319: на пароме — со схода
                 if tm:
                     tm.mark("t_sim")
                 eta_t = ceil_15min(ts_west(sim["eta_ts"]))
@@ -733,6 +734,71 @@ def _add_route_to_target(result, unit, target_lat, target_lng, payload, tm=None)
     result["route_polyline"] = polyline
 
 
+SHIP_CORRIDOR_KM = 60     # машина «на пароме»: не дальше стольки км от прямой порт — порт линии
+SHIP_MIN_PORT_KM = 20     # и не ближе стольки км к порту (в порту маршрут строится как обычно)
+
+
+def _ship_state(lat, lng, tgt_lat, tgt_lng):
+    """v3.319: машина в море на линии Германия ↔ Финляндия (ferries.LINES) — по позиции, без Google.
+    Возвращает {line, to (порт прибытия), left_sec} или None. Порт прибытия — тот конец линии, что ближе к таргету;
+    остаток рейса — доля пути до него по прямой порт — порт × часы линии."""
+    import math
+    if None in (lat, lng, tgt_lat, tgt_lng):
+        return None
+    k = math.cos(math.radians(lat)) * 111.32
+    best = None
+    for ln in LINES:
+        a, b = PORTS[ln["de"]], PORTS[ln["fi"]]
+        ax, ay, bx, by = a[1] * k, a[0] * 111.32, b[1] * k, b[0] * 111.32
+        px, py = lng * k, lat * 111.32
+        dx, dy = bx - ax, by - ay
+        L2 = dx * dx + dy * dy
+        if not L2:
+            continue
+        t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / L2))
+        off = math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+        if off > SHIP_CORRIDOR_KM or haversine_km(lat, lng, a[0], a[1]) < SHIP_MIN_PORT_KM \
+                or haversine_km(lat, lng, b[0], b[1]) < SHIP_MIN_PORT_KM:
+            continue
+        # порт прибытия — ближе к таргету; t растёт от немецкого порта к финскому
+        to_fi = haversine_km(tgt_lat, tgt_lng, b[0], b[1]) < haversine_km(tgt_lat, tgt_lng, a[0], a[1])
+        left = (1.0 - t) if to_fi else t
+        cand = {"line": ln, "to": b if to_fi else a, "to_name": ln["fi"] if to_fi else ln["de"],
+                "left_sec": ln["hours"] * 3600.0 * left, "off": off}
+        if best is None or off < best["off"]:
+            best = cand
+    return best
+
+
+def _add_route_by_ship(result, unit, target_lat, target_lng, payload):
+    """v3.319: маршрут не построился (Google не строит маршрут от точки в море) — если машина на линии парома,
+    считаем «порт прибытия → таргет» и прибавляем остаток рейса; тахо-ETA стартует со схода (`_ship_arr_ts`).
+    Не на пароме — False (ошибка остаётся прежней)."""
+    import time
+    from datetime import timedelta
+    st = _ship_state(unit.get("lat"), unit.get("lng"), target_lat, target_lng)
+    if not st or not GOOGLE_API_KEY:
+        return False
+    plat, plng = st["to"][0], st["to"][1]
+    corridor = clean_corridor(payload.get("corridor"))
+    wps = fleet_waypoints(plat, plng, target_lat, target_lng, corridor)
+    dist_km, polyline = road_distance_km_google(plat, plng, target_lat, target_lng, GOOGLE_API_KEY, wps)
+    arr_ts = time.time() + st["left_sec"]
+    _, eta_local = calc_eta(dist_km)
+    eta_local = ceil_15min(eta_local + timedelta(seconds=st["left_sec"]))
+    result["dist_km"] = round(dist_km, 1)
+    result["eta_local"] = eta_local.strftime("%d/%m %H:%M")
+    result["target_lat"], result["target_lng"] = target_lat, target_lng
+    result["route_polyline"] = polyline
+    if wps:
+        result["waypoints_applied"] = True
+    result["_ship_arr_ts"] = arr_ts
+    result["ship"] = {"label": f"{st['line']['operator']} {PORTS[st['line']['de']][3]} — {PORTS[st['line']['fi']][3]}",
+                      "left_h": round(st["left_sec"] / 3600.0, 1), "port": PORTS[st["to_name"]][3],
+                      "arr": ceil_15min(ts_west(arr_ts)).strftime("%d/%m %H:%M")}
+    return True
+
+
 def _deps(payload):
     """v3.192: отходы из «Даты» точек: {текст точки (нижний регистр): epoch сек}; мусор отбрасываем."""
     out = {}
@@ -843,7 +909,12 @@ def _calc_row(payload, tm):
             return {"error": "GOOGLE_API_KEY не настроен на сервере"}, 500
 
         if target_lat is not None:
-            _add_route_to_target(result, unit, target_lat, target_lng, payload, tm)
+            try:
+                _add_route_to_target(result, unit, target_lat, target_lng, payload, tm)
+            except Exception as _e:
+                if not _add_route_by_ship(result, unit, target_lat, target_lng, payload):   # v3.319: машина на пароме
+                    raise
+                warn("fleet_calc:ship", _e)
             tm.mark("route")
 
         tacho, sim = _add_tacho(result, unit, trailer, payload.get("crew"), bool(payload.get("x10")),
@@ -851,6 +922,7 @@ def _calc_row(payload, tm):
         tm.mark("tacho")
 
         _add_extra(result, active_extras, units, unit, tacho, sim, payload)
+        result.pop("_ship_arr_ts", None)
         tm.mark("extra")
         _week_short_last(result)
 

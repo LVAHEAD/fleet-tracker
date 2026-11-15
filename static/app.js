@@ -1553,7 +1553,8 @@ async function calcRow(id, why, pre) {
     // v1.43: одна строка — страна, ■/▶, время, скорость, ⏸
     const icon = data.status === "driving"
       ? '<span class="st-ic st-go">▶</span>' : '<span class="st-ic st-stop">■</span>';
-    let statusLine1 = ccBadge + icon + escapeHtml(data.duration_str);   // v3.37: 👤 / 👥 — после страны (ниже)
+    let statusLine1 = ccBadge + icon + escapeHtml(data.duration_str);
+    if (data.ship) statusLine1 += ` <span class="ship-note" title="${escapeHtml(data.ship.label + ": осталось ~" + data.ship.left_h + " ч, порт прибытия — " + data.ship.port)}">⛴ сход ~${escapeHtml(data.ship.arr)}</span>`;   // v3.319: машина на пароме   // v3.37: 👤 / 👥 — после страны (ниже)
     // v3.216: значок ⏸ (v1.33) убран — смысл был неясен; отдых по плану остаётся в подсказке статуса
     const tachoTip = (data.tacho_summary || []).join("\n");
     const speedTxt = data.status === "driving" && data.speed != null
