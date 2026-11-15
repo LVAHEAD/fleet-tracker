@@ -395,7 +395,7 @@ td input::placeholder { color: #9aa5b5; }
 .addr-card-map { height: 240px; margin: 8px 0 4px; border: 1px solid #c9d6ee; border-radius: 6px; overflow: hidden; }   /* v3.171: карта в карточке адреса */
 .addr-card-map[hidden] { display: none; }
 .addr-card-key-col { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }   /* v3.170: код страны и флаг под подписью «Адрес» */
-.addr-card-val.has-copy { position: relative; flex: 1; min-width: 0; padding-right: 24px; min-height: 22px; }
+.addr-card-val.has-copy { cursor: pointer; position: relative; flex: 1; min-width: 0; padding-right: 24px; min-height: 22px; }
 .addr-copy { position: absolute; right: 0; bottom: 0; width: 20px; height: 20px; padding: 0; border: none; background: none; color: #888; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .addr-copy:hover, .addr-copy:active, .addr-copy:focus-visible { color: #2f6fd6; background: none; }
 .addr-copy.ok::before { content: "Скопировано"; position: absolute; right: 22px; bottom: 2px; font-size: 11px; line-height: 1; color: #2f6fd6; background: #fff; padding: 1px 4px; white-space: nowrap; }

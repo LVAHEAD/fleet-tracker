@@ -201,7 +201,14 @@
       const val = el("span", "addr-card-val" + (!v && always ? " addr-card-empty" : ""), v || (always ? "—" : ""));
       if (copy && v) {
         val.classList.add("has-copy");
-        val.appendChild(copyButton(k, v));
+        const cb = copyButton(k, v);
+        val.appendChild(cb);
+        val.title = "Клик — копировать";
+        val.addEventListener("click", (e) => {   // клик по тексту копирует так же, как значок; выделение мышью не мешаем
+          if (e.target.closest(".addr-copy")) return;
+          if (String(window.getSelection() || "")) return;
+          cb.click();
+        });
       }
       r.appendChild(val);
       card.appendChild(r);
