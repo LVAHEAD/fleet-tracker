@@ -160,3 +160,18 @@ function unitFilterMark() {
   window.addEventListener("scroll", (e) => { if (pop && !pop.contains(e.target)) close(); }, true);
   mark();
 })();
+
+// v3.321: «только эта машина» — клик в карточке «трипов во Флоте» (multi-trip.js): таблица и карта показывают только трипы машины,
+// остальные фильтры не трогаем и не сбрасываем; выход — плашка «🔎 НОМЕР ✕» в панели (верхней и нижней). Не запоминается после F5.
+let unitFocus = "";
+function setUnitFocus(unit) {
+  unitFocus = unitKey(unit);
+  const n = typeof unitTripCount === "function" ? unitTripCount(unit) : 0;
+  document.querySelectorAll(".unit-focus-chip").forEach((b) => {
+    b.hidden = !unitFocus;
+    b.textContent = unitFocus ? `🔎 ${String(unit).trim().toUpperCase()}${n ? " · " + n : ""} ✕` : "";
+    b.title = "Показана только эта машина (остальные фильтры не учитываются). Клик — вернуть прежний вид";
+  });
+  if (typeof renderRows === "function") renderRows();
+}
+if (typeof document !== "undefined") document.addEventListener("click", (e) => { if (e.target.closest && e.target.closest(".unit-focus-chip")) setUnitFocus(""); });

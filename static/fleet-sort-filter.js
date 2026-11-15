@@ -220,6 +220,8 @@ function rowHasLo(row) {
 function rowPassesFilter(row) { return rowPassesFilterWith(row, rowPassesOwn); }
 // ownPass — проверка «диспетчер»: таблица — rowPassesOwn, Карта Флота — свой фильтр (map-disp-filter.js); L / O и клиент общие
 function rowPassesFilterWith(row, ownPass) {
+  // v3.321: «только эта машина» (кнопка в карточке трипов, unit-filter.js) — поверх диспетчера, L / O, клиента, даты и фильтра машин
+  if (typeof unitFocus !== "undefined" && unitFocus) return !!row.unit && unitKey(row.unit) === unitFocus;
   // пустая строка (трип в подготовке, без машины) — только у своего диспетчера; клиент и L не относятся; фильтр «O» её прячет
   // v3.188: дата (TimeSlot) относится и к ней; только что добавленную пустую строку не прячем, чтобы не пропала при вводе
   if (!row.unit) {

@@ -137,7 +137,8 @@ function markMultiTrips() {
     const unit = isT ? String(inp.value || "").trim() : me.unit;
     const list = mtSorted(multiTripRows(unit));
     if (list.length < (isT ? 1 : 2)) return;
-    let h = `<div class="mtc-h"><b>${escapeHtml(String(unit).trim().toUpperCase())}</b> — трипов во Флоте: ${list.length}</div>`;
+    let h = `<div class="mtc-h"><b>${escapeHtml(String(unit).trim().toUpperCase())}</b> — трипов во Флоте: ${list.length}`
+      + `<button type="button" class="mtc-only" title="Показать в таблице только трипы этой машины (остальные фильтры не учитываются)">только эта машина</button></div>`;
     list.forEach((x, i) => {
       const xt = trOf(x.id), e = etaEnd(xt), st = mtSlotStart(x), de = dispEntry(rowDisp(x));
       const dc = (de && de.color) || "#f4f6fa", db = shadeHex(dc, 0.18) || "#c9d3e3";
@@ -154,7 +155,7 @@ function markMultiTrips() {
         + `<span class="mtc-d">① ${st ? fmtD(st) : "—"}<br>${lastTxt}</span><span class="mtc-w">${escapeHtml(dispLabel(rowDisp(x)))}</span></div>`;
       if (!isT && i < list.length - 1) {   // стык: км по дороге до ① следующего трипа (v3.277)
         const ga = mtLastTarget(x), gb = String(list[i + 1].target || "").trim(), gk = ga + "|" + gb;
-        h += `<div class="mtc-gap" data-n="${i + 2}" data-a="${escapeHtml(ga)}" data-b="${escapeHtml(gb)}">${mtGapText(i + 2, MT_KM[gk])}</div>`;
+        h += `<div class="mtc-gap" data-n="${i + 2}" data-a="${escapeHtml(ga)}" data-b="${escapeHtml(gb)}" title="Клик — показать только трипы этой машины">${mtGapText(i + 2, MT_KM[gk])}</div>`;
       }
     });
     const meta = !isT && window.fleetMetaTitle ? window.fleetMetaTitle(me.id) : "";
@@ -175,6 +176,11 @@ function markMultiTrips() {
     card.addEventListener("mouseenter", () => clearTimeout(tHide));
     card.addEventListener("mouseleave", () => { tHide = setTimeout(hide, 250); });
     card.addEventListener("click", (ev) => {
+      if (ev.target.closest(".mtc-only, .mtc-gap")) {   // v3.321: фильтр «только эта машина»
+        hide();
+        if (typeof setUnitFocus === "function") setUnitFocus(unit);
+        return;
+      }
       const rr = ev.target.closest(".mtc-r:not(.me)");
       if (!rr) return;
       const g = trOf(rr.dataset.id);
