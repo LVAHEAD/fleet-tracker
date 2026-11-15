@@ -1259,7 +1259,7 @@ function etaCellHtml(row, c, composed) {
     if (chk.lines.length) tip = chk.lines.join("\n") + (tip ? "\n" + tip : "");
     if (nbAt === i && composed) {
       const t = (chk.lines.length ? chk.lines.join("\n") + "\n" : "") + (composed.title || tip);
-      lines.push(`<div class="sl${lateCls}${hideK(row, i + 1) ? " fold-hide" : ""}" title="${escapeHtml(t)}">${composed.html}${holdHtml(c, i + 1)}</div>`);
+      lines.push(`<div class="sl${lateCls}${hideK(row, i + 1) ? " fold-hide" : ""}" title="${escapeHtml(t)}">${composed.html}${nbAt === i && !c.onArr && ce && !ce.done && !ce.error ? weeklyOverHtml(c.weekly, ce.eta_tacho || ce.eta_local, x.delivery) : ""}${holdHtml(c, i + 1)}</div>`);   // v3.320: метка 24ка и у первой открытой точки ②+ (① пройдена)
       return;
     }
     lines.push(`<div class="sl${lateCls}${hideK(row, i + 1) ? " fold-hide" : ""}" title="${escapeHtml(tip)}"><span class="eta-nb-sp"></span>${inner}${holdHtml(c, i + 1)}</div>`);

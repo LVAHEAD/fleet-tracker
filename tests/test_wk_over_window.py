@@ -13,6 +13,8 @@ class WkOverWindow(unittest.TestCase):
         self.assertIn("раньше начала окна выгрузки", f)
         self.assertIn("weeklyOverHtml(c.weekly, firstEta, row.delivery)", js)
         self.assertIn("weeklyOverHtml(c.weekly, ce.eta_tacho || ce.eta_local, x.delivery)", js)
+        # v3.320: первая открытая точка ②+ (① пройдена, строка composed) тоже получает метку
+        self.assertIn("nbAt === i && !c.onArr && ce && !ce.done && !ce.error ? weeklyOverHtml(", js)
 
 
 if __name__ == "__main__":
