@@ -146,6 +146,8 @@ def waypoints_label(waypoints):
         return "через Монблан"
     if wps == [FREJUS]:
         return "через Фрежюс"
+    if wps == [KUFSTEIN]:
+        return "через Куфштайн"
     return "паромы"
 
 
@@ -157,7 +159,7 @@ def pick_waypoints(from_str, from_lat, from_lng, to_str, to_lat, to_lng):
     )
 
 
-def pick_waypoints_by_country(from_country, from_lat, from_lng, to_country, to_lat, to_lng):
+def _pick_waypoints_base(from_country, from_lat, from_lng, to_country, to_lat, to_lng):
     """Возвращает список [(lat,lng), ...] промежуточных точек по известным правилам
     для пары стран, или None, если ни одно правило не подходит."""
     if not from_country or not to_country:
@@ -205,6 +207,28 @@ def pick_waypoints_by_country(from_country, from_lat, from_lng, to_country, to_l
             return [pair[1], pair[0]]          # датский порт -> материковый порт
 
     return None
+
+
+def in_tyrol(lat, lng):
+    """v3.325: Тироль (долина Инна, Фернпасс, Бреннер) — прямоугольник вокруг Инсбрука."""
+    return lat is not None and lng is not None and 46.9 <= lat <= 47.65 and 10.5 <= lng <= 12.3
+
+
+def pick_waypoints_by_country(from_country, from_lat, from_lng, to_country, to_lat, to_lng):
+    """Точки маршрута по правилам; v3.325: отрезок между Тиролем и севером (Германия, Бенелюкс, Скандинавия,
+    Балтика…) — всегда через Куфштайн, а не Фернпасс / Арльберг (грузовые там не ездят)."""
+    wp = _pick_waypoints_base(from_country, from_lat, from_lng, to_country, to_lat, to_lng)
+    try:
+        a, b = in_tyrol(from_lat, from_lng), in_tyrol(to_lat, to_lng)
+        if a != b:
+            o_lat, o_cc = (to_lat, to_country) if a else (from_lat, from_country)
+            if o_lat is not None and o_lat > 48.0 and o_cc not in ("IT", "AT", "CH", "LI") \
+                    and not any(tuple(p) == KUFSTEIN for p in (wp or [])):
+                wp = ([KUFSTEIN] + list(wp or [])) if a else (list(wp or []) + [KUFSTEIN])
+    except Exception:
+        pass
+    return wp
+
 
 
 def fleet_waypoints(lat1, lng1, lat2, lng2):

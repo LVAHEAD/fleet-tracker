@@ -19,6 +19,15 @@ class RoutingRulesTest(unittest.TestCase):
         self.assertEqual(wp("IT", BOLOGNA, "DE", MUNICH), [A.INNSBRUCK, A.KUFSTEIN])
         self.assertEqual(wp("DE", MUNICH, "IT", BOLOGNA), [A.KUFSTEIN, A.INNSBRUCK])
 
+    def test_tyrol_to_north_via_kufstein(self):
+        # v3.325: из Инсбрука на север — только через Куфштайн (не Фернпасс); на Тироль — тоже
+        INNS, VENLO = (47.27, 11.40), (51.41, 6.13)
+        self.assertEqual(wp("AT", INNS, "NL", VENLO), [A.KUFSTEIN])
+        self.assertEqual(wp("NL", VENLO, "AT", INNS), [A.KUFSTEIN])
+        self.assertEqual(wp("AT", INNS, "IT", BOLOGNA), None)            # на юг — без правила
+        self.assertEqual(wp("AT", INNS, "AT", (48.2, 16.37)), None)      # Вена — не север
+        self.assertEqual(wp("AT", INNS, "NO", (59.9, 10.7))[0], A.KUFSTEIN)   # поверх паромных точек
+
     def test_it_to_norway_rostock_gedser(self):
         self.assertEqual(wp("IT", BOLOGNA, "NO", (59.9, 10.7)),
                          [A.ROSTOCK_FERRY, A.GEDSER, A.HELSINGOR, A.HELSINGBORG])
