@@ -3,7 +3,7 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, redirect, render_template, request
 
 from fetat import APP_VERSION
 from fetat.config import NOTES_TAB_USERS
@@ -28,6 +28,13 @@ def current_user_email():
 @bp.route("/")
 def index():
     """Главная страница аппы (Флот, From → To, Локатор, Справка)."""
+    # v3.317: телефон (не планшет) → лёгкая /m; «Полная версия» (/?full=1) запоминается cookie fetat_full
+    if request.args.get("full") == "1":
+        resp = redirect("/")
+        resp.set_cookie("fetat_full", "1", max_age=365 * 86400, samesite="Lax", secure=request.is_secure)
+        return resp
+    if request.cookies.get("fetat_full") != "1" and re.search(r"Android.+Mobile|iPhone|iPod", request.headers.get("User-Agent", "")):
+        return redirect("/m")
     email = current_user_email()
     # локальный запуск (без IAP) — видно всем; в проде — только NOTES_TAB_USERS
     show_notes = email is None or canon_email(email) in NOTES_TAB_USERS

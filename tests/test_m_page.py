@@ -35,6 +35,19 @@ class MobilePage(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.headers.get("Service-Worker-Allowed"), "/m")
 
+    def test_phone_redirect(self):
+        from app import app
+        c = app.test_client()
+        ua = {"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"}
+        r = c.get("/", headers=ua)
+        self.assertEqual((r.status_code, r.headers["Location"]), (302, "/m"))
+        r = c.get("/?full=1", headers=ua)                       # «Полная версия» — ставит cookie
+        self.assertIn("fetat_full=1", r.headers.get("Set-Cookie", ""))
+        self.assertEqual(c.get("/", headers=ua).status_code, 200)   # cookie есть — не редиректим
+        self.assertEqual(app.test_client().get("/", headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0)"}).status_code, 200)
+        ipad = {"User-Agent": "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)"}
+        self.assertEqual(app.test_client().get("/", headers=ipad).status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()

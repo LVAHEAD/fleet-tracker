@@ -3,7 +3,7 @@
 import json
 import os
 
-from flask import Blueprint, Response, current_app, jsonify, render_template, request
+from flask import Blueprint, Response, current_app, jsonify, make_response, render_template, request
 
 from fetat import APP_VERSION
 from fetat.api.calc import _calc_one, _calc_pool
@@ -89,7 +89,10 @@ def _card(rid, row, owner_tag, res):
 @bp.route("/m")
 def mobile_page():
     """Лёгкая мобильная страница (только просмотр): карточки трипов."""
-    return render_template("m.html", app_version=APP_VERSION)
+    resp = make_response(render_template("m.html", app_version=APP_VERSION))
+    if request.args.get("lite") == "1":   # «Открыть быструю версию» с плашки полной — снова редиректить телефон с /
+        resp.delete_cookie("fetat_full")
+    return resp
 
 
 @bp.route("/m.webmanifest")
