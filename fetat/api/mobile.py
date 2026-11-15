@@ -75,13 +75,25 @@ def _card(rid, row, owner_tag, res):
         x = x or {}
         return "" if x.get("swap") else (x.get("lo") or "")   # как ptLo: у перецепа тип нейтральный
 
-    pts = [{"t": row.get("target") or "", "w": row.get("delivery") or "", "lo": _lo(row),
-            "done": _done(0), "km": res.get("dist_km"), "eta": _eta(res)}]
-    for i, x in enumerate(extra):
-        r = ex[i] if i < len(ex) and isinstance(ex[i], dict) else {}
-        pts.append({"t": (x or {}).get("target") or "", "w": (x or {}).get("delivery") or "", "lo": _lo(x),
-                    "done": _done(i + 1),
-                    "km": r.get("leg_km"), "eta": _eta(r), "err": r.get("error")})
+    # движок считает только открытые точки: основной ETA / км — первой непройденной, ex — следующим за ней
+    # (как active_idx в fleet_calc._apply_points_done); у пройденных точек ETA нет
+    n = 1 + len(extra)
+    act = res.get("active_idx")
+    if not isinstance(act, list):
+        act = [i for i in range(n) if not _done(i)]
+    pts = []
+    for i in range(n):
+        x = row if i == 0 else (extra[i - 1] or {})
+        p = {"t": x.get("target") or "", "w": x.get("delivery") or "", "lo": _lo(x), "done": _done(i),
+             "km": None, "eta": None}
+        if i in act:
+            j = act.index(i)
+            r = res if j == 0 else (ex[j - 1] if j - 1 < len(ex) and isinstance(ex[j - 1], dict) else {})
+            p["km"] = r.get("dist_km") if j == 0 else r.get("leg_km")
+            p["eta"] = _eta(r)
+            if j and r.get("error"):
+                p["err"] = r.get("error")
+        pts.append(p)
     c["pts"] = pts
     return c
 

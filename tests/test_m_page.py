@@ -23,7 +23,16 @@ class MobilePage(unittest.TestCase):
         c = _card("1", row, "VL", {"dist_km": 10, "eta_local": "14/11 10:00", "points_done": [{"done": True}, {}],
                                     "extra": [{"leg_km": 5, "eta_tacho": "14/11 12:00"}]})
         self.assertTrue(c["pts"][0]["done"])
-        self.assertEqual(c["pts"][1]["eta"], "14/11 12:00")
+        self.assertIsNone(c["pts"][0]["eta"])                  # пройденная — без ETA
+        self.assertEqual(c["pts"][1]["eta"], "14/11 10:00")    # основной ETA — первой непройденной
+
+    def test_card_eta_follows_open_points(self):
+        row = {"unit": "A", "target": "P1", "extra": [{"target": "P2"}, {"target": "P3"}]}
+        res = {"active_idx": [1, 2], "dist_km": 100, "eta_local": "15/11 09:00", "points_done": [{"done": True}, {}, {}],
+               "extra": [{"leg_km": 50, "eta_local": "15/11 12:00"}]}
+        p = _card("1", row, "VL", res)["pts"]
+        self.assertEqual([x["eta"] for x in p], [None, "15/11 09:00", "15/11 12:00"])
+        self.assertEqual([x["km"] for x in p], [None, 100, 50])
 
     def test_pwa_routes(self):
         from app import app
