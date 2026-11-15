@@ -56,7 +56,7 @@ def _card(rid, row, owner_tag, res):
     extra = row.get("extra") or []
     c = {"id": rid, "unit": row.get("unit") or "", "disp": owner_tag,
          "trailer": row.get("trailer") or "", "comment": (row.get("comment") or "")[:200],
-         "cl": (row.get("client") or "").strip()}
+         "cl": (row.get("client") or "").strip(), "ref": (row.get("ref") or "").strip()}
     if not isinstance(res, dict) or res.get("error"):
         c["error"] = (res or {}).get("error") or "нет расчёта"
         res = {}
