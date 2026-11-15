@@ -7,10 +7,9 @@ body { margin: 0; font: 15px/1.35 -apple-system, "Segoe UI", Roboto, sans-serif;
 .mb:active, .mb.on { background: #2f6fd6; color: #fff; }
 #m-list { padding: 8px; }
 .m-empty { text-align: center; color: #8a93a3; margin: 30px 0; }
-.mc { background: #fff; border: 1px solid #dde1e8; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+.mc { background: #fff; border: 1px solid #dde1e8; border-radius: 12px; padding: 0; margin-bottom: 8px; overflow: hidden; }
 .mc.lo-L { background: #F0F6FD; }
 .mc.lo-O { background: #FFFBE6; }
-.mc.late { border: 2px solid #d64545; padding: 9px 11px; }
 .mc-h { display: flex; align-items: baseline; gap: 8px; }
 .mc-unit { font-weight: 700; font-size: 16px; }
 .mc-disp { font-size: 12px; color: #5b6578; background: #eef0f4; border-radius: 6px; padding: 0 6px; }
@@ -18,12 +17,11 @@ body { margin: 0; font: 15px/1.35 -apple-system, "Segoe UI", Roboto, sans-serif;
 .mc-st .go { color: #1d9a4a; }
 .mc-st .stop { color: #c0392b; }
 .mc-eta { font-size: 22px; font-weight: 700; margin: 4px 0 2px; }
-.mc.late .mc-eta { color: #d64545; }
 .mc-eta small { font-size: 13px; font-weight: 400; color: #5b6578; }
 .mc-next { color: #3a4458; overflow-wrap: anywhere; }
 .mc-err { color: #c0392b; font-size: 13px; }
 .chip { display: inline-block; font-size: 12px; border-radius: 6px; padding: 0 6px; margin-left: 4px; background: #fde8e6; color: #b3261e; }
-.mc-more { display: none; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #dde1e8; }
+.mc-more { display: none; margin: 0 12px 10px; padding-top: 8px; border-top: 1px dashed #dde1e8; }
 .mc.open .mc-more { display: block; }
 .pt { display: flex; gap: 8px; padding: 4px 0; align-items: baseline; }
 .pt.done { color: #8a93a3; }
@@ -41,3 +39,17 @@ body { margin: 0; font: 15px/1.35 -apple-system, "Segoe UI", Roboto, sans-serif;
 .mfl { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #fafafa; border-bottom: 1px solid #dde1e8; position: sticky; top: 45px; z-index: 4; }
 .mfl-sp { flex: 1; }
 .mfl .mb { min-width: 44px; padding: 6px 10px; }
+
+/* v3.322: карточка A3 — плитка с временем слева, справа машина, клиент · точка, таймслот, прогресс */
+.mc-top { display: flex; align-items: stretch; }
+.mc-tile { width: 88px; flex: none; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 8px 4px; }
+.mc-tile b { font-size: 23px; line-height: 1.1; }
+.mc-tile span { font-size: 12px; margin-top: 2px; }
+.v-ok { background: #e3f4e8; color: #1d6b3a; }
+.v-bad { background: #fde8e6; color: #b3261e; }
+.v-wt { background: #fff3d6; color: #8a5a00; }
+.v-na { background: #eef0f4; color: #5b6578; }
+.mc-main { flex: 1; min-width: 0; padding: 8px 12px; }
+.mc-slot { font-size: 13px; margin-top: 2px; }
+.mc-pw { margin-left: 8px; color: #8a93a3; text-decoration: line-through; font-size: 12px; }
+.mc-sub { font-size: 12px; color: #5b6578; margin-top: 2px; }

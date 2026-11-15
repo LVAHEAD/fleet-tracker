@@ -78,25 +78,49 @@
     });
   }
 
+  // v3.322: вердикт точки для плитки: опоздает +N / ждёт N / вовремя; без окна — нейтральный
+  function fmtDur(ms) {
+    const m = Math.max(1, Math.round(ms / 60000));
+    return m >= 60 ? Math.floor(m / 60) + " ч" + (m % 60 && m < 600 ? " " + (m % 60) + " м" : "") : m + " м";
+  }
+  function verdict(p) {
+    const s = p.arr || p.eta;
+    if (!s || p.done || !p.w) return { k: "na", txt: "" };
+    try {
+      const w = parseDeliveryWindow(p.w), e = parseEta(s);
+      if (!w || !e) return { k: "na", txt: "" };
+      if (deliveryCheck({ delivery: p.w }, s).late && w.end) return { k: "bad", txt: "+" + fmtDur(e - w.end) };
+      if (w.start && e < w.start - 3600000) return { k: "wt", txt: "ждёт " + fmtDur(w.start - e) };
+      return { k: "ok", txt: "вовремя" };
+    } catch (x) { return { k: "na", txt: "" }; }
+  }
+
   function card(t) {
     const pts = t.pts || [];
     let k = pts.findIndex((p) => !p.done);
     const allDone = k < 0;
     if (allDone) k = pts.length - 1;
     const nx = pts[k] || {};
-    const late = pts.some(isLate);
     const st = t.st === "driving" ? '<span class="go">▶</span>' : (t.st ? '<span class="stop">■</span>' : "");
     const km = nx.km != null ? ` · ${Math.round(nx.km)} км` : "";
-    const chips = (t.wk ? '<span class="chip">56</span>' : "") + (late ? '<span class="chip">⚠ опоздает</span>' : "") + (t.out ? '<span class="chip">аутсорс</span>' : "") + (approxEta(t) ? '<span class="chip" title="ETA без учёта окна «Даты» и парома — на десктопе может быть позже">≈</span>' : "");
+    const chips = (t.wk ? '<span class="chip">56</span>' : "") + (t.out ? '<span class="chip">аутсорс</span>' : "") + (approxEta(t) ? '<span class="chip" title="ETA без учёта окна «Даты» и парома — на десктопе может быть позже">≈</span>' : "");
     const head = `<div class="mc-h"><span class="mc-unit">${esc(t.unit)}</span>${t.disp ? `<span class="mc-disp">${esc(t.disp)}</span>` : ""}${chips}<span class="mc-st">${esc(t.cc || "")} ${st} ${esc(t.dur || "")}</span></div>`;
-    const eta = t.error ? `<div class="mc-err">${esc(t.error)}</div>`
-      : `<div class="mc-eta">${allDone ? "все точки ✓" : (nx.arr ? "📍 " + esc(nx.arr) : esc(nx.eta || "—"))}${allDone ? "" : ` <small>${NUM[k] || k + 1}${km}</small>`}</div>`;
-    const next = allDone ? "" : `<div class="mc-next">${esc(nx.t)}</div>`;
+    // плитка слева: время ETA (или приезда), под ним дата и вердикт
+    const v = t.error || allDone ? { k: "na", txt: "" } : verdict(nx);
+    const src = nx.arr || nx.eta || "";
+    const m = String(src).match(/^(\d{1,2}\/\d{1,2})\s+(\d{1,2}:\d{2})/);
+    const tile = t.error ? '<div class="mc-tile v-na"><b>!</b><span>нет расчёта</span></div>'
+      : allDone ? '<div class="mc-tile v-na"><b>✓</b><span>все точки</span></div>'
+      : `<div class="mc-tile v-${v.k}"><b>${m ? esc(m[2]) : "—"}</b><span>${m ? esc(m[1]) : ""}${nx.arr ? " · на объекте" : ""}${v.txt ? `<br>${esc(v.txt)}` : ""}</span></div>`;
+    const prev = k > 0 && pts[k - 1].w ? `<span class="mc-pw">${esc(pts[k - 1].w)}</span>` : "";
+    const slot = allDone ? "" : `<div class="mc-slot">🕓 ${nx.w ? esc(nx.w) : "окна нет"}${prev}</div>`;
+    const who = [t.cl, nx.t].filter(Boolean).map(esc).join(" · ");
+    const main = `<div class="mc-main">${head}${allDone ? "" : `<div class="mc-next">${who}</div>`}${slot}${allDone ? "" : `<div class="mc-sub">${NUM[k] || k + 1} из ${pts.length}${km}${t.error ? " · " + esc(t.error) : ""}</div>`}</div>`;
     const rows = pts.map((p, i) => `<div class="pt${p.done ? " done" : ""}"><span class="pt-n">${p.done ? "✓" : NUM[i] || i + 1}</span><span class="pt-t">${esc(p.t)}${p.w ? `<span class="pt-w">${esc(p.w)}</span>` : ""}</span><span class="pt-r">${p.done ? "" : (p.arr ? "📍 " + esc(p.arr) : esc(p.eta || ""))}${!p.done && p.km != null && i ? `<br>${Math.round(p.km)} км` : ""}</span></div>`).join("");
     const dest = nx.t ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(nx.t)}" target="_blank" rel="noopener">🧭 Маршрут</a>` : "";
     const more = `<div class="mc-more">${rows}${t.trailer ? `<div class="mc-com">Прицеп: ${esc(t.trailer)}</div>` : ""}${t.comment ? `<div class="mc-com">${esc(t.comment)}</div>` : ""}<div class="mc-act">${dest}</div></div>`;
     const lk = loKind(t);
-    return `<div class="mc${lk ? " lo-" + lk : ""}${late ? " late" : ""}${openIds.has(t.id) ? " open" : ""}" data-id="${esc(t.id)}">${head}${eta}${next}${more}</div>`;
+    return `<div class="mc${lk ? " lo-" + lk : ""}${openIds.has(t.id) ? " open" : ""}" data-id="${esc(t.id)}"><div class="mc-top">${tile}${main}</div>${more}</div>`;
   }
 
   function render(d, stale) {
