@@ -105,17 +105,16 @@
     const km = nx.km != null ? ` · ${Math.round(nx.km)} км` : "";
     const chips = (t.wk ? '<span class="chip">56</span>' : "") + (t.out ? '<span class="chip">аутсорс</span>' : "") + (approxEta(t) ? '<span class="chip" title="ETA без учёта окна «Даты» и парома — на десктопе может быть позже">≈</span>' : "");
     // строка 1: машина · диспетчер · клиент · реф · значки · страна / движение / время
-    const head = `<div class="mc-h"><span class="mc-unit">${esc(t.unit)}</span>${t.disp ? `<span class="mc-disp">${esc(t.disp)}</span>` : ""}<span class="mc-cl">${esc(t.cl || "")}</span>${t.ref ? `<span class="mc-ref">${esc(t.ref)}</span>` : ""}${chips}<span class="mc-st">${esc(t.cc || "")} ${st} ${esc(t.dur || "")}</span></div>`;
+    const head = `<div class="mc-h"><span class="mc-unit">${esc(t.unit)}</span>${t.disp && showAll ? `<span class="mc-disp">${esc(t.disp)}</span>` : ""}<span class="mc-cl">${esc(t.cl || "")}</span>${t.ref ? `<span class="mc-ref">${esc(t.ref)}</span>` : ""}<span class="mc-st">${esc(t.cc || "")} ${st} ${esc(t.dur || "")}</span></div>`;
     // плитка слева: время ETA (или приезда), под ним дата и вердикт
     const v = t.error || allDone ? { k: "na", txt: "" } : verdict(nx);
     const src = nx.arr || nx.eta || "";
     const m = String(src).match(/^(\d{1,2}\/\d{1,2})\s+(\d{1,2}:\d{2})/);
     const tile = t.error ? '<div class="mc-tile v-na"><b>!</b><span>нет расчёта</span></div>'
       : allDone ? '<div class="mc-tile v-na"><b>✓</b><span>все точки</span></div>'
-      : `<div class="mc-tile v-${v.k}"><b>${m ? esc(m[2]) : "—"}</b><span>${m ? esc(m[1]) : ""}${nx.arr ? "<br>на объекте" : ""}${v.k === "bad" || v.k === "wt" ? `<br>${esc(v.txt)}` : ""}</span></div>`;
+      : `<div class="mc-tile v-${v.k}"><b>${m ? esc(m[2]) : "—"}</b><span>${m ? esc(m[1]) : ""}${nx.arr ? "<br>на объекте" : ""}${v.k === "ok" ? "<br>вовремя" : v.k === "bad" ? `<br>${esc(v.txt)}` : v.k === "wt" ? `<br>ждёт<br>${esc(v.txt.replace(/^ждёт /, ""))}` : ""}</span></div>`;
     const prev = k > 0 && pts[k - 1].w ? `<s>${esc(pts[k - 1].w)}</s>` : "";
-    const word = { ok: "вовремя", bad: "опоздает", wt: "ждёт окна" }[v.k] || "";
-    const sub = allDone ? "" : `🕓 ${nx.w ? esc(nx.w) : "окна нет"}${prev} · ${NUM[k] || k + 1} из ${pts.length}${km}${word ? " · " + word : ""}${t.error ? " · " + esc(t.error) : ""}`;
+    const sub = allDone ? "" : `🕓 ${nx.w ? esc(nx.w) : "окна нет"}${prev} · ${NUM[k] || k + 1} из ${pts.length}${km}${t.error ? " · " + esc(t.error) : ""}${chips}`;
     const main = `<div class="mc-main">${head}${allDone ? "" : `<div class="mc-next">${esc(nx.t)}</div><div class="mc-sub">${sub}</div>`}</div>`;
     const rows = pts.map((p, i) => `<div class="pt${p.done ? " done" : ""}"><span class="pt-n">${p.done ? "✓" : NUM[i] || i + 1}</span><span class="pt-t">${esc(p.t)}${p.w ? `<span class="pt-w">${esc(p.w)}</span>` : ""}</span><span class="pt-r">${p.done ? "" : (p.arr ? "📍 " + esc(p.arr) : esc(p.eta || ""))}${!p.done && p.km != null && i ? `<br>${Math.round(p.km)} км` : ""}</span></div>`).join("");
     const dest = nx.t ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(nx.t)}" target="_blank" rel="noopener">🧭 Маршрут</a>` : "";
