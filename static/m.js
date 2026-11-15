@@ -148,3 +148,5 @@
   setInterval(() => { if (!document.hidden) load(); }, POLL_MS);
   load();
 })();
+// v3.317: PWA — service worker (оболочка без сети)
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw-m.js", { scope: "/m" }).catch(() => { /* не критично */ });

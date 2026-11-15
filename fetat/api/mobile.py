@@ -1,6 +1,9 @@
 """Лёгкая мобильная страница /m (просмотр): одна страница, один JS, один запрос /api/m/trips.
 Сервер сам берёт строки Флота, считает ETA тем же движком (calc_row через кеш /api/calc) и отдаёт карточки с минимумом полей."""
-from flask import Blueprint, jsonify, render_template, request
+import json
+import os
+
+from flask import Blueprint, Response, current_app, jsonify, render_template, request
 
 from fetat import APP_VERSION
 from fetat.api.calc import _calc_one, _calc_pool
@@ -87,6 +90,25 @@ def _card(rid, row, owner_tag, res):
 def mobile_page():
     """Лёгкая мобильная страница (только просмотр): карточки трипов."""
     return render_template("m.html", app_version=APP_VERSION)
+
+
+@bp.route("/m.webmanifest")
+def mobile_manifest():
+    """PWA: иконка на экране телефона, открывается сразу в /m без адресной строки."""
+    m = {"name": "F.ETA.T", "short_name": "F.ETA.T", "start_url": "/m", "scope": "/m", "display": "standalone",
+         "background_color": "#fafafa", "theme_color": "#fafafa", "lang": "ru",
+         "icons": [{"src": "/static/m-icon-192.png", "sizes": "192x192", "type": "image/png"},
+                   {"src": "/static/m-icon-512.png", "sizes": "512x512", "type": "image/png"}]}
+    return Response(json.dumps(m, ensure_ascii=False), mimetype="application/manifest+json")
+
+
+@bp.route("/sw-m.js")
+def mobile_sw():
+    """Service worker лежит в корне, чтобы покрывать /m (в /static область была бы только /static/)."""
+    with open(os.path.join(current_app.static_folder, "m-sw.js"), encoding="utf-8") as f:
+        body = f.read()
+    return Response(body, mimetype="application/javascript",
+                    headers={"Service-Worker-Allowed": "/m", "Cache-Control": "no-cache"})
 
 
 @bp.route("/api/m/trips")

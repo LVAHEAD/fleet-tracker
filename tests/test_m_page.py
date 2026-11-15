@@ -25,6 +25,16 @@ class MobilePage(unittest.TestCase):
         self.assertTrue(c["pts"][0]["done"])
         self.assertEqual(c["pts"][1]["eta"], "14/11 12:00")
 
+    def test_pwa_routes(self):
+        from app import app
+        c = app.test_client()
+        r = c.get("/m.webmanifest")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.get_json(force=True)["start_url"], "/m")
+        r = c.get("/sw-m.js")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.headers.get("Service-Worker-Allowed"), "/m")
+
 
 if __name__ == "__main__":
     unittest.main()

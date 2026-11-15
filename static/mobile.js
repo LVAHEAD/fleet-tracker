@@ -143,3 +143,19 @@
     }));
   }
 })();
+
+// v3.317: на телефоне (не планшете) — плашка «Лёгкая версия»: /m быстрее; крестик запоминается
+(function () {
+  if (!/Android.+Mobile|iPhone|iPod/i.test(navigator.userAgent)) return;
+  try { if (localStorage.getItem("fetat_m_hide") === "1") return; } catch (e) { /* ignore */ }
+  const bar = document.createElement("div");
+  bar.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:99999;display:flex;gap:10px;align-items:center;padding:10px 12px;background:#fff;border-top:1px solid #2f6fd6;font:14px sans-serif;box-shadow:0 -2px 8px rgba(0,0,0,.15)";
+  bar.innerHTML = '<span style="flex:1">Есть быстрая версия для телефона</span>' +
+    '<a href="/m" style="padding:6px 12px;background:#2f6fd6;color:#fff;border:1px solid #2f6fd6;border-radius:6px;text-decoration:none">Открыть</a>' +
+    '<button type="button" aria-label="Закрыть" style="padding:6px 10px;background:#fff;color:#2f6fd6;border:1px solid #2f6fd6;border-radius:6px;font-size:14px">✕</button>';
+  bar.querySelector("button").addEventListener("click", () => {
+    try { localStorage.setItem("fetat_m_hide", "1"); } catch (e) { /* ignore */ }
+    bar.remove();
+  });
+  document.body.appendChild(bar);
+})();
