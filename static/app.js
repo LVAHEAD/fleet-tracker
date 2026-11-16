@@ -2477,30 +2477,11 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
 })();
 
 // v3.271: показать точку с зумом z. Открыт ⏱ — показываем в его карте; иначе — панель 🗺 Флота (выезжает, если закрыта)
-// v3.326 / v3.328: Truck Info — маркер найденного трака на карте Флота или мини-карте ⏱: тот же значок и плашка, что у машинок Флота
-// (прицеп — квадратик; цвет — диспетчера тягача; статус и курс — из Mapon); один маркер на обе карты, переезжает при новом поиске
-let tiPin = null, tiBadge = null;
-function dropTruckPin(m, lat, lng, label, o) {
-  if (!m || !window.google || !google.maps) return;
-  o = o || window.tiPinOpts || {};
-  const hm = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  const st = o.st === "driving" ? "driving" : "standing";
-  if (!tiPin) tiPin = new google.maps.Marker({ zIndex: 9999 });
-  tiPin.setOptions({
-    map: m, position: { lat, lng }, title: `${label || ""} · ${hm} (позиция на момент поиска)`,
-    icon: truckIconFor(o.fill, st, o.dir, !!o.trailer),
-  });
-  if (tiBadge) { tiBadge.setMap(null); tiBadge = null; }
-  const text = o.tractor ? `${label} ← ${o.tractor}` : label;
-  const html = truckBadgeHtml(text, st, o.dir, null, "");
-  tiBadge = makeBadge(lat, lng, html, `mk-badge mk-${st}${o.trailer ? " mk-trailer" : ""}`, 14, null, m);
-  if (o.fill && tiBadge.setLook) tiBadge.setLook({ bg: o.fill, bd: shadeHex(o.fill, 0.42) || "#999", st: st === "driving" ? "#1D9E75" : "#E24B4A", pale: false });
-}
-window.dropTruckPin = dropTruckPin;
-function showUnitOnMap(lat, lng, z, label) {
-  if (window.etaCalc && window.etaCalc.isOpen()) { window.etaCalc.focusMap(lat, lng, z, label); return; }
+// v3.329: Truck Info только переезжает картой на машину, без своего маркера (v3.326–v3.328 налезал на плашки Флота)
+function showUnitOnMap(lat, lng, z) {
+  if (window.etaCalc && window.etaCalc.isOpen()) { window.etaCalc.focusMap(lat, lng, z); return; }
   const panel = document.getElementById("map-panel");
   const tab = document.getElementById("map-tab");
-  const go = () => { if (typeof map !== "undefined" && map) { map.setCenter({ lat, lng }); map.setZoom(z); if (label) dropTruckPin(map, lat, lng, label); } };
+  const go = () => { if (typeof map !== "undefined" && map) { map.setCenter({ lat, lng }); map.setZoom(z); } };
   if (panel && tab && !panel.classList.contains("open")) { tab.click(); setTimeout(go, 320); } else go();
 }
