@@ -194,6 +194,9 @@ const EtaCalc = (() => {
   function fromRow(r, fromFT) {
     if (!panel) return;
     setCalcUnit(r.unit || "");
+    // v3.333: срок начала недельного отдыха (как в метке «⚠ 45ка» у ETA): Mapon, иначе ddd
+    { const w = r.weekly, dl = w && w.need ? (w.mapon > 1e9 ? w.mapon : w.ddd) : 0;
+      st.wkDl = dl > 1e9 ? { ms: dl * 1000, h: Math.round(w.need / 3600) } : null; }
     if (!fromFT) { $("#ec-from").value = ""; $("#ec-to").value = ""; ftStatus(""); ftKey = ""; }   // v3.51: строка Флота / From → To — поля From / To чистые
     if (r.unitOnly) {                           // v3.159: пройденная точка — только машина на карте, зум 5, маршрута нет
       st.srcShown = true;
@@ -579,11 +582,25 @@ const EtaCalc = (() => {
       if (d && d.ev) {
         S = d;
         S.at = (h) => S.etd + h * 3600e3;
+        S.wr = weekDeadline();
         render();
       }
     } catch (e) { /* сеть — оставляем прошлый расклад */ }
     inFlight = false;
     if (again) { again = false; request(); }
+  }
+  // v3.333: срок недельного отдыха внутри расчёта (раньше ETA) — время и км по линии; иначе нет отметки
+  function weekDeadline() {
+    const d = st.wkDl;
+    if (!d || !(d.ms > S.etd && d.ms < S.eta)) return null;
+    let km = 0;
+    for (const e of S.ev) {
+      const a = S.at(e.t0), b = S.at(e.t1);
+      if (d.ms >= b) { km = e.km1; continue; }
+      km = e.k === "d" && b > a ? e.km0 + (e.km1 - e.km0) * (d.ms - a) / (b - a) : e.km0;
+      break;
+    }
+    return { ms: d.ms, km, h: d.h };
   }
   function render() {
     if (!panel || !S) return;
@@ -640,11 +657,12 @@ const EtaCalc = (() => {
     }).join("");
     $(".ec-strip").innerHTML =
       `<div class="ec-above">${pins}</div><div class="ec-bar">${bar}</div>` +
-      `<div class="ec-ov">${mids.map((d) => `<div class="ec-mid" style="left:${pos(d)}%"></div>`).join("")}${S.wk ? `<div class="ec-wkl" style="left:${pos(S.wk.ms)}%"></div>` : ""}</div>` +
+      `<div class="ec-ov">${mids.map((d) => `<div class="ec-mid" style="left:${pos(d)}%"></div>`).join("")}${S.wk ? `<div class="ec-wkl" style="left:${pos(S.wk.ms)}%"></div>` : ""}${S.wr ? `<div class="ec-wkl" title="Срок недельного отдыха (${S.wr.h}ка) ${fdt(new Date(S.wr.ms))} — ETA позже" style="left:${pos(S.wr.ms)}%"></div>` : ""}</div>` +
       `<div class="ec-hs">${hdls}</div>` +
       `<div class="ec-ticks">${mids.map((d) => `<div class="ec-tick" style="left:${pos(d)}%"><span>${fd(new Date(d))}</span></div>`).join("")}</div>`;
-    $(".ec-wnote").innerHTML = S.wk
-      ? `<div class="ec-warn">⚠ Недельный остаток ${hmm(S.wkLeft)} кончается ${fdt(new Date(S.wk.ms))} на ${km(S.wk.km)} — только отметка, ETA не сдвигаем.</div>` : "";
+    $(".ec-wnote").innerHTML = (S.wk
+      ? `<div class="ec-warn">⚠ Недельный остаток ${hmm(S.wkLeft)} кончается ${fdt(new Date(S.wk.ms))} на ${km(S.wk.km)} — только отметка, ETA не сдвигаем.</div>` : "")
+      + (S.wr ? `<div class="ec-warn">⚠ Недельный отдых (${S.wr.h}ка) должен начаться до ${fdt(new Date(S.wr.ms))} (на ${km(S.wr.km)}) — ETA позже срока, только отметка.</div>` : "");
   }
 
   // ---------- расклад по дням: строка на сутки 00–24, вождение (км), остаток ----------
@@ -668,6 +686,7 @@ const EtaCalc = (() => {
         ? `<i class="wt" title="Стоим до выезда ${fdt(new Date(S.etd))}" style="left:${((ws - d0) / len * 100).toFixed(3)}%;width:${((we - ws) / len * 100).toFixed(3)}%">выезд ${fdt(new Date(S.etd))}</i>` : "";
       const wk = S.wk && S.wk.ms >= d0 && S.wk.ms < d1 ? `<i class="w" title="Недельный остаток кончился ${ft(new Date(S.wk.ms))}" style="left:${((S.wk.ms - d0) / len * 100).toFixed(3)}%"></i>` : "";
       // v3.59: ручки отдыха и в таблице по дням — те же, что на шкале (тянуть отдых прямо здесь)
+      const wr = S.wr && S.wr.ms >= d0 && S.wr.ms < d1 ? `<i class="w" title="Срок недельного отдыха (${S.wr.h}ка) ${ft(new Date(S.wr.ms))} — ETA позже" style="left:${((S.wr.ms - d0) / len * 100).toFixed(3)}%"></i>` : "";
       const hd = S.ev.filter((e) => e.k === "r").map((e) => {
         const dr = st.drag, act = (side) => dr && dr.i === e.i && dr.side === side ? " act" : "";
         const one = (side, ms, aria) => ms >= d0 && ms < d1
@@ -675,7 +694,7 @@ const EtaCalc = (() => {
         return one("l", S.at(e.t0), fdt(new Date(S.at(e.t0)))) + one("r", S.at(e.t1), hm(e.t1 - e.t0));
       }).join("");
       cum += kmd;
-      rows.push(`<span class="ec-dl">${WD[day.w.getUTCDay()]} ${fd(d0)}</span><div class="ec-day" data-len="${len}">${[6, 12, 18].map((h) => `<span class="gl" style="left:${h / 24 * 100}%"></span>`).join("")}${wt}${segs}${wk}${hd}</div>` +
+      rows.push(`<span class="ec-dl">${WD[day.w.getUTCDay()]} ${fd(d0)}</span><div class="ec-day" data-len="${len}">${[6, 12, 18].map((h) => `<span class="gl" style="left:${h / 24 * 100}%"></span>`).join("")}${wt}${segs}${wk}${wr}${hd}</div>` +
         `<span class="ec-dv">${hmm(drv)} <span>(${km(kmd)})</span></span><span class="ec-dr">${S.eta <= d1 ? "🏁 " + ft(new Date(S.eta)) : km(Math.max(0, S.dist - cum))}</span>`);
     }
     const axis = Array.from({ length: 13 }, (_, k) => `<span style="left:${k * 2 / 24 * 100}%">${k * 2}</span>`).join("") +
@@ -936,6 +955,7 @@ const EtaCalc = (() => {
       }
     });
     if (S.wk) dot(pointAt(L, S.wk.km * 1000 * k), "#c0392b", 5, "Недельный остаток кончился " + fdt(new Date(S.wk.ms)));
+    if (S.wr) dot(pointAt(L, S.wr.km * 1000 * k), "#c0392b", 6, "Срок недельного отдыха (" + S.wr.h + "ка) " + fdt(new Date(S.wr.ms)) + " · " + km(S.wr.km), "⚠ " + S.wr.h + "ка");
     // v3.51: старт — машина кружком, как на картах Флота / Локатора; без машины — плашка 📍 ETD
     if (unitNum && unitData && window.UnitsLayer) {
       const drv = unitData.st === "driving";

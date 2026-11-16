@@ -167,7 +167,7 @@ function ecFromRow(id, force, k) {
   }
   window.etaCalc.fromRow({
     unit: row.unit || "", point: ((STOP_NUM[at + 1] || "") + " " + String(pt || "").trim()).trim(),
-    km, seed: c.ecSeed || null, polyline: poly, pins,
+    km, seed: c.ecSeed || null, polyline: poly, pins, weekly: c.weekly || null,   // v3.333: срок недельного отдыха — красные отметки в ⏱
   });
 }
 
