@@ -154,11 +154,14 @@ Fleet ETA Tracker — вкладка "Truck Info"
       if (!r.ok || j.error) throw new Error(j.error || r.status);
       // v3.302: карта Флота — на машину / прицеп, зум 9 (закрытая панель выезжает сама)
       if (typeof showUnitOnMap === "function" && typeof j.lat === "number" && typeof j.lng === "number") {
-        // v3.329: маркера на карте нет; тягач прицепа — по строке Флота (метка «тягач: …» в панели)
+        // v3.330: маркер (значок как у машинок Флота) — только если трака / прицепа нет во Флоте; тягач прицепа — по строке Флота
         const nrm = (x) => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
         const fr = (typeof rows !== "undefined" ? rows : []).find((r) => j.trailer ? nrm(r.trailer) && nrm(r.trailer) === nrm(j.number) : nrm(r.unit) === nrm(j.number));
         j.tractor = j.trailer && fr ? fr.unit : "";
-        showUnitOnMap(j.lat, j.lng, 9);
+        let fill = "";
+        try { const e = fr && typeof dispEntry === "function" ? dispEntry(rowDisp(fr)) : null; fill = e && e.color ? e.color : ""; } catch (e) {}
+        window.tiPinOpts = { st: j.st, dir: j.dir, trailer: !!j.trailer, fill, tractor: "" };
+        showUnitOnMap(j.lat, j.lng, 9, fr ? "" : j.number);   // во Флоте уже есть плашка — только переезд карты
       }
       let h = `<div class="ti-title">${esc(j.number)}${j.tractor ? ` <span class="ti-tag" title="тягач этого прицепа по строке Флота">тягач: ${esc(j.tractor)}</span>` : ""}</div>`;
       if (j.trailer) {   // v3.258: прицеп — вместо водителей лог рефа
