@@ -163,7 +163,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
         window.tiPinOpts = { st: j.st, dir: j.dir, trailer: !!j.trailer, fill, tractor: "" };
         showUnitOnMap(j.lat, j.lng, 9, fr ? "" : j.number);   // во Флоте уже есть плашка — только переезд карты
       }
-      let h = `<div class="ti-title">${esc(j.number)}${j.tractor ? ` <span class="ti-tag" title="тягач этого прицепа по строке Флота">тягач: ${esc(j.tractor)}</span>` : ""}</div>`;
+      let h = `<div class="ti-title">${esc(j.number)}${j.tractor ? ` <a href="#" class="ti-tag ti-tractor" data-unit="${esc(j.tractor)}" title="тягач этого прицепа по строке Флота — клик: открыть его Truck Info">тягач: ${esc(j.tractor)}</a>` : ""}</div>`;
       if (j.trailer) {   // v3.258: прицеп — вместо водителей лог рефа
         out.innerHTML = h + `<div class="rl-card" id="ti-reefer"><div class="ti-loading">Реф: загрузка…</div></div>`;
         return loadReefer(q, days);
@@ -218,6 +218,14 @@ Fleet ETA Tracker — вкладка "Truck Info"
   }
   ["input", "focus"].forEach((ev) => inp.addEventListener(ev, fillList));
   btn.addEventListener("click", load);
+  // v3.331: клик по метке «тягач: …» — Truck Info по тягачу
+  out.addEventListener("click", (e) => {
+    const t = e.target.closest(".ti-tractor");
+    if (!t) return;
+    e.preventDefault();
+    inp.value = t.dataset.unit || "";
+    load();
+  });
   inp.addEventListener("keydown", (e) => { if (e.key === "Enter") load(); });
   inp.addEventListener("change", load);
   const dsel = document.getElementById("ti-days");
