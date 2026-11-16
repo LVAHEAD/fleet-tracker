@@ -61,8 +61,13 @@
     card.addEventListener("click", (ev) => {
       const ed = ev.target.closest(".tt-edit");
       if (ed) { hide(); if (typeof window.addrOpenFor === "function") window.addrOpenFor(ed.dataset.addr); return; }   // правка — панель «Адреса»
-      const b = ev.target.closest(".addr-copy");
-      if (!b) return;
+      let b = ev.target.closest(".addr-copy");
+      if (!b) {   // v3.333: клик по тексту (адрес, GPS, название) копирует так же, как значок; выделение мышью не мешаем
+        const c = ev.target.closest(".tt-cp");
+        if (!c || String(window.getSelection() || "")) return;
+        b = c.querySelector(".addr-copy");
+        if (!b) return;
+      }
       copyText(b.dataset.cp).then(() => { b.classList.add("ok"); setTimeout(() => b.classList.remove("ok"), 1500); }).catch(() => {});
     });
   }
