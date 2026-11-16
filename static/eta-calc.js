@@ -590,10 +590,11 @@ const EtaCalc = (() => {
     if (again) { again = false; request(); }
   }
   // v3.333: срок недельного отдыха внутри расчёта (раньше ETA) — время и км по линии; иначе нет отметки
+  const euDay = (ms) => new Intl.DateTimeFormat("en-CA", { timeZone: EU_TZ }).format(ms);   // сутки по поясу калькулятора (Берлин), как строки дней
   function weekDeadline() {
     const d = st.wkDl;
     // срок раньше ETA, либо после ETA, но не позже чем через 2 ч или в тот же день
-    if (!d || !(d.ms > S.etd) || (d.ms >= S.eta && d.ms - S.eta > 2 * 3600e3 && new Date(d.ms).toDateString() !== new Date(S.eta).toDateString())) return null;
+    if (!d || !(d.ms > S.etd) || (d.ms >= S.eta && d.ms - S.eta > 2 * 3600e3 && euDay(d.ms) !== euDay(S.eta))) return null;
     let km = 0;
     for (const e of S.ev) {
       const a = S.at(e.t0), b = S.at(e.t1);
