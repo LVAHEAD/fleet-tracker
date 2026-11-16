@@ -1951,3 +1951,21 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 .mtc-gap:hover { color: #2f6fd6; text-decoration: underline; }
 .unit-focus-chip { font: inherit; font-size: 12px; padding: 2px 10px; margin-right: 8px; border-radius: 12px; border: 1px solid #2f6fd6; background: #2f6fd6; color: #fff; cursor: pointer; white-space: nowrap; }
 .unit-focus-chip[hidden] { display: none; }
+
+/* v3.334: колокольчик «до точки N км» у поля «Дата» */
+.kb-w { position: relative; display: block; }
+.kb-w.kb-x { margin-top: 4px; }
+.kb-w .xd-input { margin-top: 0; }
+.kb-w > input { padding-right: 20px; }
+.kb-w:has(> .fold-hide) { display: none; }
+.kb-b { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; padding: 0; border: 0; background: none; color: #b5b5b5; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.kb-b:hover { color: #2f6fd6; }
+.kb-b.on { color: #2f6fd6; }
+.kb-pop { z-index: 1600; }
+.kb-th { display: flex; gap: 10px; margin: 4px 0 6px; font-size: 12px; }
+.kb-th label, .kb-snd { display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px; }
+.kb-stack { position: fixed; right: 12px; bottom: 12px; z-index: 1700; display: flex; flex-direction: column; gap: 8px; }
+.kb-card { position: static; width: 300px; border-color: #2f6fd6; }
+.kb-h { font-weight: 600; font-size: 13px; color: #2f6fd6; margin-bottom: 4px; }
+.kb-l { font-size: 12px; margin: 2px 0; }
+.kb-hint { font-size: 12px; color: #666; margin-top: 4px; }

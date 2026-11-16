@@ -655,6 +655,7 @@ function buildRowTr(row) {
     `;
     if (blinkRows.has(row.id)) tr.classList.add("row-blink");
     applyFuelBlink(tr, row.id);
+    if (typeof kmBellDecorate === "function") kmBellDecorate(tr, row);   // v3.334: колокольчик у «Даты»
     applyReeferBlink(tr, row.id);   // v3.34
     // v2.02: 🔒 строку сейчас правит другой — только смотреть; 🗑 — только создатель / диспетчер
     const lockBy = window.fleetLockedBy ? window.fleetLockedBy(row.id) : "";
@@ -1755,6 +1756,7 @@ async function calcRow(id, why, pre) {
     }
     applyFuelBlink(tr, id);
     applyReeferBlink(tr, id);
+    if (typeof kmBellCheck === "function") kmBellCheck(id);   // v3.334: напоминание «до точки N км»
     const cb = tr.querySelector(".crew-b");     // v3.15: 👤/👥
     if (cb) cb.outerHTML = crewHtml(row, lastCalcText[id]);
     markDeliveryInput(tr, row);   // v3.13: у пройденной ① «дата в прошлом» не показываем
