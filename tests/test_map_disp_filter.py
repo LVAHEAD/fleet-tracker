@@ -19,7 +19,7 @@ class MapDispFilterSourceTest(unittest.TestCase):
 
     def test_map_uses_own_filter(self):
         core = _read("static/map-core.js")
-        self.assertIn("rowPassesFilterWith(row, window.MapDispFilter.pass)", core)
+        self.assertIn("!window.MapDispFilter.pass(row)", core)   # v3.341: карта — только свой фильтр диспетчеров (+ «только эта машина»)
         self.assertIn("MapDispFilter.attach(map)", core)
         self.assertIn("function rowPassesFilterWith(row, ownPass)", _read("static/fleet-sort-filter.js"))
 
