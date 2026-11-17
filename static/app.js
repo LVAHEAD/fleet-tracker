@@ -416,6 +416,21 @@ function fillPointsList(q) {
   }
   dl.replaceChildren(frag);
 }
+// v3.340: выбор из подсказки (datalist) сразу применяется — раньше «change» приходил только при уходе из поля (второй клик).
+// Выбор даёт input с inputType "insertReplacementText": шлём свой change, а настоящий (при уходе из поля) гасим один раз.
+document.addEventListener("input", (e) => {
+  const t = e.target;
+  if (e.inputType !== "insertReplacementText" || !t || !t.matches || !t.matches("input[list]")) return;
+  t.dataset.dlSent = t.value;
+  t.dispatchEvent(new Event("change", { bubbles: true }));
+});
+document.addEventListener("change", (e) => {
+  const t = e.target;
+  if (e.isTrusted && t && t.dataset && t.dataset.dlSent !== undefined && t.dataset.dlSent === t.value) {
+    delete t.dataset.dlSent;
+    e.stopImmediatePropagation();
+  }
+}, true);
 let ptsTimer = null;
 document.addEventListener("input", (e) => {
   const inp = e.target.closest && e.target.closest('input[list="points-list"]');
