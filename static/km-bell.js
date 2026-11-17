@@ -104,7 +104,7 @@ rows, lastCalcText, saveRows, STOP_NUM, uiZoom, escapeHtml, rowIsMine, rowDisp.
     const list = window.rows || (typeof rows !== "undefined" ? rows : []);
     const row = list.find((r) => String(r.id) === String(id));
     const c = typeof lastCalcText !== "undefined" ? lastCalcText[id] : null;
-    if (!row || !c || !mine(row)) return;
+    if (!row || !c || !mine(row) || !owner(row)) return;   // без диспетчера напоминание молчит
     const ow = owner(row), now = Date.now();
     const n = 1 + (row.extra || []).length;
     for (let k = 0; k < n; k++) {

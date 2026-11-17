@@ -268,6 +268,7 @@
     const m = S.meta[key(row.id)];
     const created = canonEmail((m && m.created_by) || "");
     if (!created || created === "local") return true;
+    if (row.disp === "-") return true;   // v3.335: без диспетчера — правит любой
     const disp = canonEmail(row.disp || created);
     return me() === created || me() === disp;
   };
@@ -446,7 +447,7 @@
     if (S.mode !== "server" || !row) return false;
     if (S.admin || S.canAssign) return true;
     const m = S.meta[key(row.id)];
-    const owner = canonEmail(row.disp || (m && m.created_by) || "");
+    const owner = row.disp === "-" ? "" : canonEmail(row.disp || (m && m.created_by) || "");
     return !owner || owner === "local" || owner === me();
   };
   window.fleetComplete = async function (id) {

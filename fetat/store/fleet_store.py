@@ -159,6 +159,8 @@ CHG_MAX = 60
 def fleet_owner(d):
     """Хозяин трипа: диспетчер строки, иначе создатель."""
     disp = canon_email((d.get("data") or {}).get("disp"))
+    if disp == "-":   # v3.335: «без диспетчера» — хозяина нет (не создатель)
+        return ""
     if disp:
         return disp
     c = canon_email((d.get("meta") or {}).get("created_by"))

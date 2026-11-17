@@ -29,7 +29,7 @@ function dispEntry(u) {
   const e = canonEmail(u);
   return e ? (DISP_LIST.find((d) => canonEmail(d.email) === e) || null) : null;
 }
-function rowDisp(row) { return row && row.disp ? canonEmail(row.disp) : ""; }
+function rowDisp(row) { return row && row.disp && row.disp !== "-" ? canonEmail(row.disp) : ""; }
 function fleetMe() { return window.__me || ""; }
 // фильтры строк: результаты считает основное окно (map-mirror.js) — own (диспетчер таблицы), nd (L / O и клиент), pass (всё вместе)
 function rowPassesOwn(row) { return !!row._own; }

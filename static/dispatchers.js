@@ -38,6 +38,7 @@ function fleetMe() {
   return u && u !== "local" ? canonEmail(u) : "";
 }
 function rowDisp(row) {
+  if (row.disp === "-") return "";   // v3.335: «без диспетчера» — явно нет хозяина (не создатель)
   if (row.disp) return canonEmail(row.disp);
   const m = window.fleetSync && window.fleetSync.meta[String(row.id)];
   return m && m.created_by && m.created_by !== "local" ? canonEmail(m.created_by) : "";
@@ -154,7 +155,7 @@ function dispHtml(row) {
   // v3.11: назначать диспетчера строки — только назначающий; остальным — просто метка
   if (!canAssign()) return d ? `<span class="disp-lbl${d !== fleetMe() ? " other" : ""}" title="Диспетчер строки (назначает админ)">🎧 ${escapeHtml(dispLabel(d))}</span>` : "";
   return `<select class="disp-sel${d && d !== fleetMe() ? " other" : ""}${d ? "" : " none"}" title="Диспетчер (ответственный за строку)">`
-    + `<option value=""${d ? "" : " selected"}>🎧 —</option>`
+    + `<option value="-" title="Без диспетчера"${d ? "" : " selected"}>🎧 —</option>`
     + opts.map((u) => `<option value="${escapeHtml(u)}"${u === d ? " selected" : ""}>🎧 ${escapeHtml(dispLabel(u))}</option>`).join("")
     + "</select>";
 }
