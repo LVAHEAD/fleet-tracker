@@ -15,7 +15,9 @@ let routePolyline = null; // текущая нарисованная линия 
 
 function fleetUnitInRows(u) {
   const nrm = (s) => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  return rows.some((r) => r.unit && nrm(r.unit) === nrm(u.number));
+  // v3.341: «ВСЕ» — машину со строкой, спрятанной фильтрами (L / O, клиент, дата, чужой диспетчер), рисует слой «все машины»;
+  // раньше такая машина пропадала с карты совсем (трип-плашку прячет фильтр, а слой считал её «уже на карте»)
+  return rows.some((r) => r.unit && nrm(r.unit) === nrm(u.number) && (typeof rowFilteredOut !== "function" || !rowFilteredOut(r.id)));
 }
 
 function initMap() {
@@ -488,7 +490,12 @@ function syncMapVisibility() {
   applyTargetVisibility();
   applyBadgeTop();     // v3.144
   scheduleOverlap();   // v3.58: кластеры / фильтр поменялись — пересчёт счётчиков
+  if (window.fleetMapUnits) {   // v3.341: набор видимых трипов изменился (фильтры) — слой «все машины» перерисовать
+    const sig = rows.filter((r) => r.unit && !rowFilteredOut(r.id)).map((r) => r.id).join(",");
+    if (sig !== unitsSkipSig) { unitsSkipSig = sig; window.fleetMapUnits.draw(); }
+  }
 }
+let unitsSkipSig = "";
 window.fleetMapSync = syncMapVisibility;
 let mapSyncTimer = null;
 function scheduleMapSync() {
