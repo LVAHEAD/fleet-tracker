@@ -412,8 +412,12 @@ let clusterOverlays = [];
 function rowFilteredOut(rowId) {
   const row = rows.find((r) => String(r.id) === String(rowId));
   if (!row || typeof rowPassesFilter !== "function") return false;
-  // после v3.132: у карты свой фильтр диспетчеров (map-disp-filter.js); «Таблица» — как раньше
-  if (window.MapDispFilter && typeof rowPassesFilterWith === "function") return !rowPassesFilterWith(row, window.MapDispFilter.pass);
+  // v3.341: карта отвечает только на «где машины» — L / O, клиент, машины и дата из таблицы на неё не действуют;
+  // остаются «только эта машина» (явное действие) и свой фильтр диспетчеров карты (по умолчанию «ВСЕ» — показано всё)
+  if (window.MapDispFilter) {
+    if (typeof unitFocus !== "undefined" && unitFocus) return !row.unit || (typeof unitKey === "function" && unitKey(row.unit) !== unitFocus);
+    return !window.MapDispFilter.pass(row);
+  }
   return !rowPassesFilter(row);
 }
 function isSelected(rowId) { return selectedRowId != null && String(rowId) === String(selectedRowId); }

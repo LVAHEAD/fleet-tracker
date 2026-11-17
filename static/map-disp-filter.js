@@ -7,7 +7,9 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
 */
 (function () {
   const KEY = window.MAP_DISP_KEY || "fleet-map-disp";   // у откреплённого окна карты — свой ключ (map-window.js)
-  let sel = "table";   // "table" | "mapon" (v3.180: все машины Mapon + трипы всех) | "all" (трипы всех диспетчеров) | массив e-mail (канонических)
+  // v3.341: сброс карты до простого умолчания — «ВСЕ» (все машины и трипы), старый сохранённый выбор один раз стирается
+  try { if (!localStorage.getItem(KEY + "-reset341")) { localStorage.removeItem(KEY); localStorage.setItem(KEY + "-reset341", "1"); } } catch (e) { /* ignore */ }
+  let sel = "mapon";   // "table" | "mapon" (v3.180: все машины Mapon + трипы всех) | "all" (трипы всех диспетчеров) | массив e-mail (канонических)
   try {
     const saved = localStorage.getItem(KEY);
     if (saved === "table" || saved === "all" || saved === "mapon") sel = saved;
@@ -15,7 +17,7 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
       const arr = JSON.parse(saved);
       if (Array.isArray(arr) && arr.length) sel = arr.map(String);
     }
-  } catch (e) { sel = "table"; }
+  } catch (e) { sel = "mapon"; }
 
   let box = null;
   let isOpen = false;
