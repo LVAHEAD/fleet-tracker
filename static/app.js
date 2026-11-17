@@ -2463,6 +2463,9 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
         if (/^(NO|SE)/i.test(b.textContent.trim())) need = true;
       });
       if (cell.classList.contains("chain-need") !== need) cell.classList.toggle("chain-need", need);
+      // v3.336: цепи отмечены, а непройденных точек в SE / NO нет — зелёная «C» (лишние цепи: Испания, Латвия и т. п.)
+      const cb = cell.querySelector(".chain-cb"), ok = !!(cb && cb.checked) && !need;
+      if (cell.classList.contains("chain-ok") !== ok) cell.classList.toggle("chain-ok", ok);
       // v3.226: «C» насыщеннее — в трипе есть точка с плашкой O в Норвегии или в 200 км от Стокгольма (пройденные ✓ тоже считаем)
       let hi = false;
       const row = rows.find((r) => r.id === Number(tr.dataset.id)), c = lastCalcText[Number(tr.dataset.id)];
@@ -2476,6 +2479,7 @@ document.getElementById("fleet-tbody").addEventListener("click", (e) => {
   let q = null;
   new MutationObserver(() => { clearTimeout(q); q = setTimeout(pass, 50); })
     .observe(tb, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+  tb.addEventListener("change", (e) => { if (e.target.classList && e.target.classList.contains("chain-cb")) pass(); });   // v3.336
   pass();
 })();
 
