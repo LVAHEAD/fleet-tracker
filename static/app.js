@@ -1246,7 +1246,7 @@ function etaCellHtml(row, c, composed) {
     } else if (ce && (ce.eta_tacho || ce.eta_local)) {
       const wk = ce.tacho_weeklimit ? '<span class="wk-mark" title="Недельный лимит вождения кончится по пути">56</span>' : "";
       const fb = ce.ferry ? `<button type="button" class="fer-b${ce.ferry.manual ? " fer-man" : ""}${ce.ferry.late ? " fer-late" : ""}" data-i="${i}" title="Паром: ${escapeHtml(ce.ferry.label)}${ce.ferry.manual ? " (выбран вручную)" : " (авто)"}. Клик — выбрать другую линию">⛴${ce.ferry.late ? "⚠" : ""}</button>` : "";   // v3.193
-      inner = `${wk}<span class="eta-x-t">⏱ ${escapeHtml(ce.eta_tacho || ce.eta_local)}${tzBadge(ce.eta_tz)}</span>${weeklyOverHtml(c.weekly, ce.eta_tacho || ce.eta_local, x.delivery)}${fb}`;
+      inner = `${wk}<span class="eta-x-t">⏱${c.etaGps ? "≈" : ""} ${escapeHtml(ce.eta_tacho || ce.eta_local)}${tzBadge(ce.eta_tz)}</span>${weeklyOverHtml(c.weekly, ce.eta_tacho || ce.eta_local, x.delivery)}${fb}`;
       const fv = fixViewAllowed() ? fixVerdict(x.delivery, ce.eta_tacho || ce.eta_local, ce.tacho_left) : null;   // v3.229
       if (fv && !(nbAt === i && c.onArr)) { inner = fixRollHtml(inner, fv); chk.lines.unshift("🎯 " + fv.text); }
       tip = [`Точка ${STOP_NUM[i + 2]}: ${x.target}`,
@@ -1675,7 +1675,7 @@ async function calcRow(id, why, pre) {
         const wk = data.tacho_weeklimit ? '<span class="wk-mark" title="Недельный лимит вождения кончится по пути">56</span>' : "";
         const osa = onSiteArr(row, data, act0);
         if (osa) onArr = osa.arr;
-        etaCore = osa ? osa.html : `${wk}<span class="eta-x-t">⏱ ${escapeHtml(et || "—")}${tzBadge(data.eta_tz)}</span>`;
+        etaCore = osa ? osa.html : `${wk}<span class="eta-x-t">⏱${data.eta_gps ? "≈" : ""} ${escapeHtml(et || "—")}${tzBadge(data.eta_tz)}</span>`;
         const delA = act0 === 0 ? row.delivery : ((row.extra || [])[act0 - 1] || {}).delivery;   // v3.229: фикс у первой непройденной
         const fvA = !osa && fixViewAllowed() ? fixVerdict(delA, et, data.tacho_left) : null;
         if (fvA) etaCore = fixRollHtml(etaCore, fvA);
@@ -1729,7 +1729,7 @@ async function calcRow(id, why, pre) {
     const fv0 = folded(row) ? foldVisible(row).join() : "";   // v3.11: окно свёрнутых точек до расчёта
     lastCalcText[id] = { targetAddress: data.first_done ? null : (data.target_address || null),   // v3.199: при пройденной ① адрес в ответе — первой активной точки, не ①
                           status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo, onArr,
-                         etaStr: onArr || data.eta_tacho || data.eta_local, extra: extraCalc(data),
+                         etaStr: onArr || data.eta_tacho || data.eta_local, etaGps: !!data.eta_gps, extra: extraCalc(data),
                          fixSig: JSON.stringify(fixAtList(row)),   // v3.229: по чему считали ожидание у фикс-точек
                          crew: crewOf(data), weekly: data.weekly_rest || null, hold: data.done_hint ? { open: data.done_hint.open, later: data.done_hint.later } : null,
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual,

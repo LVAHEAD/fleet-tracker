@@ -497,6 +497,33 @@ def _no_card_crew(result, unit, crew=None, terr=None, crew_seen=None):
         result["tacho_summary"] = summ
         result["calc_seed"] = calc_seed(fresh)              # v3.31: свежий день, недельного остатка нет
         return fresh, sim
+    g = _gps_shift_of(unit) if result.get("dist_km") is not None else None
+    if g and g.get("start") is not None:
+        # v3.337: карт нет, едет — остаток дня по GPS-смене (приблизительно) вместо ETA «км ÷ 70 без отдыхов»
+        day_max = 18 * 3600 if team else 9 * 3600
+        synth = copy.deepcopy(FRESH_SOLO_TACHO)
+        d0 = synth["drivers"][0]
+        d0["current_state"] = "DRIVING"
+        d0["now"] = {"rest": 0, "driving": 0}
+        d0["today"].update(driving_remaining=day_max, shift_remaining=21 * 3600 if team else 15 * 3600)
+        synth.update(team=team, crew_src=result["crew_src"], nocard=True, gps=g, **_eta_opts(unit, False))
+        sim = tacho_eta(synth, result["dist_km"], no_week=True)
+        eta_t = ceil_15min(ts_west(sim["eta_ts"]))
+        result["eta_tacho"] = eta_t.strftime("%d/%m %H:%M")
+        result["eta_gps"] = True                          # ETA по GPS-смене, примерно (значок ≈ в строке)
+        result["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sim["stops"])
+        result["_sim_stops"] = sim["stops"]
+        result["tacho_team"] = team
+        result["tacho_weeklimit"] = False
+        gf = sim.get("gps_fix")
+        if gf:
+            result["tacho_gps_fix"] = {"driven": int(gf["driven"]), "tacho": int(gf["tacho"]), "start": int(gf["start"])}
+        left = max(0.0, day_max - float(g["driven"]))
+        summ.append(f"ETA по GPS, примерно: в смене с {ts_west(g['start']).strftime('%d/%m %H:%M')} ехал {format_duration(g['driven'])}, "
+                    f"остаток дня ≈ {format_duration(left)}")
+        result["tacho_summary"] = summ
+        result["calc_seed"] = calc_seed(synth)
+        return synth, sim
     summ.append("едет или стоит меньше 9 ч — ETA простой, без отдыхов")
     result["tacho_summary"] = summ
     # v3.31: остатка вождения не знаем — калькулятору только состав, остаток по максимуму
