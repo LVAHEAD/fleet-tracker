@@ -161,7 +161,8 @@ Fleet ETA Tracker — вкладка "Truck Info"
         let fill = "";
         try { const e = fr && typeof dispEntry === "function" ? dispEntry(rowDisp(fr)) : null; fill = e && e.color ? e.color : ""; } catch (e) {}
         window.tiPinOpts = { st: j.st, dir: j.dir, trailer: !!j.trailer, fill, tractor: "" };
-        showUnitOnMap(j.lat, j.lng, 9, fr ? "" : j.number);   // во Флоте уже есть плашка — только переезд карты
+        const shown = !!(fr && document.querySelector(`#fleet-tbody tr[data-id="${fr.id}"]`));   // v3.338: строка скрыта фильтром (чужой диспетчер и т. п.) — на карте Флота её нет, маркер ставим
+        showUnitOnMap(j.lat, j.lng, 9, shown ? "" : j.number);   // во Флоте уже есть плашка — только переезд карты
       }
       let h = `<div class="ti-title">${esc(j.number)}${j.tractor ? ` <a href="#" class="ti-tag ti-tractor" data-unit="${esc(j.tractor)}" title="тягач этого прицепа по строке Флота — клик: открыть его Truck Info">тягач: ${esc(j.tractor)}</a>` : ""}</div>`;
       if (j.trailer) {   // v3.258: прицеп — вместо водителей лог рефа
