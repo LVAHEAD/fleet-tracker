@@ -163,7 +163,8 @@ Fleet ETA Tracker — вкладка "Truck Info"
         window.tiPinOpts = { st: j.st, dir: j.dir, trailer: !!j.trailer, fill, tractor: "" };
         // v3.338: маркер Truck Info — когда плашки машины на карте Флота нет (нет во Флоте или спрятана фильтром); видимая плашка Флота — без дубля
         const fm = fr && typeof markers !== "undefined" ? markers[fr.id] : null;
-        const onMap = !!(fm && fm.getMap && fm.getMap() && fm.getVisible());
+        const calcOpen = !!(window.etaCalc && window.etaCalc.isOpen());   // открыт ⏱ — смотрим его карту, плашек Флота на ней нет
+        const onMap = !calcOpen && !!(fm && fm.getMap && fm.getMap() && fm.getVisible());
         showUnitOnMap(j.lat, j.lng, 9, onMap ? "" : j.number);   // во Флоте уже есть плашка — только переезд карты
       }
       let h = `<div class="ti-title">${esc(j.number)}${j.tractor ? ` <a href="#" class="ti-tag ti-tractor" data-unit="${esc(j.tractor)}" title="тягач этого прицепа по строке Флота — клик: открыть его Truck Info">тягач: ${esc(j.tractor)}</a>` : ""}</div>`;
