@@ -1,4 +1,4 @@
-"""После v3.132: свой фильтр диспетчеров у Карты Флота (map-disp-filter.js), «Таблица» — как раньше."""
+"""После v3.132: свой фильтр диспетчеров у Карты Флота (map-disp-filter.js), v3.341: «Все» / «Мои» + теги диспетчеров."""
 import os
 import unittest
 
@@ -13,7 +13,7 @@ def _read(rel):
 class MapDispFilterSourceTest(unittest.TestCase):
     def test_module_modes_and_storage(self):
         js = _read("static/map-disp-filter.js")
-        for part in ('"fleet-map-disp"', 'sel === "table"', 'sel === "all"', 'sel = cur.length ? cur : "all"',
+        for part in ('"fleet-map-disp"', 'sel === "mapon"', 'v === "mine"', 'sel = cur.length ? cur : "mapon"',   # v3.341: «Все» / «Мои» + теги
                      "ControlPosition.TOP_CENTER", "window.MapDispFilter", "data-mdf-toggle", "Дисп.: "):
             self.assertIn(part, js)
 

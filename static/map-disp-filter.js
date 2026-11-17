@@ -12,7 +12,7 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
   let sel = "mapon";   // "table" | "mapon" (v3.180: все машины Mapon + трипы всех) | "all" (трипы всех диспетчеров) | массив e-mail (канонических)
   try {
     const saved = localStorage.getItem(KEY);
-    if (saved === "table" || saved === "all" || saved === "mapon") sel = saved;
+    if (saved === "table" || saved === "all" || saved === "mapon") sel = "mapon";   // v3.341: «Таблица» и «ВСЕ дисп» убраны — «ВСЕ»
     else if (saved) {
       const arr = JSON.parse(saved);
       if (Array.isArray(arr) && arr.length) sel = arr.map(String);
@@ -25,8 +25,7 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
 
   // строка проходит фильтр диспетчера карты (для rowPassesFilterWith)
   function pass(row) {
-    if (sel === "table") return rowPassesOwn(row);
-    if (sel === "all" || sel === "mapon") return true;
+    if (sel === "mapon") return true;
     const d = rowDisp(row);
     return !!d && sel.includes(d);   // строки без диспетчера — только в «Все», как в таблице
   }
@@ -46,9 +45,9 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
 
   // подпись на кнопке: «Таблица», «Все», «VL, JZ» (больше трёх — «4 дисп.»)
   function label() {
-    if (sel === "table") return "Таблица";
     if (sel === "mapon") return "ВСЕ";
-    if (sel === "all") return "ВСЕ дисп";
+    const me0 = typeof fleetMe === "function" ? fleetMe() : "";
+    if (Array.isArray(sel) && sel.length === 1 && sel[0] === me0) return "Мои";
     const tags = sel.map((e) => {
       const d = list().find((x) => String(x.email).toLowerCase() === e);
       return d ? d.tag : e.split("@")[0].slice(0, 3).toUpperCase();
@@ -62,9 +61,8 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
     const row = (v, text, on, title, style) =>
       `<button type="button" class="mdf-i${on ? " on" : ""}" data-mdf="${escapeHtml(v)}"${style ? ` style="${style}"` : ""} title="${escapeHtml(title)}">`
       + `<span class="mdf-ck">${on ? "✓" : ""}</span>${escapeHtml(text)}</button>`;
-    const items = row("table", "Таблица", sel === "table", "Карта следует фильтру диспетчера из таблицы")
-      + row("mapon", "ВСЕ", sel === "mapon", "Все машины Mapon и трипы всех диспетчеров")
-      + row("all", "ВСЕ дисп", sel === "all", "Трипы всех диспетчеров (без чужих машин)")
+    const items = row("mapon", "ВСЕ", sel === "mapon", "Все машины Mapon и трипы всех диспетчеров")
+      + row("mine", "Мои", Array.isArray(sel) && sel.length === 1 && sel[0] === me, "Только мои трипы (трипы моего диспетчера)")
       + list().map((d) => {
         const email = String(d.email).toLowerCase();
         const c = d.color || "#ffffff";
@@ -90,12 +88,13 @@ map-disp-filter.js — свой фильтр диспетчеров у Карт�
     const b = e.target.closest("button[data-mdf]");
     if (!b) return;
     const v = b.dataset.mdf;
-    if (v === "table" || v === "all" || v === "mapon") { sel = v; isOpen = false; }
+    if (v === "mapon") { sel = v; isOpen = false; }
+    else if (v === "mine") { const m = typeof fleetMe === "function" ? fleetMe() : ""; sel = m ? [m] : "mapon"; isOpen = false; }
     else {
       const cur = Array.isArray(sel) ? sel.slice() : [];
       const i = cur.indexOf(v);
       if (i >= 0) cur.splice(i, 1); else cur.push(v);
-      sel = cur.length ? cur : "all";
+      sel = cur.length ? cur : "mapon";
     }
     apply();
   }
