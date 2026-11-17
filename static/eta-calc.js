@@ -869,7 +869,11 @@ const EtaCalc = (() => {
     return out;
   }
   // v3.131: плашка «на точке» — после любой отрисовки (и с маркерами, и с короткой линией маршрута) центр по машине и свой зум
-  function focusMap(lat, lng, z, label) { st.focus = { lat, lng, z, label }; drawMapSoon(); }   // v3.330: label — маркер Truck Info
+  function focusMap(lat, lng, z, label) {
+    st.focus = { lat, lng, z, label };
+    if (st.mapFolded) mapFold(false, true);   // v3.335: «Показать» из Truck Info раскрывает свёрнутую карту (выбор диспетчера не перезаписываем)
+    else drawMapSoon();
+  }   // v3.330: label — маркер Truck Info
   function drawMap() {
     drawMapBody();
     const f = st.focus;
