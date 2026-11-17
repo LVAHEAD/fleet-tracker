@@ -116,7 +116,8 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
 
   function attach(map, opts) {
     opts = opts || {};
-    const L = { map, on: visibleSaved(), nums: numsSaved(), group: groupSaved(), marks: [] };
+    // v3.341: карта Флота (opts.follow) — без кнопок «№» и «Группировать»: номера плашками (с зума 6) и склейка (ниже зума 9) всегда включены
+    const L = { map, on: visibleSaved(), nums: opts.follow ? true : numsSaved(), group: opts.follow ? true : groupSaved(), marks: [] };
 
     // кнопки на карте: «🚚 Машины» (вкл / выкл), «№», «Группировать»
     const box = document.createElement("div");
@@ -133,7 +134,7 @@ UnitsLayer.attach(map, { onPick(number) }) — onPick: клик по машин�
     gr.addEventListener("click", () => { L.group = !L.group; saveGroup(L.group); ui(); L.draw(); });
     nm.addEventListener("click", () => { L.nums = !L.nums; saveNums(L.nums); ui(); L.draw(); });
     ui();
-    map.controls[google.maps.ControlPosition.TOP_LEFT].push(box);
+    if (!opts.follow) map.controls[google.maps.ControlPosition.TOP_LEFT].push(box);
 
     // v3.58: машины в одной точке — счётчик и веер (overlap-spider.js); создаём до слушателя зума
     const overlap = window.OverlapSpider ? OverlapSpider.create(map, {}) : { apply() {} };
