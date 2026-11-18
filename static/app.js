@@ -427,6 +427,19 @@ document.addEventListener("input", (e) => {
   t.dispatchEvent(new Event("change", { bubbles: true }));
   t.blur();   // v3.343: иначе список подсказок открывается снова (поле в фокусе, значение совпало) — это и был «второй клик»
 });
+// v3.344: диагностика — localStorage.setItem("dl-debug", "1") и F5: в Console печатаются события полей со списком подсказок
+try {
+  if (localStorage.getItem("dl-debug") === "1") {
+    ["input", "change", "focus", "blur", "click"].forEach((n) => document.addEventListener(n, (e) => {
+      if (e.target && e.target.matches && e.target.matches("input[list]")) console.log("[dl]", n, e.constructor.name, e.inputType || "", e.isTrusted, JSON.stringify(e.target.value));
+    }, true));
+  }
+} catch (err) { /* ignore */ }
+// v3.344: настоящий change (выбор подсказки мышью или Enter) — поле списка теряет фокус, иначе Chrome открывает список заново («второй клик»)
+document.addEventListener("change", (e) => {
+  const t = e.target;
+  if (e.isTrusted && t && t.matches && t.matches("input[list]") && document.activeElement === t) setTimeout(() => { if (document.activeElement === t) t.blur(); }, 0);
+});
 document.addEventListener("change", (e) => {
   const t = e.target;
   if (e.isTrusted && t && t.dataset && t.dataset.dlSent !== undefined && t.dataset.dlSent === t.value) {
