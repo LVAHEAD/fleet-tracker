@@ -425,6 +425,9 @@ document.addEventListener("input", (e) => {
   if (!picked || !t || !t.matches || !t.matches("input[list]")) return;
   t.dataset.dlSent = t.value;
   t.dispatchEvent(new Event("change", { bubbles: true }));
+  // v3.345: на время снимаем list — без него Chrome не может снова показать подсказку (мышь по пункту / повторный фокус)
+  const lst = t.getAttribute("list");
+  if (lst) { t.removeAttribute("list"); setTimeout(() => t.setAttribute("list", lst), 900); }
   t.blur();   // v3.343: иначе список подсказок открывается снова (поле в фокусе, значение совпало) — это и был «второй клик»
 });
 // v3.344: диагностика — localStorage.setItem("dl-debug", "1") и F5: в Console печатаются события полей со списком подсказок
