@@ -167,7 +167,7 @@ function ecFromRow(id, force, k) {
   }
   window.etaCalc.fromRow({
     unit: row.unit || "", point: ((STOP_NUM[at + 1] || "") + " " + String(pt || "").trim()).trim(),
-    km, seed: c.ecSeed || null, polyline: poly, pins, weekly: c.weekly || null,   // v3.333: срок недельного отдыха — красные отметки в ⏱
+    km, seed: c.ecSeed || null, tz: (k == null || k === first) ? (c.ecTz || null) : null, polyline: poly, pins, weekly: c.weekly || null,   // v3.333: срок недельного отдыха — красные отметки в ⏱
   });
 }
 
@@ -1770,7 +1770,7 @@ async function calcRow(id, why, pre) {
                          // v3.31: для ⏱ калькулятора — км до первой непройденной точки, её номер, данные тахографа
                          ecKm: data.all_done ? null : (data.dist_km != null ? Number(data.dist_km) : null),
                          ecAt: data.active_idx && data.active_idx.length ? data.active_idx[0] : 0,
-                         ecSeed: data.calc_seed || null,
+                         ecSeed: data.calc_seed || null, ecTz: data.eta_tz || null,
                          corridor: data.corridor || null,          // v3.32: плашка коридора ИТ ↔ Бенелюкс
                          chainGeo0: data.first_done ? !!data.first_done.chain_geo : !!data.target_chain_geo,   // v3.226: ① в NO / в 200 км от Стокгольма
                          nbAt: data.first_done && data.active_idx && data.active_idx.length ? data.active_idx[0] - 1 : null,

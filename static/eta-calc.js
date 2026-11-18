@@ -56,6 +56,14 @@ const EtaCalc = (() => {
   const fd = (d) => { const w = wall(+d); return p2(w.getUTCDate()) + "/" + p2(w.getUTCMonth() + 1); };
   const ft = (d) => { const w = wall(+d); return p2(w.getUTCHours()) + ":" + p2(w.getUTCMinutes()); };
   const fdt = (d) => fd(d) + " " + ft(d);
+  // v3.344: время ETA точки — в местном поясе страны точки (как «лок.» в таблице Флота), если он не Берлин
+  const CC_TZ = { PT: "Europe/Lisbon", FI: "Europe/Helsinki", EE: "Europe/Tallinn", LV: "Europe/Riga", LT: "Europe/Vilnius" };
+  function etaLoc(ms) {
+    const z = st.tz && CC_TZ[st.tz]; if (!z) return fdt(new Date(ms));
+    const p = {}; new Intl.DateTimeFormat("en-GB", { timeZone: z, hourCycle: "h23", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+      .formatToParts(new Date(ms)).forEach((x) => { p[x.type] = x.value; });
+    return p.day + "/" + p.month + " " + p.hour + ":" + p.minute + " лок.";
+  }
   const hm = (h) => { const m = Math.round(h * 60); return Math.floor(m / 60) + " ч" + (m % 60 ? " " + p2(m % 60) + " мин" : ""); };
   const hmm = (h) => { const m = Math.round(h * 60); return Math.floor(m / 60) + ":" + p2(m % 60); };
   const km = (v) => Math.round(v).toLocaleString("ru-RU") + " км";
@@ -194,6 +202,7 @@ const EtaCalc = (() => {
   function fromRow(r, fromFT) {
     if (!panel) return;
     setCalcUnit(r.unit || "");
+    st.tz = r.tz || null;
     // v3.333: срок начала недельного отдыха (как в метке «⚠ 45ка» у ETA): Mapon, иначе ddd
     { const w = r.weekly, dl = w && w.need ? (w.mapon > 1e9 ? w.mapon : w.ddd) : 0;
       st.wkDl = dl > 1e9 ? { ms: dl * 1000, h: Math.round(w.need / 3600) } : null; }
@@ -976,7 +985,7 @@ const EtaCalc = (() => {
     } else {
       dot(L.path[0], "#1a1a1a", 5, "Старт · ETD " + fdt(new Date(S.etd)), "📍 " + fdt(new Date(S.etd)));
     }
-    const etaMk = dot(L.path[L.path.length - 1], "#2f6fd6", 6, "ETA " + fdt(new Date(S.eta)) + " · " + km(S.dist), "🏁 " + fdt(new Date(S.eta)));
+    const etaMk = dot(L.path[L.path.length - 1], "#2f6fd6", 6, "ETA " + etaLoc(S.eta) + " · " + km(S.dist), "🏁 " + etaLoc(S.eta));
     etaMk.addListener("click", () => {          // v3.153: клик по плашке таргета на карте — таргет в центре, зум 15
       const tp = L.path[L.path.length - 1];
       focusMap(tp.lat(), tp.lng(), 15);
