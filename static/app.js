@@ -420,7 +420,9 @@ function fillPointsList(q) {
 // Выбор даёт input с inputType "insertReplacementText": шлём свой change, а настоящий (при уходе из поля) гасим один раз.
 document.addEventListener("input", (e) => {
   const t = e.target;
-  if (e.inputType !== "insertReplacementText" || !t || !t.matches || !t.matches("input[list]")) return;
+  // выбор из datalist: Chrome шлёт обычный Event (не InputEvent) — inputType нет; Firefox / новый Chrome — "insertReplacementText"; обычный ввод — InputEvent с другим inputType
+  const picked = !(e instanceof InputEvent) || e.inputType === "insertReplacementText";
+  if (!picked || !t || !t.matches || !t.matches("input[list]")) return;
   t.dataset.dlSent = t.value;
   t.dispatchEvent(new Event("change", { bubbles: true }));
 });
