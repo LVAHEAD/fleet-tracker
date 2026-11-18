@@ -425,6 +425,7 @@ document.addEventListener("input", (e) => {
   if (!picked || !t || !t.matches || !t.matches("input[list]")) return;
   t.dataset.dlSent = t.value;
   t.dispatchEvent(new Event("change", { bubbles: true }));
+  t.blur();   // v3.343: иначе список подсказок открывается снова (поле в фокусе, значение совпало) — это и был «второй клик»
 });
 document.addEventListener("change", (e) => {
   const t = e.target;
