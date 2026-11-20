@@ -649,7 +649,7 @@ function buildRowTr(row) {
           <button class="lo-btn ${ptBtnClass(row)}"${ptkAttr(pointKind(row.target, cached && cached.targetAddress, ptTruckNo(row)))} title="${escapeHtml(ptBtnTitle(row))}">${ptBtnText(row)}</button>
           ${cached && cached.targetBadge ? cached.targetBadge : '<span class="cc-badge target-cc" hidden></span>'}
           <input list="points-list" class="target-input" name="target-${row.id}" autocomplete="off" value="${escapeHtml(row.target)}" title="${escapeHtml(row.target) || 'ГПС, название, машина, код, город'}" placeholder="ГПС, название, машина, код, город" />
-          ${multi ? '<button class="stop-x" data-k="0" title="Убрать эту точку">×</button>' + addStopHtml(row, 0) : '<span class="stop-x-sp"></span><button class="add-stop" data-k="0" title="Добавить ещё таргет (следующая выгрузка / погрузка)">+</button>'}
+          ${multi ? '<button class="stop-x" data-k="0" title="Убрать эту точку">×</button>' + addStopHtml(row, 0) : '<span class="stop-x-sp"></span><button class="add-stop" data-k="0" title="Добавить ещё таргет (следующая выгрузка / погрузка)\nCtrl+клик — вставить выше ①">+</button>'}
         </div>
         ${extraTargetsHtml(row, cached)}
       </td>
@@ -933,6 +933,19 @@ function attachRowHandlers(one) {
       const row = rows.find((r) => r.id === id);
       if (!row) return;
       if ((row.extra || []).length + 1 >= MAX_STOPS) return;   // v1.74: максимум 12 точек
+      if (e.ctrlKey || e.metaKey) {   // v3.351: Ctrl+клик — вставить пустую точку ВЫШЕ этой (у ① старая ① уходит в ②)
+        const above = insertStopAbove(row, Number(b.dataset.k || 0));
+        row.open = true;
+        shiftDoneFlags(id, above, 1);
+        removeTargetMarker(id);
+        delete lastCalcText[id]; delete lastGoodCalc[id];
+        saveRows();
+        renderRows();
+        const ai = document.querySelector(`#fleet-tbody tr[data-id="${id}"] ` + (above === 0 ? ".target-input" : `.xt-input[data-k="${above}"]`));
+        if (ai) ai.focus();
+        calcRow(id);
+        return;
+      }
       // v3.13: вставка после точки k (0 — ①); точки ниже сдвигаются со своими полями
       const ex = row.extra || [];
       const k = Math.min(Number(b.dataset.k || ex.length), ex.length);
@@ -1131,7 +1144,7 @@ function addStopHtml(row, k) {
   const n = 1 + (row.extra ? row.extra.length : 0);
   if (n >= MAX_STOPS) return `<span class="add-stop-sp" title="Максимум ${MAX_STOPS} точек"></span>`;
   const last = k === n - 1;
-  return `<button class="add-stop${last ? "" : " add-mid"}" data-k="${k}" title="${last ? "Добавить ещё таргет" : `Вставить точку после ${STOP_NUM[k + 1]}`}">+</button>`;
+  return `<button class="add-stop${last ? "" : " add-mid"}" data-k="${k}" title="${(last ? "Добавить ещё таргет" : `Вставить точку после ${STOP_NUM[k + 1]}`) + `\nCtrl+клик — вставить выше ${STOP_NUM[k + 1]}`}">+</button>`;
 }
 
 // v1.66: 3 и больше точек — по умолчанию свёрнуто: видны ① ②, дальше сводка
