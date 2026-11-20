@@ -571,15 +571,28 @@ def _shift_km_ranking():
     with ThreadPoolExecutor(max_workers=4) as ex:
         res = list(ex.map(one, trucks))
     rows, errs = [], {}
+    diag = {"ok": 0, "moving": 0, "segs": 0, "max_km": 0}
     for u, (segs, e) in zip(trucks, res):
         num = u.get("number") or u.get("label") or str(u.get("unit_id"))
         if e:
             errs[num] = e
             continue
+        diag["ok"] += 1
+        diag["segs"] += len(segs)
+        if any(x[0] == "route" for x in segs):
+            diag["moving"] += 1
+            if mode == "crew":
+                dm = max((v[0] for v in _days_from_segments(segs, frm, till).values()), default=0)
+            else:
+                dm = max((x["m"] for x in _shifts_from_segments(segs, rest_h, 0, frm, till)), default=0)
+            diag["max_km"] = max(diag["max_km"], round(dm / 1000))
         if mode == "crew":
             row = _crew_row(num, segs, frm, till, min_km)
             if row:
                 rows.append(row)
+            continue
+        if _crew_row(num, segs, frm, till, 300):     # экипаж: смены склеиваются, ему — режим «Экипажи»
+            diag["crews_skipped"] = diag.get("crews_skipped", 0) + 1
             continue
         sh = _shifts_from_segments(segs, rest_h, min_km, frm, till)
         if not sh:
@@ -599,13 +612,13 @@ def _shift_km_ranking():
         cols = ["n", "truck", "shifts", "avg", "median", "max", "speed", "drive_h", "total"] + (["over"] if mode == "crew" else [])
         w = csv.writer(buf, delimiter=";")
         u = "суток" if mode == "crew" else "смен"
-        w.writerow(["#", "Трак", u.capitalize(), f"Км за {u[:-1] + 'ки' if mode == 'crew' else 'смену'} (среднее)", "Медиана", "Макс", "Км/ч в движении", f"Ч в движении ({'в сутки' if mode == 'crew' else 'за смену'})", "Всего км"] + (["Суток >10,5 ч"] if mode == "crew" else []))
+        w.writerow(["#", "Трак", u.capitalize(), f"Км за {'сутки' if mode == 'crew' else 'смену'} (среднее)", "Медиана", "Макс", "Км/ч в движении", f"Ч в движении ({'в сутки' if mode == 'crew' else 'за смену'})", "Всего км"] + (["Суток >10,5 ч"] if mode == "crew" else []))
         for r in rows:
             w.writerow([r.get(c) for c in cols])
         return current_app.response_class("\ufeff" + buf.getvalue(), mimetype="text/csv; charset=utf-8",
                                           headers={"Content-Disposition": "attachment; filename=shift_km.csv"})
     out = {"mode": mode, "период, дней": days, "смена = между стоянками от, ч": rest_h, "смены короче, км — не считаем": min_km,
-           "тягачей": len(trucks), "в рейтинге": len(rows), "ошибки": errs, "рейтинг": rows}
+           "тягачей": len(trucks), "в рейтинге": len(rows), "diag": diag, "ошибки": errs, "рейтинг": rows}
     return current_app.response_class(json.dumps(out, ensure_ascii=False, indent=1),
                                       mimetype="application/json; charset=utf-8")
 

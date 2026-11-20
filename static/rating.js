@@ -9,7 +9,7 @@
   const val = (id) => document.getElementById(id).value;
   const HINT = {
     crew: "Экипаж = трак, который ≥3 суток (и ≥25% рабочих суток) ехал дольше 10,5 ч — одиночке так нельзя. Считаем по GPS трака (Mapon route/list), паромы не в счёт; рабочие сутки — от «от» км, сутки по UTC, первые и последние сутки периода не берём. Рейтинг: средние км за рабочие сутки. Водители на траке могут меняться.",
-    shift: "По GPS трака, не по водителю: смена = поездки между стоянками от «отдыха» часов. Неполные смены на краях периода не считаются. Паромы не в счёт.",
+    shift: "Одиночки по GPS трака, не по водителю: смена = поездки между стоянками от «отдыха» часов. Неполные смены на краях периода не считаются. Паромы не в счёт. Экипажи (ездят > 10,5 ч в сутки) сюда не входят — для них режим «Экипажи».",
   };
   const mode = () => val("rt-mode");
   const applyMode = () => {
@@ -30,9 +30,14 @@
   function render(d) {
     const rows = d.rating || [];
     const crew = d.mode === "crew";
+    const errs = Object.keys(d.errors || {});
+    const dg = d.diag || {};
     if (!rows.length) {
+      const dgH = '<div class="ti-hint">Тягачей: ' + esc(d.trucks) + ", без ошибки Mapon: " + esc(dg.ok) + ", с поездками: " + esc(dg.moving) +
+        ", отрезков: " + esc(dg.segs) + ", макс. " + (crew ? "км за сутки" : "км за смену") + " без порога: " + esc(dg.max_km) + "</div>";
+      const erH = errs.length ? '<div class="ti-err">Ошибки Mapon (' + errs.length + "): " + errs.slice(0, 5).map((k) => esc(k) + " — " + esc(d.errors[k])).join("; ") + "</div>" : "";
       out.innerHTML = '<div class="truckinfo-empty">' + (crew ? "Экипажей не найдено: нет траков с ≥3 сутками вождения дольше 10,5 ч. Уменьши «от» км или возьми больший период."
-        : "Смен не найдено — уменьши «от» км.") + "</div>";
+        : "Смен не найдено — уменьши «от» км.") + "</div>" + dgH + erH;
       return;
     }
     const max = Math.max(...rows.map((r) => r.avg)) || 1;
@@ -45,7 +50,6 @@
         `<td>${r.median}</td><td>${r.max}</td><td>${r.speed == null ? "—" : r.speed}</td><td>${r.drive_h}</td>${crew ? `<td>${r.over}</td>` : ""}<td>${r.total}</td></tr>`;
     });
     h += "</table>";
-    const errs = Object.keys(d.errors || {});
     if (errs.length) h += `<div class="ti-err">Не удалось загрузить: ${errs.map(esc).join(", ")}</div>`;
     out.innerHTML = h;
   }
