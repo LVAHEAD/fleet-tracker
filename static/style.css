@@ -1975,10 +1975,13 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 .chain-cell.chain-ok .chain-cb:checked:hover { background: #26844c; }
 #fleet-tbody .chain-cell.chain-ok .chain-cb.chg-mark:checked { background-color: #2e9b5a !important; }
 
-/* Вкладка «Рейтинг» */
-.rt-lbl { font-size: 13px; color: #555; }
-.rt-lbl input { width: 56px; padding: 6px 6px; font-size: 14px; }
-.rt-csv { font-size: 13px; color: #2f6fd6; text-decoration: none; border: 1px solid #2f6fd6; border-radius: 4px; padding: 5px 10px; }
-.rt-csv:hover { background: #2f6fd6; color: #fff; }
+/* Вкладка «Рейтинг» — «Синий Кальк»: кнопки белые с синим контуром, наведение / нажатие — синий фон */
+#tab-rating .ti-form select, #tab-rating .ti-form input { height: 30px; box-sizing: border-box; padding: 4px 8px; font-size: 13px; color: #2f6fd6; background: #fff; border: 1px solid #2f6fd6; border-radius: 6px; }
+#tab-rating .ti-form input { width: 64px; }
+#tab-rating .ti-form select:focus, #tab-rating .ti-form input:focus { outline: none; box-shadow: 0 0 0 2px #dfe9fb; }
+#tab-rating .ti-form button, #tab-rating .rt-csv { height: 30px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 14px; font-size: 13px; color: #2f6fd6; background: #fff; border: 1px solid #2f6fd6; border-radius: 6px; cursor: pointer; text-decoration: none; }
+#tab-rating .ti-form button:hover, #tab-rating .ti-form button:active, #tab-rating .rt-csv:hover, #tab-rating .rt-csv:active { background: #2f6fd6; color: #fff; }
+#tab-rating .ti-form button:disabled { background: #2f6fd6; color: #fff; opacity: .55; cursor: default; }
+.rt-lbl { font-size: 13px; color: #2f6fd6; }
 .rt-table td.rt-bar { width: 140px; }
 .rt-table td.rt-bar i { display: block; height: 8px; background: #2f6fd6; border-radius: 2px; }
