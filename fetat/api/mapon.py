@@ -624,7 +624,7 @@ def _shift_km_ranking():
         return current_app.response_class("\ufeff" + buf.getvalue(), mimetype="text/csv; charset=utf-8",
                                           headers={"Content-Disposition": "attachment; filename=shift_km.csv"})
     out = {"mode": mode, "период, дней": days, "смена = между стоянками от, ч": rest_h, "смены короче, км — не считаем": min_km,
-           "тягачей": len(trucks), "trucks": len(trucks), "в рейтинге": len(rows), "in_rating": len(rows), "diag": dict(diag, top=sorted(cand, key=lambda c: (-c["over"], -c["max_h"]))[:6], max_day_h=max((c["max_h"] for c in cand), default=0)), "ошибки": errs, "рейтинг": rows}
+           "тягачей": len(trucks), "trucks": len(trucks), "в рейтинге": len(rows), "in_rating": len(rows), "diag": dict(diag, top=sorted(cand, key=lambda c: (-c["over"], -c["max_h"]))[:6], max_day_h=max((c["max_h"] for c in cand), default=0)), "ошибки": errs, "errors": errs, "рейтинг": rows, "rating": rows}
     return current_app.response_class(json.dumps(out, ensure_ascii=False, indent=1),
                                       mimetype="application/json; charset=utf-8")
 
