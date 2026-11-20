@@ -26,6 +26,7 @@
   <button class="main-tab-btn" data-tab="gf" data-wip>GF построитель</button>
   <button class="main-tab-btn ref-tab" data-tab="ferries" data-wip>Паромы</button>
   <button class="main-tab-btn ref-tab" data-tab="truckinfo" data-wip>Truck Info</button>
+  <button class="main-tab-btn ref-tab" data-tab="rating">Рейтинг</button>
   <button class="main-tab-btn ref-tab{% if not show_notes %} notes-hidden{% endif %}" data-tab="notes" title="Блокнот">[.]</button>
   {% if show_notes %}<button id="fuel-btn" class="fuel-btn" type="button" title="АЗС: список из инструкции по заправкам и группа Mapon «Actual Petrol Station» (только чтение)">⛽</button>{% endif %}
   <button id="chgClearAllBtn" class="fuel-btn chg-clear-btn" type="button" title="Погасить чужие правки везде: красные рамки и плашки «✎ кто» во Флоте (один клик)">💡</button>
@@ -332,6 +333,21 @@
   </div>
 </div>
 
+<!-- ==================== Вкладка: Рейтинг (км за смену по GPS) ==================== -->
+<div id="tab-rating" class="tab-panel" hidden>
+  <div class="ti-form">
+    <select id="rt-days" title="за сколько суток">
+      <option value="14">14 сут</option><option value="30" selected>30 сут</option><option value="45">45 сут</option>
+    </select>
+    <label class="rt-lbl" title="стоянка не короче этого — конец смены">отдых от <input id="rt-rest" type="number" min="4" max="24" step="1" value="9"> ч</label>
+    <label class="rt-lbl" title="смены короче не считаем">смена от <input id="rt-min" type="number" min="0" step="10" value="100"> км</label>
+    <button id="rt-go" type="button">Показать</button>
+    <a id="rt-csv" class="rt-csv" href="#" title="Скачать таблицу в CSV">CSV</a>
+  </div>
+  <p class="ti-hint">По GPS трака (Mapon route/list), не по водителю: смена = поездки между стоянками от «отдыха» часов. Неполные смены на краях периода не считаются. Расчёт по всем тягачам — до минуты.</p>
+  <div id="rt-out" class="ti-out"><div class="truckinfo-empty"><b>Рейтинг «быстрых» экипажей</b><p>Нажми «Показать»: средние км за смену по каждому тягачу.</p></div></div>
+</div>
+
 <!-- ==================== Вкладка: From → To ==================== -->
 <div id="tab-route" class="tab-panel" hidden>
 <div class="rt-cols">
@@ -424,6 +440,7 @@
 <script src="{{ url_for('static', filename='addr-tab.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='links-panel.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='truckinfo.js', v=app_version) }}"></script>
+<script src="{{ url_for('static', filename='rating.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='gusage.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='fuel-btn.js', v=app_version) }}"></script>
 <script src="{{ url_for('static', filename='changelog.js', v=app_version) }}"></script>

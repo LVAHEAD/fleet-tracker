@@ -537,20 +537,19 @@ def _shift_km_ranking():
             continue
         kms = [x["m"] / 1000 for x in sh]
         drive_h = sum(x["drive"] for x in sh) / 3600
-        rows.append({"truck": num, "смен": len(sh), "км за смену, среднее": round(statistics.mean(kms)),
-                     "медиана": round(statistics.median(kms)), "макс": round(max(kms)),
-                     "км/ч в движении": round(sum(kms) / drive_h, 1) if drive_h else None,
-                     "часов в движении за смену": round(drive_h / len(sh), 1),
-                     "всего км": round(sum(kms))})
-    rows.sort(key=lambda r: -r["км за смену, среднее"])
+        rows.append({"truck": num, "shifts": len(sh), "avg": round(statistics.mean(kms)),
+                     "median": round(statistics.median(kms)), "max": round(max(kms)),
+                     "speed": round(sum(kms) / drive_h, 1) if drive_h else None,
+                     "drive_h": round(drive_h / len(sh), 1), "total": round(sum(kms))})
+    rows.sort(key=lambda r: -r["avg"])
     for i, r in enumerate(rows, 1):
-        r["#"] = i
+        r["n"] = i
     if request.args.get("format") == "csv":
         import csv, io
         buf = io.StringIO()
-        cols = ["#", "truck", "смен", "км за смену, среднее", "медиана", "макс", "км/ч в движении", "часов в движении за смену", "всего км"]
+        cols = ["n", "truck", "shifts", "avg", "median", "max", "speed", "drive_h", "total"]
         w = csv.writer(buf, delimiter=";")
-        w.writerow(cols)
+        w.writerow(["#", "Трак", "Смен", "Км за смену (среднее)", "Медиана", "Макс", "Км/ч в движении", "Ч в движении за смену", "Всего км"])
         for r in rows:
             w.writerow([r.get(c) for c in cols])
         return current_app.response_class("\ufeff" + buf.getvalue(), mimetype="text/csv; charset=utf-8",
