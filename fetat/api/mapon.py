@@ -572,6 +572,7 @@ def _shift_km_ranking():
         res = list(ex.map(one, trucks))
     rows, errs = [], {}
     diag = {"ok": 0, "moving": 0, "segs": 0, "max_km": 0}
+    cand = []
     for u, (segs, e) in zip(trucks, res):
         num = u.get("number") or u.get("label") or str(u.get("unit_id"))
         if e:
@@ -581,8 +582,13 @@ def _shift_km_ranking():
         diag["segs"] += len(segs)
         if any(x[0] == "route" for x in segs):
             diag["moving"] += 1
+            dd = _days_from_segments(segs, frm, till)
+            wk = [v for v in dd.values() if v[0] / 1000 >= min_km]
+            cand.append({"truck": num, "work": len(wk), "over": sum(1 for v in wk if v[1] > TEAM_DAY_OVER_SEC),
+                         "max_h": round(max((v[1] for v in dd.values()), default=0) / 3600, 1),
+                         "max_km": round(max((v[0] for v in dd.values()), default=0) / 1000)})
             if mode == "crew":
-                dm = max((v[0] for v in _days_from_segments(segs, frm, till).values()), default=0)
+                dm = max((v[0] for v in dd.values()), default=0)
             else:
                 dm = max((x["m"] for x in _shifts_from_segments(segs, rest_h, 0, frm, till)), default=0)
             diag["max_km"] = max(diag["max_km"], round(dm / 1000))
@@ -618,7 +624,7 @@ def _shift_km_ranking():
         return current_app.response_class("\ufeff" + buf.getvalue(), mimetype="text/csv; charset=utf-8",
                                           headers={"Content-Disposition": "attachment; filename=shift_km.csv"})
     out = {"mode": mode, "период, дней": days, "смена = между стоянками от, ч": rest_h, "смены короче, км — не считаем": min_km,
-           "тягачей": len(trucks), "в рейтинге": len(rows), "diag": diag, "ошибки": errs, "рейтинг": rows}
+           "тягачей": len(trucks), "trucks": len(trucks), "в рейтинге": len(rows), "in_rating": len(rows), "diag": dict(diag, top=sorted(cand, key=lambda c: (-c["over"], -c["max_h"]))[:6], max_day_h=max((c["max_h"] for c in cand), default=0)), "ошибки": errs, "рейтинг": rows}
     return current_app.response_class(json.dumps(out, ensure_ascii=False, indent=1),
                                       mimetype="application/json; charset=utf-8")
 

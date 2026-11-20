@@ -34,7 +34,10 @@
     const dg = d.diag || {};
     if (!rows.length) {
       const dgH = '<div class="ti-hint">Тягачей: ' + esc(d.trucks) + ", без ошибки Mapon: " + esc(dg.ok) + ", с поездками: " + esc(dg.moving) +
-        ", отрезков: " + esc(dg.segs) + ", макс. " + (crew ? "км за сутки" : "км за смену") + " без порога: " + esc(dg.max_km) + "</div>";
+        ", отрезков: " + esc(dg.segs) + ", макс. " + (crew ? "км за сутки" : "км за смену") + " без порога: " + esc(dg.max_km) +
+        ", макс. часов движения за сутки: " + esc(dg.max_day_h) + "</div>" +
+        ((dg.top || []).length ? '<div class="ti-hint">Ближе всего к экипажу (суток с &gt;10,5 ч / рабочих суток, макс. ч, макс. км за сутки): ' +
+          dg.top.map((c) => esc(c.truck) + " " + c.over + "/" + c.work + ", " + c.max_h + " ч, " + c.max_km + " км").join(" · ") + "</div>" : "");
       const erH = errs.length ? '<div class="ti-err">Ошибки Mapon (' + errs.length + "): " + errs.slice(0, 5).map((k) => esc(k) + " — " + esc(d.errors[k])).join("; ") + "</div>" : "";
       out.innerHTML = '<div class="truckinfo-empty">' + (crew ? "Экипажей не найдено: нет траков с ≥3 сутками вождения дольше 10,5 ч. Уменьши «от» км или возьми больший период."
         : "Смен не найдено — уменьши «от» км.") + "</div>" + dgH + erH;
