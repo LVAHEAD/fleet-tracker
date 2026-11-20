@@ -446,6 +446,121 @@ def _tacho_subscriptions():
     return current_app.response_class(json.dumps(out, ensure_ascii=False, indent=1),
                                       mimetype="application/json; charset=utf-8")
 
+def _shift_segments(unit_id, frm, till):
+    """Отрезки route/list за [frm, till] кусками по 7 суток: [(тип, start_ts, end_ts, метры)]."""
+    import time
+    from datetime import datetime, timezone
+    out, a = [], frm
+    while a < till:
+        b = min(till, a + 7 * 86400)
+        d = mapon_get(MAPON_BASE + "route/list.json",
+                      {"key": MAPON_API_KEY, "unit_id": unit_id, "from": _utc_iso(a), "till": _utc_iso(b)}, timeout=40)
+        for u in (d.get("data") or {}).get("units") or []:
+            for r in u.get("routes") or []:
+                k = r.get("type")
+                if k not in ("route", "stop"):
+                    continue
+                try:
+                    f = lambda t: datetime.strptime(t, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+                    s_ts = f((r.get("start") or {})["time"])
+                    e_raw = (r.get("end") or {}).get("time")
+                    e_ts = f(e_raw) if e_raw else min(b, time.time())
+                except Exception:
+                    continue
+                out.append((k, s_ts, e_ts, float(r.get("distance") or 0)))
+        a = b
+    out.sort(key=lambda x: x[1])
+    uniq, seen = [], set()
+    for x in out:                       # куски на границе недель не дублируем
+        if (x[0], x[1]) not in seen:
+            seen.add((x[0], x[1]))
+            uniq.append(x)
+    return uniq
+
+
+def _shifts_from_segments(segs, rest_h, min_km, frm, till):
+    """Смена = поездки между стоянками >= rest_h часов. Смены на краях окна (неполные) отбрасываем."""
+    shifts, cur = [], None
+    for k, s, e, m in segs:
+        if k == "stop":
+            if e - s >= rest_h * 3600:
+                if cur:
+                    shifts.append(cur)
+                cur = None
+            continue
+        if cur is None:
+            cur = {"s": s, "e": e, "m": m, "drive": e - s}
+        else:
+            cur["e"] = e
+            cur["m"] += m
+            cur["drive"] += e - s
+    if cur:
+        shifts.append(cur)
+    out = [x for x in shifts if x["s"] > frm + rest_h * 3600 and x["e"] < till - 600 and x["m"] / 1000 >= min_km]
+    return out
+
+
+def _shift_km_ranking():
+    """/api/mapon-check?shiftkm=1&days=30&rest_h=9&min_km=100[&format=csv] — км за смену по GPS (route/list), ранг по среднему."""
+    import json, time, statistics
+    from concurrent.futures import ThreadPoolExecutor
+    try:
+        days = max(3, min(int(request.args.get("days") or 30), 60))
+        rest_h = max(4.0, min(float(request.args.get("rest_h") or 9), 24.0))
+        min_km = max(0.0, float(request.args.get("min_km") or 100))
+    except ValueError:
+        return jsonify({"error": "days / rest_h / min_km — числа"}), 400
+    try:
+        units = fetch_units(MAPON_API_KEY)
+        ids = set(fetch_group_unit_ids(MAPON_API_KEY, HEAD_TRUCK_GROUP_ID))
+    except Exception as e:
+        return jsonify({"error": f"unit/list: {e}"}), 502
+    trucks = [u for u in units if u.get("unit_id") in ids and not is_trailer(u)]
+    till = time.time()
+    frm = till - days * 86400
+
+    def one(u):
+        try:
+            return _shift_segments(u["unit_id"], frm, till), None
+        except Exception as e:
+            return [], str(e)[:120]
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        res = list(ex.map(one, trucks))
+    rows, errs = [], {}
+    for u, (segs, e) in zip(trucks, res):
+        num = u.get("number") or u.get("label") or str(u.get("unit_id"))
+        if e:
+            errs[num] = e
+            continue
+        sh = _shifts_from_segments(segs, rest_h, min_km, frm, till)
+        if not sh:
+            continue
+        kms = [x["m"] / 1000 for x in sh]
+        drive_h = sum(x["drive"] for x in sh) / 3600
+        rows.append({"truck": num, "смен": len(sh), "км за смену, среднее": round(statistics.mean(kms)),
+                     "медиана": round(statistics.median(kms)), "макс": round(max(kms)),
+                     "км/ч в движении": round(sum(kms) / drive_h, 1) if drive_h else None,
+                     "часов в движении за смену": round(drive_h / len(sh), 1),
+                     "всего км": round(sum(kms))})
+    rows.sort(key=lambda r: -r["км за смену, среднее"])
+    for i, r in enumerate(rows, 1):
+        r["#"] = i
+    if request.args.get("format") == "csv":
+        import csv, io
+        buf = io.StringIO()
+        cols = ["#", "truck", "смен", "км за смену, среднее", "медиана", "макс", "км/ч в движении", "часов в движении за смену", "всего км"]
+        w = csv.writer(buf, delimiter=";")
+        w.writerow(cols)
+        for r in rows:
+            w.writerow([r.get(c) for c in cols])
+        return current_app.response_class("\ufeff" + buf.getvalue(), mimetype="text/csv; charset=utf-8",
+                                          headers={"Content-Disposition": "attachment; filename=shift_km.csv"})
+    out = {"период, дней": days, "смена = между стоянками от, ч": rest_h, "смены короче, км — не считаем": min_km,
+           "тягачей": len(trucks), "в рейтинге": len(rows), "ошибки": errs, "рейтинг": rows}
+    return current_app.response_class(json.dumps(out, ensure_ascii=False, indent=1),
+                                      mimetype="application/json; charset=utf-8")
+
+
 # v3.258: лог рефа прицепа — включения за N суток (Mapon reefer/historic_period; нужны права ключа на reefer/*)
 REEFER_LOG_TTL = 300
 _reefer_log_cache = {}
@@ -576,6 +691,8 @@ def api_mapon_check():
         return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
     if request.args.get("tacho") == "1":
         return _tacho_subscriptions()
+    if request.args.get("shiftkm") == "1":
+        return _shift_km_ranking()
     now = int(time.time())
     import json
     norm = lambda x: re.sub(r"[^0-9a-zа-я]", "", str(x or "").lower())
