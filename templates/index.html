@@ -336,16 +336,19 @@
 <!-- ==================== Вкладка: Рейтинг (км за смену по GPS) ==================== -->
 <div id="tab-rating" class="tab-panel" hidden>
   <div class="ti-form">
+    <select id="rt-mode" title="что ранжируем">
+      <option value="crew" selected>Экипажи — км за сутки</option><option value="shift">Все траки — км за смену</option>
+    </select>
     <select id="rt-days" title="за сколько суток">
       <option value="14">14 сут</option><option value="30" selected>30 сут</option><option value="45">45 сут</option>
     </select>
-    <label class="rt-lbl" title="стоянка не короче этого — конец смены">отдых от <input id="rt-rest" type="number" min="4" max="24" step="1" value="9"> ч</label>
-    <label class="rt-lbl" title="смены короче не считаем">смена от <input id="rt-min" type="number" min="0" step="10" value="100"> км</label>
+    <label class="rt-lbl rt-shift-only" title="стоянка не короче этого — конец смены">отдых от <input id="rt-rest" type="number" min="4" max="24" step="1" value="9"> ч</label>
+    <label class="rt-lbl" title="сутки / смены короче не считаем">от <input id="rt-min" type="number" min="0" step="10" value="100"> км</label>
     <button id="rt-go" type="button">Показать</button>
     <a id="rt-csv" class="rt-csv" href="#" title="Скачать таблицу в CSV">CSV</a>
   </div>
-  <p class="ti-hint">По GPS трака (Mapon route/list), не по водителю: смена = поездки между стоянками от «отдыха» часов. Неполные смены на краях периода не считаются. Расчёт по всем тягачам — до минуты.</p>
-  <div id="rt-out" class="ti-out"><div class="truckinfo-empty"><b>Рейтинг «быстрых» экипажей</b><p>Нажми «Показать»: средние км за смену по каждому тягачу.</p></div></div>
+  <p class="ti-hint" id="rt-hint"></p>
+  <div id="rt-out" class="ti-out"><div class="truckinfo-empty"><b>Рейтинг «быстрых» экипажей</b><p>Нажми «Показать»: экипажи по среднему км за сутки (по GPS).</p></div></div>
 </div>
 
 <!-- ==================== Вкладка: From → To ==================== -->

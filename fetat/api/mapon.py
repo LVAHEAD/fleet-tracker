@@ -467,7 +467,10 @@ def _shift_segments(unit_id, frm, till):
                     e_ts = f(e_raw) if e_raw else min(b, time.time())
                 except Exception:
                     continue
-                out.append((k, s_ts, e_ts, float(r.get("distance") or 0)))
+                dist = float(r.get("distance") or 0)
+                if k == "route" and e_ts - s_ts >= 1800 and dist > 0 and dist / (e_ts - s_ts) * 3.6 < 45:
+                    continue            # паром (≥30 мин и медленно, как в gps_shift): не вождение и не км
+                out.append((k, s_ts, e_ts, dist))
         a = b
     out.sort(key=lambda x: x[1])
     uniq, seen = [], set()
@@ -500,6 +503,46 @@ def _shifts_from_segments(segs, rest_h, min_km, frm, till):
     return out
 
 
+TEAM_DAY_OVER_SEC = 10.5 * 3600      # как TEAM_HIST_DAY_SEC: больше за сутки — одиночке нельзя, значит экипаж
+
+
+def _days_from_segments(segs, frm, till):
+    """{день UTC (ts начала): [метры, секунды в движении]} по полным суткам окна; отрезок через полночь делим по времени."""
+    days = {}
+    for k, s, e, m in segs:
+        if k != "route" or e <= s:
+            continue
+        a = s
+        while a < e:
+            d0 = a - a % 86400
+            b = min(e, d0 + 86400)
+            part = days.setdefault(d0, [0.0, 0.0])
+            part[0] += m * (b - a) / (e - s)
+            part[1] += b - a
+            a = b
+    first = frm - frm % 86400 + 86400          # первые и последние сутки окна неполные
+    last = till - till % 86400
+    return {d: v for d, v in days.items() if first <= d < last}
+
+
+def _crew_row(num, segs, frm, till, min_km):
+    """Строка рейтинга экипажа или None: трак — экипаж, если ≥3 суток и ≥25% рабочих суток с вождением > 10,5 ч."""
+    import statistics
+    days = _days_from_segments(segs, frm, till)
+    work = {d: v for d, v in days.items() if v[0] / 1000 >= min_km}
+    if not work:
+        return None
+    over = sum(1 for v in work.values() if v[1] > TEAM_DAY_OVER_SEC)
+    if over < 3 or over < 0.25 * len(work):
+        return None
+    kms = [v[0] / 1000 for v in work.values()]
+    drive_h = sum(v[1] for v in work.values()) / 3600
+    return {"truck": num, "shifts": len(work), "avg": round(statistics.mean(kms)),
+            "median": round(statistics.median(kms)), "max": round(max(kms)),
+            "speed": round(sum(kms) / drive_h, 1) if drive_h else None,
+            "drive_h": round(drive_h / len(work), 1), "over": over, "total": round(sum(kms))}
+
+
 def _shift_km_ranking():
     """/api/mapon-check?shiftkm=1&days=30&rest_h=9&min_km=100[&format=csv] — км за смену по GPS (route/list), ранг по среднему."""
     import json, time, statistics
@@ -507,7 +550,8 @@ def _shift_km_ranking():
     try:
         days = max(3, min(int(request.args.get("days") or 30), 60))
         rest_h = max(4.0, min(float(request.args.get("rest_h") or 9), 24.0))
-        min_km = max(0.0, float(request.args.get("min_km") or 100))
+        mode = "shift" if request.args.get("mode") == "shift" else "crew"
+        min_km = max(0.0, float(request.args.get("min_km") or (100 if mode == "shift" else 300)))
     except ValueError:
         return jsonify({"error": "days / rest_h / min_km — числа"}), 400
     try:
@@ -532,6 +576,11 @@ def _shift_km_ranking():
         if e:
             errs[num] = e
             continue
+        if mode == "crew":
+            row = _crew_row(num, segs, frm, till, min_km)
+            if row:
+                rows.append(row)
+            continue
         sh = _shifts_from_segments(segs, rest_h, min_km, frm, till)
         if not sh:
             continue
@@ -547,14 +596,15 @@ def _shift_km_ranking():
     if request.args.get("format") == "csv":
         import csv, io
         buf = io.StringIO()
-        cols = ["n", "truck", "shifts", "avg", "median", "max", "speed", "drive_h", "total"]
+        cols = ["n", "truck", "shifts", "avg", "median", "max", "speed", "drive_h", "total"] + (["over"] if mode == "crew" else [])
         w = csv.writer(buf, delimiter=";")
-        w.writerow(["#", "Трак", "Смен", "Км за смену (среднее)", "Медиана", "Макс", "Км/ч в движении", "Ч в движении за смену", "Всего км"])
+        u = "суток" if mode == "crew" else "смен"
+        w.writerow(["#", "Трак", u.capitalize(), f"Км за {u[:-1] + 'ки' if mode == 'crew' else 'смену'} (среднее)", "Медиана", "Макс", "Км/ч в движении", f"Ч в движении ({'в сутки' if mode == 'crew' else 'за смену'})", "Всего км"] + (["Суток >10,5 ч"] if mode == "crew" else []))
         for r in rows:
             w.writerow([r.get(c) for c in cols])
         return current_app.response_class("\ufeff" + buf.getvalue(), mimetype="text/csv; charset=utf-8",
                                           headers={"Content-Disposition": "attachment; filename=shift_km.csv"})
-    out = {"период, дней": days, "смена = между стоянками от, ч": rest_h, "смены короче, км — не считаем": min_km,
+    out = {"mode": mode, "период, дней": days, "смена = между стоянками от, ч": rest_h, "смены короче, км — не считаем": min_km,
            "тягачей": len(trucks), "в рейтинге": len(rows), "ошибки": errs, "рейтинг": rows}
     return current_app.response_class(json.dumps(out, ensure_ascii=False, indent=1),
                                       mimetype="application/json; charset=utf-8")
