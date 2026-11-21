@@ -32,9 +32,9 @@ Fleet ETA Tracker — вкладка "Truck Info"
       h += `<div class="ti-now ti-now-soft">Отдыхает ${esc(d.resting)}</div>`;
     }
     if (d.deadline) {
-      h += `<div class="ti-deadline">Следующий — <b>${esc(d.deadline)}</b>
-        (через ${esc(d.deadline_in)}), нужен <b>${esc(d.need)}</b>` +
-        (d.mapon_weekly ? `<span class="ti-mapon">Mapon: ${esc(d.mapon_weekly)}</span>` : "") + `</div>`;
+      h += `<div class="ti-deadline">Следующий недельный — <b>${/^45/.test(String(d.need)) ? "45ка" : "24ка"}</b> ${esc(d.deadline)}
+        (через ${esc(d.deadline_in)})` +
+        (d.mapon_weekly ? ` <span class="ti-mapon">Mapon: ${esc(d.mapon_weekly)}</span>` : "") + `</div>`;
     }
     if (d.weekly_error) h += `<div class="ti-err">${esc(d.weekly_error)}</div>`;
     if (d.weekly && d.weekly.length) {
