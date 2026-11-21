@@ -55,5 +55,20 @@ class TabsLayoutTest(unittest.TestCase):
         self.assertNotIn(".main-tab-btn.ref-tab {", css)
 
 
+class MapTypeToggleTest(unittest.TestCase):
+    """v3.353: свой переключатель «Сат» / «Карта» вместо родного «Map ▾» на всех картах (static/maps-common.js)."""
+    def test_toggle(self):
+        with open(os.path.join(ROOT, "static", "maps-common.js"), encoding="utf8") as f:
+            js = f.read()
+        self.assertIn("mapTypeControl: false", js)
+        self.assertNotIn("MapTypeControlStyle", js)
+        self.assertIn("mapTypeBtn(map);", js)
+        self.assertIn('sat ? "Карта" : "Сат"', js)
+        with open(os.path.join(ROOT, "static", "addr-tab.js"), encoding="utf8") as f:
+            self.assertNotIn("mapTypeControl", f.read())          # карточка адреса не возвращает родной переключатель
+        with open(os.path.join(ROOT, "static", "style.css"), encoding="utf8") as f:
+            self.assertIn(".mc-mt:hover { background: #2f6fd6;", f.read())
+
+
 if __name__ == "__main__":
     unittest.main()

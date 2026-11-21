@@ -4,6 +4,7 @@ MapsCommon.make(элемент, настройки) создаёт карту с
 сверху, без значков Google и Street View, точки интересов Google видны (v3.52), подписи транспорта скрыты,
 цифра зума и зум колесом без Ctrl (ZoomBadge). Настройки карты переопределяют общие.
 MapsCommon.ZOOM — пороги зума для слоя машин: cluster — ниже склеиваем, num — с него плашки номеров.
+v3.353: «Сат» / «Карта» — свой переключатель слева сверху вместо родного «Map ▾».
 v3.51: MapsCommon.refreshBtn(map, onClick) — ↻ «Обновить позиции машин» справа сверху (над + / −) на всех картах;
 onClick может вернуть Promise — пока он идёт, кнопка неактивна. Возвращает кнопку (hidden — спрятать).
 */
@@ -25,14 +26,33 @@ onClick может вернуть Promise — пока он идёт, кнопк
       streetViewControl: false,
       styles: STYLES,
       zoomControl: false,     // v3.93: свои кнопки + / − (zoomBtns), одного размера с ↻ и 🏭
-      mapTypeControl: true,   // v3.92: «Map ▾» одной кнопкой — карта / спутник на всех картах
-      mapTypeControlOptions: { style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
-        position: google.maps.ControlPosition.LEFT_TOP, mapTypeIds: ["roadmap", "satellite"] },
+      mapTypeControl: false,  // v3.353: вместо родного «Map ▾» (v3.92) — своя кнопка «Сат» / «Карта» (mapTypeBtn)
     }, opts || {}));
     zoomBtns(map);
+    mapTypeBtn(map);
     if (!(opts && opts.noTraffic)) trafficBtn(map);   // v3.95: «Пр» — слой пробок (вкл / выкл); v3.176: opts.noTraffic — без неё (карта в «Адресах»)
     if (window.ZoomBadge) window.ZoomBadge.attach(map);
     return map;
+  }
+  // v3.353: «Сат» / «Карта» слева сверху одной кнопкой: на карте — «Сат» (клик → спутник), на спутнике — «Карта»; стиль «Синий Кальк»
+  function mapTypeBtn(map) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "mc-mt";
+    const sync = () => {
+      const sat = map.getMapTypeId() === "satellite";
+      b.textContent = sat ? "Карта" : "Сат";
+      b.title = sat ? "Показать обычную карту" : "Показать спутник";
+      b.setAttribute("aria-label", b.title);
+    };
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      map.setMapTypeId(map.getMapTypeId() === "satellite" ? "roadmap" : "satellite");
+    });
+    map.addListener("maptypeid_changed", sync);
+    sync();
+    map.controls[google.maps.ControlPosition.LEFT_TOP].push(b);
+    return b;
   }
   // v3.93: + / − справа сверху, 30 px, стиль калькулятора (белая кнопка, тонкая рамка, синий значок)
   function zoomBtns(map) {

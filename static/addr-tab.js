@@ -153,7 +153,7 @@
     // «Map ▾» (карта / спутник) оставляем — на спутнике при большом зуме видно двор, въезд, ворота
     if (!cardMap) {
       // v3.176: без «Пр»; объекты Mapon (🏭) и все машины (🚚) — по кнопкам, клик по машине ничего не делает
-      cardMap = MapsCommon.make(cardMapBox, { disableDefaultUI: true, mapTypeControl: true, noTraffic: true });
+      cardMap = MapsCommon.make(cardMapBox, { disableDefaultUI: true, noTraffic: true });
       if (window.ObjLayer) ObjLayer.attach(cardMap);
       if (window.UnitsLayer) UnitsLayer.attach(cardMap);
     }
