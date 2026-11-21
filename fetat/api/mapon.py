@@ -209,7 +209,7 @@ def api_truck_info():
                 wsrc = older + list(w["weekly"])
                 row["weekly"] = [{"from": _lv(x["start"]), "to": _lv(x["end"]), "hours": _hm(x["end"] - x["start"]),
                                   "full": x["full"], "nocard": any(s in ("can", "unkn") for s in x["src"]),
-                                  "clipped": x.get("clipped", False)}
+                                  "clipped": x.get("clipped", False), "ts": x["start"], "te": x["end"]}
                                  for x in wsrc]
                 row["ongoing"] = w.get("ongoing")
                 row["resting"] = _hm(w.get("resting_sec")) if w.get("resting_sec") else None
@@ -228,7 +228,8 @@ def api_truck_info():
                                 "left": _hm(c["left"]) if c["left"] >= 60 else None,
                                 "deadline": _lv(c["deadline"]), "status": c["status"],
                                 "until21": _lv(c["end"] + 21 * 86400).split(" ")[0],
-                                "done_at": _lv(c["done_at"]).split(" ")[0] if c.get("done_at") else None}      # v3.357: «до» = конец отдыха + 21 день
+                                "done_at": _lv(c["done_at"]).split(" ")[0] if c.get("done_at") else None,
+                                "ts": c["start"], "te": c["end"], "dts": c.get("done_start"), "dte": c.get("done_at")}      # v3.357: «до» = конец отдыха + 21 день
                                for c in weekly_compensation(hist)]
                 # правило диспетчеров (только Truck Info): недельный — один в неделе, самый длинный; остальные — «большая 9-ка»
                 desig = designate_weekly((hist or {}).get("rests") or [], (hist or {}).get("from") or 0)

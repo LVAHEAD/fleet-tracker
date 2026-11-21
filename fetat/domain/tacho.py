@@ -216,6 +216,7 @@ def weekly_compensation(hist, now_ts=None):
             if dbt["end"] <= r["start"] and r["end"] <= dbt["deadline"] and dbt["done"] == 0 and spare >= dbt["deficit"]:
                 dbt["done"] = dbt["deficit"]
                 dbt["done_at"] = r["end"]            # v3.357: когда закрыт долг — конец отдыха, которым он погашен
+                dbt["done_start"] = r["start"]       # v3.358: сам отдых-погашение — для подсветки строки в Truck Info
                 spare -= dbt["deficit"]
     for dbt in debts:
         dbt["left"] = max(0.0, dbt["deficit"] - dbt["done"])

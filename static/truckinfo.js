@@ -49,7 +49,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
     if (d.weekly_error) h += `<div class="ti-err">${esc(d.weekly_error)}</div>`;
     if (d.weekly && d.weekly.length) {
       h += `<table class="ti-table"><tr><th>Недельный отдых</th><th>часов</th><th></th></tr>` +
-        d.weekly.map((w) => `<tr>
+        d.weekly.map((w) => `<tr data-ts="${w.ts || ""}" data-te="${w.te || ""}">
           <td><b class="ti-kind">${esc(weeklyKind(w))}</b> ${esc(w.from)} → ${esc(w.to)}</td><td>${hoursFloor(w.hours)}</td>
           <td>${w.daily ? '<span class="ti-tag" title="второй отдых от 24 ч в неделе — считаем суточным">большая 9ка</span>' : w.full ? '<span class="ti-tag ti-full">45+</span>' : '<span class="ti-tag ti-red">сокращ.</span>'}
               ${w.nocard ? '<span class="ti-tag" title="часть отдыха без карты — данные с CAN">без карты</span>' : ""}${w.clipped ? '<span class="ti-tag" title="Трак ехал по GPS — отдых «без карты» обрезан по началу / концу поездки, 45 ч не подтверждены">⚠ трак ехал</span>' : ""}</td>
@@ -62,8 +62,8 @@ Fleet ETA Tracker — вкладка "Truck Info"
         overdue: (c) => ["ti-red", "просрочено до " + esc(c.until21 || c.deadline)] };
       h += `<table class="ti-table"><tr><th>Компенсация сокращённого отдыха</th><th>недобор</th><th>осталось</th></tr>` +
         d.comp.slice().reverse().map((c) => { const [cls, txt] = CST[c.status](c); return `<tr>
-          <td>${esc(c.from)} → ${esc(c.to)} (${esc(c.hours)})</td><td>${deficitH(c.deficit)}</td>
-          <td><span class="ti-tag ${cls}">${txt}</span></td></tr>`; }).join("") +
+          <td class="ti-jump" data-ts="${c.ts || ""}" data-te="${c.te || ""}" title="Показать этот отдых в «Недельном отдыхе»">${esc(c.from)} → ${esc(c.to)} (${esc(c.hours)})</td><td>${deficitH(c.deficit)}</td>
+          <td class="ti-jump" data-ts="${c.dts || ""}" data-te="${c.dte || ""}" title="${c.dts ? "Показать отдых, которым долг закрыт" : "Показать срок"}"><span class="ti-tag ${cls}">${txt}</span></td></tr>`; }).join("") +
         `</table><div class="ti-note">Недобор добирают одним куском к отдыху не короче 9 ч (к 9-ке или 45-ке) до конца третьей недели после сокращения; считаем за ${d.comp_days || 28} дн. истории.</div>`;
     }
     if (d.cards && d.cards.length) {
@@ -238,6 +238,25 @@ Fleet ETA Tracker — вкладка "Truck Info"
   }
   ["input", "focus"].forEach((ev) => inp.addEventListener(ev, fillList));
   btn.addEventListener("click", load);
+  // v3.358: клик в «Компенсации» — строка этого отдыха в «Недельном отдыхе» моргает 5 с (1 — сокращённый отдых, 2 — отдых, которым долг закрыт)
+  out.addEventListener("click", (e) => {
+    const j = e.target.closest(".ti-jump");
+    if (!j) return;
+    const ts = +j.dataset.ts, te = +j.dataset.te, card = j.closest(".ti-driver");
+    if (!ts || !te || !card) return;
+    let best = null, bo = 0;
+    card.querySelectorAll("tr[data-ts]").forEach((tr) => {
+      const a = +tr.dataset.ts, b = +tr.dataset.te;
+      const o = Math.min(te, b) - Math.max(ts, a);
+      if (a && b && o > bo) { bo = o; best = tr; }
+    });
+    if (!best) return;
+    best.classList.remove("ti-blink");
+    void best.offsetWidth;
+    best.classList.add("ti-blink");
+    best.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    setTimeout(() => best.classList.remove("ti-blink"), 5000);
+  });
   // v3.331: клик по метке «тягач: …» — Truck Info по тягачу
   out.addEventListener("click", (e) => {
     const t = e.target.closest(".ti-tractor");
