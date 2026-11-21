@@ -8,6 +8,10 @@ Fleet ETA Tracker — вкладка "Truck Info"
   const btn = document.getElementById("ti-go");
   const out = document.getElementById("ti-out");
   if (!inp || !btn || !out) return;
+  // v3.354: «часов» недельного отдыха — целые часы вниз, точное время в скобках: 24:00 (24:09)
+  const hoursFloor = (v) => { const m = /^(\d+):(\d{2})$/.exec(String(v == null ? "" : v)); return m ? `${+m[1]}:00 (${esc(v)})` : esc(v); };
+  // недобор до 45 ч — от отдыха, округлённого вниз, то есть вверх: 20:51 → 21H (только вид, расчёт по точным минутам)
+  const deficitH = (v) => { const m = /^(\d+):(\d{2})$/.exec(String(v == null ? "" : v)); return m ? `${+m[1] + (+m[2] > 0 ? 1 : 0)}H` : esc(v); };
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const STATE = { DRIVING: "едет", REST: "отдыхает", AVAILABLE: "готовность", WORK: "работа" };
@@ -36,7 +40,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
     if (d.weekly && d.weekly.length) {
       h += `<table class="ti-table"><tr><th>Недельный отдых</th><th>часов</th><th></th></tr>` +
         d.weekly.map((w) => `<tr>
-          <td>${esc(w.from)} → ${esc(w.to)}</td><td>${esc(w.hours)}</td>
+          <td>${esc(w.from)} → ${esc(w.to)}</td><td>${hoursFloor(w.hours)}</td>
           <td>${w.daily ? '<span class="ti-tag" title="второй отдых от 24 ч в неделе — считаем суточным">большая 9ка</span>' : w.full ? '<span class="ti-tag ti-full">45+</span>' : '<span class="ti-tag ti-red">сокращ.</span>'}
               ${w.nocard ? '<span class="ti-tag" title="часть отдыха без карты — данные с CAN">без карты</span>' : ""}${w.clipped ? '<span class="ti-tag" title="Трак ехал по GPS — отдых «без карты» обрезан по началу / концу поездки, 45 ч не подтверждены">⚠ трак ехал</span>' : ""}</td>
         </tr>`).join("") + `</table>`;
@@ -45,7 +49,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
       const CST = { ok: ["ti-full", "компенсирован"], open: ["ti-red", "нужно добрать"], overdue: ["ti-red", "просрочено"] };
       h += `<table class="ti-table"><tr><th>Компенсация сокращённого отдыха</th><th>недобор</th><th>осталось</th><th></th></tr>` +
         d.comp.slice().reverse().map((c) => `<tr>
-          <td>${esc(c.from)} → ${esc(c.to)} (${esc(c.hours)})</td><td>${esc(c.deficit)}</td>
+          <td>${esc(c.from)} → ${esc(c.to)} (${esc(c.hours)})</td><td>${deficitH(c.deficit)}</td>
           <td>${c.left ? "<b>" + esc(c.left) + "</b> до " + esc(c.deadline) : "—"}</td>
           <td><span class="ti-tag ${CST[c.status][0]}">${CST[c.status][1]}</span></td></tr>`).join("") +
         `</table><div class="ti-note">Недобор добирают одним куском к отдыху не короче 9 ч (к 9-ке или 45-ке) до конца третьей недели после сокращения; считаем за ${28} дн. истории.</div>`;
