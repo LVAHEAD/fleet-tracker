@@ -4,11 +4,19 @@ Fleet ETA Tracker — цифра зума Google Maps (0 — весь мир, 21
 ZoomBadge.attach(map) — для карт Флота, From → To, Локатора и мини-карты ⏱.
 */
 (function () {
+  // не телефон и не планшет — по User-Agent, а не по any-pointer (v3.186 зависел от ответа браузера и на части устройств терял зум без Ctrl)
+  function desktop() {
+    const ua = navigator.userAgent || "", d = navigator.userAgentData;
+    if (d && typeof d.mobile === "boolean" && d.mobile) return false;
+    if (/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return false;
+    if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return false;   // iPad в режиме «настольного сайта»
+    return true;
+  }
   function attach(map) {
     if (!map || map.__zoomBadge) return;
     map.__zoomBadge = true;
     // колесо мыши зумит карту без Ctrl; на сенсорных экранах (телефон) — как было
-    if (window.matchMedia("(any-pointer: fine)").matches) map.setOptions({ gestureHandling: "greedy", scrollwheel: true });   // v3.186: есть мышь / тачпад — колесо без Ctrl (раньше смотрели только основной указатель)
+    if (desktop()) map.setOptions({ gestureHandling: "greedy", scrollwheel: true });   // колесо без Ctrl на всех устройствах, кроме телефонов и планшетов
     const el = document.createElement("div");
     el.style.cssText = "margin:0 0 22px 8px;padding:2px 7px;background:rgba(255,255,255,.9);border-radius:4px;" +
       "font:600 12px/16px system-ui,sans-serif;color:#444;box-shadow:0 1px 3px rgba(0,0,0,.3);pointer-events:none";
@@ -18,5 +26,5 @@ ZoomBadge.attach(map) — для карт Флота, From → To, Локато�
     map.addListener("zoom_changed", upd);
     upd();
   }
-  window.ZoomBadge = { attach };
+  window.ZoomBadge = { attach, desktop };
 })();

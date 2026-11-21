@@ -13,9 +13,8 @@ onClick может вернуть Promise — пока он идёт, кнопк
   const STYLES = [
     { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] },
   ];
-  // v3.186: колесо мыши зумит карту без Ctrl, если есть мышь / тачпад (any-pointer: fine) — раньше смотрели только основной указатель
-  // (pointer: coarse), и на ноутбуках с сенсорным экраном Google просил Ctrl; на чисто сенсорных экранах (телефон) — как было
-  const WHEEL = typeof matchMedia === "function" && matchMedia("(any-pointer: fine)").matches;
+  // колесо мыши зумит карту без Ctrl на всём, кроме телефонов и планшетов (ZoomBadge.desktop — по User-Agent; zoom-badge.js грузится раньше)
+  const WHEEL = !!(window.ZoomBadge && window.ZoomBadge.desktop());
   function make(el, opts) {
     const map = new google.maps.Map(el, Object.assign({
       gestureHandling: WHEEL ? "greedy" : "auto",
