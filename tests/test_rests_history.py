@@ -80,6 +80,18 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(lh["from"], NOW - 28 * D)
         self.assertEqual(len(lh["rests"]), 1)
 
+    def test_mapon_correction_inside_window_replaces_stored(self):
+        # в хранилище — старая CAN-оценка 04:16–04:45; Mapon потом поправил на 04:30–04:30+24ч: берём свежий вариант
+        RESTS_STORE.put("d5", {"rests": [R(-2 * D, -1 * D + 1740)], "since": NOW - 28 * D})
+        fresh = [R(-2 * D + 840, -1 * D)]
+        lh = H.long_history("d5", self.hist(fresh), NOW)
+        self.assertEqual([(r["start"], r["end"]) for r in lh["rests"]], [(NOW - 2 * D + 840, NOW - 1 * D)])
+
+    def test_remember_overwrites_corrected_piece(self):
+        RESTS_STORE.put("d6", {"rests": [R(-10 * D, -9 * D + 900)], "since": NOW - 28 * D})
+        H.remember("d6", self.hist([R(-10 * D, -9 * D)]), NOW)
+        self.assertEqual(RESTS_STORE.get("d6")["rests"][0]["end"], NOW - 9 * D)
+
     def test_remember_throttled(self):
         H.remember("d4", self.hist([R(-10 * D, -9 * D)]), NOW)
         H.remember("d4", self.hist([R(-10 * D, -9 * D), R(-5 * D, -4 * D)]), NOW + 60)

@@ -42,6 +42,13 @@ def merge_rests(stored, fresh, now, keep_days=KEEP_DAYS, gap=JOIN_GAP_SEC, edge_
     return [{"start": int(r["start"]), "end": int(r["end"]), "src": sorted(r["src"])} for r in out if r["end"] >= cutoff]
 
 
+def _outside_window(stored, window_from):
+    """Хранилище отдаёт только то, что Mapon уже не показывает: куски, начатые до края окна. Всё, что начато внутри окна,
+    берём из свежего ответа Mapon: его правки (CAN-оценка «без карты» заменена данными тахографа) важнее старой записи,
+    иначе объединение со старым вариантом растягивает отдых и тянет его начало / конец к прежним значениям."""
+    return [r for r in stored or [] if r["start"] < (window_from or 0) + 60]
+
+
 def _complete(hist, now):
     """Завершённые отдыхи окна: без идущего сейчас и без обрезанного началом окна."""
     t0 = (hist or {}).get("from") or 0
@@ -58,7 +65,7 @@ def remember(driver_id, hist, now=None):
     try:
         rec = RESTS_STORE.get(driver_id) or {}
         old = rec.get("rests") or []
-        merged = merge_rests(old, _complete(hist, now), now)   # края окна здесь нет: берём только завершённые куски
+        merged = merge_rests(_outside_window(old, hist.get("from")), _complete(hist, now), now)   # края окна здесь нет: берём только завершённые куски
         if merged != [{"start": int(r["start"]), "end": int(r["end"]), "src": sorted(r.get("src") or [])} for r in old]:
             RESTS_STORE.put(driver_id, {"rests": merged, "since": rec.get("since") or int(hist.get("from") or now),
                                         "saved_at": int(now)})
@@ -77,5 +84,5 @@ def long_history(driver_id, hist, now=None):
     cur_from = hist.get("from") or now
     since = min(rec.get("since") or cur_from, cur_from)
     start = max(since, now - SHOW_DAYS * 86400)
-    rests = merge_rests(rec.get("rests"), hist.get("rests"), now, keep_days=SHOW_DAYS, edge_from=cur_from)
+    rests = merge_rests(_outside_window(rec.get("rests"), cur_from), hist.get("rests"), now, keep_days=SHOW_DAYS, edge_from=cur_from)
     return {"rests": rests, "cards": hist.get("cards") or [], "from": start, "window_from": cur_from}
