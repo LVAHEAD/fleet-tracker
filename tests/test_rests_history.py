@@ -24,10 +24,17 @@ class MergeTest(unittest.TestCase):
         m = H.merge_rests(stored, fresh, NOW)
         self.assertEqual((m[0]["start"], m[0]["end"]), (NOW - 40 * D, NOW - 37 * D))
 
-    def test_adjacent_within_15_min_joined(self):
+    def test_gap_inside_window_not_joined(self):
         m = H.merge_rests([R(-5 * D, -4 * D)], [R(-4 * D + 600, -3 * D, ("can",))], NOW)
+        self.assertEqual(len(m), 2)           # зазор 10 мин внутри окна — отдельные отдыхи, как в Mapon
+
+    def test_clipped_edge_piece_joined_across_gap(self):
+        edge = NOW - 28 * D
+        stored = [R(-40 * D, -28 * D - 600)]
+        fresh = [{"start": edge + 30, "end": edge + 2 * D, "src": ["ddd"]}]
+        m = H.merge_rests(stored, fresh, NOW, edge_from=edge)
         self.assertEqual(len(m), 1)
-        self.assertEqual(m[0]["src"], ["can", "ddd"])
+        self.assertEqual(m[0]["start"], NOW - 40 * D)
 
     def test_gap_over_15_min_kept_apart(self):
         m = H.merge_rests([R(-5 * D, -4 * D)], [R(-4 * D + 1200, -3 * D)], NOW)

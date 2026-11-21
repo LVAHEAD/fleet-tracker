@@ -230,9 +230,8 @@ def api_truck_info():
                                for c in weekly_compensation(hist)]
                 # правило диспетчеров (только Truck Info): недельный — один в неделе, самый длинный; остальные — «большая 9-ка»
                 desig = designate_weekly((hist or {}).get("rests") or [], (hist or {}).get("from") or 0)
-                dstarts = {x["start"] for x in desig}
-                for x, src in zip(row["weekly"], wsrc):
-                    x["daily"] = src["start"] not in dstarts
+                for x, src in zip(row["weekly"], wsrc):   # недельный — если лежит внутри выбранного (допуск 1 мин)
+                    x["daily"] = not any(d["start"] - 60 <= src["start"] and src["end"] <= d["end"] + 60 for d in desig)
                 if desig and not w.get("ongoing"):
                     import time
                     last = desig[-1]

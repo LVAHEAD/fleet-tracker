@@ -14,8 +14,11 @@ SAVE_EVERY = 6 * 3600          # писать в хранилище не чащ�
 _saved_at = {}
 
 
-def merge_rests(stored, fresh, now, keep_days=KEEP_DAYS, gap=JOIN_GAP_SEC):
-    """Склеивает две истории отдыхов [{start, end, src}] в одну по времени; старше keep_days — отбрасывает."""
+def merge_rests(stored, fresh, now, keep_days=KEEP_DAYS, gap=JOIN_GAP_SEC, edge_from=None):
+    """Склеивает две истории отдыхов [{start, end, src}] в одну по времени; старше keep_days — отбрасывает.
+    Склеиваем только пересекающиеся / соприкасающиеся куски. Зазор ≤ gap (15 мин) закрываем только у куска, начатого
+    у края окна (start ≤ edge_from + gap): это обрезанный отдых, его хвост лежит в хранилище. Внутри окна Mapon кусок
+    с зазором > 2 мин — отдельный отдых (как в Mapon): иначе «большая 9ка» и недельный склеивались бы через короткую поездку."""
     items = []
     for r in list(stored or []) + list(fresh or []):
         try:
@@ -27,7 +30,9 @@ def merge_rests(stored, fresh, now, keep_days=KEEP_DAYS, gap=JOIN_GAP_SEC):
     items.sort(key=lambda r: (r["start"], r["end"]))
     out = []
     for r in items:
-        if out and r["start"] <= out[-1]["end"] + gap:
+        join = bool(out) and (r["start"] <= out[-1]["end"] or
+                              (edge_from is not None and r["start"] <= edge_from + gap and r["start"] <= out[-1]["end"] + gap))
+        if join:
             cur = out[-1]
             cur["end"] = max(cur["end"], r["end"])
             cur["src"] |= r["src"]
@@ -53,7 +58,7 @@ def remember(driver_id, hist, now=None):
     try:
         rec = RESTS_STORE.get(driver_id) or {}
         old = rec.get("rests") or []
-        merged = merge_rests(old, _complete(hist, now), now)
+        merged = merge_rests(old, _complete(hist, now), now)   # края окна здесь нет: берём только завершённые куски
         if merged != [{"start": int(r["start"]), "end": int(r["end"]), "src": sorted(r.get("src") or [])} for r in old]:
             RESTS_STORE.put(driver_id, {"rests": merged, "since": rec.get("since") or int(hist.get("from") or now),
                                         "saved_at": int(now)})
@@ -72,5 +77,5 @@ def long_history(driver_id, hist, now=None):
     cur_from = hist.get("from") or now
     since = min(rec.get("since") or cur_from, cur_from)
     start = max(since, now - SHOW_DAYS * 86400)
-    rests = merge_rests(rec.get("rests"), hist.get("rests"), now, keep_days=SHOW_DAYS)
+    rests = merge_rests(rec.get("rests"), hist.get("rests"), now, keep_days=SHOW_DAYS, edge_from=cur_from)
     return {"rests": rests, "cards": hist.get("cards") or [], "from": start, "window_from": cur_from}
