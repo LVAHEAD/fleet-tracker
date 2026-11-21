@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta, timezone
 
 from fetat.clients.mapon import ACT_DAYS, get_driver_rests
+from fetat.domain.rests_history import remember
 from fetat.utils.timefmt import _hm, ceil_15min, ts_west, ts_zone, to_west
 
 
@@ -80,6 +81,7 @@ def weekly_status(driver_id, now_ts=None, ddd_only=False, moving=None):
     hist, err = get_driver_rests(driver_id)
     if not hist:
         return None, err
+    remember(driver_id, hist, now)               # v3.355: завершённые отдыхи окна — в хранилище (60 дн.)
     if moving:
         hist = dict(hist, rests=clip_rests_by_moving(hist["rests"], moving))
     weekly = [r for r in hist["rests"] if r["end"] - r["start"] >= WEEKLY_MIN_SEC
@@ -89,7 +91,7 @@ def weekly_status(driver_id, now_ts=None, ddd_only=False, moving=None):
     ongoing_rest = last_rest if last_rest and now - last_rest["end"] < 1800 else None
     res = {"weekly": [{"start": r["start"], "end": r["end"], "hours": round((r["end"] - r["start"]) / 3600, 1),
                        "full": r["end"] - r["start"] >= WEEKLY_FULL_SEC, "src": r["src"],
-                       "clipped": bool(r.get("clipped"))} for r in weekly][-4:],
+                       "clipped": bool(r.get("clipped"))} for r in weekly][-12:],   # v3.355: было [-4:] — Truck Info показывает до 56 дней
            "ongoing": False, "resting_sec": 0}
     if ongoing_rest:
         res["resting_sec"] = int(now - ongoing_rest["start"])

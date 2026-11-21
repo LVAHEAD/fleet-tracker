@@ -1,6 +1,7 @@
 """Машины и прицепы из Mapon: список, Truck Info, ближайшие, выгрузки юнитов и объектов, служебная проверка."""
 import math
 import re
+import time as _time
 
 from flask import Blueprint, current_app, jsonify, request
 
@@ -12,7 +13,8 @@ from fetat.clients.mapon import (
 from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.points import find_unit_exact, object_at
 from fetat.domain.regions import nearest_region_code
-from fetat.domain.tacho import _team, tacho_no_subscription, WEEKLY_FULL_SEC, WEEKLY_PERIOD_SEC, designate_weekly, weekly_compensation, weekly_status
+from fetat.domain.rests_history import long_history
+from fetat.domain.tacho import _team, tacho_no_subscription, WEEKLY_FULL_SEC, WEEKLY_MIN_SEC, WEEKLY_PERIOD_SEC, designate_weekly, weekly_compensation, weekly_status
 from fetat.domain.trailers import is_trailer, reefer_log, reefer_log_events
 from fetat.utils.geo import haversine_km, _wkt_center, _wkt_vertices
 from fetat.utils.timefmt import _hm, _lv, _utc_iso
@@ -196,10 +198,19 @@ def api_truck_info():
                     warn("truck-info:moving", _e)
             w, werr = weekly_status(did, moving=moving)
             if w:
+                hist_cur, _ = get_driver_rests(did)
+                lh = long_history(did, hist_cur)          # v3.355: окно Mapon + хранилище (до 56 дн.)
+                cur_starts = {x["start"] for x in w["weekly"]}
+                older = [{"start": r["start"], "end": r["end"], "full": r["end"] - r["start"] >= WEEKLY_FULL_SEC,
+                          "src": r["src"], "clipped": False}
+                         for r in lh["rests"]
+                         if r["end"] - r["start"] >= WEEKLY_MIN_SEC and r["start"] > lh["from"] + 60
+                         and r["start"] <= lh["window_from"] + 60 and r["start"] not in cur_starts]
+                wsrc = older + list(w["weekly"])
                 row["weekly"] = [{"from": _lv(x["start"]), "to": _lv(x["end"]), "hours": _hm(x["end"] - x["start"]),
                                   "full": x["full"], "nocard": any(s in ("can", "unkn") for s in x["src"]),
                                   "clipped": x.get("clipped", False)}
-                                 for x in w["weekly"]]
+                                 for x in wsrc]
                 row["ongoing"] = w.get("ongoing")
                 row["resting"] = _hm(w.get("resting_sec")) if w.get("resting_sec") else None
                 if w.get("can_go"):
@@ -210,7 +221,8 @@ def api_truck_info():
                     row["deadline_in"] = _hm(w["deadline"] - time.time())
                     row["need"] = "45 ч" if w["need_sec"] >= WEEKLY_FULL_SEC else "24 ч (можно сокращённый)"
                 row["weekly_error"] = w.get("error")
-                hist, _ = get_driver_rests(did)
+                hist = lh
+                row["comp_days"] = max(1, int((_time.time() - lh["from"]) // 86400))
                 row["comp"] = [{"from": _lv(c["start"]), "to": _lv(c["end"]), "hours": _hm(c["hours"]),
                                 "deficit": _hm(c["deficit"]),      # v3.301: ЧЧ:ММ (раньше — целые часы вверх)
                                 "left": _hm(c["left"]) if c["left"] >= 60 else None,
@@ -219,7 +231,7 @@ def api_truck_info():
                 # правило диспетчеров (только Truck Info): недельный — один в неделе, самый длинный; остальные — «большая 9-ка»
                 desig = designate_weekly((hist or {}).get("rests") or [], (hist or {}).get("from") or 0)
                 dstarts = {x["start"] for x in desig}
-                for x, src in zip(row["weekly"], w["weekly"]):
+                for x, src in zip(row["weekly"], wsrc):
                     x["daily"] = src["start"] not in dstarts
                 if desig and not w.get("ongoing"):
                     import time
