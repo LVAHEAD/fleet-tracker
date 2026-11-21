@@ -51,6 +51,7 @@
 /api/route POST
 /api/trip-gap POST
 /api/truck-info GET
+/api/truck-rest-stop GET
 /api/unit-seed POST
 /api/units GET
 /api/warm POST

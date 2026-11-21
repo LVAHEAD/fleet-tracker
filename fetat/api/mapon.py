@@ -7,7 +7,7 @@ from flask import Blueprint, current_app, jsonify, request
 
 from fetat.clients.mapon import (
     _check_daily_activities, driver_has_data, fetch_group_unit_ids, fetch_units, get_driver_history, get_driver_rests,
-    get_tacho,
+    get_tacho, unit_stop_at,
     ACT_DAYS, MAPON_API_URL, MAPON_BASE, mapon_get, MAPON_TACHO_URL, unit_moving, unit_stops,
 )
 from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
@@ -153,6 +153,31 @@ def _unit_st(u):
 
 def _unit_dir(u):
     return next((u.get(k) for k in ("direction", "course", "heading", "angle") if isinstance(u.get(k), (int, float))), None)
+
+
+@bp.route("/api/truck-rest-stop")
+def api_truck_rest_stop():
+    """v3.360: где трак стоял во время отдыха водителя (Truck Info, клик по строке отдыха): ?unit=номер&from=ts&to=ts."""
+    if not MAPON_API_KEY:
+        return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
+    try:
+        frm, till = float(request.args.get("from")), float(request.args.get("to"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "нет интервала"}), 400
+    if till <= frm:
+        return jsonify({"error": "интервал пустой"}), 400
+    try:
+        unit = _find_unit(request.args.get("unit"))
+    except Exception as e:
+        return jsonify({"error": f"Mapon: {e}"}), 502
+    if not unit:
+        return jsonify({"error": "трак не найден"}), 404
+    st, err = unit_stop_at(unit["unit_id"], frm, till)
+    if not st:
+        return jsonify({"error": err}), 404
+    return jsonify({"lat": st["lat"], "lng": st["lng"], "address": st.get("address") or "",
+                    "from": _lv(st["start"]), "to": "сейчас" if st["now"] else _lv(st["end"]),
+                    "hours": _hm(st["end"] - st["start"])})
 
 
 @bp.route("/api/truck-info")

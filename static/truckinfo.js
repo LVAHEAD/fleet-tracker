@@ -49,11 +49,11 @@ Fleet ETA Tracker — вкладка "Truck Info"
     if (d.weekly_error) h += `<div class="ti-err">${esc(d.weekly_error)}</div>`;
     if (d.weekly && d.weekly.length) {
       h += `<table class="ti-table"><tr><th>Недельный отдых</th><th>часов</th><th></th></tr>` +
-        d.weekly.map((w) => `<tr data-ts="${w.ts || ""}" data-te="${w.te || ""}">
+        d.weekly.map((w) => `<tr class="ti-rowclick" title="Показать на карте, где стоял" data-ts="${w.ts || ""}" data-te="${w.te || ""}">
           <td><b class="ti-kind">${esc(weeklyKind(w))}</b> ${esc(w.from)} → ${esc(w.to)}</td><td>${hoursFloor(w.hours)}</td>
           <td>${w.daily ? '<span class="ti-tag" title="второй отдых от 24 ч в неделе — считаем суточным">большая 9ка</span>' : w.full ? '<span class="ti-tag ti-full">45+</span>' : '<span class="ti-tag ti-red">сокращ.</span>'}
               ${w.nocard ? '<span class="ti-tag" title="часть отдыха без карты — данные с CAN">без карты</span>' : ""}${w.clipped ? '<span class="ti-tag" title="Трак ехал по GPS — отдых «без карты» обрезан по началу / концу поездки, 45 ч не подтверждены">⚠ трак ехал</span>' : ""}</td>
-        </tr>`).join("") + `</table>`;
+        </tr>`).join("") + `</table><div class="ti-mapnote" style="display:none"></div>`;
     }
     if (d.comp && d.comp.length) {
       const CST = {
@@ -183,6 +183,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
         const onMap = !calcOpen && !!(fm && fm.getMap && fm.getMap() && fm.getVisible());
         showUnitOnMap(j.lat, j.lng, 9, onMap ? "" : j.number);   // во Флоте уже есть плашка — только переезд карты
       }
+      lastUnit = j.trailer ? "" : String(j.number || "");
       let h = `<div class="ti-title">${esc(j.number)}${j.tractor ? ` <a href="#" class="ti-tag ti-tractor" data-unit="${esc(j.tractor)}" title="тягач этого прицепа по строке Флота — клик: открыть его Truck Info">тягач: ${esc(j.tractor)}</a>` : ""}</div>`;
       if (j.trailer) {   // v3.258: прицеп — вместо водителей лог рефа
         out.innerHTML = h + `<div class="rl-card" id="ti-reefer"><div class="ti-loading">Реф: загрузка…</div></div>`;
@@ -238,7 +239,25 @@ Fleet ETA Tracker — вкладка "Truck Info"
   }
   ["input", "focus"].forEach((ev) => inp.addEventListener(ev, fillList));
   btn.addEventListener("click", load);
-  let blinkTimer = null;
+  let blinkTimer = null, lastUnit = "";
+  // v3.360: где трак стоял в интервале отдыха — метка на карте (/api/truck-rest-stop); ошибка — строка под таблицей водителя
+  async function showRestOnMap(ts, te, card) {
+    const note = card && card.querySelector(".ti-mapnote");
+    const say = (t) => { if (note) { note.textContent = t; note.style.display = t ? "" : "none"; } };
+    if (!lastUnit || !ts || !te) return;
+    say("Ищу, где стоял…");
+    try {
+      const r = await fetch(`/api/truck-rest-stop?unit=${encodeURIComponent(lastUnit)}&from=${ts}&to=${te}`);
+      const j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error || r.status);
+      window.tiPinOpts = Object.assign({}, window.tiPinOpts || {}, { st: "standing", dir: null, tractor: "",
+        title: `Стоял ${j.from} → ${j.to} (${j.hours})${j.address ? " · " + j.address : ""}` });
+      if (typeof showUnitOnMap === "function") showUnitOnMap(j.lat, j.lng, 12, `${j.from} → ${j.to}`);
+      say(`Стоял ${j.from} → ${j.to} (${j.hours})${j.address ? " · " + j.address : ""}`);
+    } catch (e) {
+      say(String(e.message || e));
+    }
+  }
   // v3.358: клик в «Компенсации» — строка этого отдыха в «Недельном отдыхе» моргает 5 с (1 — сокращённый отдых, 2 — отдых, которым долг закрыт)
   out.addEventListener("click", (e) => {
     const j = e.target.closest(".ti-jump");
@@ -258,6 +277,15 @@ Fleet ETA Tracker — вкладка "Truck Info"
     best.classList.add("ti-blink");
     best.scrollIntoView({ block: "nearest", behavior: "smooth" });
     blinkTimer = setTimeout(() => best.classList.remove("ti-blink"), 5000);
+  });
+  // v3.360: клик по периоду / плашке в «Компенсации» — ещё и карта (где стоял этот отдых); клик по строке «Недельного отдыха» — только карта
+  out.addEventListener("click", (e) => {
+    const j = e.target.closest(".ti-jump");
+    const tr = j ? null : e.target.closest("tr.ti-rowclick");
+    const el = j || tr;
+    if (!el) return;
+    const card = el.closest(".ti-driver");
+    showRestOnMap(+el.dataset.ts, +el.dataset.te, card);
   });
   // v3.331: клик по метке «тягач: …» — Truck Info по тягачу
   out.addEventListener("click", (e) => {

@@ -339,10 +339,12 @@ def _rts(x):
         return None
 
 
-def _route_list(unit_id, frm, till):
-    """Сырые отрезки route/list за [frm, till] (с треком, если Mapon его отдаёт)."""
+def _route_list(unit_id, frm, till, polyline=True):
+    """Сырые отрезки route/list за [frm, till] (с треком, если Mapon его отдаёт; polyline=False — без трека)."""
     base = {"key": MAPON_API_KEY, "unit_id": unit_id, "from": _iso_utc(frm), "till": _iso_utc(till)}
     try:
+        if not polyline:
+            raise ValueError("без трека")
         d = mapon_get(ROUTE_LIST_URL, dict(base, **{"include[]": "polyline"}), timeout=30)
     except Exception:
         d = mapon_get(ROUTE_LIST_URL, base, timeout=30)
@@ -405,6 +407,43 @@ def unit_moving(unit_id, min_sec=600, max_age=ROUTES_TTL):
     res = [(s_ts, e_ts) for s_ts, e_ts in out if e_ts - s_ts >= min_sec]
     memo[key] = res
     return res
+
+
+def unit_stop_at(unit_id, frm, till):
+    """v3.360: где трак стоял в интервале [frm, till] (отдых водителя): самая длинная по пересечению стоянка route/list.
+    Моложе ROUTES_KEEP_DAYS суток — из общего кеша, старше — отдельный запрос Mapon за интервал (±1 ч, без трека).
+    -> ({"start", "end", "address", "lat", "lng", "now"}, None) или (None, "причина")."""
+    import time
+    now = time.time()
+    if till - frm > 31 * 86400:
+        return None, "интервал длиннее 31 суток"
+    try:
+        if frm - 3600 >= now - (ROUTES_KEEP_DAYS - 0.1) * 86400:
+            routes, _ = unit_routes(unit_id)
+        else:
+            routes = _route_list(unit_id, frm - 3600, min(till + 3600, now), polyline=False)
+    except Exception as e:
+        return None, f"Mapon не ответил: {str(e)[:120]}"
+    best, bo = None, 0.0
+    for r in routes:
+        if r.get("type") != "stop":
+            continue
+        st = r.get("start") or {}
+        s_ts = _rts(st)
+        if s_ts is None or st.get("lat") is None or st.get("lng") is None:
+            continue
+        e_raw = (r.get("end") or {}).get("time")
+        e_ts = _rts(r.get("end")) if e_raw else now
+        if e_ts is None:
+            continue
+        o = min(e_ts, till) - max(s_ts, frm)
+        if o > bo:
+            bo = o
+            best = {"start": s_ts, "end": e_ts, "address": st.get("address"), "lat": st.get("lat"), "lng": st.get("lng"),
+                    "now": not e_raw}
+    if not best:
+        return None, "позиций за этот период нет"
+    return best, None
 
 
 def unit_stops(unit_id, days=3, min_sec=2 * 3600, max_age=ROUTES_TTL):

@@ -2542,7 +2542,7 @@ function dropTruckPin(m, lat, lng, label, o) {
   const st = o.st === "driving" ? "driving" : "standing";
   if (!tiPin) tiPin = new google.maps.Marker({ zIndex: 9999 });
   tiPin.setOptions({
-    map: m, position: { lat, lng }, title: `${label || ""} · ${hm} (позиция на момент поиска)`,
+    map: m, position: { lat, lng }, title: o.title || `${label || ""} · ${hm} (позиция на момент поиска)`,   // v3.360: o.title — подпись стоянки отдыха
     icon: truckIconFor(o.fill, st, o.dir, !!o.trailer),
   });
   if (tiBadge) { tiBadge.setMap(null); tiBadge = null; }
