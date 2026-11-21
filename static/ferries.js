@@ -9,7 +9,7 @@ Fleet ETA Tracker — закладка «Паромы» (v3.197): карта-с�
   const root = host.attachShadow({ mode: "open" });
   root.innerHTML = `<style>
 /* Макет закладки «Паромы». Идея: строка = линия; слева оператор, в центре маршрут и порты, справа время рейса крупно с полоской-масштабом; условия и контакты раскрываются. Цвета — синий аппы «Синий Кальк». */
-:host{display:block;--bg:#f4f6fa;--surface:#fff;--line:#dde3ec;--fg:#1b2230;--muted:#5a6578;--accent:#2f6fd6;--accent-soft:#e6eefb;--bar:#bcd3f5;--chip-bg:92%;--chip-fg:28%;--warn:#9a5b00;--warn-bg:#fdf1dc;--water:#e3edfa;--land:#fbfcfe;--coast:#a9b8cf;--c-fi:#2f6fd6;--c-se:#14907a;--c-dk:#c47a0c;--c-ee:#8a4fd0}
+:host{display:block;--bg:#f4f6fa;--surface:#fff;--line:#dde3ec;--fg:#1b2230;--muted:#5a6578;--accent:#2f6fd6;--accent-soft:#e6eefb;--bar:#bcd3f5;--chip-bg:92%;--chip-fg:28%;--warn:#9a5b00;--warn-bg:#fdf1dc;--water:#e3edfa;--land:#fbfcfe;--coast:#a9b8cf;--c-fi:#2f6fd6;--c-se:#14907a;--c-dk:#c47a0c;--c-bl:#c2417a;--c-no:#5b6b7f;--c-ee:#8a4fd0}
 *{box-sizing:border-box}
 .wrap{display:flex;flex-direction:column;gap:14px}
 .top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
@@ -83,7 +83,7 @@ aside.side .mapwrap{margin-bottom:10px}aside.side .filters{margin-bottom:6px}
 .land{fill:var(--land);stroke:var(--coast);stroke-width:1.2;stroke-linejoin:round}
 .cn{font:600 13px -apple-system,Segoe UI,sans-serif;letter-spacing:.18em;fill:var(--muted);opacity:.55;text-anchor:middle}
 .ln{fill:none;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;cursor:pointer;opacity:.9;transition:opacity .15s,stroke-width .15s}
-.ln.ee{stroke:var(--c-ee)}.ln.fi{stroke:var(--c-fi)}.ln.se{stroke:var(--c-se)}.ln.dk{stroke:var(--c-dk)}
+.ln.ee{stroke:var(--c-ee)}.ln.fi{stroke:var(--c-fi)}.ln.se{stroke:var(--c-se)}.ln.dk{stroke:var(--c-dk)}.ln.bl{stroke:var(--c-bl)}.ln.no{stroke:var(--c-no)}
 .ln:hover,.ln.hi{stroke-width:6;opacity:1}
 .mapwrap.sel .ln:not(.on){opacity:.12}
 .mapwrap.sel .pt:not(.on){opacity:.35}
@@ -129,7 +129,7 @@ aside.side .mapwrap{margin-bottom:10px}aside.side .filters{margin-bottom:6px}
   </div>
   <aside class="side">
   <div class="mapwrap" id="mapwrap"><div id="mapbox"></div>
-    <div class="legend"><span><i style="background:var(--c-fi)"></i>Германия ↔ Финляндия</span><span><i style="background:var(--c-se)"></i>Швеция</span><span><i style="background:var(--c-dk)"></i>Дания</span><span><i style="background:var(--c-ee)"></i>Эстония</span><span>Клик по линии или порту — показать в таблице. Схема, береговая линия упрощена.</span></div></div>
+    <div class="legend"><span><i style="background:var(--c-fi)"></i>Германия ↔ Финляндия</span><span><i style="background:var(--c-se)"></i>Швеция</span><span><i style="background:var(--c-dk)"></i>Дания</span><span><i style="background:var(--c-ee)"></i>Эстония</span><span><i style="background:var(--c-bl)"></i>Германия ↔ Балтия</span><span><i style="background:var(--c-no)"></i>Норвегия</span><span>Клик по линии или порту — показать в таблице. Схема, береговая линия упрощена.</span></div></div>
   <button type="button" class="mbtn" id="mapbtn">▾ Развернуть карту</button>
   <div class="filters" id="flt"></div>
   <div class="selbar" id="selbar"></div>
@@ -199,7 +199,7 @@ function buildMap() {
   const lines = Object.values(seen).map((s) => {
     const pts = [PORTS[s.a].slice(1, 3)].concat(s.via || [], [PORTS[s.b].slice(1, 3)]).map(([lo, la]) => P(lo, la).map((v) => v.toFixed(1)).join(",")).join(" ");
     const ids = [...s.ids], reg = rows[ids[0]].region;
-    return `<polyline points="${pts}" class="ln ${reg === "Швеция" ? "se" : reg === "Дания" ? "dk" : reg === "Эстония" ? "ee" : "fi"}" data-ids="${ids.join(",")}" data-a="${s.a}" data-b="${s.b}"><title>${esc(PORTS[s.a][0])} — ${esc(PORTS[s.b][0])}: ${ids.map((i) => rows[i].op).join(", ")}</title></polyline>`;
+    return `<polyline points="${pts}" class="ln ${reg === "Швеция" ? "se" : reg === "Дания" ? "dk" : reg === "Эстония" ? "ee" : reg === "Германия ↔ Балтия" ? "bl" : reg === "Норвегия" ? "no" : "fi"}" data-ids="${ids.join(",")}" data-a="${s.a}" data-b="${s.b}"><title>${esc(PORTS[s.a][0])} — ${esc(PORTS[s.b][0])}: ${ids.map((i) => rows[i].op).join(", ")}</title></polyline>`;
   }).join("");
   const ports = Object.entries(PORTS).map(([id, [n, lo, la, dx, dy, an]]) => { const [x, y] = P(lo, la);
     return `<g class="pt" data-p="${id}"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5.5"/><text x="${(x + dx).toFixed(1)}" y="${(y + dy).toFixed(1)}" text-anchor="${an}">${esc(n)}</text></g>`; }).join("");
@@ -220,7 +220,7 @@ function hours(t) {
   return h + m / 60;
 }
 function hue(s) { let x = 0; for (const c of s) x = (x * 31 + c.charCodeAt(0)) % 360; return x; }
-function region(d) { return d.includes("Эстония") ? "Эстония" : d.startsWith("Германия") && d.includes("Финляндия") ? "Германия ↔ Финляндия" : d.startsWith("Швеция") ? "Швеция" : "Дания"; }
+function region(d) { return d.includes("Эстония") ? "Эстония" : d.startsWith("Германия") && d.includes("Финляндия") ? "Германия ↔ Финляндия" : d.startsWith("Германия") && (d.includes("Латвия") || d.includes("Литва")) ? "Германия ↔ Балтия" : d === "Германия ↔ Норвегия" ? "Норвегия" : d.startsWith("Швеция") ? "Швеция" : "Дания"; }   // v3.353: новые линии v3.251 — свои цвета, не «Дания»
 const rows = FERRY_DATA.map((d, i) => {
   const m = d.freq.match(/≈\s*([\d.,–\- ]+(?:ч|мин)(?:\s*\d+\s*мин)?)/);
   let rest = d.freq.replace(m ? m[0] : "", "");
