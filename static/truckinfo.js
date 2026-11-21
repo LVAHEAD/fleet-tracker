@@ -56,12 +56,14 @@ Fleet ETA Tracker — вкладка "Truck Info"
         </tr>`).join("") + `</table>`;
     }
     if (d.comp && d.comp.length) {
-      const CST = { ok: ["ti-full", "компенсирован"], open: ["ti-red", "нужно добрать"], overdue: ["ti-red", "просрочено"] };
-      h += `<table class="ti-table"><tr><th>Компенсация сокращённого отдыха</th><th>недобор</th><th>осталось</th><th></th></tr>` +
-        d.comp.slice().reverse().map((c) => `<tr>
+      const CST = {
+        ok: (c) => ["ti-full", "компенсирован" + (c.done_at ? " " + esc(c.done_at) : "")],
+        open: (c) => ["ti-red", "нужно добрать до " + esc(c.until21 || c.deadline)],
+        overdue: (c) => ["ti-red", "просрочено до " + esc(c.until21 || c.deadline)] };
+      h += `<table class="ti-table"><tr><th>Компенсация сокращённого отдыха</th><th>недобор</th><th>осталось</th></tr>` +
+        d.comp.slice().reverse().map((c) => { const [cls, txt] = CST[c.status](c); return `<tr>
           <td>${esc(c.from)} → ${esc(c.to)} (${esc(c.hours)})</td><td>${deficitH(c.deficit)}</td>
-          <td>${c.left ? "до <b>" + esc(c.until21 || c.deadline) + "</b>" : "—"}</td>
-          <td><span class="ti-tag ${CST[c.status][0]}">${CST[c.status][1]}</span></td></tr>`).join("") +
+          <td><span class="ti-tag ${cls}">${txt}</span></td></tr>`; }).join("") +
         `</table><div class="ti-note">Недобор добирают одним куском к отдыху не короче 9 ч (к 9-ке или 45-ке) до конца третьей недели после сокращения; считаем за ${d.comp_days || 28} дн. истории.</div>`;
     }
     if (d.cards && d.cards.length) {

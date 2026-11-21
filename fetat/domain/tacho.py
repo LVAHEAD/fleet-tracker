@@ -215,6 +215,7 @@ def weekly_compensation(hist, now_ts=None):
             # компенсация — одним куском к одному отдыху (к 9-ке или 45-ке); сумма излишков разных отдыхов не годится
             if dbt["end"] <= r["start"] and r["end"] <= dbt["deadline"] and dbt["done"] == 0 and spare >= dbt["deficit"]:
                 dbt["done"] = dbt["deficit"]
+                dbt["done_at"] = r["end"]            # v3.357: когда закрыт долг — конец отдыха, которым он погашен
                 spare -= dbt["deficit"]
     for dbt in debts:
         dbt["left"] = max(0.0, dbt["deficit"] - dbt["done"])
