@@ -565,6 +565,8 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 .ti-stops { max-width: 900px; }
 a.ti-tractor { text-decoration: none; cursor: pointer; }
 a.ti-tractor:hover { background: #2f6fd6; color: #fff; }   /* v3.331: «Синий Кальк» */
+.ti-kind { display: inline-block; min-width: 34px; }
+.ti-sub { color: #9a9a9a; font-size: 12px; }
 .ti-tag { display: inline-block; font-size: 11px; padding: 0 5px; border-radius: 4px; background: #eee; color: #555; margin-right: 3px; }
 .ti-full { background: #e3f5e1; color: #2d7a2d; }
 .ti-red { background: #fde8e8; color: #b33; }
