@@ -11,12 +11,13 @@ Fleet ETA Tracker — вкладка "Truck Info"
   // v3.354: «часов» недельного отдыха — целые часы вниз, точное время в скобках: 24:00 (24:09)
   const hoursFloor = (v) => { const m = /^(\d+):(\d{2})$/.exec(String(v == null ? "" : v)); return m ? `${+m[1]}:00 <span class="ti-sub">(${esc(v)})</span>` : esc(v); };
   // недобор до 45 ч — от отдыха, округлённого вниз, то есть вверх: 20:51 → 21H (только вид, расчёт по точным минутам)
-  // v3.355: метка вида отдыха перед датой: 24H — сокращённый около 24 ч, 24H+ — сокращённый дольше (до 45), 9h+ — «большая 9ка», 45H+ — полный
+  // v3.355: метка вида отдыха перед датой: 24H — сокращённый 24:00–24:59, <24H — короче 24 ч, 24H+ — сокращённый дольше (до 45), 9h+ — «большая 9ка», 45H+ — полный
   const weeklyKind = (w) => {
     if (w.daily) return "9h+";
     if (w.full) return "45H+";
     const m = /^(\d+):/.exec(String(w.hours || ""));
-    return m && +m[1] > 24 ? "24H+" : "24H";
+    if (!m) return "24H";
+    return +m[1] > 24 ? "24H+" : +m[1] === 24 ? "24H" : "<24H";   // короче 24 ч — не полная 24ка
   };
   const deficitH = (v) => { const m = /^(\d+):(\d{2})$/.exec(String(v == null ? "" : v)); return m ? `${+m[1] + (+m[2] > 0 ? 1 : 0)}H` : esc(v); };
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
@@ -47,7 +48,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
     if (d.weekly && d.weekly.length) {
       h += `<table class="ti-table"><tr><th>Недельный отдых</th><th>часов</th><th></th></tr>` +
         d.weekly.map((w) => `<tr>
-          <td><b class="ti-kind">${weeklyKind(w)}</b> ${esc(w.from)} → ${esc(w.to)}</td><td>${hoursFloor(w.hours)}</td>
+          <td><b class="ti-kind">${esc(weeklyKind(w))}</b> ${esc(w.from)} → ${esc(w.to)}</td><td>${hoursFloor(w.hours)}</td>
           <td>${w.daily ? '<span class="ti-tag" title="второй отдых от 24 ч в неделе — считаем суточным">большая 9ка</span>' : w.full ? '<span class="ti-tag ti-full">45+</span>' : '<span class="ti-tag ti-red">сокращ.</span>'}
               ${w.nocard ? '<span class="ti-tag" title="часть отдыха без карты — данные с CAN">без карты</span>' : ""}${w.clipped ? '<span class="ti-tag" title="Трак ехал по GPS — отдых «без карты» обрезан по началу / концу поездки, 45 ч не подтверждены">⚠ трак ехал</span>' : ""}</td>
         </tr>`).join("") + `</table>`;
