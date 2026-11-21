@@ -179,3 +179,29 @@ function toggleNoTemp(id, anchor) {
     if (b.dataset.trailer) return linkTrailer(id, b.dataset.trailer);
   });
 })();
+
+// ---------- v3.352: попап при создании трипа — нет прицепа / нет даты ① ----------
+// Показываем, когда в строке заполнена тягач-машина и ушли из поля, а прицепа или даты ① нет. Один раз на строку за сессию.
+// Карточка у места клика (openSwapPop), не блокировка; открытые вопросы — BACKLOG («Прохождение точек по прицепу», п. 7).
+const tripBasicsAsked = new Set();
+function tripBasicsMissing(row) {
+  if (!row || !String(row.unit || "").trim() || isTrailerNo(row.unit) || !findUnitNo(row.unit, "truck")) return [];
+  const miss = [];
+  if (!String(row.trailer || "").trim()) miss.push("прицеп");
+  if (!String(row.delivery || "").trim()) miss.push("дата ①");
+  return miss;
+}
+function tripBasicsPopup(id) {
+  const row = rows.find((r) => r.id === id);
+  const miss = tripBasicsMissing(row);
+  if (!miss.length || tripBasicsAsked.has(String(id))) return;
+  const tr = document.querySelector(`#fleet-tbody tr[data-id="${id}"]`);
+  const anchor = tr && tr.querySelector(".unit-input");
+  if (!anchor || typeof openSwapPop !== "function") return;
+  tripBasicsAsked.add(String(id));
+  const btns = [];
+  if (miss.includes("прицеп")) btns.push({ text: "Добавить прицеп", ok: true, fn: () => openTrailerEditor(id, anchor) });
+  else btns.push({ text: "К дате ①", ok: true, fn: () => { const d = tr.querySelector(".delivery-input"); if (d) d.focus(); } });
+  btns.push({ text: "Закрыть", ok: false });
+  openSwapPop(anchor, `${escapeHtml(row.unit)}: не хватает данных трипа`, `Не указано: ${miss.join(", ")}. Прицеп и дата ① нужны для сравнения ✓ по прицепу и тягачу.`, btns);
+}

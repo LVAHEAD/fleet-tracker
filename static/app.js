@@ -775,6 +775,7 @@ function attachRowHandlers(one) {
       updateRowField(id, "unit", v);
       if (typeof markMultiTrips === "function") markMultiTrips();   // v3.247: пунктир у всех строк этой машины (и снять у прежней)
       if (v.trim() && typeof multiTripWarn === "function") multiTripWarn(id, v);   // v3.247: у машины уже есть трип во Флоте
+      if (v.trim() && typeof tripBasicsPopup === "function") setTimeout(() => tripBasicsPopup(id), 0);   // v3.352: нет прицепа / даты ①
     });
     const dsel = tr.querySelector(".disp-sel");
     if (dsel) {
@@ -1951,7 +1952,7 @@ function linkedTrailerHtml(number, lt, row) {
   if (!lt) return `<span class="hitch-pill trl-copy"${cp(number)} title="Клик — скопировать номер">🔗 ${escapeHtml(number)}</span>${un}`;
   if (lt.error) return `<span class="hitch-pill trl-copy rf-warn"${cp(number)} title="${escapeHtml(lt.error + "\nКлик — скопировать номер")}">🔗 ${escapeHtml(number)} ?</span>${un}`;
   const far = lt.far ? `<span class="trl-far" title="Прицеп в ${escapeHtml(fmtKm(lt.km))} от тягача — перецепили?">⚠ ${escapeHtml(fmtKm(lt.km))}</span>` : "";
-  return `<span class="hitch-pill trl-copy"${cp(lt.number)} title="Привязанный прицеп${lt.km != null ? " · " + fmtKm(lt.km) + " от тягача" : ""}\nКлик — скопировать номер">🔗 ${escapeHtml(lt.number)}</span>${un}${reeferPillHtml(lt, row)}${far}`;
+  return `<span class="hitch-pill trl-copy"${cp(lt.number)} title="Привязанный прицеп${lt.km != null ? " · " + fmtKm(lt.km) + " от тягача" : ""}${lt.done_cmp ? "\n" + lt.done_cmp.text : ""}\nКлик — скопировать номер">🔗 ${escapeHtml(lt.number)}</span>${un}${reeferPillHtml(lt, row)}${far}`;
 }
 // v3.221: копирование номера прицепа в буфер по клику на плашку; «✓ скопировано» на секунду вместо alert
 document.addEventListener("click", (e) => {

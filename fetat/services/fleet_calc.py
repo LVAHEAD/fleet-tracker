@@ -22,6 +22,7 @@ from fetat.domain.tacho import (FRESH_SOLO_TACHO, TZ_DEFAULT, plan as tacho_plan
                                tacho_eta, tacho_no_subscription,
                                tacho_panel, tacho_summary, week_left_info, weekly_rest_info)
 from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM, truck_fuel, truck_weight
+from fetat.domain.trailer_done import build_cmp, compare_done, gps_state
 from fetat.utils.geo import haversine_km
 from fetat.utils.timefmt import ceil_15min, format_duration
 from fetat.utils.log import warn
@@ -314,6 +315,28 @@ def _apply_points_done(result, payload, target_str, unit, units, tm=None):
             target_str = pts_all[active[0]]
             active_extras = [pts_all[i] for i in active[1:]]
     return target_str, active_extras
+
+
+def _add_trailer_done(result, payload, target_str, unit, units):
+    """v3.352: режим наблюдения — тот же расчёт ✓ по юниту привязанного прицепа (свой GPS); ✓ и ETA строки не меняем.
+    Итог — linked_trailer.done_cmp (подсказка в плашке прицепа). Нет свежего GPS у прицепа — ✓ по тягачу, с отметкой."""
+    lt = result.get("linked_trailer")
+    dn = result.get("points_done")
+    if not lt or lt.get("error") or not dn or result.get("all_done"):
+        return
+    try:
+        tu = find_unit_exact(units, str(payload.get("trailer") or "").strip())
+        state = gps_state(tu)
+        if state != "ok":
+            lt["done_cmp"] = build_cmp(state, [])
+            return
+        pts_all = [target_str] + [str(x or "").strip() for x in (payload.get("extra") or [])][:11]
+        manual = [(v if v in (True, False) else None) for v in (payload.get("done") or [])]
+        kept = any(x.get("kept") for x in dn)
+        diff = [] if kept else compare_done(dn, points_done(pts_all, manual, tu, units))
+        lt["done_cmp"] = build_cmp(state, diff, lt.get("km"), kept)
+    except Exception as e:
+        warn("fleet:trailer_done", e)
 
 
 def _add_tacho(result, unit, trailer, crew=None, x10=False, crew_seen=None, tm=None):
@@ -922,7 +945,10 @@ def _calc_row(payload, tm):
         trailer = _add_trailer_info(result, unit, units, payload)
         tm.mark("trailer")
 
+        target_orig = target_str
         target_str, active_extras = _apply_points_done(result, payload, target_str, unit, units, tm)
+        if not trailer:
+            _add_trailer_done(result, payload, target_orig, unit, units)    # v3.352: наблюдение, ✓ не трогает
         tm.mark("done")
 
         try:

@@ -431,6 +431,12 @@
    "is_trailer": false,
    "last_update": "2026-10-07T05:59:00Z",
    "linked_trailer": {
+    "done_cmp": {
+     "diff": [],
+     "mode": "compare",
+     "text": "Сравнение ✓ (только подсказка): ✓ по прицепу и тягачу совпадают",
+     "why": "ok"
+    },
     "far": false,
     "km": 0.01,
     "lat": 56.9501,
