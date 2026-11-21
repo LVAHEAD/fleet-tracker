@@ -53,7 +53,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
           <td><b class="ti-kind">${esc(weeklyKind(w))}</b> ${w.edge ? '<span title="отдых начался раньше, чем данные Mapon за 28 дней — начало и длительность не меньше показанных">≤</span> ' : ""}${esc(w.from)} → ${esc(w.to)}</td><td>${w.edge ? "≥ " : ""}${hoursFloor(w.hours)}</td>
           <td>${w.daily ? '<span class="ti-tag" title="второй отдых от 24 ч в неделе — считаем суточным">большая 9ка</span>' : w.full ? '<span class="ti-tag ti-full">45+</span>' : '<span class="ti-tag ti-red">сокращ.</span>'}
               ${w.nocard ? '<span class="ti-tag" title="часть отдыха без карты — данные с CAN">без карты</span>' : ""}${w.clipped ? '<span class="ti-tag" title="Трак ехал по GPS — отдых «без карты» обрезан по началу / концу поездки, 45 ч не подтверждены">⚠ трак ехал</span>' : ""}</td>
-        </tr>`).join("") + `</table><div class="ti-mapnote" style="display:none"></div>`;
+        </tr>`).join("") + `</table>` + (d.deadline && d.need ? `<div class="ti-nextred">Следующий недельный: <b>${/^45/.test(String(d.need)) ? "45ка" : "24ка"}</b> — начать не позже <b>${esc(d.deadline)}</b>${d.deadline_in ? " (через " + esc(d.deadline_in) + ")" : ""}</div>` : "") + `<div class="ti-mapnote" style="display:none"></div>`;
     }
     if (d.comp && d.comp.length) {
       const CST = {
