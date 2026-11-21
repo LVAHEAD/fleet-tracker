@@ -226,7 +226,8 @@ def api_truck_info():
                 row["comp"] = [{"from": _lv(c["start"]), "to": _lv(c["end"]), "hours": _hm(c["hours"]),
                                 "deficit": _hm(c["deficit"]),      # v3.301: ЧЧ:ММ (раньше — целые часы вверх)
                                 "left": _hm(c["left"]) if c["left"] >= 60 else None,
-                                "deadline": _lv(c["deadline"]), "status": c["status"]}
+                                "deadline": _lv(c["deadline"]), "status": c["status"],
+                                "until21": _lv(c["end"] + 21 * 86400).split(" ")[0]}      # v3.357: «до» = конец отдыха + 21 день
                                for c in weekly_compensation(hist)]
                 # правило диспетчеров (только Truck Info): недельный — один в неделе, самый длинный; остальные — «большая 9-ка»
                 desig = designate_weekly((hist or {}).get("rests") or [], (hist or {}).get("from") or 0)

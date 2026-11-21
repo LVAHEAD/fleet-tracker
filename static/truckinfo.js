@@ -60,7 +60,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
       h += `<table class="ti-table"><tr><th>Компенсация сокращённого отдыха</th><th>недобор</th><th>осталось</th><th></th></tr>` +
         d.comp.slice().reverse().map((c) => `<tr>
           <td>${esc(c.from)} → ${esc(c.to)} (${esc(c.hours)})</td><td>${deficitH(c.deficit)}</td>
-          <td>${c.left ? "<b>" + esc(c.left) + "</b> до " + esc(c.deadline) : "—"}</td>
+          <td>${c.left ? "до <b>" + esc(c.until21 || c.deadline) + "</b>" : "—"}</td>
           <td><span class="ti-tag ${CST[c.status][0]}">${CST[c.status][1]}</span></td></tr>`).join("") +
         `</table><div class="ti-note">Недобор добирают одним куском к отдыху не короче 9 ч (к 9-ке или 45-ке) до конца третьей недели после сокращения; считаем за ${d.comp_days || 28} дн. истории.</div>`;
     }
