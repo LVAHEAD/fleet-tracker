@@ -100,3 +100,28 @@ class StoreTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EdgeRestTest(unittest.TestCase):
+    """v3.361: отдых, начатый до окна данных, но виден уже от 45 ч — берём (NR-7204: 20 суток «простоя»)."""
+    FROM = NOW - 28 * D
+
+    def test_designate_takes_long_edge_rest(self):
+        from fetat.domain.tacho import designate_weekly
+        edge = {"start": self.FROM + 10, "end": self.FROM + 19 * D, "src": ["ddd"]}
+        short_edge = {"start": self.FROM + 10, "end": self.FROM + 30 * 3600, "src": ["ddd"]}
+        self.assertEqual(len(designate_weekly([edge], self.FROM)), 1)
+        self.assertEqual(len(designate_weekly([short_edge], self.FROM)), 0)
+
+    def test_compensation_uses_long_edge_rest_as_spare(self):
+        from fetat.domain.tacho import weekly_compensation
+        edge = {"start": self.FROM + 10, "end": self.FROM + 10 + 80 * 3600, "src": ["ddd"]}
+        red = {"start": self.FROM + 6 * D, "end": self.FROM + 6 * D + 30 * 3600, "src": ["ddd"]}   # сокращённый 30 ч
+        debts = weekly_compensation({"rests": [edge, red], "from": self.FROM}, NOW)
+        self.assertEqual(len(debts), 1)            # edge-отдых долга не создаёт (он полный), сокращённый — да
+
+    def test_remember_stores_long_edge_rest(self):
+        RESTS_STORE.docs.clear(); H._saved_at.clear()
+        edge = {"start": int(self.FROM + 10), "end": int(self.FROM + 19 * D), "src": ["ddd"]}
+        H.remember("e1", {"rests": [edge], "cards": [], "from": self.FROM}, NOW)
+        self.assertEqual(len(RESTS_STORE.get("e1")["rests"]), 1)

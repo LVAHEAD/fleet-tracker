@@ -226,15 +226,17 @@ def api_truck_info():
                 hist_cur, _ = get_driver_rests(did)
                 lh = long_history(did, hist_cur)          # v3.355: окно Mapon + хранилище (до 56 дн.)
                 cur_starts = {x["start"] for x in w["weekly"]}
+                # v3.361: отдых, начатый до начала данных (идёт с края окна), берём, если виден уже от 45 ч (edge — начало раньше)
                 older = [{"start": r["start"], "end": r["end"], "full": r["end"] - r["start"] >= WEEKLY_FULL_SEC,
-                          "src": r["src"], "clipped": False}
+                          "src": r["src"], "clipped": False, "edge": r["start"] <= lh["from"] + 60}
                          for r in lh["rests"]
-                         if r["end"] - r["start"] >= WEEKLY_MIN_SEC and r["start"] > lh["from"] + 60
+                         if r["end"] - r["start"] >= WEEKLY_MIN_SEC
+                         and (r["start"] > lh["from"] + 60 or r["end"] - r["start"] >= WEEKLY_FULL_SEC)
                          and r["start"] <= lh["window_from"] + 60 and r["start"] not in cur_starts]
                 wsrc = older + list(w["weekly"])
                 row["weekly"] = [{"from": _lv(x["start"]), "to": _lv(x["end"]), "hours": _hm(x["end"] - x["start"]),
                                   "full": x["full"], "nocard": any(s in ("can", "unkn") for s in x["src"]),
-                                  "clipped": x.get("clipped", False), "ts": x["start"], "te": x["end"]}
+                                  "clipped": x.get("clipped", False), "ts": x["start"], "te": x["end"], "edge": bool(x.get("edge"))}
                                  for x in wsrc]
                 row["ongoing"] = w.get("ongoing")
                 row["resting"] = _hm(w.get("resting_sec")) if w.get("resting_sec") else None

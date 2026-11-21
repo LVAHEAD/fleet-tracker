@@ -50,7 +50,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
     if (d.weekly && d.weekly.length) {
       h += `<table class="ti-table"><tr><th>Недельный отдых</th><th>часов</th><th></th></tr>` +
         d.weekly.map((w) => `<tr class="ti-rowclick" title="Показать на карте, где стоял" data-ts="${w.ts || ""}" data-te="${w.te || ""}">
-          <td><b class="ti-kind">${esc(weeklyKind(w))}</b> ${esc(w.from)} → ${esc(w.to)}</td><td>${hoursFloor(w.hours)}</td>
+          <td><b class="ti-kind">${esc(weeklyKind(w))}</b> ${w.edge ? '<span title="отдых начался раньше, чем данные Mapon за 28 дней — начало и длительность не меньше показанных">≤</span> ' : ""}${esc(w.from)} → ${esc(w.to)}</td><td>${w.edge ? "≥ " : ""}${hoursFloor(w.hours)}</td>
           <td>${w.daily ? '<span class="ti-tag" title="второй отдых от 24 ч в неделе — считаем суточным">большая 9ка</span>' : w.full ? '<span class="ti-tag ti-full">45+</span>' : '<span class="ti-tag ti-red">сокращ.</span>'}
               ${w.nocard ? '<span class="ti-tag" title="часть отдыха без карты — данные с CAN">без карты</span>' : ""}${w.clipped ? '<span class="ti-tag" title="Трак ехал по GPS — отдых «без карты» обрезан по началу / концу поездки, 45 ч не подтверждены">⚠ трак ехал</span>' : ""}</td>
         </tr>`).join("") + `</table><div class="ti-mapnote" style="display:none"></div>`;

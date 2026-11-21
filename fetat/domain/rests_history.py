@@ -8,6 +8,7 @@ from fetat.store.rests_store import RESTS_STORE
 KEEP_DAYS = 60                 # храним
 SHOW_DAYS = 56                 # показываем
 JOIN_GAP_SEC = 15 * 60         # куски встык (≤ 15 мин) — один отдых
+FULL_SEC = 45 * 3600          # как WEEKLY_FULL_SEC в tacho.py (импорт оттуда — круг)
 ONGOING_SEC = 120              # отдых, закончившийся менее 2 мин назад, ещё идёт — не сохраняем
 SAVE_EVERY = 6 * 3600          # писать в хранилище не чаще раза в 6 ч на водителя
 
@@ -52,8 +53,8 @@ def _outside_window(stored, window_from):
 def _complete(hist, now):
     """Завершённые отдыхи окна: без идущего сейчас и без обрезанного началом окна."""
     t0 = (hist or {}).get("from") or 0
-    return [r for r in (hist or {}).get("rests") or []
-            if r["start"] > t0 + 60 and r["end"] < now - ONGOING_SEC]
+    return [r for r in (hist or {}).get("rests") or []         # v3.361: обрезанный началом окна, но уже от 45 ч — тоже (виден хотя бы 45 ч)
+            if (r["start"] > t0 + 60 or r["end"] - r["start"] >= FULL_SEC) and r["end"] < now - ONGOING_SEC]
 
 
 def remember(driver_id, hist, now=None):

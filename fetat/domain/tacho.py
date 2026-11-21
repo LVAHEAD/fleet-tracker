@@ -176,7 +176,7 @@ def designate_weekly(rests, t0=0):
     best = {}
     for r in rests:
         dur = r["end"] - r["start"]
-        if r["start"] <= t0 + 60 or dur < WEEKLY_MIN_SEC:
+        if dur < WEEKLY_MIN_SEC or (r["start"] <= t0 + 60 and dur < WEEKLY_FULL_SEC):   # v3.361: обрезанный краем окна, но уже от 45 ч — берём
             continue
         k = _week_start_utc(r["start"])
         if k not in best or dur > best[k]["end"] - best[k]["start"]:
@@ -198,9 +198,9 @@ def weekly_compensation(hist, now_ts=None):
     debts = []
     desig = {id(r) for r in designate_weekly(rests, t0)}
     for r in rests:
-        if r["start"] <= t0 + 60:            # отдых, обрезанный началом окна, не берём
-            continue
         dur = r["end"] - r["start"]
+        if r["start"] <= t0 + 60 and dur < WEEKLY_FULL_SEC:   # отдых, обрезанный началом окна, не берём (v3.361: кроме уже длиннее 45 ч)
+            continue
         if id(r) in desig and WEEKLY_MIN_SEC <= dur < WEEKLY_FULL_SEC:
             debts.append({"start": r["start"], "end": r["end"], "hours": dur, "deficit": WEEKLY_FULL_SEC - dur,
                           "done": 0.0, "deadline": _week_start_utc(r["start"]) + 28 * 86400})
