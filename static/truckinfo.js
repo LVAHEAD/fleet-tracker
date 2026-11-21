@@ -238,6 +238,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
   }
   ["input", "focus"].forEach((ev) => inp.addEventListener(ev, fillList));
   btn.addEventListener("click", load);
+  let blinkTimer = null;
   // v3.358: клик в «Компенсации» — строка этого отдыха в «Недельном отдыхе» моргает 5 с (1 — сокращённый отдых, 2 — отдых, которым долг закрыт)
   out.addEventListener("click", (e) => {
     const j = e.target.closest(".ti-jump");
@@ -251,11 +252,12 @@ Fleet ETA Tracker — вкладка "Truck Info"
       if (a && b && o > bo) { bo = o; best = tr; }
     });
     if (!best) return;
-    best.classList.remove("ti-blink");
+    clearTimeout(blinkTimer);                                         // новый клик сбрасывает прежнее моргание — моргает только одна строка
+    out.querySelectorAll("tr.ti-blink").forEach((tr) => tr.classList.remove("ti-blink"));
     void best.offsetWidth;
     best.classList.add("ti-blink");
     best.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    setTimeout(() => best.classList.remove("ti-blink"), 5000);
+    blinkTimer = setTimeout(() => best.classList.remove("ti-blink"), 5000);
   });
   // v3.331: клик по метке «тягач: …» — Truck Info по тягачу
   out.addEventListener("click", (e) => {
