@@ -37,5 +37,23 @@ class FerryRegionTest(unittest.TestCase):
         self.assertIsNotNone(re.search(r'reg === "Норвегия" \? "no"', s))
 
 
+class TabsLayoutTest(unittest.TestCase):
+    """v3.353: вкладки — слева Флот · Truck Info · Паромы, справа GF · From → To · Локатор · Рейтинг · [.]; Truck Info без «в разработке»."""
+    def test_order_and_wip(self):
+        with open(os.path.join(ROOT, "templates", "index.html"), encoding="utf8") as f:
+            nav = f.read().split('<nav class="main-tabs">')[1].split("</nav>")[0]
+        tabs = re.findall(r'data-tab="(\w+)"|class="(main-tabs-spacer)"', nav)
+        order = [a or b for a, b in tabs]
+        self.assertEqual(order, ["fleet", "truckinfo", "ferries", "main-tabs-spacer", "gf", "route", "maps", "maps", "rating", "notes"])
+        self.assertNotRegex(nav, r'data-tab="truckinfo"[^>]*data-wip')
+        self.assertRegex(nav, r'data-tab="gf" data-wip')
+
+    def test_blue_style(self):
+        with open(os.path.join(ROOT, "static", "style.css"), encoding="utf8") as f:
+            css = f.read()
+        self.assertIn(".main-tab-btn:hover,\n.main-tab-btn.active {\n  background: #2f6fd6;", css)
+        self.assertNotIn(".main-tab-btn.ref-tab {", css)
+
+
 if __name__ == "__main__":
     unittest.main()

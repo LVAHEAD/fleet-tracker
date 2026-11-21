@@ -19,13 +19,13 @@
 
 <nav class="main-tabs">
   <button class="main-tab-btn active" data-tab="fleet">Флот<span id="fleet-count" title="Всего активных строк во Флоте (без учёта фильтров)"></span></button>
-  <button class="main-tab-btn" data-tab="route">From → To</button>
-  <button class="main-tab-btn m-only" data-tab="maps" data-locator>Локатор</button>
-  <button class="main-tab-btn ref-tab" data-tab="maps">Локатор</button>
+  <button class="main-tab-btn ref-tab" data-tab="truckinfo">Truck Info</button>
   <button class="main-tab-btn" data-tab="ferries">Паромы</button>
   <span class="main-tabs-spacer"></span>
   <button class="main-tab-btn" data-tab="gf" data-wip>GF построитель</button>
-  <button class="main-tab-btn ref-tab" data-tab="truckinfo" data-wip>Truck Info</button>
+  <button class="main-tab-btn" data-tab="route">From → To</button>
+  <button class="main-tab-btn m-only" data-tab="maps" data-locator>Локатор</button>
+  <button class="main-tab-btn ref-tab" data-tab="maps">Локатор</button>
   <button class="main-tab-btn ref-tab" data-tab="rating">Рейтинг</button>
   <button class="main-tab-btn ref-tab{% if not show_notes %} notes-hidden{% endif %}" data-tab="notes" title="Блокнот">[.]</button>
   {% if show_notes %}<button id="fuel-btn" class="fuel-btn" type="button" title="АЗС: список из инструкции по заправкам и группа Mapon «Actual Petrol Station» (только чтение)">⛽</button>{% endif %}

@@ -20,7 +20,8 @@
   .version-tag { display: none; }
 
   /* ---------- вкладки ---------- */
-  .main-tabs { gap: 0; margin-bottom: 8px; align-items: stretch; }
+  .main-tabs { gap: 4px; margin-bottom: 8px; align-items: center; }
+  .main-tabs-spacer { display: none; }   /* v3.353: на телефоне From → To и Локатор остаются слева, как раньше */
   .main-tab-btn { padding: 10px 11px; font-size: 15px; white-space: nowrap; }
   .main-tab-btn.ref-tab, .main-tab-btn[data-tab="gf"], .main-tabs .g-usage, .main-tabs .fuel-btn { display: none; }
   .main-tab-btn.m-only { display: inline-block; }
