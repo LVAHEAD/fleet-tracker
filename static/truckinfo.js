@@ -295,6 +295,15 @@ Fleet ETA Tracker — вкладка "Truck Info"
     inp.value = t.dataset.unit || "";
     load();
   });
+  // v3.362: Ctrl+клик по номеру машины во Флоте — открыть Truck Info с этой машиной
+  window.tiOpenUnit = (unit) => {
+    const v = String(unit || "").trim();
+    if (!v) return;
+    const tb = document.querySelector('.main-tab-btn[data-tab="truckinfo"]');
+    if (tb && !tb.classList.contains("active")) tb.click();
+    inp.value = v;
+    load();
+  };
   inp.addEventListener("keydown", (e) => { if (e.key === "Enter") load(); });
   inp.addEventListener("change", load);
   const dsel = document.getElementById("ti-days");

@@ -1071,6 +1071,12 @@ function attachRowHandlers(one) {
         window.addrOpenFor(e.target.value);
         return;
       }
+      // v3.362: Ctrl/Cmd+клик по номеру машины — вкладка Truck Info с этой машиной
+      if (e.target.tagName === "INPUT" && (e.ctrlKey || e.metaKey) && e.target.classList.contains("unit-input") && window.tiOpenUnit && e.target.value.trim()) {
+        e.preventDefault();
+        window.tiOpenUnit(e.target.value);
+        return;
+      }
       // v3.280: Ctrl/Cmd+клик по свободному месту трипа (статус, КМ, ETA, пустые поля ячеек) — обновить трип, как ↻ в строке
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !(e.target.closest && e.target.closest("input, button, select, textarea, a, .com-tri"))) {
         const rb = tr.querySelector(".refresh-row-btn");
