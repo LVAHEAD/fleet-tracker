@@ -312,7 +312,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
  `<span class="loc-stops-s">за 90 сут, от 9 ч</span>` +
         `</div>` +
         (j.stops ? `<div class="loc-stops-s">${j.stops} стоянок · ${Math.round(j.hours)} ч · ${j.units} машин${since ? ` · с ${since}` : ""}</div>` +
-          `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} ${t.units === 1 ? "машина" : "машин"}</td><td class="loc-gps" title="Клик — скопировать GPS">${t.lat}, ${t.lng}</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td></tr>`).join("") + `</table>`
+          `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} ${t.units === 1 ? "машина" : "машин"}</td><td class="loc-gps">${t.lat}, ${t.lng}</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td></tr>`).join("") + `</table>`
           : `<div class="loc-stops-s">Стоянок нет — история копится с момента запуска сбора (раз в 6 ч).</div>`);
       j.top.forEach((t, i) => {
         const m = new google.maps.Marker({ position: { lat: t.lat, lng: t.lng }, map, zIndex: 900,
@@ -339,15 +339,26 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
         });
         tr.addEventListener("mouseleave", () => { tip.hidden = true; });
       });
+      let blinkT = null;
+      const blink = (i) => {   // метка места моргает зелёным ~3 с
+        clearInterval(blinkT);
+        stopMarks.forEach((m) => m.setIcon(Object.assign({}, m.getIcon(), { fillColor: "#2f6fd6" })));
+        const m = stopMarks[i]; if (!m) return;
+        let k = 0;
+        const step = () => { m.setIcon(Object.assign({}, m.getIcon(), { fillColor: k % 2 ? "#2f6fd6" : "#1fbf4a" })); m.setZIndex(k % 2 ? 900 : 1200); };
+        step();
+        blinkT = setInterval(() => { k++; step(); if (k >= 9) { clearInterval(blinkT); m.setIcon(Object.assign({}, m.getIcon(), { fillColor: "#2f6fd6" })); m.setZIndex(900); } }, 350);
+      };
       box.querySelectorAll(".loc-gps").forEach((td) => td.addEventListener("click", (e) => {
         e.stopPropagation();
+        const t = j.top[+td.parentNode.dataset.i]; map.panTo({ lat: t.lat, lng: t.lng }); blink(+td.parentNode.dataset.i);
         const txt = td.textContent;
         const done = () => { td.textContent = "скопировано"; setTimeout(() => { td.textContent = txt; }, 1000); };
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, () => {});
         else { const a = document.createElement("textarea"); a.value = txt; document.body.appendChild(a); a.select(); document.execCommand("copy"); a.remove(); done(); }
       }));
       box.querySelectorAll(".loc-stops-t tr").forEach((tr) => tr.addEventListener("click", () => {
-        const t = j.top[+tr.dataset.i]; map.panTo({ lat: t.lat, lng: t.lng }); map.setZoom(15);
+        const t = j.top[+tr.dataset.i]; map.panTo({ lat: t.lat, lng: t.lng }); map.setZoom(15); blink(+tr.dataset.i);
       }));
     } catch (e) {
       box.innerHTML = `<div class="loc-err">Стоянки: не удалось загрузить.</div>`;
