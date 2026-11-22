@@ -188,7 +188,22 @@ Fleet ETA Tracker — вкладка "Truck Info"
         showUnitOnMap(j.lat, j.lng, 9, onMap ? "" : j.number);   // во Флоте уже есть плашка — только переезд карты
       }
       lastUnit = j.trailer ? "" : String(j.number || "");
-      let h = `<div class="ti-title">${esc(j.number)}${j.tractor ? ` <a href="#" class="ti-tag ti-tractor" data-unit="${esc(j.tractor)}" title="тягач этого прицепа по строке Флота — клик: открыть его Truck Info">тягач: ${esc(j.tractor)}</a>` : ""}</div>`;
+      lastShown = String(j.number || "");
+      // v3.368: пара «трак ⇄ прицеп» одинаково в обе стороны: привязан по строке Флота — метка, нет — подсказка ближайшего по GPS
+      const nrm2 = (x) => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      const frow = (typeof rows !== "undefined" ? rows : []).find((r) => j.trailer ? nrm2(r.trailer) && nrm2(r.trailer) === nrm2(j.number) : nrm2(r.unit) === nrm2(j.number));
+      const pairNo = j.trailer ? (j.tractor || "") : (frow && frow.trailer ? String(frow.trailer) : "");
+      const pairWord = j.trailer ? "тягач" : "прицеп";
+      const pairTag = pairNo ? ` <a href="#" class="ti-tag ti-tractor" data-unit="${esc(pairNo)}" title="${pairWord} по строке Флота — клик: открыть его Truck Info">${pairWord}: ${esc(pairNo)}</a>` : ` <span class="ti-pair-hint" id="ti-pair"></span>`;
+      let h = `<div class="ti-title">${esc(j.number)}${pairTag}</div>`;
+      if (!pairNo) {
+        const thisNo = String(j.number || "");
+        fetch(`/api/nearest-units?unit=${encodeURIComponent(thisNo)}&kind=${j.trailer ? "truck" : "trailer"}`).then((r) => r.json()).then((n) => {
+          const it = (n.items || [])[0], box = document.getElementById("ti-pair");
+          if (!box || !it || lastShown !== thisNo) return;
+          box.innerHTML = `<a href="#" class="ti-tag ti-tractor ti-dimtag" data-unit="${esc(it.number)}" title="не привязан во Флоте. Ближайший по GPS — клик: открыть его Truck Info">${pairWord}: ? ${esc(it.number)} · ${it.km < 10 ? it.km.toFixed(1) : Math.round(it.km)} км</a>`;
+        }).catch(() => {});
+      }
       if (j.trailer) {   // v3.258: прицеп — вместо водителей лог рефа
         out.innerHTML = h + `<div class="rl-card" id="ti-reefer"><div class="ti-loading">Реф: загрузка…</div></div>` + segHtml();
         return loadReefer(q, days);
@@ -252,7 +267,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
   ["input", "focus"].forEach((ev) => inp.addEventListener(ev, fillList));
   btn.addEventListener("click", load);
   // v3.362: период истории водителя / лога рефа — кнопки внизу [3 сут][7 сут][14 сут] (было: список сверху)
-  let histDays = 3;
+  let histDays = 3, lastShown = "";
   try { histDays = [3, 7, 14].includes(+localStorage.getItem("ti-days")) ? +localStorage.getItem("ti-days") : 3; } catch (e) {}
   const segHtml = () => `<div class="ti-seg-row" title="за сколько суток история водителя"><div class="ti-seg">` +
     [3, 7, 14].map((n) => `<button type="button" data-d="${n}" class="${n === histDays ? "on" : ""}">${n} сут</button>`).join("") + `</div></div>`;
