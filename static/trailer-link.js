@@ -79,6 +79,8 @@ function openTrailerEditor(id, anchor) {
     <div class="trl-ed-err" hidden></div>
     <div class="trl-ed-b"><button class="trl-ed-ok">Привязать</button><button class="trl-ed-cancel">Отмена</button></div>`;
   document.body.appendChild(trlEd);
+  // v3.364: строка могла перерисоваться, пока была открыта карточка «не хватает данных» — старый якорь отцеплен (rect = 0,0, окно улетало в угол)
+  if (!anchor || !anchor.isConnected) anchor = document.querySelector(`#fleet-tbody tr[data-id="${id}"] .unit-input`) || document.querySelector(`#fleet-tbody tr[data-id="${id}"]`) || document.body;
   const r = anchor.getBoundingClientRect();
   const z = uiZoom();
   // v3.128: позицию пересчитываем и после появления «ближайших» / ошибки — иначе кнопки уезжают за низ экрана
