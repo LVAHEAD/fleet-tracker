@@ -914,7 +914,11 @@ def api_stops_where():
     code, city = request.args.get("code") or "", request.args.get("city") or ""
     if not code.strip() and not city.strip():
         return jsonify({"error": "нужен code (ES46) или city"}), 400
-    res = where(code=code, city=city, days=days, min_h=min_h)
+    try:
+        names = {str(u["unit_id"]): (u.get("number") or u.get("label")) for u in fetch_units(MAPON_API_KEY)}
+    except Exception:
+        names = {}
+    res = where(code=code, city=city, days=days, min_h=min_h, names=names)
     res["collector"] = status()
     if request.args.get("format") == "csv":
         import csv

@@ -304,7 +304,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
         sel("ls-days", [["30", "30 сут"], ["90", "90 сут"], ["all", "всё время"]], stopDays) + " от " +
         sel("ls-min", [["1", "1 ч"], ["2", "2 ч"], ["6", "6 ч"], ["9", "9 ч"]], stopMinH) + `</div>` +
         (j.stops ? `<div class="loc-stops-s">${j.stops} стоянок · ${Math.round(j.hours)} ч · ${j.units} машин${since ? ` · с ${since}` : ""}</div>` +
-          `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} м.</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td></tr>`).join("") + `</table>`
+          `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} ${t.units === 1 ? "машина" : "машин"}</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td></tr>`).join("") + `</table>`
           : `<div class="loc-stops-s">Стоянок нет — история копится с момента запуска сбора (раз в 6 ч).</div>`);
       box.querySelector("#ls-days").addEventListener("change", (e) => { stopDays = e.target.value; showStops(d, q); });
       box.querySelector("#ls-min").addEventListener("change", (e) => { stopMinH = e.target.value; showStops(d, q); });
@@ -315,6 +315,23 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
           title: `${t.n} стоянок · ${Math.round(t.hours)} ч · ${t.address || ""}` });
         m.addListener("click", () => { map.panTo(m.getPosition()); map.setZoom(15); });
         stopMarks.push(m);
+      });
+      const tip = document.createElement("div");
+      tip.className = "loc-stops-tip"; tip.hidden = true; box.appendChild(tip);
+      const fd = (ts) => { const x = new Date(ts * 1000); return x.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) + " " + x.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }); };
+      box.querySelectorAll(".loc-stops-t tr").forEach((tr) => {
+        tr.addEventListener("mouseenter", () => {
+          const t = j.top[+tr.dataset.i];
+          tip.innerHTML = t.list.map((r) => `<div><b>${esc(r.u)}</b> · ${fd(r.s)} → ${fd(r.e)} · ${Math.round((r.e - r.s) / 360) / 10} ч</div>`).join("") +
+            (t.n > t.list.length ? `<div class="loc-stops-more">…и ещё ${t.n - t.list.length}</div>` : "");
+          tip.hidden = false;
+        });
+        tr.addEventListener("mousemove", (e) => {
+          const b = box.getBoundingClientRect();
+          tip.style.left = Math.max(0, Math.min(e.clientX - b.left + 14, b.width - tip.offsetWidth)) + "px";
+          tip.style.top = (e.clientY - b.top + 14) + "px";
+        });
+        tr.addEventListener("mouseleave", () => { tip.hidden = true; });
       });
       box.querySelectorAll(".loc-stops-t tr").forEach((tr) => tr.addEventListener("click", () => {
         const t = j.top[+tr.dataset.i]; map.panTo({ lat: t.lat, lng: t.lng }); map.setZoom(15);

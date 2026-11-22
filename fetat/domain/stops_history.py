@@ -108,13 +108,14 @@ def _merge_near(cells):
                 for k in ("n", "hours", "lat", "lng"):
                     m[k] += c[k]
                 m["units"] |= c["units"]
+                m["list"] += c["list"]
                 break
         else:
             out.append(c)
     return sorted(out, key=lambda c: (-c["n"], -c["hours"]))
 
 
-def where(code=None, city=None, days=None, min_h=2.0, now=None, top=15):
+def where(code=None, city=None, days=None, min_h=2.0, now=None, top=15, names=None):
     """Статистика стоянок: по коду зоны или по тексту адреса. -> {stops, hours, units, from, top: [{n, hours, units, lat, lng, address}]}"""
     now = float(now or time.time())
     lo = now - days * 86400 if days else 0
@@ -135,16 +136,19 @@ def where(code=None, city=None, days=None, min_h=2.0, now=None, top=15):
             units.add(uid)
             first = x["s"] if first is None else min(first, x["s"])
             k = (round(x["lat"] / GRID), round(x["lng"] / GRID))
-            c = cl.setdefault(k, {"n": 0, "hours": 0.0, "units": set(), "lat": 0.0, "lng": 0.0, "address": x.get("a") or ""})
+            c = cl.setdefault(k, {"n": 0, "hours": 0.0, "units": set(), "lat": 0.0, "lng": 0.0, "address": x.get("a") or "", "list": []})
             c["n"] += 1
             c["hours"] += h
             c["units"].add(uid)
+            c["list"].append((uid, x["s"], x["e"]))
             c["lat"] += x["lat"]
             c["lng"] += x["lng"]
     items = _merge_near(sorted(cl.values(), key=lambda c: (-c["n"], -c["hours"])))[:top]
     return {"stops": total, "hours": round(hours, 1), "units": len(units), "from": first,
             "top": [{"n": c["n"], "hours": round(c["hours"], 1), "units": len(c["units"]),
-                     "lat": round(c["lat"] / c["n"], 5), "lng": round(c["lng"] / c["n"], 5), "address": c["address"]} for c in items]}
+                     "lat": round(c["lat"] / c["n"], 5), "lng": round(c["lng"] / c["n"], 5), "address": c["address"],
+                     "list": [{"u": (names or {}).get(str(u)) or str(u), "s": a, "e": b}
+                              for u, a, b in sorted(c["list"], key=lambda r: -r[1])[:40]]} for c in items]}
 
 
 def _unit_ids():
