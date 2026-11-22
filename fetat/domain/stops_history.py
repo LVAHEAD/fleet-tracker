@@ -91,6 +91,29 @@ def status():
     return dict(_state)
 
 
+MERGE_KM = 0.5  # соседние ячейки ближе 500 м — одно место (адрес — у самой частой)
+
+
+def _merge_near(cells):
+    """Склеить ячейки сетки, центры которых ближе MERGE_KM; cells уже по убыванию n."""
+    import math
+    out = []
+    for c in cells:
+        la, lo = c["lat"] / c["n"], c["lng"] / c["n"]
+        for m in out:
+            ml, mg = m["lat"] / m["n"], m["lng"] / m["n"]
+            dy = (la - ml) * 111.2
+            dx = (lo - mg) * 111.2 * math.cos(math.radians(ml))
+            if dx * dx + dy * dy <= MERGE_KM ** 2:
+                for k in ("n", "hours", "lat", "lng"):
+                    m[k] += c[k]
+                m["units"] |= c["units"]
+                break
+        else:
+            out.append(c)
+    return sorted(out, key=lambda c: (-c["n"], -c["hours"]))
+
+
 def where(code=None, city=None, days=None, min_h=2.0, now=None, top=15):
     """Статистика стоянок: по коду зоны или по тексту адреса. -> {stops, hours, units, from, top: [{n, hours, units, lat, lng, address}]}"""
     now = float(now or time.time())
@@ -118,7 +141,7 @@ def where(code=None, city=None, days=None, min_h=2.0, now=None, top=15):
             c["units"].add(uid)
             c["lat"] += x["lat"]
             c["lng"] += x["lng"]
-    items = sorted(cl.values(), key=lambda c: (-c["n"], -c["hours"]))[:top]
+    items = _merge_near(sorted(cl.values(), key=lambda c: (-c["n"], -c["hours"])))[:top]
     return {"stops": total, "hours": round(hours, 1), "units": len(units), "from": first,
             "top": [{"n": c["n"], "hours": round(c["hours"], 1), "units": len(c["units"]),
                      "lat": round(c["lat"] / c["n"], 5), "lng": round(c["lng"] / c["n"], 5), "address": c["address"]} for c in items]}
