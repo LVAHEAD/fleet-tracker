@@ -23,17 +23,17 @@ class StopsHistoryTest(unittest.TestCase):
         STOPS_STORE.docs.clear()
 
     def test_parse_keeps_finished_long_stops_and_glues_midnight(self):
-        r = [stop(30, 1.0), stop(29, 5.0), stop(10, 0.5), {"type": "stop", "start": {"time": iso(NOW - 3600), "lat": 1, "lng": 1}, "end": {}}]
+        r = [stop(30, 1.0), stop(29, 8.0), stop(10, 0.5), {"type": "stop", "start": {"time": iso(NOW - 3600), "lat": 1, "lng": 1}, "end": {}}]
         got = S.parse_stops(r, NOW)
-        self.assertEqual(len(got), 1)                       # 1 ч + 5 ч склеены; 30 мин — короткая; идущая — не берём
-        self.assertEqual(got[0]["e"] - got[0]["s"], 6 * 3600)
+        self.assertEqual(len(got), 1)                       # 1 ч + 8 ч склеены; 30 мин — короткая; идущая — не берём
+        self.assertEqual(got[0]["e"] - got[0]["s"], 9 * 3600)
 
     def test_collect_is_incremental_and_dedups(self):
         calls = []
 
         def rl(uid, frm, till, polyline=True):
             calls.append(frm)
-            return [stop(50, 10), stop(20, 3)]
+            return [stop(50, 10), stop(20, 8)]
         S.collect_unit(7, NOW, rl)
         S.collect_unit(7, NOW + 3600, rl)
         self.assertEqual(len(STOPS_STORE.get(7)["stops"]), 2)       # повтор не плодит дубли

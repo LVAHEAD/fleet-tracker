@@ -6,8 +6,8 @@ import time
 from fetat.domain.regions import nearest_region_code
 from fetat.store.stops_store import STOPS_STORE
 
-KEEP_DAYS = 400
-MIN_SEC = 3600            # пишем стоянки от 1 ч; в отчёте порог выбирают (по умолчанию 2 ч)
+KEEP_DAYS = 730           # храним 2 года (решение Владимира 23.11)
+MIN_SEC = 8 * 3600        # пишем стоянки от 8 ч (решение Владимира 23.11); раньше писали от 1 ч
 FIRST_DAYS = 28           # первый сбор — на глубину окна Mapon
 GRID = 0.003              # ~300 м
 
@@ -45,7 +45,7 @@ def merge_stops(old, fresh, now, keep_days=KEEP_DAYS):
                 x = dict(x, c=(nearest_region_code(x["lat"], x["lng"])[0] or ""))
             by[k] = x
     lo = now - keep_days * 86400
-    return sorted((v for v in by.values() if v["e"] >= lo), key=lambda v: v["s"])
+    return sorted((v for v in by.values() if v["e"] >= lo and v["e"] - v["s"] >= MIN_SEC), key=lambda v: v["s"])
 
 
 def collect_unit(unit_id, now=None, route_list=None):
