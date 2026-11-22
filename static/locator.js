@@ -305,7 +305,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
         sel("ls-days", [["30", "30 сут"], ["90", "90 сут"], ["all", "всё время"]], stopDays) + " от " +
         sel("ls-min", [["1", "1 ч"], ["2", "2 ч"], ["6", "6 ч"], ["9", "9 ч"]], stopMinH) + `</div>` +
         (j.stops ? `<div class="loc-stops-s">${j.stops} стоянок · ${Math.round(j.hours)} ч · ${j.units} машин${since ? ` · с ${since}` : ""}</div>` +
-          `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} ${t.units === 1 ? "машина" : "машин"}</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td><td class="loc-gps" title="Клик — скопировать GPS">${t.lat}, ${t.lng}</td></tr>`).join("") + `</table>`
+          `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} ${t.units === 1 ? "машина" : "машин"}</td><td class="loc-gps" title="Клик — скопировать GPS">${t.lat}, ${t.lng}</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td></tr>`).join("") + `</table>`
           : `<div class="loc-stops-s">Стоянок нет — история копится с момента запуска сбора (раз в 6 ч).</div>`);
       box.querySelector("#ls-days").addEventListener("change", (e) => { stopDays = e.target.value; showStops(d, q); });
       box.querySelector("#ls-min").addEventListener("change", (e) => { stopMinH = e.target.value; showStops(d, q); });
@@ -330,7 +330,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
         tr.addEventListener("mousemove", (e) => {
           const b = box.getBoundingClientRect();
           tip.style.left = Math.max(0, Math.min(e.clientX - b.left + 14, b.width - tip.offsetWidth)) + "px";
-          tip.style.top = (e.clientY - b.top + 14) + "px";
+          tip.style.top = (e.clientY - b.top + 30) + "px";
         });
         tr.addEventListener("mouseleave", () => { tip.hidden = true; });
       });
