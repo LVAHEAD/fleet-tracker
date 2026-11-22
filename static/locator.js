@@ -304,7 +304,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
         sel("ls-days", [["30", "30 сут"], ["90", "90 сут"], ["all", "всё время"]], stopDays) + " от " +
         sel("ls-min", [["1", "1 ч"], ["2", "2 ч"], ["6", "6 ч"], ["9", "9 ч"]], stopMinH) + `</div>` +
         (j.stops ? `<div class="loc-stops-s">${j.stops} стоянок · ${Math.round(j.hours)} ч · ${j.units} машин${since ? ` · с ${since}` : ""}</div>` +
-          `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} ${t.units === 1 ? "машина" : "машин"}</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td></tr>`).join("") + `</table>`
+          `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} ${t.units === 1 ? "машина" : "машин"}</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td><td class="loc-gps" title="Клик — скопировать GPS">${t.lat}, ${t.lng}</td></tr>`).join("") + `</table>`
           : `<div class="loc-stops-s">Стоянок нет — история копится с момента запуска сбора (раз в 6 ч).</div>`);
       box.querySelector("#ls-days").addEventListener("change", (e) => { stopDays = e.target.value; showStops(d, q); });
       box.querySelector("#ls-min").addEventListener("change", (e) => { stopMinH = e.target.value; showStops(d, q); });
@@ -333,6 +333,13 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
         });
         tr.addEventListener("mouseleave", () => { tip.hidden = true; });
       });
+      box.querySelectorAll(".loc-gps").forEach((td) => td.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const txt = td.textContent;
+        const done = () => { td.textContent = "скопировано"; setTimeout(() => { td.textContent = txt; }, 1000); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, () => {});
+        else { const a = document.createElement("textarea"); a.value = txt; document.body.appendChild(a); a.select(); document.execCommand("copy"); a.remove(); done(); }
+      }));
       box.querySelectorAll(".loc-stops-t tr").forEach((tr) => tr.addEventListener("click", () => {
         const t = j.top[+tr.dataset.i]; map.panTo({ lat: t.lat, lng: t.lng }); map.setZoom(15);
       }));
