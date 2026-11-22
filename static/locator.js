@@ -291,8 +291,9 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     if (d.is_truck) return;
     let box = document.getElementById("loc-stops");
     if (!box) { box = document.createElement("div"); box.id = "loc-stops"; info.insertAdjacentElement("afterend", box); }
-    const key = d.is_code ? `code=${encodeURIComponent(d.code)}` : `city=${encodeURIComponent(q)}`;
-    const what = d.is_code ? `зона ${esc(d.code)}` : `«${esc(q)}» в адресах`;
+    const byCode = d.is_code || !!d.code;
+    const key = byCode ? `code=${encodeURIComponent(d.code)}` : `city=${encodeURIComponent(q)}`;
+    const what = d.is_code ? `зона ${esc(d.code)}` : byCode ? `«${esc(q)}» → зона ${esc(d.code)}` : `«${esc(q)}» в адресах`;
     box.innerHTML = `<div class="loc-stops-h">Стоянки: загрузка…</div>`;
     try {
       const r = await fetch(`/api/stops-where?${key}&days=${stopDays === "all" ? "" : stopDays}&min_h=${stopMinH}`);
