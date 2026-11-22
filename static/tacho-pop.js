@@ -229,6 +229,8 @@
   });
   // 30.10: клик всплывашку не открывает и не закрепляет (флаг — только ⏱, 👥 — только смена режима);
   // любой клик вне окна гасит таймер и закрывает его. Фаза захвата — чтобы сработало и до stopPropagation у 👥.
+  // v3.362: та же панель без всплывашки — для Truck Info (c = {u, h, p}; i — вкладка водителя)
+  window.TachoPop = { render(c, i) { tab = i || 0; return render(c); } };
   document.addEventListener("click", (e) => {
     if (tip && tip.contains(e.target)) return;
     close(); restore();

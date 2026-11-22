@@ -14,7 +14,7 @@ from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.points import find_unit_exact, object_at
 from fetat.domain.regions import nearest_region_code
 from fetat.domain.rests_history import long_history
-from fetat.domain.tacho import _team, tacho_no_subscription, WEEKLY_FULL_SEC, WEEKLY_MIN_SEC, WEEKLY_PERIOD_SEC, designate_weekly, weekly_compensation, weekly_status
+from fetat.domain.tacho import _team, tacho_no_subscription, tacho_panel, WEEKLY_FULL_SEC, WEEKLY_MIN_SEC, WEEKLY_PERIOD_SEC, designate_weekly, weekly_compensation, weekly_status
 from fetat.domain.trailers import is_trailer, reefer_log, reefer_log_events
 from fetat.utils.geo import haversine_km, _wkt_center, _wkt_vertices
 from fetat.utils.timefmt import _hm, _lv, _utc_iso
@@ -204,6 +204,11 @@ def api_truck_info():
     tacho, terr = get_tacho(uid)
     if not tacho:
         out["tacho_error"] = terr
+    else:
+        try:                                    # v3.362: панель «Tachograph» как всплывашка Флота (static/tacho-pop.js), без плана поездки
+            out["panel"] = tacho_panel(tacho)
+        except Exception as _e:
+            out["panel_error"] = str(_e)[:120]
     for d in (tacho or {}).get("drivers") or []:
         week, today = d.get("week") or {}, d.get("today") or {}
         row = {"name": " ".join(filter(None, [d.get("driver_name"), d.get("driver_surname")])) or "—",

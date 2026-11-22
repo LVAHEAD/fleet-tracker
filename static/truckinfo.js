@@ -190,7 +190,8 @@ Fleet ETA Tracker — вкладка "Truck Info"
         return loadReefer(q, days);
       }
       if (j.tacho_error) h += `<div class="ti-err">Тахограф: ${esc(j.tacho_error)}</div>`;
-      h += `<div class="ti-drivers">${(j.drivers || []).map(driverHtml).join("")}</div>`;
+      const mp = j.panel && window.TachoPop ? `<div class="tp tp-mp tp-static" id="ti-mp"></div>` : "";   // v3.362: панель Tachograph «как в Mapon»
+      h += `<div class="ti-drivers">${mp}${(j.drivers || []).map(driverHtml).join("")}</div>`;
       if (j.stops && j.stops.length) {
         h += `<table class="ti-table ti-stops"><tr><th colspan="3">Стоянки от 2 ч за 3 суток</th></tr>` +
           j.stops.slice().reverse().map((s) => `<tr><td>${esc(s.from)} → ${esc(s.to)}</td>
@@ -199,6 +200,13 @@ Fleet ETA Tracker — вкладка "Truck Info"
         h += `<div class="ti-err">Стоянки: ${esc(j.stops_error)}</div>`;
       }
       out.innerHTML = h;
+      const mpEl = document.getElementById("ti-mp");
+      if (mpEl) {
+        const draw = (i) => { mpEl.innerHTML = window.TachoPop.render({ u: j.number, h: "", p: j.panel }, i); };
+        const first = Math.max(0, (j.panel.drivers || []).findIndex((x) => x.state === "DRIVING"));
+        draw(first);
+        mpEl.addEventListener("click", (e) => { const tb = e.target.closest(".mp-tab"); if (tb) draw(+tb.dataset.tab); });
+      }
     } catch (e) {
       out.innerHTML = `<div class="ti-err">Ошибка: ${esc(e.message)}</div>`;
     }

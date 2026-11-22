@@ -1771,6 +1771,8 @@ body.sort-manual #fleet-tbody td:first-child .disp-sel { display: block; width: 
 }
 .tp[hidden] { display: none; }
 .tp[hidden] { display: none; }
+.tp.tp-static { position: static; max-height: none; box-shadow: none; flex: none; align-self: flex-start; }
+.tp.tp-static .tp-x { display: none !important; }
 .tp-x { display: none; width: 22px; height: 22px; padding: 0; border: 1px solid var(--tp-blue); border-radius: 4px; background: #fff; color: var(--tp-blue); font: 16px/18px sans-serif; cursor: pointer; align-self: center; }
 .tp-x:hover { background: var(--tp-blue); color: #fff; }
 .tp.pin .tp-x { display: block; }
