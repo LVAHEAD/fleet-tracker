@@ -49,6 +49,8 @@
 /api/refresh-stat POST
 /api/region-codes GET
 /api/route POST
+/api/stops-collect GET
+/api/stops-where GET
 /api/trip-gap POST
 /api/truck-info GET
 /api/truck-rest-stop GET

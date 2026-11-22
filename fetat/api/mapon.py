@@ -899,3 +899,47 @@ def api_mapon_check():
     resp = current_app.response_class(json.dumps(out, ensure_ascii=False, indent=2),
                               mimetype="application/json; charset=utf-8")
     return resp
+
+
+# ---------- v3.368: история стоянок — где паркуются (Локатор: зона / город) ----------
+@bp.route("/api/stops-where")
+def api_stops_where():
+    """/api/stops-where?code=ES46 | city=Barcelona [&days=28][&min_h=2][&format=csv] -> статистика и топ мест."""
+    from fetat.domain.stops_history import status, where
+    try:
+        days = int(request.args.get("days") or 0) or None
+        min_h = float(request.args.get("min_h") or 2)
+    except ValueError:
+        return jsonify({"error": "days / min_h — числа"}), 400
+    code, city = request.args.get("code") or "", request.args.get("city") or ""
+    if not code.strip() and not city.strip():
+        return jsonify({"error": "нужен code (ES46) или city"}), 400
+    res = where(code=code, city=city, days=days, min_h=min_h)
+    res["collector"] = status()
+    if request.args.get("format") == "csv":
+        import csv
+        import io
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(["n", "hours", "units", "lat", "lng", "address"])
+        for t in res["top"]:
+            w.writerow([t["n"], t["hours"], t["units"], t["lat"], t["lng"], t["address"]])
+        return buf.getvalue(), 200, {"Content-Type": "text/csv; charset=utf-8"}
+    return jsonify(res)
+
+
+@bp.route("/api/stops-collect")
+def api_stops_collect():
+    """Ручной запуск сбора стоянок (первая выгрузка за ~28 дней) в фоне; ответ — состояние сборщика."""
+    import threading
+
+    from fetat.domain.stops_history import _unit_ids, collect_all, status
+    if not MAPON_API_KEY:
+        return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
+    if not status().get("running"):
+        try:
+            ids = _unit_ids()
+        except Exception as e:
+            return jsonify({"error": f"Mapon: {e}"}), 502
+        threading.Thread(target=collect_all, args=(ids,), daemon=True).start()
+    return jsonify(dict(status(), started=True))

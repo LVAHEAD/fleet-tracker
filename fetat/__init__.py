@@ -86,4 +86,9 @@ def create_app():
 
     for bp in (meta.bp, mapon.bp, calc.bp, reference.bp, fleet.bp, notebook.bp, fuel.bp, mobile.bp):
         app.register_blueprint(bp)
+    try:                                   # v3.368: фоновый сбор истории стоянок (раз в 6 ч)
+        from fetat.domain.stops_history import start_background
+        start_background()
+    except Exception:
+        pass
     return app

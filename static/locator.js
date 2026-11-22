@@ -278,8 +278,55 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     else fallback();
   }
 
+  // v3.368: стоянки по зоне / городу — где чаще паркуются (история Mapon, копится с v3.368): итог, топ мест, метки на карте
+  let stopMarks = [], stopDays = "90", stopMinH = "2";
+  function clearStops() {
+    stopMarks.forEach((m) => m.setMap(null));
+    stopMarks = [];
+    const b = document.getElementById("loc-stops");
+    if (b) b.innerHTML = "";
+  }
+  async function showStops(d, q) {
+    clearStops();
+    if (d.is_truck) return;
+    let box = document.getElementById("loc-stops");
+    if (!box) { box = document.createElement("div"); box.id = "loc-stops"; info.insertAdjacentElement("afterend", box); }
+    const key = d.is_code ? `code=${encodeURIComponent(d.code)}` : `city=${encodeURIComponent(q)}`;
+    const what = d.is_code ? `зона ${esc(d.code)}` : `«${esc(q)}» в адресах`;
+    box.innerHTML = `<div class="loc-stops-h">Стоянки: загрузка…</div>`;
+    try {
+      const r = await fetch(`/api/stops-where?${key}&days=${stopDays === "all" ? "" : stopDays}&min_h=${stopMinH}`);
+      const j = await r.json();
+      if (j.error) { box.innerHTML = `<div class="loc-err">Стоянки: ${esc(j.error)}</div>`; return; }
+      const since = j.from ? new Date(j.from * 1000).toLocaleDateString("ru-RU") : "";
+      const sel = (id, opts, cur) => `<select id="${id}">` + opts.map(([v, t]) => `<option value="${v}"${v === cur ? " selected" : ""}>${t}</option>`).join("") + `</select>`;
+      box.innerHTML = `<div class="loc-stops-h"><b>Стоянки</b> (${what}) ` +
+        sel("ls-days", [["30", "30 сут"], ["90", "90 сут"], ["all", "всё время"]], stopDays) + " от " +
+        sel("ls-min", [["1", "1 ч"], ["2", "2 ч"], ["6", "6 ч"], ["9", "9 ч"]], stopMinH) + `</div>` +
+        (j.stops ? `<div class="loc-stops-s">${j.stops} стоянок · ${Math.round(j.hours)} ч · ${j.units} машин${since ? ` · с ${since}` : ""}</div>` +
+          `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} м.</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td></tr>`).join("") + `</table>`
+          : `<div class="loc-stops-s">Стоянок нет — история копится с момента запуска сбора (раз в 6 ч).</div>`);
+      box.querySelector("#ls-days").addEventListener("change", (e) => { stopDays = e.target.value; showStops(d, q); });
+      box.querySelector("#ls-min").addEventListener("change", (e) => { stopMinH = e.target.value; showStops(d, q); });
+      j.top.forEach((t, i) => {
+        const m = new google.maps.Marker({ position: { lat: t.lat, lng: t.lng }, map, zIndex: 900,
+          label: { text: String(t.n), color: "#fff", fontSize: "11px", fontWeight: "600" },
+          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 11, fillColor: "#2f6fd6", fillOpacity: 0.9, strokeColor: "#fff", strokeWeight: 2 },
+          title: `${t.n} стоянок · ${Math.round(t.hours)} ч · ${t.address || ""}` });
+        m.addListener("click", () => { map.panTo(m.getPosition()); map.setZoom(15); });
+        stopMarks.push(m);
+      });
+      box.querySelectorAll(".loc-stops-t tr").forEach((tr) => tr.addEventListener("click", () => {
+        const t = j.top[+tr.dataset.i]; map.panTo({ lat: t.lat, lng: t.lng }); map.setZoom(15);
+      }));
+    } catch (e) {
+      box.innerHTML = `<div class="loc-err">Стоянки: не удалось загрузить.</div>`;
+    }
+  }
+
   async function locate(q) {
     if (!map) { pendingQuery = q; return; }
+    clearStops();
     info.textContent = "Ищу…";
     try {
       const res = await fetch("/api/locate", {
@@ -326,6 +373,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
       if (overlay) overlay.scheduleDraw();
       if (!d.is_code && !d.is_truck && resultMarker) openPointInfo(d, resultMarker);   // точка по названию — свой попап
       else if (codeP) openCodeInfo(codeP);
+      showStops(d, q);
     } catch (e) {
       info.innerHTML = `<span class="loc-err">Ошибка запроса. Попробуйте ещё раз.</span>`;
     }
