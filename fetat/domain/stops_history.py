@@ -91,6 +91,20 @@ def status():
     return dict(_state)
 
 
+DIR_MIN_KM = 30   # ближе — направления нет (та же местность)
+SIDES = ["С", "СВ", "В", "ЮВ", "Ю", "ЮЗ", "З", "СЗ"]
+
+
+def _side(lat0, lng0, lat1, lng1):
+    """Сторона света (8), в которой от точки 0 лежит точка 1; "" — ближе DIR_MIN_KM."""
+    import math
+    dy = (lat1 - lat0) * 111.2
+    dx = (lng1 - lng0) * 111.2 * math.cos(math.radians(lat0))
+    if math.hypot(dx, dy) < DIR_MIN_KM:
+        return ""
+    return SIDES[int(((math.degrees(math.atan2(dx, dy)) % 360) + 22.5) // 45) % 8]
+
+
 MERGE_KM = 0.5  # соседние ячейки ближе 500 м — одно место (адрес — у самой частой)
 
 
@@ -109,26 +123,38 @@ def _merge_near(cells):
                     m[k] += c[k]
                 m["units"] |= c["units"]
                 m["list"] += c["list"]
+                for key in ("from", "to"):
+                    for k, v in c[key].items():
+                        m[key][k] = m[key].get(k, 0) + v
                 break
         else:
             out.append(c)
     return sorted(out, key=lambda c: (-c["n"], -c["hours"]))
 
 
-def where(code=None, city=None, days=None, min_h=2.0, now=None, top=15, names=None):
+def where(code=None, city=None, days=None, min_h=2.0, now=None, top=15, names=None, from_side=None):
     """Статистика стоянок: по коду зоны или по тексту адреса. -> {stops, hours, units, from, top: [{n, hours, units, lat, lng, address}]}"""
     now = float(now or time.time())
     lo = now - days * 86400 if days else 0
     code = (code or "").strip().upper()
     city = (city or "").strip().lower()
     cl, units, total, hours, first = {}, set(), 0, 0.0, None
+    ok_from = set()
+    if from_side in SIDES:   # «еду с …»: выбранная сторона и две соседние
+        k = SIDES.index(from_side)
+        ok_from = {SIDES[(k - 1) % 8], from_side, SIDES[(k + 1) % 8]}
     for uid, rec in STOPS_STORE.all().items():
-        for x in rec.get("stops") or []:
+        st = sorted(rec.get("stops") or [], key=lambda v: v["s"])
+        for i, x in enumerate(st):
             if x["e"] < lo or x["e"] - x["s"] < min_h * 3600:
                 continue
             if code and x.get("c") != code:
                 continue
             if city and city not in (x.get("a") or "").lower():
+                continue
+            f = _side(x["lat"], x["lng"], st[i - 1]["lat"], st[i - 1]["lng"]) if i else ""
+            t = _side(x["lat"], x["lng"], st[i + 1]["lat"], st[i + 1]["lng"]) if i + 1 < len(st) else ""
+            if ok_from and f not in ok_from:
                 continue
             h = (x["e"] - x["s"]) / 3600
             total += 1
@@ -136,19 +162,22 @@ def where(code=None, city=None, days=None, min_h=2.0, now=None, top=15, names=No
             units.add(uid)
             first = x["s"] if first is None else min(first, x["s"])
             k = (round(x["lat"] / GRID), round(x["lng"] / GRID))
-            c = cl.setdefault(k, {"n": 0, "hours": 0.0, "units": set(), "lat": 0.0, "lng": 0.0, "address": x.get("a") or "", "list": []})
+            c = cl.setdefault(k, {"n": 0, "hours": 0.0, "units": set(), "lat": 0.0, "lng": 0.0, "address": x.get("a") or "", "list": [], "from": {}, "to": {}})
             c["n"] += 1
             c["hours"] += h
             c["units"].add(uid)
-            c["list"].append((uid, x["s"], x["e"]))
+            c["list"].append((uid, x["s"], x["e"], f, t))
+            for d, k in ((c["from"], f), (c["to"], t)):
+                if k:
+                    d[k] = d.get(k, 0) + 1
             c["lat"] += x["lat"]
             c["lng"] += x["lng"]
     items = _merge_near(sorted(cl.values(), key=lambda c: (-c["n"], -c["hours"])))[:top]
     return {"stops": total, "hours": round(hours, 1), "units": len(units), "from": first,
             "top": [{"n": c["n"], "hours": round(c["hours"], 1), "units": len(c["units"]),
-                     "lat": round(c["lat"] / c["n"], 5), "lng": round(c["lng"] / c["n"], 5), "address": c["address"],
-                     "list": [{"u": (names or {}).get(str(u)) or str(u), "s": a, "e": b}
-                              for u, a, b in sorted(c["list"], key=lambda r: -r[1])[:40]]} for c in items]}
+                     "lat": round(c["lat"] / c["n"], 5), "lng": round(c["lng"] / c["n"], 5), "address": c["address"], "from": c["from"], "to": c["to"],
+                     "list": [{"u": (names or {}).get(str(u)) or str(u), "s": a, "e": b, "f": f, "t": t}
+                              for u, a, b, f, t in sorted(c["list"], key=lambda r: -r[1])[:40]]} for c in items]}
 
 
 def _unit_ids():

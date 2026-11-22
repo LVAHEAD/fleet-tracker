@@ -918,7 +918,7 @@ def api_stops_where():
         names = {str(u["unit_id"]): (u.get("number") or u.get("label")) for u in fetch_units(MAPON_API_KEY)}
     except Exception:
         names = {}
-    res = where(code=code, city=city, days=days, min_h=min_h, names=names)
+    res = where(code=code, city=city, days=days, min_h=min_h, names=names, from_side=request.args.get("from_side") or None)
     res["collector"] = status()
     if request.args.get("format") == "csv":
         import csv

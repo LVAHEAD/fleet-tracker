@@ -50,6 +50,15 @@ class StopsHistoryTest(unittest.TestCase):
         self.assertEqual(S.where(city="paris", min_h=9, now=NOW)["stops"], 0)
         self.assertEqual(S.where(city="barcelona", days=2, now=NOW)["stops"], 1)   # окно 2 суток
 
+    def test_direction_and_from_filter(self):
+        # Барселона (юг) -> Дижон: «пришла с юга»; Париж (север) -> Дижон: «пришла с севера»
+        S.collect_unit(1, NOW, lambda *a, **k: [stop(100, 9, lat=41.39, lng=5.0), stop(60, 9, lat=47.3, lng=5.04)])
+        S.collect_unit(2, NOW, lambda *a, **k: [stop(100, 9, lat=48.85, lng=5.0), stop(60, 9, lat=47.3, lng=5.04)])
+        r = S.where(city="", code=STOPS_STORE.get(1)["stops"][1]["c"], now=NOW)
+        self.assertEqual(r["top"][0]["from"], {"Ю": 1, "С": 1})
+        self.assertEqual(S.where(code=STOPS_STORE.get(1)["stops"][1]["c"], now=NOW, from_side="Ю")["top"][0]["n"], 1)
+        self.assertEqual(S.where(code=STOPS_STORE.get(1)["stops"][1]["c"], now=NOW, from_side="З")["stops"], 0)
+
     def test_one_unit_error_does_not_stop_collection(self):
         def rl(uid, *a, **k):
             if uid == 1:

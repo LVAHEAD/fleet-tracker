@@ -279,7 +279,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
   }
 
   // v3.368: стоянки по зоне / городу — где чаще паркуются (история Mapon, копится с v3.368): итог, топ мест, метки на карте
-  let stopMarks = [], stopDays = "90", stopMinH = "9";
+  let stopMarks = [], stopDays = "90", stopMinH = "9", stopFrom = "";
   function clearStops() {
     stopMarks.forEach((m) => m.setMap(null));
     stopMarks = [];
@@ -304,17 +304,19 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     box.innerHTML = `<div class="loc-stops-h">Стоянки: загрузка…</div>`;
     setTwoCol(true);
     try {
-      const r = await fetch(`/api/stops-where?${key}&days=${stopDays === "all" ? "" : stopDays}&min_h=${stopMinH}`);
+      const r = await fetch(`/api/stops-where?${key}&days=${stopDays === "all" ? "" : stopDays}&min_h=${stopMinH}${stopFrom ? "&from_side=" + encodeURIComponent(stopFrom) : ""}`);
       const j = await r.json();
       if (j.error) { box.innerHTML = `<div class="loc-err">Стоянки: ${esc(j.error)}</div>`; return; }
       if (j.stops && resultMarker) { resultMarker.setMap(null); resultMarker = null; }   // красная булавка города не нужна, когда есть стоянки
+      const dirTxt = (o) => Object.entries(o || {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}${v > 1 ? "×" + v : ""}`).join(" ") || "—";
       const since = j.from ? new Date(j.from * 1000).toLocaleDateString("ru-RU") : "";
+      const sidesHtml = `<div class="loc-sides">Еду с: ` + [["", "любой"], ["С", "С"], ["СВ", "СВ"], ["В", "В"], ["ЮВ", "ЮВ"], ["Ю", "Ю"], ["ЮЗ", "ЮЗ"], ["З", "З"], ["СЗ", "СЗ"]].map(([v, t]) => `<button type="button" data-side="${v}"${v === stopFrom ? ' class="on"' : ""}>${t}</button>`).join("") + `</div>`;
       box.innerHTML = `<div class="loc-stops-h"><b>Стоянки</b> (${what}) ` +
  `<span class="loc-stops-s">за 90 сут, от 9 ч</span>` +
         `</div>` +
-        (j.stops ? `<div class="loc-stops-s">${j.stops} стоянок · ${Math.round(j.hours)} ч · ${j.units} машин${since ? ` · с ${since}` : ""}</div>` +
-          `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} ${t.units === 1 ? "машина" : "машин"}</td><td class="loc-gps">${t.lat}, ${t.lng}</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td></tr>`).join("") + `</table>`
-          : `<div class="loc-stops-s">Стоянок нет — история копится с момента запуска сбора (раз в 6 ч).</div>`);
+        sidesHtml + (j.stops ? `<div class="loc-stops-s">${j.stops} стоянок · ${Math.round(j.hours)} ч · ${j.units} машин${since ? ` · с ${since}` : ""}</div><div class="loc-stops-s">Направление: откуда приехали → куда уехали (по соседним длинным стоянкам машины)</div>` +
+          `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} ${t.units === 1 ? "машина" : "машин"}</td><td class="loc-gps">${t.lat}, ${t.lng}</td><td class="loc-dir">${dirTxt(t.from)} → ${dirTxt(t.to)}</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td></tr>`).join("") + `</table>`
+          : `<div class="loc-stops-s">Стоянок нет${stopFrom ? " с этого направления" : " — история копится с момента запуска сбора (раз в 6 ч)"}.</div>`);
       j.top.forEach((t, i) => {
         const m = new google.maps.Marker({ position: { lat: t.lat, lng: t.lng }, map, zIndex: 900,
           label: { text: String(t.n), color: "#fff", fontSize: "11px", fontWeight: "600" },
@@ -329,7 +331,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
       box.querySelectorAll(".loc-stops-t tr").forEach((tr) => {
         tr.addEventListener("mouseenter", () => {
           const t = j.top[+tr.dataset.i];
-          tip.innerHTML = t.list.map((r) => `<div><b>${esc(r.u)}</b> · ${fd(r.s)} → ${fd(r.e)} · ${Math.round((r.e - r.s) / 360) / 10} ч</div>`).join("") +
+          tip.innerHTML = t.list.map((r) => `<div><b>${esc(r.u)}</b> · ${r.f || "—"} → ${r.t || "—"} · ${fd(r.s)} → ${fd(r.e)} · ${Math.round((r.e - r.s) / 360) / 10} ч</div>`).join("") +
             (t.n > t.list.length ? `<div class="loc-stops-more">…и ещё ${t.n - t.list.length}</div>` : "");
           tip.hidden = false;
           blink(+tr.dataset.i);
@@ -341,6 +343,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
         });
         tr.addEventListener("mouseleave", () => { tip.hidden = true; blink(-1); });
       });
+      box.querySelectorAll(".loc-sides button").forEach((b) => b.addEventListener("click", () => { stopFrom = b.dataset.side; showStops(d, q); }));
       let blinkT = null;
       const blink = (i) => {   // метка места моргает зелёным: при наведении на строку, до ухода курсора (~3 с)
         clearInterval(blinkT);
@@ -370,6 +373,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
   async function locate(q) {
     if (!map) { pendingQuery = q; return; }
     clearStops();
+    stopFrom = "";
     info.textContent = "Ищу…";
     try {
       const res = await fetch("/api/locate", {
