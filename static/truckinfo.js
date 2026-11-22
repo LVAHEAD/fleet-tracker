@@ -159,10 +159,13 @@ Fleet ETA Tracker — вкладка "Truck Info"
     }
   }
 
-  async function load() {
+  // v3.368: soft — смена периода: без «Загрузка…», карту не двигаем, прокрутка остаётся (страница не «обновляется»)
+  const scroller = () => { for (let e = out.parentElement; e; e = e.parentElement) { const o = getComputedStyle(e).overflowY; if ((o === "auto" || o === "scroll") && e.scrollHeight > e.clientHeight) return e; } return document.scrollingElement; };
+  async function load(opt) {
     const q = inp.value.trim();
     if (!q) return;
-    out.innerHTML = `<div class="ti-loading">Загрузка…</div>`;
+    const soft = !!(opt && opt.soft === true);
+    if (!soft) out.innerHTML = `<div class="ti-loading">Загрузка…</div>`;
     try {
       const days = histDays;
       const r = await fetch(`/api/truck-info?unit=${encodeURIComponent(q)}&days=${encodeURIComponent(days)}`);
@@ -170,7 +173,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
       if (r.status === 404) return searchDrivers(q);      // не номер трака — ищем водителя по имени
       if (!r.ok || j.error) throw new Error(j.error || r.status);
       // v3.302: карта Флота — на машину / прицеп, зум 9 (закрытая панель выезжает сама)
-      if (typeof showUnitOnMap === "function" && typeof j.lat === "number" && typeof j.lng === "number") {
+      if (!soft && typeof showUnitOnMap === "function" && typeof j.lat === "number" && typeof j.lng === "number") {
         // v3.330: маркер (значок как у машинок Флота) — только если трака / прицепа нет во Флоте; тягач прицепа — по строке Флота
         const nrm = (x) => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
         const fr = (typeof rows !== "undefined" ? rows : []).find((r) => j.trailer ? nrm(r.trailer) && nrm(r.trailer) === nrm(j.number) : nrm(r.unit) === nrm(j.number));
@@ -328,7 +331,9 @@ Fleet ETA Tracker — вкладка "Truck Info"
     histDays = n;
     try { localStorage.setItem("ti-days", String(n)); } catch (er) {}
     const wasOpen = !!out.querySelector(".ti-hist-d[open]");
-    await load();
+    const sc = scroller(), top = sc ? sc.scrollTop : 0;
+    await load({ soft: true });
+    if (sc) sc.scrollTop = top;
     if (wasOpen) out.querySelectorAll(".ti-hist-d").forEach((d) => { d.open = true; });
   });
 })();
