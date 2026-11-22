@@ -169,19 +169,31 @@ def _week_start_utc(ts):
     return (d - timedelta(days=d.weekday())).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
 
 
+WEEKLY_MIN_GAP_SEC = 48 * 3600   # v3.367: следующий недельный не раньше чем через 2 суток после прошлого (ближе — «большая 9-ка»)
+
+
 def designate_weekly(rests, t0=0):
-    """Недельный отдых по правилу диспетчеров (08.11): в неделе (пн–вс, UTC) недельный — один, самый длинный из
-    отдыхов от 24 ч; остальные такие отдыхи недели — суточные («большая 9-ка»). Только для Truck Info:
-    расчёт ETA (`weekly_status`) не трогаем. Отдых, обрезанный началом окна, не берём."""
-    best = {}
-    for r in rests:
-        dur = r["end"] - r["start"]
-        if dur < WEEKLY_MIN_SEC or (r["start"] <= t0 + 60 and dur < WEEKLY_FULL_SEC):   # v3.361: обрезанный краем окна, но уже от 45 ч — берём
-            continue
-        k = _week_start_utc(r["start"])
-        if k not in best or dur > best[k]["end"] - best[k]["start"]:
-            best[k] = r
-    return sorted(best.values(), key=lambda r: r["start"])
+    """Недельный отдых по цепочке (22.11, правило Владимира: следующий не позже 6 суток от конца прошлого).
+    Первый — самый длинный из отдыхов от 24 ч в первые 6 суток истории; дальше от конца прошлого недельного E:
+    самый длинный отдых от 24 ч, начатый в [E + 2 суток, E + 6 суток]; нет такого — первый отдых от 24 ч после E + 2 суток
+    (опоздание). Остальные отдыхи от 24 ч — суточные («большая 9-ка»). Только для Truck Info: расчёт ETA
+    (`weekly_status`) не трогаем. Отдых, обрезанный началом окна, не берём (кроме уже от 45 ч)."""
+    cand = sorted((r for r in rests
+                   if r["end"] - r["start"] >= WEEKLY_MIN_SEC
+                   and not (r["start"] <= t0 + 60 and r["end"] - r["start"] < WEEKLY_FULL_SEC)),
+                  key=lambda r: r["start"])
+    if not cand:
+        return []
+    longest = lambda xs: max(xs, key=lambda r: r["end"] - r["start"])
+    first = longest([r for r in cand if r["start"] <= cand[0]["start"] + WEEKLY_PERIOD_SEC])
+    out = [first]
+    while True:
+        e = out[-1]["end"]
+        nxt = [r for r in cand if r["start"] >= e + WEEKLY_MIN_GAP_SEC]
+        if not nxt:
+            return out
+        win = [r for r in nxt if r["start"] <= e + WEEKLY_PERIOD_SEC]
+        out.append(longest(win) if win else nxt[0])
 
 
 def weekly_compensation(hist, now_ts=None):

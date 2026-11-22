@@ -165,6 +165,14 @@ class WeeklyCompensationTests(unittest.TestCase):
         self.assertEqual(len(r), 1)                                  # долг один — у 32,3 ч
         self.assertEqual(r[0]["status"], "ok")                       # излишек «большой 9-ки» над 11 ч (15,4 ч) его закрывает
 
+    def test_weekly_chain_six_days(self):
+        """OS-8560 22.11: недельный — цепочкой «не позже 6 суток от конца прошлого»; 26 ч 08.11 — недельный, 24 ч 04.11 и 14.11 — «9-ка»."""
+        h = 3600
+        rs = [self.rest(10, 24), self.rest(10 + 24 + 5 * 24 + 19, 47), self.rest(10 + 24 + 5 * 24 + 19 + 47 + 6.5, 24),
+              self.rest(10 + 24 + 5 * 24 + 19 + 47 + 4 * 24 - 0.5, 26), self.rest(10 + 24 + 5 * 24 + 19 + 47 + 4 * 24 + 26 + 5 * 24 - 6, 99)]
+        got = A.designate_weekly(rs, self.FROM)
+        self.assertEqual([r["end"] - r["start"] for r in got], [24 * h, 47 * h, 26 * h, 99 * h])
+
 
 if __name__ == "__main__":
     unittest.main()

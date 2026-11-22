@@ -77,20 +77,21 @@ Fleet ETA Tracker — вкладка "Truck Info"
   const ACT = { DRIVING: ["езда", "ti-a-drv"], WORK: ["работа", "ti-a-wrk"], REST: ["отдых", "ti-a-rst"],
                 AVAILABLE: ["готовность", "ti-a-av"] };
   function historyHtml(d) {
-    if (d.history_error) return `<div class="ti-err">История: ${esc(d.history_error)}</div>`;
-    if (!d.history || !d.history.length) return "";
+    const wrap = (inner) => `<div class="ti-hist-wrap">${segHtml()}${inner}</div>`;   // v3.367: период — рядом с кнопкой «История водителя»
+    if (d.history_error) return wrap(`<div class="ti-err">История: ${esc(d.history_error)}</div>`);
+    if (!d.history || !d.history.length) return wrap("");
     const ev = (d.history_cards || []).map((c) => ({ at: c.at, card: c.what === "CARD_INSERTED" ? "вставил карту" : "вынул карту" }));
     const rows = d.history.map((g) => ({ at: g.from, g }));
     // события карты — отдельными строками по времени начала (формат «дд.мм чч:мм» сортируется по датам внутри периода)
     const key = (s) => s.slice(3, 5) + s.slice(0, 2) + s.slice(6);
     const all = rows.concat(ev).sort((a, b) => (key(b.at) > key(a.at) ? 1 : key(b.at) < key(a.at) ? -1 : 0));
-    return `<details class="ti-hist-d"><summary>История водителя</summary><table class="ti-table ti-hist">` + all.map((r) => {
+    return wrap(`<details class="ti-hist-d"><summary>История водителя</summary><table class="ti-table ti-hist">` + all.map((r) => {
       if (r.card) return `<tr class="ti-h-card"><td>${esc(r.at)}</td><td colspan="3">${esc(r.card)}</td></tr>`;
       const g = r.g, a = ACT[g.status] || [g.status, ""];
       const nocard = (g.src || []).some((s) => s === "can" || s === "unkn");
       return `<tr class="${a[1]}"><td>${esc(g.from)} → ${esc(g.to)}</td><td><span class="ti-tag ${a[1]}">${esc(a[0])}</span></td>
         <td>${esc(g.hours)}</td><td>${nocard ? '<span class="ti-tag" title="данные с CAN, карты не было">без карты</span>' : ""}</td></tr>`;
-    }).join("") + `</table></details>`;
+    }).join("") + `</table></details>`);
   }
 
   // Поиск водителя по имени: один найден — сразу его трак, несколько — список
@@ -191,7 +192,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
       }
       if (j.tacho_error) h += `<div class="ti-err">Тахограф: ${esc(j.tacho_error)}</div>`;
       const mp = j.panel && window.TachoPop ? `<div class="tp tp-mp tp-static" id="ti-mp"></div>` : "";   // v3.362: панель Tachograph «как в Mapon»
-      h += `<div class="ti-drivers">${mp}${(j.drivers || []).map(driverHtml).join("")}</div>` + segHtml();
+      h += `<div class="ti-drivers">${mp}${(j.drivers || []).map(driverHtml).join("")}</div>`;
       if (j.stops && j.stops.length) {
         h += `<table class="ti-table ti-stops"><tr><th colspan="3">Стоянки от 2 ч за 3 суток</th></tr>` +
           j.stops.slice().reverse().map((s) => `<tr><td>${esc(s.from)} → ${esc(s.to)}</td>
@@ -250,7 +251,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
   // v3.362: период истории водителя / лога рефа — кнопки внизу [3 сут][7 сут][14 сут] (было: список сверху)
   let histDays = 3;
   try { histDays = [3, 7, 14].includes(+localStorage.getItem("ti-days")) ? +localStorage.getItem("ti-days") : 3; } catch (e) {}
-  const segHtml = () => `<div class="ti-seg-row"><span>История за:</span><div class="ti-seg">` +
+  const segHtml = () => `<div class="ti-seg-row" title="за сколько суток история водителя"><div class="ti-seg">` +
     [3, 7, 14].map((n) => `<button type="button" data-d="${n}" class="${n === histDays ? "on" : ""}">${n} сут</button>`).join("") + `</div></div>`;
   let blinkTimer = null, lastUnit = "";
   // v3.360: где трак стоял в интервале отдыха — метка на карте (/api/truck-rest-stop); ошибка — строка под таблицей водителя
