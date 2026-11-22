@@ -1,5 +1,6 @@
 """Прицепы: тип юнита, сводка рефа, угадывание сцепки тягач–прицеп."""
 
+import re
 from fetat.utils.timefmt import ts_west
 from fetat.domain.addresses import base_point
 from fetat.utils.geo import haversine_km
@@ -106,8 +107,14 @@ def reefer_dev_limit(setpoint):
     return REEFER_DEV_WARN_FROZEN if isinstance(setpoint, (int, float)) and setpoint < REEFER_FROZEN_SP else REEFER_DEV_WARN
 
 
+# v3.366: прицеп и по номеру вида C-196U (буква-3 цифры-буква): у части прицепов в Mapon не тот тип
+_TRAILER_NO = re.compile(r"^[A-Za-z]-\d{3}[A-Za-z]$")
+
+
 def is_trailer(u):
-    return str((u or {}).get("type") or "").lower() == "trailer"
+    u = u or {}
+    return str(u.get("type") or "").lower() == "trailer" or bool(
+        _TRAILER_NO.match(str(u.get("number") or u.get("label") or "").strip()))
 
 
 def reefer_summary(u):
