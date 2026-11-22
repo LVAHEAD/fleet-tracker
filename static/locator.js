@@ -300,15 +300,12 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
       const j = await r.json();
       if (j.error) { box.innerHTML = `<div class="loc-err">Стоянки: ${esc(j.error)}</div>`; return; }
       const since = j.from ? new Date(j.from * 1000).toLocaleDateString("ru-RU") : "";
-      const sel = (id, opts, cur) => `<select id="${id}">` + opts.map(([v, t]) => `<option value="${v}"${v === cur ? " selected" : ""}>${t}</option>`).join("") + `</select>`;
       box.innerHTML = `<div class="loc-stops-h"><b>Стоянки</b> (${what}) ` +
-        sel("ls-days", [["30", "30 сут"], ["90", "90 сут"], ["all", "всё время"]], stopDays) + " от " +
-        sel("ls-min", [["1", "1 ч"], ["2", "2 ч"], ["6", "6 ч"], ["9", "9 ч"]], stopMinH) + `</div>` +
+ `<span class="loc-stops-s">за 90 сут, от 9 ч</span>` +
+        `</div>` +
         (j.stops ? `<div class="loc-stops-s">${j.stops} стоянок · ${Math.round(j.hours)} ч · ${j.units} машин${since ? ` · с ${since}` : ""}</div>` +
           `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} ${t.units === 1 ? "машина" : "машин"}</td><td class="loc-gps" title="Клик — скопировать GPS">${t.lat}, ${t.lng}</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td></tr>`).join("") + `</table>`
           : `<div class="loc-stops-s">Стоянок нет — история копится с момента запуска сбора (раз в 6 ч).</div>`);
-      box.querySelector("#ls-days").addEventListener("change", (e) => { stopDays = e.target.value; showStops(d, q); });
-      box.querySelector("#ls-min").addEventListener("change", (e) => { stopMinH = e.target.value; showStops(d, q); });
       j.top.forEach((t, i) => {
         const m = new google.maps.Marker({ position: { lat: t.lat, lng: t.lng }, map, zIndex: 900,
           label: { text: String(t.n), color: "#fff", fontSize: "11px", fontWeight: "600" },
