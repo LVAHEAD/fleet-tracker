@@ -565,6 +565,12 @@ a.bans-country { text-decoration: none; color: #1a1a1a; display: inline-grid; pl
 .ti-stops { max-width: 900px; }
 a.ti-tractor { text-decoration: none; cursor: pointer; }
 a.ti-tractor:hover { background: #2f6fd6; color: #fff; }   /* v3.331: «Синий Кальк» */
+.ti-seg-row { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 12px; color: #6b7685; }
+.ti-seg { display: inline-flex; }
+.ti-seg button { padding: 3px 10px; border: 1px solid #2f6fd6; background: #fff; color: #2f6fd6; font: inherit; font-size: 12px; cursor: pointer; margin-left: -1px; }
+.ti-seg button:first-child { border-radius: 4px 0 0 4px; margin-left: 0; }
+.ti-seg button:last-child { border-radius: 0 4px 4px 0; }
+.ti-seg button:hover, .ti-seg button.on { background: #2f6fd6; color: #fff; }
 .ti-nextred { color: #c0392b; font-size: 13px; margin: 2px 0 10px; padding: 0 2px; }
 .ti-nextred .ti-dim { opacity: .6; }
 .ti-rowclick { cursor: pointer; }

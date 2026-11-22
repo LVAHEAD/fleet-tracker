@@ -163,7 +163,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
     if (!q) return;
     out.innerHTML = `<div class="ti-loading">Загрузка…</div>`;
     try {
-      const days = (document.getElementById("ti-days") || {}).value || 3;
+      const days = histDays;
       const r = await fetch(`/api/truck-info?unit=${encodeURIComponent(q)}&days=${encodeURIComponent(days)}`);
       const j = await r.json();
       if (r.status === 404) return searchDrivers(q);      // не номер трака — ищем водителя по имени
@@ -186,12 +186,12 @@ Fleet ETA Tracker — вкладка "Truck Info"
       lastUnit = j.trailer ? "" : String(j.number || "");
       let h = `<div class="ti-title">${esc(j.number)}${j.tractor ? ` <a href="#" class="ti-tag ti-tractor" data-unit="${esc(j.tractor)}" title="тягач этого прицепа по строке Флота — клик: открыть его Truck Info">тягач: ${esc(j.tractor)}</a>` : ""}</div>`;
       if (j.trailer) {   // v3.258: прицеп — вместо водителей лог рефа
-        out.innerHTML = h + `<div class="rl-card" id="ti-reefer"><div class="ti-loading">Реф: загрузка…</div></div>`;
+        out.innerHTML = h + `<div class="rl-card" id="ti-reefer"><div class="ti-loading">Реф: загрузка…</div></div>` + segHtml();
         return loadReefer(q, days);
       }
       if (j.tacho_error) h += `<div class="ti-err">Тахограф: ${esc(j.tacho_error)}</div>`;
       const mp = j.panel && window.TachoPop ? `<div class="tp tp-mp tp-static" id="ti-mp"></div>` : "";   // v3.362: панель Tachograph «как в Mapon»
-      h += `<div class="ti-drivers">${mp}${(j.drivers || []).map(driverHtml).join("")}</div>`;
+      h += `<div class="ti-drivers">${mp}${(j.drivers || []).map(driverHtml).join("")}</div>` + segHtml();
       if (j.stops && j.stops.length) {
         h += `<table class="ti-table ti-stops"><tr><th colspan="3">Стоянки от 2 ч за 3 суток</th></tr>` +
           j.stops.slice().reverse().map((s) => `<tr><td>${esc(s.from)} → ${esc(s.to)}</td>
@@ -247,6 +247,11 @@ Fleet ETA Tracker — вкладка "Truck Info"
   }
   ["input", "focus"].forEach((ev) => inp.addEventListener(ev, fillList));
   btn.addEventListener("click", load);
+  // v3.362: период истории водителя / лога рефа — кнопки внизу [3 сут][7 сут][14 сут] (было: список сверху)
+  let histDays = 3;
+  try { histDays = [3, 7, 14].includes(+localStorage.getItem("ti-days")) ? +localStorage.getItem("ti-days") : 3; } catch (e) {}
+  const segHtml = () => `<div class="ti-seg-row"><span>История за:</span><div class="ti-seg">` +
+    [3, 7, 14].map((n) => `<button type="button" data-d="${n}" class="${n === histDays ? "on" : ""}">${n} сут</button>`).join("") + `</div></div>`;
   let blinkTimer = null, lastUnit = "";
   // v3.360: где трак стоял в интервале отдыха — метка на карте (/api/truck-rest-stop); ошибка — строка под таблицей водителя
   async function showRestOnMap(ts, te, card) {
@@ -314,6 +319,15 @@ Fleet ETA Tracker — вкладка "Truck Info"
   };
   inp.addEventListener("keydown", (e) => { if (e.key === "Enter") load(); });
   inp.addEventListener("change", load);
-  const dsel = document.getElementById("ti-days");
-  if (dsel) dsel.addEventListener("change", () => { if (inp.value.trim()) load(); });
+  out.addEventListener("click", async (e) => {
+    const sb = e.target.closest(".ti-seg button");
+    if (!sb) return;
+    const n = +sb.dataset.d;
+    if (!n || n === histDays) return;
+    histDays = n;
+    try { localStorage.setItem("ti-days", String(n)); } catch (er) {}
+    const wasOpen = !!out.querySelector(".ti-hist-d[open]");
+    await load();
+    if (wasOpen) out.querySelectorAll(".ti-hist-d").forEach((d) => { d.open = true; });
+  });
 })();
