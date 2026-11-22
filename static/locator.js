@@ -285,6 +285,13 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     stopMarks = [];
     const b = document.getElementById("loc-stops");
     if (b) b.innerHTML = "";
+    setTwoCol(false);
+  }
+  // таблица стоянок слева, карта справа (на узком экране — друг под другом, см. style.css)
+  function setTwoCol(on) {
+    if (view.classList.contains("loc-2col") === on) return;
+    view.classList.toggle("loc-2col", on);
+    if (map && window.google) setTimeout(() => google.maps.event.trigger(map, "resize"), 50);
   }
   async function showStops(d, q) {
     clearStops();
@@ -295,6 +302,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     const key = byCode ? `code=${encodeURIComponent(d.code)}` : `city=${encodeURIComponent(q)}`;
     const what = d.is_code ? `зона ${esc(d.code)}` : byCode ? `«${esc(q)}» → зона ${esc(d.code)}` : `«${esc(q)}» в адресах`;
     box.innerHTML = `<div class="loc-stops-h">Стоянки: загрузка…</div>`;
+    setTwoCol(true);
     try {
       const r = await fetch(`/api/stops-where?${key}&days=${stopDays === "all" ? "" : stopDays}&min_h=${stopMinH}`);
       const j = await r.json();
