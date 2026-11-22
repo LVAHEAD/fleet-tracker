@@ -331,16 +331,17 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
           tip.innerHTML = t.list.map((r) => `<div><b>${esc(r.u)}</b> · ${fd(r.s)} → ${fd(r.e)} · ${Math.round((r.e - r.s) / 360) / 10} ч</div>`).join("") +
             (t.n > t.list.length ? `<div class="loc-stops-more">…и ещё ${t.n - t.list.length}</div>` : "");
           tip.hidden = false;
+          blink(+tr.dataset.i);
         });
         tr.addEventListener("mousemove", (e) => {
           const b = box.getBoundingClientRect();
           tip.style.left = Math.max(0, Math.min(e.clientX - b.left + 14, b.width - tip.offsetWidth)) + "px";
           tip.style.top = (e.clientY - b.top + 30) + "px";
         });
-        tr.addEventListener("mouseleave", () => { tip.hidden = true; });
+        tr.addEventListener("mouseleave", () => { tip.hidden = true; blink(-1); });
       });
       let blinkT = null;
-      const blink = (i) => {   // метка места моргает зелёным ~3 с
+      const blink = (i) => {   // метка места моргает зелёным: при наведении на строку, до ухода курсора (~3 с)
         clearInterval(blinkT);
         stopMarks.forEach((m) => m.setIcon(Object.assign({}, m.getIcon(), { fillColor: "#2f6fd6" })));
         const m = stopMarks[i]; if (!m) return;
