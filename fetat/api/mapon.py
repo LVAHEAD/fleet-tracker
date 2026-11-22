@@ -31,6 +31,10 @@ def _near_code(lat, lng):
     return code if code and d <= 150 else None
 
 
+# v3.365: прицеп по номеру вида C-196U — даже если в Mapon у него не тот тип (иначе его нет в подсказках)
+_TRAILER_NO = re.compile(r"^[A-Za-z]-\d{3}[A-Za-z]$")
+
+
 @bp.route("/api/units")
 def api_units():
     """Список машин из группы HEAD TRUCK — для дропдауна на фронтенде."""
@@ -56,7 +60,8 @@ def api_units():
         # v1.70: прицепы (type == "trailer") — после тягачей
         result.sort(key=lambda x: x["number"] or "")
         result += sorted(({"unit_id": u["unit_id"], "number": u.get("number") or u.get("label"), "kind": "trailer"}
-                          for u in all_units if is_trailer(u) and u["unit_id"] not in group_ids),
+                          for u in all_units if (is_trailer(u) or _TRAILER_NO.match(str(u.get("number") or u.get("label") or "").strip()))
+                          and u["unit_id"] not in group_ids),
                          key=lambda x: x["number"] or "")
         return jsonify({"units": result})
     except Exception as e:
