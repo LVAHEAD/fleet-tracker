@@ -279,7 +279,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
   }
 
   // v3.368: стоянки по зоне / городу — где чаще паркуются (история Mapon, копится с v3.368): итог, топ мест, метки на карте
-  let stopMarks = [], stopDays = "90", stopMinH = "2";
+  let stopMarks = [], stopDays = "90", stopMinH = "9";
   function clearStops() {
     stopMarks.forEach((m) => m.setMap(null));
     stopMarks = [];
