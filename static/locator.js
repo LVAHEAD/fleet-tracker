@@ -307,6 +307,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
       const r = await fetch(`/api/stops-where?${key}&days=${stopDays === "all" ? "" : stopDays}&min_h=${stopMinH}`);
       const j = await r.json();
       if (j.error) { box.innerHTML = `<div class="loc-err">Стоянки: ${esc(j.error)}</div>`; return; }
+      if (j.stops && resultMarker) { resultMarker.setMap(null); resultMarker = null; }   // красная булавка города не нужна, когда есть стоянки
       const since = j.from ? new Date(j.from * 1000).toLocaleDateString("ru-RU") : "";
       box.innerHTML = `<div class="loc-stops-h"><b>Стоянки</b> (${what}) ` +
  `<span class="loc-stops-s">за 90 сут, от 9 ч</span>` +
