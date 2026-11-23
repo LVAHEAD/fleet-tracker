@@ -308,7 +308,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
       const j = await r.json();
       if (j.error) { box.innerHTML = `<div class="loc-err">Стоянки: ${esc(j.error)}</div>`; return; }
       if (j.stops && resultMarker) { resultMarker.setMap(null); resultMarker = null; }   // красная булавка города не нужна, когда есть стоянки
-      const dirTxt = (o) => Object.entries(o || {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}${v > 1 ? "×" + v : ""}`).join(" ") || "—";
+      const dirTxt = (o) => { const e = Object.entries(o || {}).sort((a, b) => b[1] - a[1]); return e.slice(0, 2).map(([k, v]) => `${k}${v > 1 ? "×" + v : ""}`).join(" ") + (e.length > 2 ? " …" : "") || "—"; };
       const since = j.from ? new Date(j.from * 1000).toLocaleDateString("ru-RU") : "";
       const sidesHtml = `<div class="loc-sides">Еду с: ` + [["", "любой"], ["С", "С"], ["СВ", "СВ"], ["В", "В"], ["ЮВ", "ЮВ"], ["Ю", "Ю"], ["ЮЗ", "ЮЗ"], ["З", "З"], ["СЗ", "СЗ"]].map(([v, t]) => `<button type="button" data-side="${v}"${v === stopFrom ? ' class="on"' : ""}>${t}</button>`).join("") + `</div>`;
       box.innerHTML = `<div class="loc-stops-h"><b>Стоянки</b> (${what}) ` +
