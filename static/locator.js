@@ -323,7 +323,9 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
           label: { text: String(t.n), color: "#fff", fontSize: "11px", fontWeight: "600" },
           icon: { path: google.maps.SymbolPath.CIRCLE, scale: 11, fillColor: "#2f6fd6", fillOpacity: 0.9, strokeColor: "#fff", strokeWeight: 2 },
           title: `${t.n} стоянок · ${Math.round(t.hours)} ч · ${t.address || ""}` });
-        m.addListener("click", () => { map.panTo(m.getPosition()); map.setZoom(15); });
+        m.addListener("click", () => {   // клик по метке — копирует GPS места (как клик по GPS в таблице)
+          const td = box.querySelector(`.loc-stops-t tr[data-i="${i}"] .loc-gps`); if (td) copyGps(td);
+        });
         // наоборот: наведение на метку подсвечивает строку таблицы (и прокручивает к ней)
         m.addListener("mouseover", () => {
           const tr = box.querySelector(`.loc-stops-t tr[data-i="${i}"]`); if (!tr) return;
@@ -363,13 +365,17 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
         step();
         blinkT = setInterval(() => { k++; step(); if (k >= 9) { clearInterval(blinkT); m.setIcon(Object.assign({}, m.getIcon(), { fillColor: "#2f6fd6" })); m.setZIndex(900); } }, 350);
       };
-      box.querySelectorAll(".loc-gps").forEach((td) => td.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const t = j.top[+td.parentNode.dataset.i]; map.panTo({ lat: t.lat, lng: t.lng }); blink(+td.parentNode.dataset.i);
-        const txt = td.textContent;
+      const copyGps = (td) => {
+        const txt = td.dataset.gps || td.textContent;
+        td.dataset.gps = txt;
         const done = () => { td.textContent = "скопировано"; setTimeout(() => { td.textContent = txt; }, 1000); };
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, () => {});
         else { const a = document.createElement("textarea"); a.value = txt; document.body.appendChild(a); a.select(); document.execCommand("copy"); a.remove(); done(); }
+      };
+      box.querySelectorAll(".loc-gps").forEach((td) => td.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const t = j.top[+td.parentNode.dataset.i]; map.panTo({ lat: t.lat, lng: t.lng }); blink(+td.parentNode.dataset.i);
+        copyGps(td);
       }));
       box.querySelectorAll(".loc-stops-t tr").forEach((tr) => tr.addEventListener("click", () => {
         const t = j.top[+tr.dataset.i]; map.panTo({ lat: t.lat, lng: t.lng }); map.setZoom(15); blink(+tr.dataset.i);
