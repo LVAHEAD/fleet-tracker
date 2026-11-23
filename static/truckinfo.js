@@ -42,8 +42,10 @@ Fleet ETA Tracker — вкладка "Truck Info"
       h += `<div class="ti-now ti-now-soft">Отдыхает ${esc(d.resting)}</div>`;
     }
     if (d.deadline) {
-      h += `<div class="ti-deadline">Следующий недельный — <b>${/^45/.test(String(d.need)) ? "45ка" : "24ка"}</b> ${esc(d.deadline)}
-        (через ${esc(d.deadline_in)})` +
+      h += `<div class="ti-deadline">` + (d.alt
+        ? `Следующий недельный — <b>или</b> <b>24ка</b> до ${esc(d.alt.until)} (через ${esc(d.alt.until_in)}): тогда ${esc(d.alt.from)} → ${esc(d.alt.to)} станет 9кой; <b>или</b> не успеют — <b>45ка</b> ${esc(d.deadline)} (через ${esc(d.deadline_in)})`
+        : `Следующий недельный — <b>${/^45/.test(String(d.need)) ? "45ка" : "24ка"}</b> ${esc(d.deadline)}
+        (через ${esc(d.deadline_in)})`) +
         (d.mapon_weekly ? ` <span class="ti-mapon">Mapon: ${esc(d.mapon_weekly)}</span>` : "") + `</div>`;
     }
     if (d.weekly_error) h += `<div class="ti-err">${esc(d.weekly_error)}</div>`;
@@ -53,7 +55,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
           <td><b class="ti-kind">${esc(weeklyKind(w))}</b> ${w.edge ? '<span title="отдых начался раньше, чем данные Mapon за 28 дней — начало и длительность не меньше показанных">≤</span> ' : ""}${esc(w.from)} → ${esc(w.to)}</td><td>${w.edge ? "≥ " : ""}${hoursFloor(w.hours)}</td>
           <td>${w.daily ? '<span class="ti-tag" title="второй отдых от 24 ч в неделе — считаем суточным">большая 9ка</span>' : w.full ? '<span class="ti-tag ti-full">45+</span>' : '<span class="ti-tag ti-red">сокращ.</span>'}
               ${w.nocard ? '<span class="ti-tag" title="часть отдыха без карты — данные с CAN">без карты</span>' : ""}${w.clipped ? '<span class="ti-tag" title="Трак ехал по GPS — отдых «без карты» обрезан по началу / концу поездки, 45 ч не подтверждены">⚠ трак ехал</span>' : ""}</td>
-        </tr>`).join("") + (d.deadline && d.need ? `<tr class="ti-nextred"><td><b class="ti-kind">${/^45/.test(String(d.need)) ? "45ка" : "24ка"}</b> ${esc(d.deadline)}${d.deadline_in ? ` <span class="ti-dim">(через ${esc(d.deadline_in)})</span>` : ""}</td><td></td><td></td></tr>` : "") + `</table><div class="ti-mapnote" style="display:none"></div>`;
+        </tr>`).join("") + (d.alt ? `<tr class="ti-nextred"><td><b class="ti-kind">24ка</b> до ${esc(d.alt.until)} <span class="ti-dim">(через ${esc(d.alt.until_in)}) — или</span></td><td></td><td></td></tr>` : "") + (d.deadline && d.need ? `<tr class="ti-nextred"><td><b class="ti-kind">${/^45/.test(String(d.need)) ? "45ка" : "24ка"}</b> ${esc(d.deadline)}${d.deadline_in ? ` <span class="ti-dim">(через ${esc(d.deadline_in)})</span>` : ""}</td><td></td><td></td></tr>` : "") + `</table><div class="ti-mapnote" style="display:none"></div>`;
     }
     if (d.comp && d.comp.length) {
       const CST = {

@@ -274,6 +274,13 @@ def api_truck_info():
                     dl = last["end"] + WEEKLY_PERIOD_SEC
                     row["deadline"], row["deadline_in"] = _lv(dl), _hm(dl - time.time())
                     row["need"] = "45 ч" if red else "24 ч (можно сокращённый)"
+                    # «или-или» (23.11): последний недельный сокращённый и окно 6 суток от прошлого недельного ещё открыто —
+                    # успеют встать ещё на 24ку до конца окна, тогда последний станет «9кой»; не успеют — он остаётся недельным
+                    if red and len(desig) >= 2:
+                        wend = desig[-2]["end"] + WEEKLY_PERIOD_SEC
+                        if wend > time.time():
+                            row["alt"] = {"until": _lv(wend), "until_in": _hm(wend - time.time()),
+                                          "from": _lv(last["start"]), "to": _lv(last["end"])}
                 row["cards"] = [{"at": _lv(c["ts"]), "what": "вставил" if c["what"] == "CARD_INSERTED" else "вынул"}
                                 for c in (hist or {}).get("cards", [])][-6:]
             else:
