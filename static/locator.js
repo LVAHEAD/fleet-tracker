@@ -317,12 +317,21 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
         sidesHtml + (j.stops ? `<div class="loc-stops-s">${j.stops} стоянок · ${Math.round(j.hours)} ч · ${j.units} машин${since ? ` · с ${since}` : ""}</div><div class="loc-stops-s">Направление: откуда приехали → куда уехали (по соседним длинным стоянкам машины)</div>` +
           `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} ${t.units === 1 ? "машина" : "машин"}</td><td class="loc-gps">${t.lat}, ${t.lng}</td><td class="loc-dir">${dirTxt(t.from)} → ${dirTxt(t.to)}</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td></tr>`).join("") + `</table>`
           : `<div class="loc-stops-s">Стоянок нет${stopFrom ? " с этого направления" : " — история копится с момента запуска сбора (раз в 6 ч)"}.</div>`);
+      const tr_clear = () => box.querySelectorAll(".loc-stops-t tr.hl").forEach((x) => x.classList.remove("hl"));
       j.top.forEach((t, i) => {
         const m = new google.maps.Marker({ position: { lat: t.lat, lng: t.lng }, map, zIndex: 900,
           label: { text: String(t.n), color: "#fff", fontSize: "11px", fontWeight: "600" },
           icon: { path: google.maps.SymbolPath.CIRCLE, scale: 11, fillColor: "#2f6fd6", fillOpacity: 0.9, strokeColor: "#fff", strokeWeight: 2 },
           title: `${t.n} стоянок · ${Math.round(t.hours)} ч · ${t.address || ""}` });
         m.addListener("click", () => { map.panTo(m.getPosition()); map.setZoom(15); });
+        // наоборот: наведение на метку подсвечивает строку таблицы (и прокручивает к ней)
+        m.addListener("mouseover", () => {
+          const tr = box.querySelector(`.loc-stops-t tr[data-i="${i}"]`); if (!tr) return;
+          box.querySelectorAll(".loc-stops-t tr.hl").forEach((x) => x.classList.remove("hl"));
+          tr.classList.add("hl");
+          if (tr.offsetTop < box.scrollTop || tr.offsetTop + tr.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = Math.max(0, tr.offsetTop - 60);
+        });
+        m.addListener("mouseout", () => tr_clear());
         stopMarks.push(m);
       });
       const tip = document.createElement("div");
