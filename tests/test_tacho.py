@@ -170,6 +170,11 @@ class WeeklyCompensationTests(unittest.TestCase):
         a, b = self.rest(10, 100), self.rest(10 + 100 + 47.9, 36)
         self.assertEqual(A.designate_weekly([a, b], self.FROM), [a, b])
 
+    def test_weekly_after_20h_counts(self):
+        """Duplevskii 23.11: 58 ч недельный, через 19 ч 56 мин 25 ч отдыха — недельный (Мапон: срок от его конца)."""
+        a, b = self.rest(10, 58), self.rest(10 + 58 + 19.9, 25)
+        self.assertEqual(A.designate_weekly([a, b], self.FROM), [a, b])
+
     def test_weekly_chain_six_days(self):
         """OS-8560 22.11: недельный — цепочкой «не позже 6 суток от конца прошлого»; 26 ч 08.11 — недельный, 24 ч 04.11 и 14.11 — «9-ка»."""
         h = 3600
