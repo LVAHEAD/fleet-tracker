@@ -193,3 +193,13 @@ class WeeklyCompensationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_shift_mapon_not_cut_by_night_rule():
+    """v3.388: остаток смены по Mapon не режется ночным правилом аппы"""
+    from fetat.domain.tacho import _shift_mapon
+    d0 = {"today": {"shift_remaining": 13 * 3600}}
+    p = {"ev": [], "win_left": 4 * 3600, "eta_ts": 1000.0}
+    assert _shift_mapon({}, d0, False, False, [], p, 1000.0) == 13 * 3600
+    p2 = {"ev": [{"k": "r"}], "win_left": 4 * 3600, "eta_ts": 1000.0}
+    assert _shift_mapon({}, d0, False, False, [], p2, 1000.0) == 4 * 3600

@@ -143,7 +143,8 @@ def calc_extra_stops(extras, units, unit, first, tacho, sim, corridor=None, deps
                 arr = sk["eta_ts"] + dwell + wait_acc
                 lf = sk.get("left")
                 if lf:                                    # v3.229: остаток на приезде — стоянки и ожидание уже прошли
-                    item["tacho_left"] = {"drive": int(lf["drive"]), "shift": int(max(0.0, lf["shift"] - dwell - wait_acc))}
+                    item["tacho_left"] = {"drive": int(lf["drive"]), "shift": int(max(0.0, lf["shift"] - dwell - wait_acc)),
+                                          "shift_mapon": int(max(0.0, lf.get("shift_mapon", lf["shift"]) - dwell - wait_acc))}
                 item["eta_tacho"] = ceil_15min(loc(arr)).strftime("%d/%m %H:%M")
                 item["tacho_rest_ahead"] = any(st["kind"] in ("daily", "weeklimit") for st in sk["stops"])
                 item["tacho_weeklimit"] = bool(sk.get("week", {}).get("hit"))   # отметка, ETA не сдвинут
@@ -398,7 +399,7 @@ def _add_tacho(result, unit, trailer, crew=None, x10=False, crew_seen=None, tm=N
                 result["_sim_stops"] = sim["stops"]
                 lf = sim.get("left")
                 if lf:                                       # v3.229: остаток вождения и смены на приезде в ① — для вердикта фикс-времени
-                    result["tacho_left"] = {"drive": int(lf["drive"]), "shift": int(lf["shift"])}
+                    result["tacho_left"] = {"drive": int(lf["drive"]), "shift": int(lf["shift"]), "shift_mapon": int(lf.get("shift_mapon", lf["shift"]))}
                 gf = sim.get("gps_fix")
                 if gf:                                       # v3.104: для подсказки значка «экипаж / соло»
                     result["tacho_gps_fix"] = {"driven": int(gf["driven"]), "tacho": int(gf["tacho"]),

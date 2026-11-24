@@ -166,7 +166,7 @@ function fixVerdict(txt, etaStr, left) {
   const waitSec = early;                                                    // приехал раньше слота — стоит до слота
   // ждёт дольше суточного отдыха — водитель отдыхает и берёт свежую смену, остаток «на приезде» уже не важен
   if (left && typeof left.shift === "number" && waitSec < FIX_REST_SEC) {
-    const shiftAtSlot = left.shift - waitSec;
+    const shiftAtSlot = (typeof left.shift_mapon === "number" ? left.shift_mapon : left.shift) - waitSec;   // v3.388: конец смены по Mapon, не по ночному правилу аппы
     const driveLeft = typeof left.drive === "number" ? left.drive : Infinity;
     if (shiftAtSlot < FIX_AFTER_SEC || driveLeft < FIX_PARK_DRIVE_SEC) {
       return { kind: "short", text: `Не хватает на выгрузку и парковку: после слота ${fixHm(Math.max(0, Math.min(shiftAtSlot, FIX_AFTER_SEC)))} из 2 ч`, short: "нет 2 ч после слота" };

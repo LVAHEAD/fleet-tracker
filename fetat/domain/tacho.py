@@ -592,6 +592,15 @@ def plan(start_ts, dist_km, team=False, day_left=None, since_drive=0.0, rest_pre
 GPS_START_MAX_SEC = 24 * 3600   # v3.106: начало смены по GPS старше суток — не верим (стоянку не распознали)
 
 
+def _shift_mapon(tacho, d0, team, fresh, pre, p, t_now):
+    """v3.388: остаток смены на приезде по Mapon (shift_remaining), без ночного правила аппы (11 ч от начала) —
+    для красного «опоздуна» по ТиО. Был отдых по пути или свежий день — окно смены уже новое, берём расчётное."""
+    sr = (d0.get("today") or {}).get("shift_remaining")
+    if team or fresh or pre or sr is None or any(e["k"] == "r" for e in p["ev"]):
+        return p["win_left"]
+    return max(p["win_left"], t_now + float(sr) - p["eta_ts"])
+
+
 def _shift_start(tacho, d0, team, short_left, t):
     """v3.106: когда началась текущая смена (ts). Соло — по shift_remaining Mapon (13/15 ч). Экипаж — окно 21 ч:
     при двух картах по shift_remaining тахографа (самый ранний конец окна), и/или по GPS-стоянке ≥ 9 ч
@@ -622,6 +631,7 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None, no_week=False, ext_days=
     team, first_limit_sec, week {left, need, next, hit}."""
     import time
     t = float(now_ts or time.time())
+    t_now = t
     ext_days = ext_days or tacho.get("ext") or ()       # v3.39: 10-й час — отметка у строки Флота
     tz = tacho.get("tz") or tz                          # пояс страны, где машина (ночная смена)
     drivers = tacho["drivers"]
@@ -678,7 +688,7 @@ def tacho_eta(tacho, dist_km, now_ts=None, weekly=None, no_week=False, ext_days=
     week_info = {"left": week_left, "need": max(0.0, float(dist_km or 0)) / (TACHO_SPEED_KMH / 3600.0),
                  "next": None, "hit": p["wk"] is not None}
     return {"eta_ts": p["eta_ts"], "stops": stops, "team": team, "first_limit_sec": first_limit, "week": week_info,
-            "wk": p["wk"], "gps_fix": gfix, "left": {"drive": p["day_left"], "shift": p["win_left"]}}
+            "wk": p["wk"], "gps_fix": gfix, "left": {"drive": p["day_left"], "shift": p["win_left"], "shift_mapon": _shift_mapon(tacho, d0, team, fresh, pre, p, t_now)}}
 
 
 def tacho_summary(tacho, sim=None, weekly=None):
