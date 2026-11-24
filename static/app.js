@@ -1733,6 +1733,7 @@ async function calcRow(id, why, pre) {
         const delA = act0 === 0 ? row.delivery : ((row.extra || [])[act0 - 1] || {}).delivery;   // v3.229: фикс у первой непройденной
         const fvA = !osa && fixViewAllowed() ? fixVerdict(delA, et, data.tacho_left) : null;
         if (fvA) etaCore = fixRollHtml(etaCore, fvA);
+        { const ex0 = cx.extra[act0 - 1]; if (ex0 && !ex0.tacho_left && data.tacho_left) ex0.tacho_left = data.tacho_left; }   // v3.385: у первой открытой точки ②+ смена лежит в корне расчёта — без неё опоздун по ТиО не краснил строку
         bansR = (data.bans_route || []).slice();
         (data.extra || []).forEach((x, i) => (x.bans_route || []).forEach((b) => bansR.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
         nearR = banNearLines(data);
