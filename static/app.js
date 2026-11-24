@@ -1516,7 +1516,7 @@ function recheckLate(id) {
   const firstDone = c.nbAt != null || !!(c.doneFlags && c.doneFlags[0] && c.doneFlags[0].done);
   const chk = firstDone ? { late: false, lines: [] } : deliveryCheck(row, c.etaStr, c.onArr ? null : c.tacho_left);
   c.late = chk.late;
-  c.anyLate = c.late || extrasLate(row, c.extra, c.nbAt, c.onArr);
+  c.anyLate = c.late || !!c.actShort || extrasLate(row, c.extra, c.nbAt, c.onArr);
   c.tipLines = (c.tipLines || []).filter((l) => !l.startsWith("Позже TimeSlot") && !l.startsWith("⏳ Раньше окна") && !l.startsWith("⚠ Дата TimeSlot"));
   c.tipLines.unshift(...chk.lines);
   const composed = composeEta(row, c);
@@ -1664,7 +1664,7 @@ async function calcRow(id, why, pre) {
     let distText = "—";
     let etaText = "—";
     let etaTip = "";
-    let late = false, anyLate = false;
+    let late = false, anyLate = false, actShort = false;
     let etaCore = null, bansR = [], tipLines = [];
     let nearR = [], banInfo = [];   // v3.12: «впритык» и подробности проверки запретов
     let onArr = null;               // v3.82: время приезда, пока трак на объекте первой непройденной точки
@@ -1722,7 +1722,7 @@ async function calcRow(id, why, pre) {
       etaText = data.first_done ? '<span class="eta-nb-sp"></span>' + doneEtaHtml(data.first_done) : "—";   // v1.81: ровно с остальными
       const cx = { dist: distText, eta: etaText, extra: extraCalc(data) };
       // v1.82: запреты по пути — кнопка NB/🚫 у первой непройденной точки
-      let composed = null, actShort = false;
+      let composed = null;
       const act0 = data.active_idx && data.active_idx.length ? data.active_idx[0] : null;
       if (data.first_done && act0 != null && data.target_lat != null) {
         const et = data.eta_tacho || data.eta_local;
@@ -1784,7 +1784,7 @@ async function calcRow(id, why, pre) {
     const wasWait = awaitsComplete(row);   // v3.81
     const fv0 = folded(row) ? foldVisible(row).join() : "";   // v3.11: окно свёрнутых точек до расчёта
     lastCalcText[id] = { targetAddress: data.first_done ? null : (data.target_address || null),   // v3.199: при пройденной ① адрес в ответе — первой активной точки, не ①
-                          status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo, onArr,
+                          status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, actShort, etaCore, bansR, tipLines, nearR, banInfo, onArr,
                          etaStr: onArr || data.eta_tacho || data.eta_local, tacho_left: data.tacho_left || null, etaGps: !!data.eta_gps, extra: extraCalc(data),
                          fixSig: JSON.stringify(fixAtList(row)),   // v3.229: по чему считали ожидание у фикс-точек
                          crew: crewOf(data), weekly: data.weekly_rest || null, hold: data.done_hint ? { open: data.done_hint.open, later: data.done_hint.later } : null,
