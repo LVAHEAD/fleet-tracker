@@ -1288,7 +1288,7 @@ function etaCellHtml(row, c, composed) {
     let tip = "";
     // v3.10: опоздание к TimeSlot любой непройденной точки — красным
     const chk = ce && !ce.done && !ce.error ? slotCheck(x.delivery, (nbAt === i && c.onArr) || ce.eta_tacho || ce.eta_local, nbAt === i && c.onArr ? null : ce.tacho_left) : { late: false, lines: [] };
-    const lateCls = chk.late ? " sl-late" : "";
+    const lateCls = chk.late || (nbAt === i && c.actShort) ? " sl-late" : "";
     if (ce && ce.done) {
       inner = doneEtaHtml(ce);
       tip = ce.done_by != null ? `Точка пройдена: пройдена следующая ${STOP_NUM[ce.done_by + 1]}`
@@ -1722,7 +1722,7 @@ async function calcRow(id, why, pre) {
       etaText = data.first_done ? '<span class="eta-nb-sp"></span>' + doneEtaHtml(data.first_done) : "—";   // v1.81: ровно с остальными
       const cx = { dist: distText, eta: etaText, extra: extraCalc(data) };
       // v1.82: запреты по пути — кнопка NB/🚫 у первой непройденной точки
-      let composed = null;
+      let composed = null, actShort = false;
       const act0 = data.active_idx && data.active_idx.length ? data.active_idx[0] : null;
       if (data.first_done && act0 != null && data.target_lat != null) {
         const et = data.eta_tacho || data.eta_local;
@@ -1733,6 +1733,7 @@ async function calcRow(id, why, pre) {
         const delA = act0 === 0 ? row.delivery : ((row.extra || [])[act0 - 1] || {}).delivery;   // v3.229: фикс у первой непройденной
         const fvA = !osa && fixViewAllowed() ? fixVerdict(delA, et, data.tacho_left) : null;
         if (fvA) etaCore = fixRollHtml(etaCore, fvA);
+        if (fvA && fvA.kind === "short") actShort = true;   // v3.386: вердикт «не хватает смены» у первой открытой точки красит строку
         { const ex0 = cx.extra[act0 - 1]; if (ex0 && !ex0.tacho_left && data.tacho_left) ex0.tacho_left = data.tacho_left; }   // v3.385: у первой открытой точки ②+ смена лежит в корне расчёта — без неё опоздун по ТиО не краснил строку
         bansR = (data.bans_route || []).slice();
         (data.extra || []).forEach((x, i) => (x.bans_route || []).forEach((b) => bansR.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
@@ -1742,10 +1743,10 @@ async function calcRow(id, why, pre) {
           .concat(data.route_countries && data.route_countries.length > 1 ? ["Страны: " + data.route_countries.join(" → ")] : []);
         if (osa) tipLines.unshift(osa.tip);
         if (fvA) tipLines.unshift("🎯 " + fvA.text);
-        Object.assign(cx, { etaCore, bansR, tipLines, nearR, banInfo, nbAt: act0 - 1, onArr });
+        Object.assign(cx, { etaCore, bansR, tipLines, nearR, banInfo, nbAt: act0 - 1, onArr, actShort });
         composed = composeEta(row, cx);
       }
-      anyLate = extrasLate(row, cx.extra, cx.nbAt, cx.onArr);   // v3.230: трак на объекте ② — по времени приезда
+      anyLate = actShort || extrasLate(row, cx.extra, cx.nbAt, cx.onArr);   // v3.230: трак на объекте ② — по времени приезда
       const prevC = lastCalcText[id];
       if (prevC && prevC.etaCore && prevC.anyLate === false && anyLate) {
         blinkRows.add(id);
