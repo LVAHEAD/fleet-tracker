@@ -2044,7 +2044,7 @@ function ferryDeps(row) {
 
 // v3.229: фикс-время точки пока только у VL (остальным — ETA как раньше, расчёт без изменений)
 function fixViewAllowed() {
-  return typeof dispTag === "function" && typeof fleetMe === "function" && dispTag(fleetMe()) === "VL";
+  return true;   // v3.384: фикс-вердикт и опоздун по ТиО — у всех диспетчеров (до этого пилот только у VL)
 }
 // «не раньше» (epoch, сек) по точкам [①, ②…] из их «Даты»: окно / фикс / «после» → начало минус 1 ч; пусто — нет ни одной
 function fixAtList(row) {
