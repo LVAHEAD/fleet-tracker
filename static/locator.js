@@ -184,6 +184,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     if (window.ObjLayer) ObjLayer.attach(map);   // v3.55: объекты Mapon — 🏭
     infoWindow = new google.maps.InfoWindow();
     if (window.UnitsLayer) window.UnitsLayer.attach(map);   // v3.38: все машины HEAD TRUCK
+    try { pkInit(); } catch (e) { console.warn("pkInit", e); }   // v3.382: слой «Паркинги» — сбой не должен ломать Локатор
 
     // "копировать" внутри InfoWindow
     document.getElementById("locatorMap").addEventListener("click", (e) => {
@@ -294,6 +295,125 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     view.classList.toggle("loc-2col", on);
     if (map && window.google) setTimeout(() => google.maps.event.trigger(map, "resize"), 50);
   }
+  // ---------- заметки о паркингах (v3.381) и слой «Паркинги» (v3.382) ----------
+  const NOTE_TAGS = { fuel: ["⛽", "Сливы топлива"], guard: ["🛡", "Охраняется"], shower: ["🚿", "Душ"], wc: ["🚻", "Туалет"], tight: ["⚠", "Мало мест"] };
+  const colorOf = (n) => (n && n.ok === "yes" ? "#1b7f45" : n && n.ok === "no" ? "#d64545" : "#2f6fd6");
+  const noteHtml = (n) => {
+    if (!n || !(n.ok || n.pay || (n.tags && n.tags.length) || n.text)) return `<span class="loc-note-add">＋</span>`;
+    return (n.ok === "yes" ? `<b class="ln-ok">✓</b>` : n.ok === "no" ? `<b class="ln-no">✗</b>` : "") +
+      (n.pay === "paid" ? `<span title="Платный">💶</span>` : n.pay === "free" ? `<span title="Бесплатный">🆓</span>` : "") +
+      (n.tags || []).map((k) => NOTE_TAGS[k] ? `<span title="${NOTE_TAGS[k][1]}">${NOTE_TAGS[k][0]}</span>` : "").join("") +
+      (n.text ? ` <i>${esc(n.text.length > 22 ? n.text.slice(0, 22) + "…" : n.text)}</i>` : "");
+  };
+  function closeNote() {
+    const o = document.getElementById("loc-note-pop"); if (o) o.remove();
+    document.removeEventListener("mousedown", outNote, true);
+  }
+  function outNote(e) { const o = document.getElementById("loc-note-pop"); if (o && !o.contains(e.target)) closeNote(); }
+  // карточка заметки у места клика: t = {lat, lng, address, note}; onSaved(note) — после сохранения
+  function openNoteCard(t, e, onSaved) {
+    closeNote();
+    const st = Object.assign({ ok: "", pay: "", tags: [], text: "" }, t.note || {});
+    const pop = document.createElement("div");
+    pop.id = "loc-note-pop"; pop.className = "loc-note-pop";
+    const btn = (grp, v, txt, on) => `<button type="button" data-g="${grp}" data-v="${v}"${on ? ' class="on"' : ""}>${txt}</button>`;
+    const draw = () => {
+      pop.innerHTML = `<div class="lnp-h">${esc(t.address || t.lat + ", " + t.lng)}<span class="lnp-x">×</span></div>` +
+        `<div class="lnp-r">${btn("ok", "yes", "Норм", st.ok === "yes")}${btn("ok", "no", "Нет", st.ok === "no")}</div>` +
+        `<div class="lnp-r">${btn("pay", "paid", "Платный", st.pay === "paid")}${btn("pay", "free", "Бесплатный", st.pay === "free")}</div>` +
+        `<div class="lnp-r">${Object.entries(NOTE_TAGS).map(([k, v]) => btn("tag", k, v[0] + " " + v[1], st.tags.includes(k))).join("")}</div>` +
+        `<textarea rows="2" maxlength="300" placeholder="Заметка (цена, охрана, как заехать…)">${esc(st.text)}</textarea>` +
+        `<div class="lnp-s">${t.note && t.note.by ? "Менял: " + esc(t.note.by) : ""}</div>`;
+    };
+    const save = async () => {
+      const sEl = () => pop.querySelector(".lnp-s");
+      try {
+        const r = await fetch("/api/parking-note", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lat: t.lat, lng: t.lng, ok: st.ok, pay: st.pay, tags: st.tags, text: st.text }) });
+        const jj = await r.json();
+        if (jj.note) { t.note = jj.note; onSaved(jj.note); if (sEl()) sEl().textContent = "Сохранено"; }
+      } catch (err) { if (sEl()) sEl().textContent = "Не удалось сохранить"; }
+    };
+    draw();
+    pop.addEventListener("click", (ev) => {
+      if (ev.target.closest(".lnp-x")) { closeNote(); return; }
+      const bt = ev.target.closest("button"); if (!bt) return;
+      const g = bt.dataset.g, v = bt.dataset.v;
+      if (g === "ok" || g === "pay") st[g] = st[g] === v ? "" : v;
+      else st.tags = st.tags.includes(v) ? st.tags.filter((x) => x !== v) : st.tags.concat(v);
+      draw(); save();
+    });
+    pop.addEventListener("focusout", (ev) => { if (ev.target.tagName === "TEXTAREA" && ev.target.value !== st.text) { st.text = ev.target.value; save(); } });
+    document.body.appendChild(pop);
+    const w = pop.offsetWidth, h = pop.offsetHeight;
+    pop.style.left = Math.max(8, Math.min(e.clientX - 20, window.innerWidth - w - 8)) + "px";
+    pop.style.top = Math.max(8, Math.min(e.clientY + 12, window.innerHeight - h - 8)) + "px";
+    document.addEventListener("mousedown", outNote, true);
+  }
+
+  // слой «🅿 Паркинги»: все места из истории стоянок в границах карты
+  let pkOn = false, pkMarks = [], pkData = [], pkFilter = "all", pkTimer = null, pkTip = null;
+  try { pkOn = localStorage.getItem("loc-pk") === "1"; } catch (e) { /* ignore */ }
+  const pkPass = (p) => {
+    const n = p.note || {};
+    return pkFilter === "ok" ? n.ok === "yes" : pkFilter === "notno" ? n.ok !== "no" : pkFilter === "nofuel" ? !(n.tags || []).includes("fuel") : true;
+  };
+  function pkClear() { pkMarks.forEach((m) => m.setMap(null)); pkMarks = []; if (pkTip) pkTip.hidden = true; }
+  function pkDraw() {
+    pkClear();
+    if (!pkOn || !map) return;
+    pkData.filter(pkPass).forEach((p) => {
+      const sc = Math.min(13, 5 + Math.sqrt(p.n) * 1.6);
+      const m = new google.maps.Marker({ position: { lat: p.lat, lng: p.lng }, map, zIndex: 800,
+        label: p.n > 1 ? { text: String(p.n), color: "#fff", fontSize: "10px", fontWeight: "600" } : null,
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: sc, fillColor: colorOf(p.note), fillOpacity: 0.75, strokeColor: (p.note && (p.note.tags || []).includes("fuel")) ? "#f59e0b" : "#fff", strokeWeight: 2 } });
+      m.addListener("click", (ev) => {
+        const de = ev.domEvent || {};
+        openNoteCard(p, { clientX: de.clientX || 200, clientY: de.clientY || 200 }, (n) => { p.note = n; pkDraw(); });
+      });
+      m.addListener("mouseover", (ev) => {
+        if (!pkTip) { pkTip = document.createElement("div"); pkTip.className = "loc-stops-tip"; pkTip.style.position = "fixed"; document.body.appendChild(pkTip); }
+        const fd = (ts) => { const x = new Date(ts * 1000); return x.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }); };
+        pkTip.innerHTML = `<div><b>${esc(p.address || p.lat + ", " + p.lng)}</b></div><div>${p.n} стоянок · ${Math.round(p.hours)} ч · ${p.units} машин</div>` +
+          p.list.map((r) => `<div>${esc(r.u)} · ${fd(r.s)}</div>`).join("") + (p.note ? `<div>${noteHtml(p.note)}</div>` : "");
+        const de = ev.domEvent || {};
+        pkTip.style.left = Math.min((de.clientX || 100) + 14, window.innerWidth - 280) + "px";
+        pkTip.style.top = ((de.clientY || 100) + 18) + "px";
+        pkTip.hidden = false;
+      });
+      m.addListener("mouseout", () => { if (pkTip) pkTip.hidden = true; });
+      pkMarks.push(m);
+    });
+  }
+  async function pkLoad() {
+    if (!pkOn || !map) return;
+    const b = map.getBounds(); if (!b) return;
+    const ne = b.getNorthEast(), sw = b.getSouthWest();
+    try {
+      const r = await fetch(`/api/parking-map?s=${sw.lat()}&w=${sw.lng()}&n=${ne.lat()}&e=${ne.lng()}&z=${map.getZoom()}`);
+      const j = await r.json();
+      pkData = j.places || [];
+    } catch (e) { pkData = []; }
+    pkDraw();
+  }
+  function pkInit() {
+    const box = document.createElement("div");
+    box.className = "ul-ctl pk-ctl";
+    const F = [["all", "Все"], ["ok", "Норм"], ["notno", "без Нет"], ["nofuel", "без ⛽"]];
+    const ui = () => {
+      box.innerHTML = `<button type="button" class="pk-tg${pkOn ? " on" : ""}" title="Все места из истории стоянок — показать / спрятать">🅿 Паркинги</button>` +
+        (pkOn ? F.map(([v, t]) => `<button type="button" class="pk-f${pkFilter === v ? " on" : ""}" data-f="${v}">${t}</button>`).join("") : "");
+    };
+    box.addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.classList.contains("pk-tg")) { pkOn = !pkOn; try { localStorage.setItem("loc-pk", pkOn ? "1" : "0"); } catch (err) { /* ignore */ } ui(); pkOn ? pkLoad() : pkClear(); }
+      else { pkFilter = b.dataset.f; ui(); pkDraw(); }
+    });
+    ui();
+    map.controls[google.maps.ControlPosition.TOP_LEFT].push(box);
+    map.addListener("idle", () => { clearTimeout(pkTimer); pkTimer = setTimeout(pkLoad, 400); });
+  }
+
   async function showStops(d, q) {
     clearStops();
     if (d.is_truck) return;
@@ -310,15 +430,6 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
       if (j.error) { box.innerHTML = `<div class="loc-err">Стоянки: ${esc(j.error)}</div>`; return; }
       if (j.stops && resultMarker) { resultMarker.setMap(null); resultMarker = null; }   // красная булавка города не нужна, когда есть стоянки
       const dirTxt = (o) => { const e = Object.entries(o || {}).sort((a, b) => b[1] - a[1]); return e.slice(0, 2).map(([k, v]) => `${k}${v > 1 ? "×" + v : ""}`).join(" ") + (e.length > 2 ? " …" : "") || "—"; };
-      const NOTE_TAGS = { fuel: ["⛽", "Сливы топлива"], guard: ["🛡", "Охраняется"], shower: ["🚿", "Душ"], wc: ["🚻", "Туалет"], tight: ["⚠", "Мало мест"] };
-      const colorOf = (n) => (n && n.ok === "yes" ? "#1b7f45" : n && n.ok === "no" ? "#d64545" : "#2f6fd6");
-      const noteHtml = (n) => {
-        if (!n || !(n.ok || n.pay || (n.tags && n.tags.length) || n.text)) return `<span class="loc-note-add">＋</span>`;
-        return (n.ok === "yes" ? `<b class="ln-ok">✓</b>` : n.ok === "no" ? `<b class="ln-no">✗</b>` : "") +
-          (n.pay === "paid" ? `<span title="Платный">💶</span>` : n.pay === "free" ? `<span title="Бесплатный">🆓</span>` : "") +
-          (n.tags || []).map((k) => NOTE_TAGS[k] ? `<span title="${NOTE_TAGS[k][1]}">${NOTE_TAGS[k][0]}</span>` : "").join("") +
-          (n.text ? ` <i>${esc(n.text.length > 22 ? n.text.slice(0, 22) + "…" : n.text)}</i>` : "");
-      };
       const since = j.from ? new Date(j.from * 1000).toLocaleDateString("ru-RU") : "";
       const sidesHtml = `<div class="loc-sides">Еду с: ` + [["", "любой"], ["С", "С"], ["СВ", "СВ"], ["В", "В"], ["ЮВ", "ЮВ"], ["Ю", "Ю"], ["ЮЗ", "ЮЗ"], ["З", "З"], ["СЗ", "СЗ"]].map(([v, t]) => `<button type="button" data-side="${v}"${v === stopFrom ? ' class="on"' : ""}>${t}</button>`).join("") + `</div>`;
       box.innerHTML = `<div class="loc-stops-h"><b>Стоянки</b> (${what}) ` +
@@ -387,52 +498,13 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
         const t = j.top[+td.parentNode.dataset.i]; map.panTo({ lat: t.lat, lng: t.lng }); blink(+td.parentNode.dataset.i);
         copyGps(td);
       }));
-      // заметка о паркинге: клик по ячейке — карточка у места клика, сохраняется сама
-      const closeNote = () => { const o = document.getElementById("loc-note-pop"); if (o) o.remove(); document.removeEventListener("mousedown", outNote, true); };
-      const outNote = (e) => { const o = document.getElementById("loc-note-pop"); if (o && !o.contains(e.target)) closeNote(); };
       box.querySelectorAll(".loc-note").forEach((td) => td.addEventListener("click", (e) => {
         e.stopPropagation();
-        closeNote();
         const i = +td.parentNode.dataset.i, t = j.top[i];
-        const st = Object.assign({ ok: "", pay: "", tags: [], text: "" }, t.note || {});
-        const pop = document.createElement("div");
-        pop.id = "loc-note-pop"; pop.className = "loc-note-pop";
-        const btn = (grp, v, txt, on) => `<button type="button" data-g="${grp}" data-v="${v}"${on ? ' class="on"' : ""}>${txt}</button>`;
-        const draw = () => {
-          pop.innerHTML = `<div class="lnp-h">${esc(t.address || t.lat + ", " + t.lng)}<span class="lnp-x">×</span></div>` +
-            `<div class="lnp-r">${btn("ok", "yes", "Норм", st.ok === "yes")}${btn("ok", "no", "Нет", st.ok === "no")}</div>` +
-            `<div class="lnp-r">${btn("pay", "paid", "Платный", st.pay === "paid")}${btn("pay", "free", "Бесплатный", st.pay === "free")}</div>` +
-            `<div class="lnp-r">${Object.entries(NOTE_TAGS).map(([k, v]) => btn("tag", k, v[0] + " " + v[1], st.tags.includes(k))).join("")}</div>` +
-            `<textarea rows="2" maxlength="300" placeholder="Заметка (цена, охрана, как заехать…)">${esc(st.text)}</textarea>` +
-            `<div class="lnp-s">${t.note && t.note.by ? "Менял: " + esc(t.note.by) : ""}</div>`;
-        };
-        const save = async () => {
-          try {
-            const r = await fetch("/api/parking-note", { method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ lat: t.lat, lng: t.lng, ok: st.ok, pay: st.pay, tags: st.tags, text: st.text }) });
-            const jj = await r.json();
-            if (jj.note) {
-              t.note = jj.note; td.innerHTML = noteHtml(t.note);
-              if (stopMarks[i]) stopMarks[i].setIcon(Object.assign({}, stopMarks[i].getIcon(), { fillColor: colorOf(t.note) }));
-              const sEl = pop.querySelector(".lnp-s"); if (sEl) sEl.textContent = "Сохранено";
-            }
-          } catch (err) { const sEl = pop.querySelector(".lnp-s"); if (sEl) sEl.textContent = "Не удалось сохранить"; }
-        };
-        draw();
-        pop.addEventListener("click", (ev) => {
-          if (ev.target.closest(".lnp-x")) { closeNote(); return; }
-          const bt = ev.target.closest("button"); if (!bt) return;
-          const g = bt.dataset.g, v = bt.dataset.v;
-          if (g === "ok" || g === "pay") st[g] = st[g] === v ? "" : v;
-          else st.tags = st.tags.includes(v) ? st.tags.filter((x) => x !== v) : st.tags.concat(v);
-          draw(); save();
+        openNoteCard(t, e, (n) => {
+          t.note = n; td.innerHTML = noteHtml(n);
+          if (stopMarks[i]) stopMarks[i].setIcon(Object.assign({}, stopMarks[i].getIcon(), { fillColor: colorOf(n) }));
         });
-        pop.addEventListener("focusout", (ev) => { if (ev.target.tagName === "TEXTAREA" && ev.target.value !== st.text) { st.text = ev.target.value; save(); } });
-        document.body.appendChild(pop);
-        const w = pop.offsetWidth, h = pop.offsetHeight;
-        pop.style.left = Math.max(8, Math.min(e.clientX - 20, window.innerWidth - w - 8)) + "px";
-        pop.style.top = Math.max(8, Math.min(e.clientY + 12, window.innerHeight - h - 8)) + "px";
-        document.addEventListener("mousedown", outNote, true);
       }));
       box.querySelectorAll(".loc-stops-t tr").forEach((tr) => tr.addEventListener("click", () => {
         const t = j.top[+tr.dataset.i]; map.panTo({ lat: t.lat, lng: t.lng }); map.setZoom(15); blink(+tr.dataset.i);

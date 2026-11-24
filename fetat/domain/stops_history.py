@@ -180,6 +180,44 @@ def where(code=None, city=None, days=None, min_h=2.0, now=None, top=15, names=No
                               for u, a, b, f, t in sorted(c["list"], key=lambda r: -r[1])[:40]]} for c in items]}
 
 
+ALL_TTL = 60   # слой «Паркинги» дёргает базу при каждом сдвиге карты — кеш на минуту
+_all_cache = [0.0, None]
+
+
+def _all_cached():
+    now = time.time()
+    if ALL_TTL and _all_cache[1] is not None and now - _all_cache[0] < ALL_TTL:
+        return _all_cache[1]
+    data = STOPS_STORE.all()
+    _all_cache[0], _all_cache[1] = now, data
+    return data
+
+
+def places(south, west, north, east, zoom=12, min_n=1, names=None, top=600):
+    """Слой «Паркинги»: места стоянок (от MIN_SEC) в границах карты; ячейка сетки крупнее на мелком масштабе.
+    -> [{lat, lng, n, hours, units, address, list: [{u, s, e}] (8 последних)}], самые частые первыми."""
+    fac = min(32, 2 ** max(0, 12 - int(zoom)))
+    g = GRID * fac
+    cl = {}
+    for uid, rec in _all_cached().items():
+        for x in rec.get("stops") or []:
+            if not (south <= x["lat"] <= north and west <= x["lng"] <= east) or x["e"] - x["s"] < MIN_SEC:
+                continue
+            c = cl.setdefault((round(x["lat"] / g), round(x["lng"] / g)),
+                              {"n": 0, "hours": 0.0, "units": set(), "lat": 0.0, "lng": 0.0, "address": x.get("a") or "", "list": []})
+            c["n"] += 1
+            c["hours"] += (x["e"] - x["s"]) / 3600
+            c["units"].add(uid)
+            c["lat"] += x["lat"]
+            c["lng"] += x["lng"]
+            c["list"].append((uid, x["s"], x["e"]))
+    items = sorted((c for c in cl.values() if c["n"] >= min_n), key=lambda c: (-c["n"], -c["hours"]))[:top]
+    return [{"lat": round(c["lat"] / c["n"], 5), "lng": round(c["lng"] / c["n"], 5), "n": c["n"], "hours": round(c["hours"], 1),
+             "units": len(c["units"]), "address": c["address"],
+             "list": [{"u": (names or {}).get(str(u)) or str(u), "s": a, "e": b}
+                      for u, a, b in sorted(c["list"], key=lambda r: -r[1])[:8]]} for c in items]
+
+
 def _unit_ids():
     from fetat.clients.mapon import fetch_group_unit_ids
     from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY

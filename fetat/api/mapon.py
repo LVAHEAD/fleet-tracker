@@ -973,3 +973,25 @@ def api_parking_note():
     except (KeyError, TypeError, ValueError):
         return jsonify({"error": "нужны lat и lng"}), 400
     return jsonify({"note": save(lat, lng, d, current_user_email()), "tags": TAGS})
+
+
+@bp.route("/api/parking-map")
+def api_parking_map():
+    """Слой «Паркинги»: ?s=&w=&n=&e=границы карты &z=зум -> {places: [...], с заметками}."""
+    from fetat.domain.parking_notes import attach
+    from fetat.domain.stops_history import places
+    try:
+        s_, w_, n_, e_ = (float(request.args[k]) for k in ("s", "w", "n", "e"))
+        z = int(float(request.args.get("z") or 12))
+    except (KeyError, ValueError):
+        return jsonify({"error": "нужны s, w, n, e (границы) и z"}), 400
+    try:
+        names = {str(u["unit_id"]): (u.get("number") or u.get("label")) for u in fetch_units(MAPON_API_KEY)}
+    except Exception:
+        names = {}
+    res = places(s_, w_, n_, e_, zoom=z, min_n=2 if z < 9 else 1, names=names)
+    try:
+        attach(res)
+    except Exception as e:
+        warn("parking:attach", e)
+    return jsonify({"places": res})

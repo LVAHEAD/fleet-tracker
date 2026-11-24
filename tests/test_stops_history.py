@@ -59,6 +59,14 @@ class StopsHistoryTest(unittest.TestCase):
         self.assertEqual(S.where(code=STOPS_STORE.get(1)["stops"][1]["c"], now=NOW, from_side="Ю")["top"][0]["n"], 1)
         self.assertEqual(S.where(code=STOPS_STORE.get(1)["stops"][1]["c"], now=NOW, from_side="З")["stops"], 0)
 
+    def test_places_in_bbox_and_zoom_grid(self):
+        S.ALL_TTL = 0
+        S.collect_unit(1, NOW, lambda *a, **k: [stop(40, 9), stop(100, 11), stop(200, 9, lat=48.85, lng=2.35)])
+        r = S.places(41.0, 1.9, 41.8, 2.4, zoom=12)
+        self.assertEqual((len(r), r[0]["n"]), (1, 2))              # Барселона — две стоянки в одном месте; Париж вне окна
+        self.assertEqual(S.places(41.0, 1.9, 41.8, 2.4, zoom=12, min_n=3), [])
+        self.assertEqual(len(S.places(30, -10, 60, 30, zoom=4)), 2)   # вся Европа: два места
+
     def test_one_unit_error_does_not_stop_collection(self):
         def rl(uid, *a, **k):
             if uid == 1:

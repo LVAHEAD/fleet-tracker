@@ -32,6 +32,10 @@ class ParkingNotesTest(unittest.TestCase):
         n = r.get_json()["note"]
         self.assertEqual((n["ok"], n["tags"]), ("no", ["fuel", "wc"]))
         self.assertEqual(c.post("/api/parking-note", json={"lat": "x"}).status_code, 400)
+        r = c.get("/api/parking-map?s=30&w=-10&n=60&e=30&z=4")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("places", r.get_json())
+        self.assertEqual(c.get("/api/parking-map?s=1").status_code, 400)
 
 
 if __name__ == "__main__":
