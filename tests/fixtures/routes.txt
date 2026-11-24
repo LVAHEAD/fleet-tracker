@@ -41,6 +41,7 @@
 /api/notebook/<rid> PATCH
 /api/notebook/<rid>/comments POST
 /api/notebook/<rid>/comments/<cid> DELETE
+/api/parking-note POST
 /api/positions GET
 /api/presence GET
 /api/reefer-log GET

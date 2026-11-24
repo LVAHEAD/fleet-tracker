@@ -286,6 +286,7 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
     const b = document.getElementById("loc-stops");
     if (b) b.innerHTML = "";
     setTwoCol(false);
+    const np = document.getElementById("loc-note-pop"); if (np) np.remove();
   }
   // таблица стоянок слева, карта справа (на узком экране — друг под другом, см. style.css)
   function setTwoCol(on) {
@@ -309,19 +310,28 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
       if (j.error) { box.innerHTML = `<div class="loc-err">Стоянки: ${esc(j.error)}</div>`; return; }
       if (j.stops && resultMarker) { resultMarker.setMap(null); resultMarker = null; }   // красная булавка города не нужна, когда есть стоянки
       const dirTxt = (o) => { const e = Object.entries(o || {}).sort((a, b) => b[1] - a[1]); return e.slice(0, 2).map(([k, v]) => `${k}${v > 1 ? "×" + v : ""}`).join(" ") + (e.length > 2 ? " …" : "") || "—"; };
+      const NOTE_TAGS = { fuel: ["⛽", "Сливы топлива"], guard: ["🛡", "Охраняется"], shower: ["🚿", "Душ"], wc: ["🚻", "Туалет"], tight: ["⚠", "Мало мест"] };
+      const colorOf = (n) => (n && n.ok === "yes" ? "#1b7f45" : n && n.ok === "no" ? "#d64545" : "#2f6fd6");
+      const noteHtml = (n) => {
+        if (!n || !(n.ok || n.pay || (n.tags && n.tags.length) || n.text)) return `<span class="loc-note-add">＋</span>`;
+        return (n.ok === "yes" ? `<b class="ln-ok">✓</b>` : n.ok === "no" ? `<b class="ln-no">✗</b>` : "") +
+          (n.pay === "paid" ? `<span title="Платный">💶</span>` : n.pay === "free" ? `<span title="Бесплатный">🆓</span>` : "") +
+          (n.tags || []).map((k) => NOTE_TAGS[k] ? `<span title="${NOTE_TAGS[k][1]}">${NOTE_TAGS[k][0]}</span>` : "").join("") +
+          (n.text ? ` <i>${esc(n.text.length > 22 ? n.text.slice(0, 22) + "…" : n.text)}</i>` : "");
+      };
       const since = j.from ? new Date(j.from * 1000).toLocaleDateString("ru-RU") : "";
       const sidesHtml = `<div class="loc-sides">Еду с: ` + [["", "любой"], ["С", "С"], ["СВ", "СВ"], ["В", "В"], ["ЮВ", "ЮВ"], ["Ю", "Ю"], ["ЮЗ", "ЮЗ"], ["З", "З"], ["СЗ", "СЗ"]].map(([v, t]) => `<button type="button" data-side="${v}"${v === stopFrom ? ' class="on"' : ""}>${t}</button>`).join("") + `</div>`;
       box.innerHTML = `<div class="loc-stops-h"><b>Стоянки</b> (${what}) ` +
  `<span class="loc-stops-s">за 90 сут, от 9 ч</span>` +
         `</div>` +
         sidesHtml + (j.stops ? `<div class="loc-stops-s">${j.stops} стоянок · ${Math.round(j.hours)} ч · ${j.units} машин${since ? ` · с ${since}` : ""}</div><div class="loc-stops-s">Направление: откуда приехали → куда уехали (по соседним длинным стоянкам машины)</div>` +
-          `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} ${t.units === 1 ? "машина" : "машин"}</td><td class="loc-gps">${t.lat}, ${t.lng}</td><td class="loc-dir">${dirTxt(t.from)} → ${dirTxt(t.to)}</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td></tr>`).join("") + `</table>`
+          `<table class="loc-stops-t">` + j.top.map((t, i) => `<tr data-i="${i}"><td>${t.n}×</td><td>${Math.round(t.hours)} ч</td><td>${t.units} ${t.units === 1 ? "машина" : "машин"}</td><td class="loc-gps">${t.lat}, ${t.lng}</td><td class="loc-dir">${dirTxt(t.from)} → ${dirTxt(t.to)}</td><td>${esc(t.address || t.lat + ", " + t.lng)}</td><td class="loc-note">${noteHtml(t.note)}</td></tr>`).join("") + `</table>`
           : `<div class="loc-stops-s">Стоянок нет${stopFrom ? " с этого направления" : " — история копится с момента запуска сбора (раз в 6 ч)"}.</div>`);
       const tr_clear = () => box.querySelectorAll(".loc-stops-t tr.hl").forEach((x) => x.classList.remove("hl"));
       j.top.forEach((t, i) => {
         const m = new google.maps.Marker({ position: { lat: t.lat, lng: t.lng }, map, zIndex: 900,
           label: { text: String(t.n), color: "#fff", fontSize: "11px", fontWeight: "600" },
-          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 11, fillColor: "#2f6fd6", fillOpacity: 0.9, strokeColor: "#fff", strokeWeight: 2 },
+          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 11, fillColor: colorOf(t.note), fillOpacity: 0.9, strokeColor: "#fff", strokeWeight: 2 },
           title: `${t.n} стоянок · ${Math.round(t.hours)} ч · ${t.address || ""}` });
         m.addListener("click", () => {   // клик по метке — копирует GPS места (как клик по GPS в таблице)
           const td = box.querySelector(`.loc-stops-t tr[data-i="${i}"] .loc-gps`); if (td) copyGps(td);
@@ -358,12 +368,12 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
       let blinkT = null;
       const blink = (i) => {   // метка места моргает зелёным: при наведении на строку, до ухода курсора (~3 с)
         clearInterval(blinkT);
-        stopMarks.forEach((m) => m.setIcon(Object.assign({}, m.getIcon(), { fillColor: "#2f6fd6" })));
+        stopMarks.forEach((m, k) => m.setIcon(Object.assign({}, m.getIcon(), { fillColor: colorOf(j.top[k].note) })));
         const m = stopMarks[i]; if (!m) return;
         let k = 0;
-        const step = () => { m.setIcon(Object.assign({}, m.getIcon(), { fillColor: k % 2 ? "#2f6fd6" : "#1fbf4a" })); m.setZIndex(k % 2 ? 900 : 1200); };
+        const step = () => { m.setIcon(Object.assign({}, m.getIcon(), { fillColor: k % 2 ? colorOf(j.top[i].note) : "#1fbf4a" })); m.setZIndex(k % 2 ? 900 : 1200); };
         step();
-        blinkT = setInterval(() => { k++; step(); if (k >= 9) { clearInterval(blinkT); m.setIcon(Object.assign({}, m.getIcon(), { fillColor: "#2f6fd6" })); m.setZIndex(900); } }, 350);
+        blinkT = setInterval(() => { k++; step(); if (k >= 9) { clearInterval(blinkT); m.setIcon(Object.assign({}, m.getIcon(), { fillColor: colorOf(j.top[i].note) })); m.setZIndex(900); } }, 350);
       };
       const copyGps = (td) => {
         const txt = td.dataset.gps || td.textContent;
@@ -376,6 +386,53 @@ Fleet ETA Tracker — Локатор (вкладка "Карты стран")
         e.stopPropagation();
         const t = j.top[+td.parentNode.dataset.i]; map.panTo({ lat: t.lat, lng: t.lng }); blink(+td.parentNode.dataset.i);
         copyGps(td);
+      }));
+      // заметка о паркинге: клик по ячейке — карточка у места клика, сохраняется сама
+      const closeNote = () => { const o = document.getElementById("loc-note-pop"); if (o) o.remove(); document.removeEventListener("mousedown", outNote, true); };
+      const outNote = (e) => { const o = document.getElementById("loc-note-pop"); if (o && !o.contains(e.target)) closeNote(); };
+      box.querySelectorAll(".loc-note").forEach((td) => td.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeNote();
+        const i = +td.parentNode.dataset.i, t = j.top[i];
+        const st = Object.assign({ ok: "", pay: "", tags: [], text: "" }, t.note || {});
+        const pop = document.createElement("div");
+        pop.id = "loc-note-pop"; pop.className = "loc-note-pop";
+        const btn = (grp, v, txt, on) => `<button type="button" data-g="${grp}" data-v="${v}"${on ? ' class="on"' : ""}>${txt}</button>`;
+        const draw = () => {
+          pop.innerHTML = `<div class="lnp-h">${esc(t.address || t.lat + ", " + t.lng)}<span class="lnp-x">×</span></div>` +
+            `<div class="lnp-r">${btn("ok", "yes", "Норм", st.ok === "yes")}${btn("ok", "no", "Нет", st.ok === "no")}</div>` +
+            `<div class="lnp-r">${btn("pay", "paid", "Платный", st.pay === "paid")}${btn("pay", "free", "Бесплатный", st.pay === "free")}</div>` +
+            `<div class="lnp-r">${Object.entries(NOTE_TAGS).map(([k, v]) => btn("tag", k, v[0] + " " + v[1], st.tags.includes(k))).join("")}</div>` +
+            `<textarea rows="2" maxlength="300" placeholder="Заметка (цена, охрана, как заехать…)">${esc(st.text)}</textarea>` +
+            `<div class="lnp-s">${t.note && t.note.by ? "Менял: " + esc(t.note.by) : ""}</div>`;
+        };
+        const save = async () => {
+          try {
+            const r = await fetch("/api/parking-note", { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ lat: t.lat, lng: t.lng, ok: st.ok, pay: st.pay, tags: st.tags, text: st.text }) });
+            const jj = await r.json();
+            if (jj.note) {
+              t.note = jj.note; td.innerHTML = noteHtml(t.note);
+              if (stopMarks[i]) stopMarks[i].setIcon(Object.assign({}, stopMarks[i].getIcon(), { fillColor: colorOf(t.note) }));
+              const sEl = pop.querySelector(".lnp-s"); if (sEl) sEl.textContent = "Сохранено";
+            }
+          } catch (err) { const sEl = pop.querySelector(".lnp-s"); if (sEl) sEl.textContent = "Не удалось сохранить"; }
+        };
+        draw();
+        pop.addEventListener("click", (ev) => {
+          if (ev.target.closest(".lnp-x")) { closeNote(); return; }
+          const bt = ev.target.closest("button"); if (!bt) return;
+          const g = bt.dataset.g, v = bt.dataset.v;
+          if (g === "ok" || g === "pay") st[g] = st[g] === v ? "" : v;
+          else st.tags = st.tags.includes(v) ? st.tags.filter((x) => x !== v) : st.tags.concat(v);
+          draw(); save();
+        });
+        pop.addEventListener("focusout", (ev) => { if (ev.target.tagName === "TEXTAREA" && ev.target.value !== st.text) { st.text = ev.target.value; save(); } });
+        document.body.appendChild(pop);
+        const w = pop.offsetWidth, h = pop.offsetHeight;
+        pop.style.left = Math.max(8, Math.min(e.clientX - 20, window.innerWidth - w - 8)) + "px";
+        pop.style.top = Math.max(8, Math.min(e.clientY + 12, window.innerHeight - h - 8)) + "px";
+        document.addEventListener("mousedown", outNote, true);
       }));
       box.querySelectorAll(".loc-stops-t tr").forEach((tr) => tr.addEventListener("click", () => {
         const t = j.top[+tr.dataset.i]; map.panTo({ lat: t.lat, lng: t.lng }); map.setZoom(15); blink(+tr.dataset.i);

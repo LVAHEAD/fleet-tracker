@@ -926,6 +926,11 @@ def api_stops_where():
     except Exception:
         names = {}
     res = where(code=code, city=city, days=days, min_h=min_h, names=names, from_side=request.args.get("from_side") or None)
+    try:
+        from fetat.domain.parking_notes import attach
+        attach(res["top"])
+    except Exception as e:   # заметки не должны ронять отчёт
+        warn("parking:attach", e)
     res["collector"] = status()
     if request.args.get("format") == "csv":
         import csv
@@ -954,3 +959,17 @@ def api_stops_collect():
             return jsonify({"error": f"Mapon: {e}"}), 502
         threading.Thread(target=collect_all, args=(ids,), daemon=True).start()
     return jsonify(dict(status(), started=True))
+
+
+# ---------- v3.381: заметки о паркингах ----------
+@bp.route("/api/parking-note", methods=["POST"])
+def api_parking_note():
+    """POST {lat, lng, ok: yes|no|"", pay: paid|free|"", tags: [...], text} -> сохранённая заметка места."""
+    from fetat.api.meta import current_user_email
+    from fetat.domain.parking_notes import TAGS, save
+    d = request.get_json(silent=True) or {}
+    try:
+        lat, lng = float(d["lat"]), float(d["lng"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "нужны lat и lng"}), 400
+    return jsonify({"note": save(lat, lng, d, current_user_email()), "tags": TAGS})
