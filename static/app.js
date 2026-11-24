@@ -1287,7 +1287,7 @@ function etaCellHtml(row, c, composed) {
     let inner = '<span class="eta-x-t">—</span>';
     let tip = "";
     // v3.10: опоздание к TimeSlot любой непройденной точки — красным
-    const chk = ce && !ce.done && !ce.error ? slotCheck(x.delivery, (nbAt === i && c.onArr) || ce.eta_tacho || ce.eta_local) : { late: false, lines: [] };
+    const chk = ce && !ce.done && !ce.error ? slotCheck(x.delivery, (nbAt === i && c.onArr) || ce.eta_tacho || ce.eta_local, nbAt === i && c.onArr ? null : ce.tacho_left) : { late: false, lines: [] };
     const lateCls = chk.late ? " sl-late" : "";
     if (ce && ce.done) {
       inner = doneEtaHtml(ce);
@@ -1514,7 +1514,7 @@ function recheckLate(id) {
   if (fixViewAllowed() && JSON.stringify(fixAtList(row)) !== (c.fixSig || "[]")) { calcRow(id, "edit"); return; }
   // v3.10: ① пройдена — её TimeSlot не проверяем; следующие точки проверяет etaCellHtml
   const firstDone = c.nbAt != null || !!(c.doneFlags && c.doneFlags[0] && c.doneFlags[0].done);
-  const chk = firstDone ? { late: false, lines: [] } : deliveryCheck(row, c.etaStr);
+  const chk = firstDone ? { late: false, lines: [] } : deliveryCheck(row, c.etaStr, c.onArr ? null : c.tacho_left);
   c.late = chk.late;
   c.anyLate = c.late || extrasLate(row, c.extra, c.nbAt, c.onArr);
   c.tipLines = (c.tipLines || []).filter((l) => !l.startsWith("Позже TimeSlot") && !l.startsWith("⏳ Раньше окна") && !l.startsWith("⚠ Дата TimeSlot"));
@@ -1694,7 +1694,7 @@ async function calcRow(id, why, pre) {
       (data.extra || []).forEach((x, i) => (x.bans_route || []).forEach((b) => bansR.push(`${STOP_NUM[i + 1]}→${STOP_NUM[i + 2]} ${b}`)));
       nearR = banNearLines(data);
       banInfo = banInfoLines(data);
-      const chk = deliveryCheck(row, onArr || data.eta_tacho || data.eta_local);
+      const chk = deliveryCheck(row, onArr || data.eta_tacho || data.eta_local, onArr ? null : data.tacho_left);
       late = chk.late;
       anyLate = late || extrasLate(row, extraCalc(data));
       // v1.59: стала опаздывать с прошлого расчёта — мигать до клика (v3.10: любая точка)
@@ -1783,7 +1783,7 @@ async function calcRow(id, why, pre) {
     const fv0 = folded(row) ? foldVisible(row).join() : "";   // v3.11: окно свёрнутых точек до расчёта
     lastCalcText[id] = { targetAddress: data.first_done ? null : (data.target_address || null),   // v3.199: при пройденной ① адрес в ответе — первой активной точки, не ①
                           status: statusHtml, statusClass: statusClass, dist: distText, eta: etaText, etaTip, targetBadge, late, anyLate, etaCore, bansR, tipLines, nearR, banInfo, onArr,
-                         etaStr: onArr || data.eta_tacho || data.eta_local, etaGps: !!data.eta_gps, extra: extraCalc(data),
+                         etaStr: onArr || data.eta_tacho || data.eta_local, tacho_left: data.tacho_left || null, etaGps: !!data.eta_gps, extra: extraCalc(data),
                          fixSig: JSON.stringify(fixAtList(row)),   // v3.229: по чему считали ожидание у фикс-точек
                          crew: crewOf(data), weekly: data.weekly_rest || null, hold: data.done_hint ? { open: data.done_hint.open, later: data.done_hint.later } : null,
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual,

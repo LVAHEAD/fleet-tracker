@@ -109,7 +109,7 @@ function parseDelivery(txt) {
   return w ? w.end : null;
 }
 // v1.54: строки подсказки и флаг опоздания по окну Delivery
-function deliveryCheck(row, etaStr) {
+function deliveryCheck(row, etaStr, left) {
   const w = parseDeliveryWindow(row.delivery);
   const etaD = parseEta(etaStr);
   const out = { late: false, lines: [] };
@@ -128,6 +128,11 @@ function deliveryCheck(row, etaStr) {
   } else if (w.start && etaD < w.start - FIX_EARLY_MS) {   // v3.229: раньше слота можно до 1 ч — раньше только ждёт
     out.lines.push(w.fixed ? `⏳ Раньше фикс-времени TimeSlot — ${hm(w.start)}, будет ждать`
       : `⏳ Раньше окна TimeSlot — с ${hm(w.start)}, будет ждать`);
+  }
+  // v3.384: фикс-время, на которое не хватает смены (выгрузка уже за концом смены / нет 2 ч после слота) — тоже опоздун
+  if (!out.late && w.fixed && left && typeof fixViewAllowed === "function" && fixViewAllowed()) {
+    const fv = fixVerdict(row.delivery, etaStr, left);
+    if (fv && fv.kind === "short") out.late = true;
   }
   return out;
 }
@@ -171,13 +176,13 @@ function fixVerdict(txt, etaStr, left) {
   return null;
 }
 // v3.10: проверка по тексту TimeSlot (любая точка)
-function slotCheck(txt, etaStr) { return deliveryCheck({ delivery: txt }, etaStr); }
+function slotCheck(txt, etaStr, left) { return deliveryCheck({ delivery: txt }, etaStr, left); }
 // опаздывает ли хоть одна непройденная следующая точка (② и дальше)
 // v3.230: nbAt / onArr — точка, на которой трак уже стоит: сравниваем со временем приезда (как в ячейке), а не с «ETA от сейчас»
 function extrasLate(row, extra, nbAt, onArr) {
   return (row.extra || []).some((x, i) => {
     const ce = extra && extra[i];
-    return !!(ce && !ce.done && !ce.error && slotCheck(x.delivery, (nbAt === i && onArr) || ce.eta_tacho || ce.eta_local).late);
+    return !!(ce && !ce.done && !ce.error && slotCheck(x.delivery, (nbAt === i && onArr) || ce.eta_tacho || ce.eta_local, nbAt === i && onArr ? null : ce.tacho_left).late);
   });
 }
 // "dd/mm HH:MM" (ETA с сервера) -> Date
