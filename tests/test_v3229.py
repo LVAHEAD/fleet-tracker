@@ -164,10 +164,10 @@ class FixPayloadTest(unittest.TestCase):
 
 
 class FixSourceTest(unittest.TestCase):
-    def test_version_and_vl_only(self):
+    def test_fix_view_for_everyone(self):
         app = _read("static", "app.js")
         self.assertIn("function fixViewAllowed", app)
-        self.assertIn('dispTag(fleetMe()) === "VL"', app)
+        self.assertNotIn('dispTag(fleetMe()) === "VL"', app)    # v3.384: фикс-вердикт у всех, не пилот VL
         self.assertIn("fix_at", app)
 
 
