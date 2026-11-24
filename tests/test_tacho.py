@@ -175,6 +175,13 @@ class WeeklyCompensationTests(unittest.TestCase):
         a, b = self.rest(10, 58), self.rest(10 + 58 + 19.9, 25)
         self.assertEqual(A.designate_weekly([a, b], self.FROM), [a, b])
 
+    def test_weekly_late_marks_start_after_six_days(self):
+        """Putseika 24.11: недельный 11.11 начался через 6 сут 3 ч 54 мин после конца прошлого — опоздание 3 ч 54 мин."""
+        a, b = self.rest(10, 32), self.rest(10 + 32 + 6 * 24 + 3.9, 57)
+        late = A.weekly_late(A.designate_weekly([a, b], self.FROM))
+        self.assertEqual(late[0], 0)
+        self.assertAlmostEqual(late[1] / 3600, 3.9, places=1)
+
     def test_weekly_chain_six_days(self):
         """OS-8560 22.11: недельный — цепочкой «не позже 6 суток от конца прошлого»; 26 ч 08.11 — недельный, 24 ч 04.11 и 14.11 — «9-ка»."""
         h = 3600

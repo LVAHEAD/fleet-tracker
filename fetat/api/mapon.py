@@ -14,7 +14,7 @@ from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
 from fetat.domain.points import find_unit_exact, object_at
 from fetat.domain.regions import nearest_region_code
 from fetat.domain.rests_history import long_history
-from fetat.domain.tacho import _team, tacho_no_subscription, tacho_panel, WEEKLY_FULL_SEC, WEEKLY_MIN_SEC, WEEKLY_PERIOD_SEC, designate_weekly, weekly_compensation, weekly_status
+from fetat.domain.tacho import _team, tacho_no_subscription, tacho_panel, WEEKLY_FULL_SEC, WEEKLY_MIN_SEC, WEEKLY_PERIOD_SEC, designate_weekly, weekly_compensation, weekly_late, weekly_status
 from fetat.domain.trailers import is_trailer, reefer_log, reefer_log_events
 from fetat.utils.geo import haversine_km, _wkt_center, _wkt_vertices
 from fetat.utils.timefmt import _hm, _lv, _utc_iso
@@ -267,6 +267,11 @@ def api_truck_info():
                 desig = designate_weekly((hist or {}).get("rests") or [], (hist or {}).get("from") or 0)
                 for x, src in zip(row["weekly"], wsrc):   # недельный — если лежит внутри выбранного (допуск 1 мин)
                     x["daily"] = not any(d["start"] - 60 <= src["start"] and src["end"] <= d["end"] + 60 for d in desig)
+                late = weekly_late(desig)
+                for x, src in zip(row["weekly"], wsrc):   # v3.383: недельный начался позже 6 суток от прошлого — «поздно на Х ч»
+                    for d, lt in zip(desig, late):
+                        if lt and d["start"] - 60 <= src["start"] and src["end"] <= d["end"] + 60:
+                            x["late"] = _hm(lt)
                 if desig and not w.get("ongoing"):
                     import time
                     last = desig[-1]

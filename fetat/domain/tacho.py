@@ -196,6 +196,16 @@ def designate_weekly(rests, t0=0):
         out.append(longest(win) if win else nxt[0])
 
 
+def weekly_late(desig):
+    """На сколько секунд каждый недельный из цепочки начался позже, чем через 6 суток после конца предыдущего
+    (0 — вовремя; у первого — 0). Нужен Truck Info, чтобы опоздание не проходило молча."""
+    out = []
+    for i, r in enumerate(desig):
+        late = r["start"] - (desig[i - 1]["end"] + WEEKLY_PERIOD_SEC) if i else 0
+        out.append(late if late > 60 else 0)
+    return out
+
+
 def weekly_compensation(hist, now_ts=None):
     """Компенсация сокращённых недельных отдыхов (561/2006, ст. 8(6)) по истории отдыхов водителя.
     Сокращённый отдых 24–45 ч даёт долг 45 ч − длительность; срок — конец третьей недели (пн–вс, UTC)
