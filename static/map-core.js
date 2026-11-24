@@ -216,7 +216,10 @@ function tgtLine(raw) {
 function badgeTargetText(row) {
   const k = firstOpenIdx(row);
   if (k < 0) return "";
-  return tgtLine(k === 0 ? row.target : ((row.extra || [])[k - 1] || {}).target);
+  const pt = k === 0 ? row : ((row.extra || [])[k - 1] || {});
+  const t = tgtLine(pt.target);
+  if (!t) return "";
+  return (pt.lo === "L" ? "⬇️" : pt.lo === "O" ? "⬆️" : "⏺️") + " " + t;   // v3.385: значок перед таргетом — погрузка / выгрузка / другое
 }
 
 function truckBadgeHtml(label, status, heading, km, tgt) {
