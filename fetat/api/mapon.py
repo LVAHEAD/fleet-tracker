@@ -7,7 +7,7 @@ from flask import Blueprint, current_app, jsonify, request
 
 from fetat.clients.mapon import (
     _check_daily_activities, driver_has_data, fetch_group_unit_ids, fetch_units, get_driver_history, get_driver_rests,
-    get_tacho, unit_stop_at,
+    get_tacho, unit_stop_at, _route_list,
     ACT_DAYS, MAPON_API_URL, MAPON_BASE, mapon_get, MAPON_TACHO_URL, unit_moving, unit_stops,
 )
 from fetat.config import HEAD_TRUCK_GROUP_ID, MAPON_API_KEY
@@ -153,6 +153,89 @@ def _unit_st(u):
 
 def _unit_dir(u):
     return next((u.get(k) for k in ("direction", "course", "heading", "angle") if isinstance(u.get(k), (int, float))), None)
+
+
+def _track_ts(v, default):
+    """Время из параметра: ts, «ГГГГ-ММ-ДД», «ГГГГ-ММ-ДД ЧЧ:ММ» или ISO с Z — всё в UTC."""
+    from datetime import datetime, timezone
+    v = (v or "").strip()
+    if not v:
+        return default
+    try:
+        return float(v)
+    except ValueError:
+        pass
+    for f in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(v, f).replace(tzinfo=timezone.utc).timestamp()
+        except ValueError:
+            continue
+    raise ValueError(f"не понял время «{v}»")
+
+
+@bp.route("/api/unit-track")
+def api_unit_track():
+    """Трек трака из Mapon route/list: ?unit=номер&from=ГГГГ-ММ-ДД[ ЧЧ:ММ]&to=…[&format=csv] (время UTC, до 31 суток; по умолчанию последние 2 суток)."""
+    import csv
+    import io
+    from fetat.utils.geo import _decode_polyline
+    if not MAPON_API_KEY:
+        return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
+    try:
+        till = _track_ts(request.args.get("to"), _time.time())
+        frm = _track_ts(request.args.get("from"), till - 2 * 86400)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if till <= frm:
+        return jsonify({"error": "интервал пустой"}), 400
+    if till - frm > 31 * 86400:
+        return jsonify({"error": "не больше 31 суток"}), 400
+    try:
+        unit = _find_unit(request.args.get("unit"))
+    except Exception as e:
+        return jsonify({"error": f"Mapon: {e}"}), 502
+    if not unit:
+        return jsonify({"error": "трак не найден"}), 404
+    raw, a = [], frm
+    try:
+        while a < till:                       # Mapon — кусками по 7 суток
+            b = min(till, a + 7 * 86400)
+            raw += _route_list(unit["unit_id"], a, b)
+            a = b
+    except Exception as e:
+        return jsonify({"error": f"Mapon route/list: {e}"}), 502
+    segs, seen = [], set()
+    for r in raw:
+        st, en = r.get("start") or {}, r.get("end") or {}
+        key = (r.get("type"), st.get("time"))
+        if key in seen:                       # куски на границе недель не дублируем
+            continue
+        seen.add(key)
+        pts = []
+        pl = r.get("polyline")
+        if isinstance(pl, str) and pl:
+            try:
+                pts = [[float(x), float(y)] for x, y in _decode_polyline(pl)]
+            except Exception as _e:
+                warn("mapon:track", _e)
+        segs.append({"type": r.get("type"), "start": st.get("time"), "end": en.get("time"),
+                     "start_lat": st.get("lat"), "start_lng": st.get("lng"), "start_address": st.get("address"),
+                     "end_lat": en.get("lat"), "end_lng": en.get("lng"), "end_address": en.get("address"),
+                     "distance_km": round(float(r.get("distance") or 0) / 1000, 1), "points": pts})
+    segs.sort(key=lambda x: x["start"] or "")
+    if request.args.get("format") == "csv":
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(["seg", "type", "start", "end", "km", "lat", "lng", "address"])
+        for i, g in enumerate(segs):
+            if g["points"]:
+                for lat, lng in g["points"]:
+                    w.writerow([i, g["type"], g["start"], g["end"], g["distance_km"], lat, lng, ""])
+            else:
+                w.writerow([i, g["type"], g["start"], g["end"], g["distance_km"], g["start_lat"], g["start_lng"], g["start_address"] or ""])
+        return current_app.response_class(buf.getvalue(), mimetype="text/csv; charset=utf-8")
+    return jsonify({"unit": unit.get("number") or unit.get("label"), "unit_id": unit["unit_id"],
+                    "from": _utc_iso(frm), "till": _utc_iso(till), "segments": segs})
 
 
 @bp.route("/api/truck-rest-stop")
