@@ -57,6 +57,7 @@
 /api/truck-info GET
 /api/truck-rest-stop GET
 /api/unit-seed POST
+/api/unit-track GET
 /api/units GET
 /api/warm POST
 /gusage GET
