@@ -264,34 +264,38 @@ def api_truck_rest_stop():
 
 
 BASE_IDLE_SEC = 66 * 3600      # v3.392: отдых от 66 ч на Базе — простой, каденцию недельного не начинает (Nizomov, 11.11)
-BASE_IDLE_KM = 2.0
+BASE_IDLE_KM = 15.0      # район Базы: Румбула (11 км) тоже считается
 _base_idle_cache = {}
 
 
 def _base_idle(uid, rest, dbg=None):
-    """Отдых от 66 ч, где трак стоял на Базе (до 2 км от Baza Parking из «Адресов» или от запасной точки Базы).
-    Стоянку берём за 6 ч вокруг середины отдыха (короткий запрос Mapon — без лимита периода). Нет данных — не простой.
-    dbg — список для разбора: что вернул Mapon и сколько км до Базы."""
+    """Отдых от 66 ч, где трак всё время был в районе Базы (до 15 км от Baza Parking из «Адресов» или от запасной точки Базы;
+    OM-8211 01–08.11 стоял и на Базе, и в Румбуле, 11 км). Три пробы Mapon по 3 ч: начало, середина, конец отдыха — все в районе Базы.
+    Нет данных — не простой. dbg — список для разбора: что вернул Mapon и сколько км до Базы."""
     if rest["end"] - rest["start"] < BASE_IDLE_SEC:
         return False
     key = (uid, int(rest["start"]), int(rest["end"]))
     if key in _base_idle_cache:
         return _base_idle_cache[key]
     from fetat.domain.addresses import BASE_FALLBACK, base_point
+    blat, blng, _n = base_point()
     mid = (rest["start"] + rest["end"]) / 2
-    st, err = unit_stop_at(uid, mid - 3 * 3600, mid + 3 * 3600)
-    info = {"from": int(rest["start"]), "to": int(rest["end"]), "err": err}
-    if not st:
+    H3 = 3 * 3600
+    res = True
+    for a, b in ((rest["start"], rest["start"] + H3), (mid - H3 / 2, mid + H3 / 2), (rest["end"] - H3, rest["end"])):
+        st, err = unit_stop_at(uid, a, b)
+        info = {"from": int(a), "to": int(b), "err": err}
+        if not st:
+            if dbg is not None:
+                dbg.append(info)
+            return False                  # не кешируем: Mapon мог не ответить
+        km = min(haversine_km(st["lat"], st["lng"], blat, blng),
+                 haversine_km(st["lat"], st["lng"], BASE_FALLBACK[0], BASE_FALLBACK[1]))
+        ok = km <= BASE_IDLE_KM
+        info.update(lat=st["lat"], lng=st["lng"], address=st.get("address") or "", km_to_base=round(km, 2), idle=ok)
         if dbg is not None:
             dbg.append(info)
-        return False                      # не кешируем: Mapon мог не ответить
-    blat, blng, _n = base_point()
-    km = min(haversine_km(st["lat"], st["lng"], blat, blng),
-             haversine_km(st["lat"], st["lng"], BASE_FALLBACK[0], BASE_FALLBACK[1]))
-    res = km <= BASE_IDLE_KM
-    info.update(lat=st["lat"], lng=st["lng"], address=st.get("address") or "", km_to_base=round(km, 2), idle=res)
-    if dbg is not None:
-        dbg.append(info)
+        res = res and ok
     _base_idle_cache[key] = res
     return res
 
