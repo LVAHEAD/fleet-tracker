@@ -185,10 +185,19 @@ def designate_weekly(rests, t0=0):
     if not cand:
         return []
     longest = lambda xs: max(xs, key=lambda r: r["end"] - r["start"])
+    def chain_end(r):
+        # v3.389: пауза между отдыхами короче 12 ч (отъехали на час и снова встали) — это один недельный отдых:
+        # 6 суток до следующего считаем от конца последнего отдыха от 24 ч в этой связке (Nizomov: 166 ч + 58 мин + 58 ч)
+        e = r["end"]
+        for x in cand:
+            if x is not r and e <= x["start"] < e + WEEKLY_MIN_GAP_SEC:
+                e = x["end"]
+        r["chain_end"] = e
+        return e
     first = longest([r for r in cand if r["start"] <= cand[0]["start"] + WEEKLY_PERIOD_SEC])
     out = [first]
     while True:
-        e = out[-1]["end"]
+        e = chain_end(out[-1])
         nxt = [r for r in cand if r["start"] >= e + WEEKLY_MIN_GAP_SEC]
         if not nxt:
             return out
@@ -201,7 +210,7 @@ def weekly_late(desig):
     (0 — вовремя; у первого — 0). Нужен Truck Info, чтобы опоздание не проходило молча."""
     out = []
     for i, r in enumerate(desig):
-        late = r["start"] - (desig[i - 1]["end"] + WEEKLY_PERIOD_SEC) if i else 0
+        late = r["start"] - (desig[i - 1].get("chain_end", desig[i - 1]["end"]) + WEEKLY_PERIOD_SEC) if i else 0
         out.append(late if late > 60 else 0)
     return out
 

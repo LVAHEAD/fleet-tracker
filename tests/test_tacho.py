@@ -203,3 +203,16 @@ def test_shift_mapon_not_cut_by_night_rule():
     assert _shift_mapon({}, d0, False, False, [], p, 1000.0) == 13 * 3600
     p2 = {"ev": [{"k": "r"}], "win_left": 4 * 3600, "eta_ts": 1000.0}
     assert _shift_mapon({}, d0, False, False, [], p2, 1000.0) == 4 * 3600
+
+
+def test_weekly_pause_short_gap_is_one_rest():
+    """v3.389: недельный + пауза 58 мин + ещё отдых 58 ч — 6 суток от конца связки, не нарушение (Nizomov)"""
+    from fetat.domain.tacho import designate_weekly, weekly_late
+    H = 3600
+    d = 86400
+    r1 = {"start": 1 * d, "end": 1 * d + 166 * H}
+    r2 = {"start": r1["end"] + 1 * H, "end": r1["end"] + 59 * H}
+    r3 = {"start": r2["end"] + 5 * d + 23 * H, "end": r2["end"] + 5 * d + 47 * H}   # 24 ч, до конца 6 суток от конца r2
+    des = designate_weekly([r1, r2, r3], t0=0)
+    assert des == [r1, r3]
+    assert weekly_late(des) == [0, 0]
