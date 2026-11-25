@@ -268,19 +268,30 @@ BASE_IDLE_KM = 2.0
 _base_idle_cache = {}
 
 
-def _base_idle(uid, rest):
-    """Отдых от 66 ч, где трак стоял на Базе (Baza Parking, до 2 км). Нет данных о стоянке — не простой (осторожно)."""
+def _base_idle(uid, rest, dbg=None):
+    """Отдых от 66 ч, где трак стоял на Базе (до 2 км от Baza Parking из «Адресов» или от запасной точки Базы).
+    Стоянку берём за 6 ч вокруг середины отдыха (короткий запрос Mapon — без лимита периода). Нет данных — не простой.
+    dbg — список для разбора: что вернул Mapon и сколько км до Базы."""
     if rest["end"] - rest["start"] < BASE_IDLE_SEC:
         return False
     key = (uid, int(rest["start"]), int(rest["end"]))
     if key in _base_idle_cache:
         return _base_idle_cache[key]
-    from fetat.domain.addresses import base_point
-    st, _err = unit_stop_at(uid, rest["start"], rest["end"])
+    from fetat.domain.addresses import BASE_FALLBACK, base_point
+    mid = (rest["start"] + rest["end"]) / 2
+    st, err = unit_stop_at(uid, mid - 3 * 3600, mid + 3 * 3600)
+    info = {"from": int(rest["start"]), "to": int(rest["end"]), "err": err}
     if not st:
+        if dbg is not None:
+            dbg.append(info)
         return False                      # не кешируем: Mapon мог не ответить
     blat, blng, _n = base_point()
-    res = haversine_km(st["lat"], st["lng"], blat, blng) <= BASE_IDLE_KM
+    km = min(haversine_km(st["lat"], st["lng"], blat, blng),
+             haversine_km(st["lat"], st["lng"], BASE_FALLBACK[0], BASE_FALLBACK[1]))
+    res = km <= BASE_IDLE_KM
+    info.update(lat=st["lat"], lng=st["lng"], address=st.get("address") or "", km_to_base=round(km, 2), idle=res)
+    if dbg is not None:
+        dbg.append(info)
     _base_idle_cache[key] = res
     return res
 
@@ -370,7 +381,9 @@ def api_truck_info():
                                for c in weekly_compensation(hist)]
                 # правило диспетчеров (только Truck Info): недельный — один в неделе, самый длинный; остальные — «большая 9-ка»
                 all_rests = (hist or {}).get("rests") or []
-                idle = [r for r in all_rests if _base_idle(uid, r)]      # v3.392: простой на Базе — вне цепочки недельных
+                idle_dbg = []
+                idle = [r for r in all_rests if _base_idle(uid, r, idle_dbg)]      # v3.392: простой на Базе — вне цепочки недельных
+                row["idle_dbg"] = idle_dbg
                 desig = designate_weekly([r for r in all_rests if r not in idle], (hist or {}).get("from") or 0)
                 for x, src in zip(row["weekly"], wsrc):   # недельный — если лежит внутри выбранного (допуск 1 мин)
                     x["daily"] = not any(d["start"] - 60 <= src["start"] and src["end"] <= d["end"] + 60 for d in desig)
