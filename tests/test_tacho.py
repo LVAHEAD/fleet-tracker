@@ -230,3 +230,28 @@ def test_weekly_gap_5h_is_not_pause():
     des = designate_weekly([r1, r2, r3, r4], t0=0)
     late = weekly_late(des)
     assert r3 not in des and late[-1] > 0
+
+
+def test_weekly_cadence_starts_after_base_idle():
+    """v3.392: простой на Базе (166 ч) вне цепочки — 6 суток от конца следующего отдыха, нарушения нет (Nizomov, 11.11)"""
+    from fetat.domain.tacho import designate_weekly, weekly_late
+    H = 3600
+    d = 86400
+    r2 = {"start": 8 * d + 14 * H, "end": 11 * d + 1 * H}          # 58 ч, конец — выезд с базы
+    r3 = {"start": 17 * d + 0 * H, "end": 18 * d + 1 * H}          # 24 ч+, в пределах 6 суток от выезда
+    des = designate_weekly([r2, r3], t0=0)
+    assert des[0] is r2 and not any(weekly_late(des))
+
+
+def test_base_idle_needs_66h_and_base(monkeypatch):
+    from fetat.api import mapon as M
+    H = 3600
+    base = (56.94643, 24.03196)
+    monkeypatch.setattr("fetat.domain.addresses.base_point", lambda: (base[0], base[1], "Baza"))
+    monkeypatch.setattr(M, "unit_stop_at", lambda uid, a, b: ({"lat": 56.9465, "lng": 24.032}, None))
+    assert M._base_idle(1, {"start": 1000, "end": 1000 + 70 * H}) is True
+    assert M._base_idle(1, {"start": 2000, "end": 2000 + 60 * H}) is False      # короче 66 ч
+    monkeypatch.setattr(M, "unit_stop_at", lambda uid, a, b: ({"lat": 52.0, "lng": 5.0}, None))
+    assert M._base_idle(1, {"start": 3000, "end": 3000 + 70 * H}) is False      # не на Базе
+    monkeypatch.setattr(M, "unit_stop_at", lambda uid, a, b: (None, "нет"))
+    assert M._base_idle(1, {"start": 4000, "end": 4000 + 70 * H}) is False      # нет данных — не простой

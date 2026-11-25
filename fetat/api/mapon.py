@@ -263,6 +263,28 @@ def api_truck_rest_stop():
                     "hours": _hm(st["end"] - st["start"])})
 
 
+BASE_IDLE_SEC = 66 * 3600      # v3.392: отдых от 66 ч на Базе — простой, каденцию недельного не начинает (Nizomov, 11.11)
+BASE_IDLE_KM = 2.0
+_base_idle_cache = {}
+
+
+def _base_idle(uid, rest):
+    """Отдых от 66 ч, где трак стоял на Базе (Baza Parking, до 2 км). Нет данных о стоянке — не простой (осторожно)."""
+    if rest["end"] - rest["start"] < BASE_IDLE_SEC:
+        return False
+    key = (uid, int(rest["start"]), int(rest["end"]))
+    if key in _base_idle_cache:
+        return _base_idle_cache[key]
+    from fetat.domain.addresses import base_point
+    st, _err = unit_stop_at(uid, rest["start"], rest["end"])
+    if not st:
+        return False                      # не кешируем: Mapon мог не ответить
+    blat, blng, _n = base_point()
+    res = haversine_km(st["lat"], st["lng"], blat, blng) <= BASE_IDLE_KM
+    _base_idle_cache[key] = res
+    return res
+
+
 @bp.route("/api/truck-info")
 def api_truck_info():
     """Truck Info: данные машины из Mapon (GET, по номеру)."""
@@ -347,9 +369,14 @@ def api_truck_info():
                                 "ts": c["start"], "te": c["end"], "dts": c.get("done_start"), "dte": c.get("done_at")}      # v3.357: «до» = конец отдыха + 21 день
                                for c in weekly_compensation(hist)]
                 # правило диспетчеров (только Truck Info): недельный — один в неделе, самый длинный; остальные — «большая 9-ка»
-                desig = designate_weekly((hist or {}).get("rests") or [], (hist or {}).get("from") or 0)
+                all_rests = (hist or {}).get("rests") or []
+                idle = [r for r in all_rests if _base_idle(uid, r)]      # v3.392: простой на Базе — вне цепочки недельных
+                desig = designate_weekly([r for r in all_rests if r not in idle], (hist or {}).get("from") or 0)
                 for x, src in zip(row["weekly"], wsrc):   # недельный — если лежит внутри выбранного (допуск 1 мин)
                     x["daily"] = not any(d["start"] - 60 <= src["start"] and src["end"] <= d["end"] + 60 for d in desig)
+                    x["base_idle"] = any(abs(r["start"] - src["start"]) <= 60 and abs(r["end"] - src["end"]) <= 60 for r in idle)
+                    if x["base_idle"]:
+                        x["daily"] = False
                 late = weekly_late(desig)
                 for x, src in zip(row["weekly"], wsrc):   # v3.383: недельный начался позже 6 суток от прошлого — «поздно на Х ч»
                     for d, lt in zip(desig, late):
