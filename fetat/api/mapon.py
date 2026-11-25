@@ -350,10 +350,6 @@ def api_truck_info():
                 desig = designate_weekly((hist or {}).get("rests") or [], (hist or {}).get("from") or 0)
                 for x, src in zip(row["weekly"], wsrc):   # недельный — если лежит внутри выбранного (допуск 1 мин)
                     x["daily"] = not any(d["start"] - 60 <= src["start"] and src["end"] <= d["end"] + 60 for d in desig)
-                    for d in desig:   # v3.390: отдых в связке недельного (пауза < 12 ч) — часть недельного, а не «большая 9ка»
-                        if x["daily"] and d["end"] - 60 <= src["start"] and src["end"] <= d.get("chain_end", d["end"]) + 60 and d.get("chain_end", d["end"]) > d["end"]:
-                            x["daily"] = False
-                            x["pause"] = _hm(max(0, src["start"] - d["end"]))
                 late = weekly_late(desig)
                 for x, src in zip(row["weekly"], wsrc):   # v3.383: недельный начался позже 6 суток от прошлого — «поздно на Х ч»
                     for d, lt in zip(desig, late):
@@ -1044,7 +1040,8 @@ def api_stops_collect():
     from fetat.domain.stops_history import _unit_ids, collect_all, status
     if not MAPON_API_KEY:
         return jsonify({"error": "MAPON_API_KEY не настроен"}), 500
-    if not status().get("running"):
+    st = status()
+    if not st.get("running") and _time.time() - (st.get("last") or 0) >= 3600:   # v3.391: не чаще раза в час
         try:
             ids = _unit_ids()
         except Exception as e:

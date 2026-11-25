@@ -170,7 +170,6 @@ def _week_start_utc(ts):
 
 
 WEEKLY_MIN_GAP_SEC = 12 * 3600   # v3.377: следующий недельный — отдых от 24 ч, начатый не раньше чем через 12 ч после прошлого (меньше — не рабочая смена, а тот же отдых: «9ка», как OI-4311 08.11); было 48 ч → 24 ч (v3.376). Duplevskii 23.11: 25 ч через 19 ч 56 мин после недельного — Мапон считает недельным
-WEEKLY_PAUSE_SEC = 2 * 3600   # v3.390: пауза короче этого между длинными отдыхами — один недельный отдых
 
 
 def designate_weekly(rests, t0=0):
@@ -187,14 +186,9 @@ def designate_weekly(rests, t0=0):
         return []
     longest = lambda xs: max(xs, key=lambda r: r["end"] - r["start"])
     def chain_end(r):
-        # v3.389: пауза между отдыхами короче 2 ч (отъехали на час и снова встали) — это один недельный отдых (v3.390: было 12 ч — съедало настоящие нарушения, OI-4311):
-        # 6 суток до следующего считаем от конца последнего отдыха от 24 ч в этой связке (Nizomov: 166 ч + 58 мин + 58 ч)
-        e = r["end"]
-        for x in cand:
-            if x is not r and e <= x["start"] < e + WEEKLY_PAUSE_SEC:
-                e = x["end"]
-        r["chain_end"] = e
-        return e
+        # v3.391: склейки пауз нет (правило Владимира 25.11: отдых только непрерывный; исключение — паромы, пока не сделано)
+        r["chain_end"] = r["end"]
+        return r["end"]
     first = longest([r for r in cand if r["start"] <= cand[0]["start"] + WEEKLY_PERIOD_SEC])
     out = [first]
     while True:
