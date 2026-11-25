@@ -81,7 +81,7 @@ function openTrailerEditor(id, anchor) {
   const place = () => {
     if (!trlEd) return;
     trlEd.style.top = Math.max(8, Math.min(window.innerHeight - trlEd.offsetHeight * z - 8, r.bottom + 4)) / z + "px";
-    trlEd.style.left = Math.max(8, r.right - trlEd.offsetWidth * z) / z + "px";
+    trlEd.style.left = Math.max(8, Math.min(window.innerWidth - trlEd.offsetWidth * z - 8, r.left)) / z + "px";   // v3.389: от левого края номера, не уезжает влево под панель
   };
   place();
   const inp = trlEd.querySelector(".trl-ed-in");
