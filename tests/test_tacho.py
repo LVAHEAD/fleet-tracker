@@ -216,3 +216,17 @@ def test_weekly_pause_short_gap_is_one_rest():
     des = designate_weekly([r1, r2, r3], t0=0)
     assert des == [r1, r3]
     assert weekly_late(des) == [0, 0]
+
+
+def test_weekly_gap_5h_is_not_pause():
+    """v3.390: пауза 5:39 — не склейка; отдых после неё «большая 9ка», нарушение остаётся (OI-4311, Putseika)"""
+    from fetat.domain.tacho import designate_weekly, weekly_late
+    H = 3600
+    d = 86400
+    r1 = {"start": 1 * d, "end": 1 * d + 57 * H}
+    r2 = {"start": r1["end"] + 5 * d + 17 * H, "end": r1["end"] + 5 * d + 17 * H + 32 * H}       # 24 ч+, вовремя
+    r3 = {"start": r2["end"] + 5 * H + 40 * 60, "end": r2["end"] + 5 * H + 40 * 60 + 26 * H}   # 5:40 после — «большая 9ка»
+    r4 = {"start": r2["end"] + 6 * d + 4 * H, "end": r2["end"] + 6 * d + 4 * H + 57 * H}        # позже 6 суток от конца r2
+    des = designate_weekly([r1, r2, r3, r4], t0=0)
+    late = weekly_late(des)
+    assert r3 not in des and late[-1] > 0
