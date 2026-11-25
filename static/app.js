@@ -1954,7 +1954,7 @@ function hitchPillHtml(data, compact) {
 }
 // v1.71: привязанный прицеп во второй строке Статуса тягача
 function linkedTrailerHtml(number, lt, row) {
-  const un = `<button class="trl-unlink" title="Отвязать прицеп (вернётся отдельной строкой)">×</button>`;
+  const un = `<button class="trl-unlink" title="Отвязать прицеп">×</button>`;
   // v3.221: клик по плашке с номером прицепа копирует номер (обработчик — trlCopyClick ниже)
   const cp = (n) => ` data-copy="${escapeHtml(n)}"`;
   if (!lt) return `<span class="hitch-pill trl-copy"${cp(number)} title="Клик — скопировать номер">🔗 ${escapeHtml(number)}</span>${un}`;

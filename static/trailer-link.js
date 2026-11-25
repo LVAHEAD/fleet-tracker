@@ -52,16 +52,10 @@ function unlinkTrailer(truckId) {
   const no = truck.trailer;
   truck.trailer = "";
   removeTrailerLink(truckId);
-  let nr = null;
-  if (!rows.some((r) => normNo(r.unit) === normNo(no))) {
-    nr = emptyRow();
-    nr.unit = no;
-    insertRowAfter(truckId, nr);
-  }
+  // v3.389: отдельную пустую строку прицепа больше не создаём (решение Владимира 25.11)
   saveRows();
   renderRows();
   calcRow(truckId);
-  if (nr) calcRow(nr.id);
 }
 let trlEd = null;
 function closeTrailerEditor() { if (trlEd) { trlEd.remove(); trlEd = null; } }
