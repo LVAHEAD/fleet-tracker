@@ -253,10 +253,10 @@ def test_base_idle_needs_66h_and_base(monkeypatch):
     assert M._base_idle(1, {"start": 2000, "end": 2000 + 60 * H}) is False      # короче 66 ч
     monkeypatch.setattr(M, "unit_stop_at", lambda uid, a, b: ({"lat": 52.0, "lng": 5.0}, None))
     assert M._base_idle(1, {"start": 3000, "end": 3000 + 70 * H}) is False      # не на Базе
-    pts = iter([(56.9465, 24.032), (56.912, 24.2518), (56.9465, 24.032)])       # Румбула 11 км — всё ещё район Базы
+    pts = iter([(56.9465, 24.032), (56.912, 24.2518)])       # Румбула 11 км — всё ещё район Базы
     monkeypatch.setattr(M, "unit_stop_at", lambda uid, a, b: (dict(zip(("lat", "lng"), next(pts))), None))
     assert M._base_idle(1, {"start": 5000, "end": 5000 + 70 * H}) is True
-    pts = iter([(56.9465, 24.032), (54.67, 25.17), (56.9465, 24.032)])         # уезжал в Вильнюс — не простой
+    pts = iter([(56.9465, 24.032), (54.67, 25.17)])         # уезжал в Вильнюс — не простой
     assert M._base_idle(1, {"start": 6000, "end": 6000 + 70 * H}) is False
     monkeypatch.setattr(M, "unit_stop_at", lambda uid, a, b: (None, "нет"))
     assert M._base_idle(1, {"start": 4000, "end": 4000 + 70 * H}) is False      # нет данных — не простой

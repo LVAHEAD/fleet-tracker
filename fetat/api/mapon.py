@@ -270,33 +270,37 @@ _base_idle_cache = {}
 
 def _base_idle(uid, rest, dbg=None):
     """Отдых от 66 ч, где трак всё время был в районе Базы (до 15 км от Baza Parking из «Адресов» или от запасной точки Базы;
-    OM-8211 01–08.11 стоял и на Базе, и в Румбуле, 11 км). Три пробы Mapon по 3 ч: начало, середина, конец отдыха — все в районе Базы.
+    OM-8211 01–08.11 стоял и на Базе, и в Румбуле, 11 км). Две пробы Mapon по 3 ч: начало и середина отдыха — обе в районе Базы (конец не смотрим: OM-8211 08.11 до конца отдыха успел съездить в Эстонию с другим водителем).
     Нет данных — не простой. dbg — список для разбора: что вернул Mapon и сколько км до Базы."""
     if rest["end"] - rest["start"] < BASE_IDLE_SEC:
         return False
     key = (uid, int(rest["start"]), int(rest["end"]))
     if key in _base_idle_cache:
-        return _base_idle_cache[key]
+        if dbg is not None:
+            dbg.extend(_base_idle_cache[key][1])
+        return _base_idle_cache[key][0]
     from fetat.domain.addresses import BASE_FALLBACK, base_point
+    infos = []
     blat, blng, _n = base_point()
     mid = (rest["start"] + rest["end"]) / 2
     H3 = 3 * 3600
     res = True
-    for a, b in ((rest["start"], rest["start"] + H3), (mid - H3 / 2, mid + H3 / 2), (rest["end"] - H3, rest["end"])):
+    for a, b in ((rest["start"], rest["start"] + H3), (mid - H3 / 2, mid + H3 / 2)):
         st, err = unit_stop_at(uid, a, b)
         info = {"from": int(a), "to": int(b), "err": err}
         if not st:
             if dbg is not None:
-                dbg.append(info)
+                dbg.extend(infos + [info])
             return False                  # не кешируем: Mapon мог не ответить
         km = min(haversine_km(st["lat"], st["lng"], blat, blng),
                  haversine_km(st["lat"], st["lng"], BASE_FALLBACK[0], BASE_FALLBACK[1]))
         ok = km <= BASE_IDLE_KM
         info.update(lat=st["lat"], lng=st["lng"], address=st.get("address") or "", km_to_base=round(km, 2), idle=ok)
-        if dbg is not None:
-            dbg.append(info)
+        infos.append(info)
         res = res and ok
-    _base_idle_cache[key] = res
+    _base_idle_cache[key] = (res, infos)
+    if dbg is not None:
+        dbg.extend(infos)
     return res
 
 
