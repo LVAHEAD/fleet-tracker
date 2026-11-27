@@ -424,10 +424,10 @@ def unit_stop_at(unit_id, frm, till):
             routes = _route_list(unit_id, frm - 3600, min(till + 3600, now), polyline=False)
     except Exception as e:
         return None, f"Mapon не ответил: {str(e)[:120]}"
-    best, bo = None, 0.0
-    for r in routes:
-        if r.get("type") != "stop":
-            continue
+    # v3.403: Mapon режет стоянку полуночью на куски по суткам — склеиваем (иначе плашка «Стоял 19.11 00:00 → 16:06» вместо всей стоянки
+    # 17–23.11, OS-2438 / Qosimov); как в unit_stops: стык ≤ 60 с и тот же адрес или точка в пределах ~100 м
+    stops = []
+    for r in sorted((x for x in routes if x.get("type") == "stop"), key=lambda x: _rts(x.get("start")) or 0):
         st = r.get("start") or {}
         s_ts = _rts(st)
         if s_ts is None or st.get("lat") is None or st.get("lng") is None:
@@ -436,11 +436,18 @@ def unit_stop_at(unit_id, frm, till):
         e_ts = _rts(r.get("end")) if e_raw else now
         if e_ts is None:
             continue
-        o = min(e_ts, till) - max(s_ts, frm)
+        p = stops[-1] if stops else None
+        if p and abs(s_ts - p["end"]) <= 60 and (p["address"] == st.get("address")
+                                                 or (abs(p["lat"] - st["lat"]) < 0.001 and abs(p["lng"] - st["lng"]) < 0.001)):
+            p["end"], p["now"] = e_ts, not e_raw
+        else:
+            stops.append({"start": s_ts, "end": e_ts, "address": st.get("address"), "lat": st.get("lat"), "lng": st.get("lng"),
+                          "now": not e_raw})
+    best, bo = None, 0.0
+    for c in stops:
+        o = min(c["end"], till) - max(c["start"], frm)
         if o > bo:
-            bo = o
-            best = {"start": s_ts, "end": e_ts, "address": st.get("address"), "lat": st.get("lat"), "lng": st.get("lng"),
-                    "now": not e_raw}
+            bo, best = o, c
     if not best:
         return None, "позиций за этот период нет"
     return best, None

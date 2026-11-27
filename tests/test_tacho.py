@@ -296,3 +296,18 @@ def test_os2438_idle_is_45_and_latest_reduced_is_weekly():
     r22 = {"start": 22 * d + 20 * H, "end": 24 * d + 17 * H}       # 45 ч — полный
     des = designate_weekly([idle, r13, r16, r22], t0=0, idle=[idle])
     assert des == [r16, r22] and not any(weekly_late(des))
+
+
+def test_unit_stop_at_merges_midnight_chunks(monkeypatch):
+    """v3.403: Mapon режет стоянку полуночью — unit_stop_at склеивает куски (плашка «Стоял» показывала 16 ч вместо 6 суток)"""
+    import time
+    import fetat.clients.mapon as C
+    now = time.time()
+    def stop(a, b):
+        f = lambda t: time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
+        return {"type": "stop", "start": {"time": f(a), "lat": 42.4, "lng": 2.8, "address": "La Jonquera"},
+                "end": {"time": f(b), "lat": 42.4, "lng": 2.8}}
+    t0 = now - 30 * 3600
+    monkeypatch.setattr(C, "unit_routes", lambda uid: ([stop(t0, t0 + 10 * 3600), stop(t0 + 10 * 3600, t0 + 24 * 3600), stop(t0 + 24 * 3600, t0 + 28 * 3600)], {}))
+    st, err = C.unit_stop_at(1, now - 20 * 3600, now - 2 * 3600)
+    assert err is None and abs((st["end"] - st["start"]) - 28 * 3600) < 5
