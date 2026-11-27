@@ -6,6 +6,7 @@
 
 Стек: Python 3 / Flask, gunicorn (`Procfile`: `gunicorn app:app`, 1 worker × 16 threads — общий кеш в памяти),
 Cloud Run `fleet-eta-tracker`, europe-west1, проект `my-n8n-bot-496614`.
+Адрес аппы: https://fleet-eta-tracker-831123318638.europe-west1.run.app/ . При проверках всегда давать ссылку на эндпоинт (например `/api/truck-info?unit=OI-4307&days=3`) и самому открывать его через браузер (у Владимира вход уже выполнен).
 Вход — IAP по списку Google-аккаунтов. Общий Флот хранится в Firestore.
 Фронтенд — ванильный JS без сборки (`static/`, `templates/index.html`). Карта Флота — панель справа (`static/map-panel.js`, механика в `app.js`). Боковые панели — общая ширина `--sidew` (500), закрытие кликом мимо — `SIDE_KEEP` в `app.js`.
 
