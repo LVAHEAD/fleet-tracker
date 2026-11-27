@@ -1534,7 +1534,11 @@ function updateRowField(id, field, value) {
     row[field] = value;
     // v3.268: правка машины / таргета не сбрасывает ручные ✓ — отметки остаются у точек трипа
     if (field === "unit") updateFleetCount();
+    // v3.401: убрали машину — привязанный прицеп уходит сразу (без машины его не отвязать: плашка прицепа живёт у тягача)
+    const unlinked = field === "unit" && !String(value || "").trim() && !!row.trailer;
+    if (unlinked) { row.trailer = ""; if (typeof removeTrailerLink === "function") removeTrailerLink(id); }
     saveRows();
+    if (unlinked) renderRows();
     calcRow(id);
   }
 }
