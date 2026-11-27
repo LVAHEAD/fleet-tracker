@@ -57,7 +57,9 @@ function doneEtaHtml(x) {
   const msrc = x.done_msrc != null ? x.done_msrc : x.msrc;   // v3.172: ручная ✓ со временем: mapon — отъезд со стоянки, click — время нажатия
   const manualTip = msrc === "mapon" ? `Отмечено вручную · время — отъезд со стоянки Mapon рядом с точкой (до 100 м)${arr && at ? `, стояла с ${arr}` : ""}`
     : (msrc === "click" ? "Отмечено вручную · время — момент нажатия ✓ (стоянки Mapon в 100 м нет)" : "Отмечено вручную");
-  const tip = auto ? (arr && at ? `Трак стоял ${where} с ${arr} до ${at} и уехал` : `Трак стоял ${where} и уехал`) : manualTip;
+  const tr = x.done_by_trailer ? (x.done_by_trailer === true ? "Прицеп" : `Прицеп ${x.done_by_trailer}`) : null;   // v3.396: ✓ по прицепу
+  const who = tr || "Трак";
+  const tip = auto ? (arr && at ? `${who} стоял ${where} с ${arr} до ${at} и уехал` : `${who} стоял ${where} и уехал`) : manualTip;
   const timed = at && (auto || msrc);
   const label = timed ? at : "пройдена";   // v3.81: в ячейке только время отъезда, «приехал – уехал» — в подсказке
   return `<span class="done-eta" title="${escapeHtml(tip + (x.done_tz ? " · местное время " + x.done_tz : ""))}">✓ ${escapeHtml(label)}${timed ? tzBadge(x.done_tz) : ""}</span>`;
@@ -68,7 +70,7 @@ function remapDone(data) {
   if (!dn) return data;
   const act = data.active_idx || [];
   const doneItem = (i) => ({ done: true, done_at: dn[i].at_loc || dn[i].at, done_arr: dn[i].arr_loc || dn[i].arr || null, done_tz: dn[i].tz || null, done_auto: dn[i].auto, done_msrc: dn[i].msrc || null,   // v3.143: время — местное, если at_loc; v3.172: msrc — источник времени ручной ✓
-    done_by: dn[i].by != null ? dn[i].by : null, done_zone: dn[i].zone || null,
+    done_by: dn[i].by != null ? dn[i].by : null, done_by_trailer: dn[i].by_trailer || null, done_zone: dn[i].zone || null,
     done_leg_km: dn[i].leg_km != null ? dn[i].leg_km : null,   // v3.122: плечо пройденной точки ②③…
     chain_geo: !!dn[i].chain_geo,                              // v3.226: точка в NO / в 200 км от Стокгольма
     badge: dn[i].badge || null, badge_hint: dn[i].badge_hint || null, obj: dn[i].obj || null });   // v3.263: объект Mapon

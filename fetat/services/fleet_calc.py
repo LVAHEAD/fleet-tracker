@@ -22,7 +22,7 @@ from fetat.domain.tacho import (FRESH_SOLO_TACHO, TZ_DEFAULT, plan as tacho_plan
                                tacho_eta, tacho_no_subscription,
                                tacho_panel, tacho_summary, week_left_info, weekly_rest_info)
 from fetat.domain.trailers import find_hitch, is_trailer, reefer_summary, TRAILER_FAR_KM, truck_fuel, truck_weight
-from fetat.domain.trailer_done import build_cmp, compare_done, gps_state
+from fetat.domain.trailer_done import build_cmp, compare_done, gps_state, merge_trailer_done
 from fetat.utils.geo import haversine_km
 from fetat.utils.timefmt import ceil_15min, format_duration
 from fetat.utils.log import warn
@@ -287,6 +287,7 @@ def _apply_points_done(result, payload, target_str, unit, units, tm=None):
             seen_arr = [(v if isinstance(v, str) else None) for v in (payload.get("done_arr") or [])]   # v3.57
             click = [(v if isinstance(v, str) else None) for v in (payload.get("done_click") or [])]   # v3.172: время нажатия ручной ✓
             dn = points_done(pts_all, manual, unit, units, seen, seen_arr, click)
+            dn = _merge_trailer(result, payload, pts_all, manual, units, dn)       # v3.396: приоритет прицепа
         except Exception as e:
             warn("fleet:points_done", e)      # v3.98: раньше молча — вся строка без ✓
             dn = [{"done": False} for _ in pts_all]
@@ -318,6 +319,26 @@ def _apply_points_done(result, payload, target_str, unit, units, tm=None):
     return target_str, active_extras
 
 
+def _merge_trailer(result, payload, pts_all, manual, units, dn):
+    """v3.396: у привязанного прицепа свежий GPS — авто-✓ прицепа закрывает точку, даже если тягач на ней не стоял.
+    Нет свежего GPS / ошибка — ✓ по тягачу. result["trailer_merged"] — индексы закрытых по прицепу (для подсказки)."""
+    lt = result.get("linked_trailer")
+    tno = str(payload.get("trailer") or "").strip()
+    if not lt or lt.get("error") or not tno or any(x.get("kept") for x in dn):
+        return dn
+    try:
+        tu = find_unit_exact(units, tno)
+        if gps_state(tu) != "ok":
+            return dn
+        new, merged = merge_trailer_done(dn, points_done(pts_all, manual, tu, units), tno)
+        if merged:
+            result["trailer_merged"] = merged
+        return new
+    except Exception as e:
+        warn("fleet:trailer_merge", e)
+        return dn
+
+
 def _add_trailer_done(result, payload, target_str, unit, units):
     """v3.352: режим наблюдения — тот же расчёт ✓ по юниту привязанного прицепа (свой GPS); ✓ и ETA строки не меняем.
     Итог — linked_trailer.done_cmp (подсказка в плашке прицепа). Нет свежего GPS у прицепа — ✓ по тягачу, с отметкой."""
@@ -335,6 +356,7 @@ def _add_trailer_done(result, payload, target_str, unit, units):
         manual = [(v if v in (True, False) else None) for v in (payload.get("done") or [])]
         kept = any(x.get("kept") for x in dn)
         diff = [] if kept else compare_done(dn, points_done(pts_all, manual, tu, units))
+        diff = [d for d in diff if d["i"] not in (result.get("trailer_merged") or [])]    # v3.396: закрыты по прицепу — не расхождение
         lt["done_cmp"] = build_cmp(state, diff, lt.get("km"), kept)
     except Exception as e:
         warn("fleet:trailer_done", e)

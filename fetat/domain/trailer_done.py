@@ -1,6 +1,7 @@
 """v3.352: режим наблюдения — ✓ точек по юниту прицепа (свой GPS в Mapon) рядом с ✓ по тягачу.
 ✓ и ETA строки НЕ меняются: результат — только подсказка в плашке привязанного прицепа (linked_trailer.done_cmp).
-Приоритет прицепа над тягачом включается отдельным билдом, когда расхождения разберём (BACKLOG, «Прохождение точек по прицепу»)."""
+v3.396: приоритет прицепа — авто-✓ прицепа закрывает точку, даже если тягач на ней не стоял (прицеп выгрузила другая машина без перецепа,
+OC-3156 / C-196U, 27.11); без свежего GPS прицепа — ✓ по тягачу, как раньше (`merge_trailer_done`)."""
 import time
 from datetime import datetime, timezone
 
@@ -61,3 +62,24 @@ def build_cmp(state, diff, km=None, kept=False):
         n = STOP_NUMS[d["i"]] if d["i"] < len(STOP_NUMS) else str(d["i"] + 1)
         lines.append(f"{n} — " + ("тягач был, прицеп нет" if d["truck"] else "прицеп был, тягач нет"))
     return {"mode": "compare", "why": "ok", "diff": diff, "text": "Сравнение ✓ (только подсказка): " + "; ".join(lines)}
+
+
+def merge_trailer_done(dn, tdn, trailer_no=""):
+    """v3.396: приоритет прицепа. dn — ✓ по тягачу, tdn — по прицепу (свежий GPS). Точку, где у тягача нет ни ручной ✓,
+    ни перецепа, а у прицепа авто-✓, закрываем по прицепу (by_trailer = номер прицепа); дальше каскад «пройдена следующая — пройдены
+    предыдущие». -> (новый список, индексы закрытых по прицепу)."""
+    out = [dict(x) for x in dn]
+    merged = []
+    for i, (a, b) in enumerate(zip(dn, tdn or [])):
+        if a.get("done") or a.get("manual") is not None or a.get("swap_done"):
+            continue
+        if b.get("done") and b.get("auto") and b.get("manual") is None and not b.get("kept") and b.get("by") is None:
+            out[i] = {**b, "by_trailer": trailer_no or True}
+            merged.append(i)
+    if merged:
+        last = max(i for i, x in enumerate(out) if x.get("done"))
+        for i in range(last):
+            x = out[i]
+            if not x.get("done") and x.get("manual") is not False:
+                x.update(done=True, auto=True, at=None, by=last)
+    return out, merged

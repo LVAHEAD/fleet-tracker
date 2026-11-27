@@ -24,7 +24,7 @@ class FleetV381Test(unittest.TestCase):
         self.assertIn('"row-blink-done"', js)
         self.assertIn('.xd-input[data-k=', js)
         self.assertNotIn("${arr} – ${at}", js)      # в ячейке ETA только время отъезда
-        self.assertIn("Трак стоял", js)             # подсказка «приехал – уехал» осталась
+        self.assertIn("стоял ${where} с ${arr} до ${at} и уехал", js)             # подсказка «приехал – уехал» осталась
 
     def test_css(self):
         css = _src("static", "style.css")
