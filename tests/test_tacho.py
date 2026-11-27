@@ -284,3 +284,15 @@ def test_full_45h_after_short_gap_is_weekly():
     r3 = {"start": r2["end"] + 5 * d + 14 * H, "end": r2["end"] + 5 * d + 38 * H}
     des = designate_weekly([r1, r2, r3], t0=-d)
     assert des == [r1, r2, r3] and not any(weekly_late(des))
+
+
+def test_os2438_idle_is_45_and_latest_reduced_is_weekly():
+    """v3.402: простой на Базе = 45ка (якорь); два сокращённых в окне 6 суток — недельный тот, что позже (OS-2438: 13–15.11 — 9ка+, 16–17.11 — недельный)"""
+    from fetat.domain.tacho import designate_weekly, weekly_late
+    H, d = 3600, 86400
+    idle = {"start": 8 * d, "end": 10 * d + 23 * H}
+    r13 = {"start": 13 * d + 23 * H, "end": 15 * d + 2 * H}
+    r16 = {"start": 16 * d + 18 * H, "end": 17 * d + 18 * H}
+    r22 = {"start": 22 * d + 20 * H, "end": 24 * d + 17 * H}       # 45 ч — полный
+    des = designate_weekly([idle, r13, r16, r22], t0=0, idle=[idle])
+    assert des == [r16, r22] and not any(weekly_late(des))

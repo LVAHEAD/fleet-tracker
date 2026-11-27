@@ -197,18 +197,26 @@ def designate_weekly(rests, t0=0, idle=()):
         # v3.391: склейки пауз нет (правило Владимира 25.11: отдых только непрерывный; исключение — паромы, пока не сделано)
         r["chain_end"] = r["end"]
         return r["end"]
-    first = longest([r for r in cand if r["start"] <= cand[0]["start"] + WEEKLY_PERIOD_SEC])
-    out = [first]
+    def pick(win):
+        # v3.402: в окне 6 суток есть полный отдых от 45 ч — берём самый длинный; все сокращённые — недельный тот, что позже всех
+        # (остальные — «9ка+»; OS-2438: простой = 45ка, 13–15.11 — 9ка+, недельный — 16–17.11, Владимир 27.11)
+        full = [r for r in win if r["end"] - r["start"] >= WEEKLY_FULL_SEC]
+        return longest(full) if full else max(win, key=lambda r: r["start"])
+    if idle_end is not None:
+        out, e = [], idle_end                 # простой на Базе — якорь цепочки (= 45ка)
+    else:
+        first = longest([r for r in cand if r["start"] <= cand[0]["start"] + WEEKLY_PERIOD_SEC])
+        out, e = [first], chain_end(first)
     while True:
-        e = chain_end(out[-1])
         # v3.400: полный отдых от 45 ч — недельный и при коротком промежутке (OI-3572: 45ка до 30.10 07:20, через 5 ч ещё 45 ч — 30.10–01.11);
         # 12 ч промежутка нужны только для сокращённых (24–45 ч), иначе это «тот же отдых»
         nxt = [r for r in cand if r["start"] >= e + (0 if r["end"] - r["start"] >= WEEKLY_FULL_SEC else WEEKLY_MIN_GAP_SEC)
-               and r is not out[-1]]
+               and all(r is not o for o in out)]
         if not nxt:
             return out
         win = [r for r in nxt if r["start"] <= e + WEEKLY_PERIOD_SEC]
-        out.append(longest(win) if win else nxt[0])
+        out.append(pick(win) if win else nxt[0])
+        e = chain_end(out[-1])
 
 
 def weekly_late(desig):
