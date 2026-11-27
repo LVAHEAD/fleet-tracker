@@ -21,6 +21,18 @@ Fleet ETA Tracker — вкладка "Truck Info"
     if (!m) return "24H";
     return +m[1] > 24 ? "24H+" : +m[1] === 24 ? "24H" : "9h+";   // короче 24 ч — это уже суточный отдых (9h+), не недельный
   };
+  // v3.402: срок следующего недельного и «или-или» — одной строкой: «24h 29.11. 11:08 (через 40:34) или 45h 02.12. 15:41 (через 117:07)»;
+  // клик на 24h / 45h копирует «24h 29.11.» (дата без времени)
+  const nextWeeklyRow = (d) => {
+    const part = (kind, at, left) => {
+      const [dd, tm] = String(at || "").split(" ");
+      const copy = `${kind} ${dd}.`;
+      return `<b class="ti-kind ti-copy" data-copy="${esc(copy)}" title="Клик — скопировать «${esc(copy)}»">${kind}</b> ${esc(dd)}. ${esc(tm || "")}${left ? ` <span class="ti-dim">(через ${esc(left)})</span>` : ""}`;
+    };
+    const main = part(/^45/.test(String(d.need)) || d.alt ? "45h" : "24h", d.deadline, d.deadline_in);
+    const alt = d.alt ? part("24h", d.alt.until, d.alt.until_in) + " или " : "";
+    return `<tr class="ti-nextred"><td colspan="3">${alt}${main}</td></tr>`;
+  };
   const deficitH = (v) => { const m = /^(\d+):(\d{2})$/.exec(String(v == null ? "" : v)); return m ? `${+m[1] + (+m[2] > 0 ? 1 : 0)}H` : esc(v); };
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -55,7 +67,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
           <td><b class="ti-kind">${esc(weeklyKind(w))}</b> ${w.edge ? '<span title="отдых начался раньше, чем данные Mapon за 28 дней — начало и длительность не меньше показанных">≤</span> ' : ""}${esc(w.from)} → ${esc(w.to)}</td><td>${w.edge ? "≥ " : ""}${hoursFloor(w.hours)}</td>
           <td>${w.daily ? '<span class="ti-tag" title="второй отдых от 24 ч в неделе — считаем суточным">большая 9ка</span>' : w.full ? '<span class="ti-tag ti-full">45+</span>' : '<span class="ti-tag ti-red">сокращ.</span>'}
               ${w.nocard ? '<span class="ti-tag" title="часть отдыха без карты — данные с CAN">без карты</span>' : ""}</td>
-        </tr>${w.late ? `<tr class="ti-violrow"><td colspan="3"><span class="ti-tag ti-viol" title="Нарушение: недельный начался позже, чем через 6 суток после конца прошлого недельного (561/2006, ст. 8(6))">нарушение: на ${esc(w.late)} позже 6 суток</span></td></tr>` : ""}`).join("") + (d.alt ? `<tr class="ti-nextred"><td><b class="ti-kind">24ка</b> ${esc(d.alt.until)} <span class="ti-dim">(через ${esc(d.alt.until_in)}) — или</span></td><td></td><td></td></tr>` : "") + (d.deadline && d.need ? `<tr class="ti-nextred"><td><b class="ti-kind">${/^45/.test(String(d.need)) ? "45ка" : "24ка"}</b> ${esc(d.deadline)}${d.deadline_in ? ` <span class="ti-dim">(через ${esc(d.deadline_in)})</span>` : ""}</td><td></td><td></td></tr>` : "") + `</table><div class="ti-mapnote" style="display:none"></div>`;
+        </tr>${w.late ? `<tr class="ti-violrow"><td colspan="3"><span class="ti-tag ti-viol" title="Нарушение: недельный начался позже, чем через 6 суток после конца прошлого недельного (561/2006, ст. 8(6))">нарушение: на ${esc(w.late)} позже 6 суток</span></td></tr>` : ""}`).join("") + (d.deadline && d.need ? nextWeeklyRow(d) : "") + `</table><div class="ti-mapnote" style="display:none"></div>`;
     }
     if (d.comp && d.comp.length) {
       const CST = {
@@ -354,3 +366,14 @@ Fleet ETA Tracker — вкладка "Truck Info"
     if (wasOpen) out.querySelectorAll(".ti-hist-d").forEach((d) => { d.open = true; });
   });
 })();
+
+
+// v3.402: клик на 24h / 45h в строке «следующий недельный» копирует «24h 29.11.»
+document.addEventListener("click", (e) => {
+  const b = e.target.closest && e.target.closest(".ti-copy");
+  if (!b) return;
+  const txt = b.dataset.copy || "";
+  const done = () => { const o = b.textContent; b.textContent = "✓"; setTimeout(() => { b.textContent = o; }, 700); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, () => {});
+  else { const t = document.createElement("textarea"); t.value = txt; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); done(); } catch (_) {} t.remove(); }
+});

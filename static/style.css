@@ -585,6 +585,8 @@ a.ti-tractor:hover { background: #2f6fd6; color: #fff; }   /* v3.331: «Сини
 .ti-table tr.ti-blink td { animation: ti-blink 1s ease-in-out 5; }
 @keyframes ti-blink { 0%, 100% { background: transparent; } 50% { background: #ffe9a8; } }
 .ti-kind { display: inline-block; min-width: 52px; }
+.ti-copy { cursor: copy; }
+.ti-nextred .ti-copy { min-width: 0; }
 .ti-sub { color: #9a9a9a; font-size: 12px; }
 .ti-tag { display: inline-block; font-size: 11px; padding: 0 5px; border-radius: 4px; background: #eee; color: #555; margin-right: 3px; }
 .ti-full { background: #e3f5e1; color: #2d7a2d; }
