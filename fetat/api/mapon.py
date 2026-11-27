@@ -392,7 +392,7 @@ def api_truck_info():
                 idle_dbg = []
                 idle = [r for r in all_rests if _base_idle(uid, r, idle_dbg)]      # v3.392: простой на Базе — вне цепочки недельных
                 row["idle_dbg"] = idle_dbg
-                desig = designate_weekly([r for r in all_rests if r not in idle], (hist or {}).get("from") or 0)
+                desig = designate_weekly(all_rests, (hist or {}).get("from") or 0, idle)
                 for x, src in zip(row["weekly"], wsrc):   # недельный — если лежит внутри выбранного (допуск 1 мин)
                     x["daily"] = not any(d["start"] - 60 <= src["start"] and src["end"] <= d["end"] + 60 for d in desig)
                     x["base_idle"] = any(abs(r["start"] - src["start"]) <= 60 and abs(r["end"] - src["end"]) <= 60 for r in idle)
