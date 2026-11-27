@@ -175,9 +175,16 @@ Fleet ETA Tracker — вкладка "Truck Info"
 
   // v3.368: soft — смена периода: без «Загрузка…», карту не двигаем, прокрутка остаётся (страница не «обновляется»)
   const scroller = () => { for (let e = out.parentElement; e; e = e.parentElement) { const o = getComputedStyle(e).overflowY; if ((o === "auto" || o === "scroll") && e.scrollHeight > e.clientHeight) return e; } return document.scrollingElement; };
+  // v3.404: в поле можно закинуть строку из чата («OI 7551/C 551K(1k)C/OI 4307 otpusk 20.12») — берём последний номер трака
+  // вида «две буквы + 4 цифры» (OI 4307); «C 551K» и пометки (otpusk, dom, (2k)) не подходят. Нет такого номера — строка как есть.
+  function pickUnit(v) {
+    const m = String(v || "").match(/(?<![A-Za-z])[A-Za-z]{2}[\s-]?\d{4}(?!\d)/g);
+    return m ? m[m.length - 1].replace(/[\s-]/, " ").toUpperCase() : String(v || "").trim();
+  }
   async function load(opt) {
-    const q = inp.value.trim();
+    const q = pickUnit(inp.value);
     if (!q) return;
+    if (inp.value.trim() !== q) inp.value = q;
     const soft = !!(opt && opt.soft === true);
     if (!soft) out.innerHTML = `<div class="ti-loading">Загрузка…</div>`;
     try {
