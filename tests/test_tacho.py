@@ -144,6 +144,16 @@ class WeeklyCompensationTests(unittest.TestCase):
         r = self.comp([red, self.rest(200, 20)], 300)               # суточный 20 ч: излишек над 11 ч = 9 ч
         self.assertEqual(r[0]["status"], "ok")
 
+    def test_nocard_rest_clipped_by_moving_does_not_close_debt(self):
+        # v3.404: «отдых» без карты (src can) 32 ч, но трак ехал внутри — после обрезки излишка 19 ч нет, долг открыт
+        prev = self.rest(-85, 45)                                   # полный недельный: якорь цепочки
+        red = self.rest(100, 26)                                    # недобор 19 ч
+        nocard = {"start": self.T0 + 131 * H, "end": self.T0 + 163 * H, "src": ["can"]}   # через 5 ч после сокращённого — не недельный
+        moving = [(self.T0 + 135 * H, self.T0 + 137 * H), (self.T0 + 150 * H, self.T0 + 151 * H)]
+        self.assertEqual(self.comp([prev, red, nocard], 200)[0]["status"], "ok")
+        clipped = A.clip_rests_by_moving([prev, red, nocard], moving)
+        self.assertEqual(self.comp(clipped, 200)[0]["status"], "open")
+
     def test_weekly_45_surplus_and_short_daily_do_not_close(self):
         red = self.rest(10, 36)
         self.assertEqual(self.comp([red, self.rest(200, 9)], 300)[0]["status"], "open")        # 9 ч — излишка нет
