@@ -22,11 +22,11 @@ Fleet ETA Tracker — вкладка "Truck Info"
     return +m[1] > 24 ? "24H+" : +m[1] === 24 ? "24H" : "9h+";   // короче 24 ч — это уже суточный отдых (9h+), не недельный
   };
   // v3.402: срок следующего недельного и «или-или» — одной строкой: «24h 29.11. 11:08 (через 40:34) или 45h 02.12. 15:41 (через 117:07)»;
-  // клик на 24h / 45h копирует «24h 29.11.» (дата без времени)
+  // клик на 24h / 45h копирует «24h 29.11. 11:08» (дата и время)
   const nextWeeklyRow = (d) => {
     const part = (kind, at, left) => {
       const [dd, tm] = String(at || "").split(" ");
-      const copy = `${kind} ${dd}.`;
+      const copy = `${kind} ${dd}. ${tm || ""}`.trim();
       return `<b class="ti-kind ti-copy" data-copy="${esc(copy)}" title="Клик — скопировать «${esc(copy)}»">${kind}</b> ${esc(dd)}. ${esc(tm || "")}${left ? ` <span class="ti-dim">(через ${esc(left)})</span>` : ""}`;
     };
     const main = part(/^45/.test(String(d.need)) || d.alt ? "45h" : "24h", d.deadline, d.deadline_in);
@@ -368,7 +368,7 @@ Fleet ETA Tracker — вкладка "Truck Info"
 })();
 
 
-// v3.402: клик на 24h / 45h в строке «следующий недельный» копирует «24h 29.11.»
+// v3.402: клик на 24h / 45h в строке «следующий недельный» копирует «24h 29.11. 11:08»
 document.addEventListener("click", (e) => {
   const b = e.target.closest && e.target.closest(".ti-copy");
   if (!b) return;
