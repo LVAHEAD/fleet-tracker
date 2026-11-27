@@ -23,13 +23,21 @@ function keepDoneSeen(row, data) {
   const oldA = row.doneArr || {};
   const next = {};
   const nextA = {};
+  const oldT = row.doneTrl || {};      // v3.399: какой прицеп закрыл точку — запомненная ✓ приходит с сервера уже без этого признака
+  const nextT = {};
   (data.points_done || []).forEach((x, i) => {
     const t = pts[i];
     if (!t) return;
+    if (x && x.done && x.by_trailer) nextT[t] = x.by_trailer;
+    else if (x && x.done && x.kept && oldT[t]) { x.by_trailer = oldT[t]; nextT[t] = oldT[t]; }
     if (x && x.done && x.auto && x.at) next[t] = x.at;
     else if (old[t] && !(x && (x.manual === false || x.gated))) next[t] = old[t];   // v3.210: gated — точка идёт после непройденной, старую ✓ не храним
     if (x && x.done && x.auto && x.arr) nextA[t] = x.arr;
   });
+  if (JSON.stringify(nextT) !== JSON.stringify(oldT)) {
+    if (Object.keys(nextT).length) row.doneTrl = nextT; else delete row.doneTrl;
+    saveRows();
+  }
   if (JSON.stringify(next) !== JSON.stringify(old) || JSON.stringify(nextA) !== JSON.stringify(oldA)) {
     if (Object.keys(next).length) row.doneSeen = next; else delete row.doneSeen;
     if (Object.keys(nextA).length) row.doneArr = nextA; else delete row.doneArr;

@@ -50,7 +50,7 @@ function applyTransfer(row, k, toNo, nowMs, pair) {
 function dropSeenAfter(row, k) {
   const pts = [row.target || ""].concat((row.extra || []).map((x) => x.target || ""));
   const keep = new Set(pts.slice(0, k + 1));
-  ["doneSeen", "doneArr"].forEach((key) => {
+  ["doneSeen", "doneArr", "doneTrl"].forEach((key) => {
     if (!row[key]) return;
     pts.slice(k + 1).forEach((t) => { if (t && !keep.has(t)) delete row[key][t]; });
     if (!Object.keys(row[key]).length) delete row[key];
