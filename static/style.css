@@ -627,6 +627,10 @@ a.ti-tractor:hover { background: #2f6fd6; color: #fff; }   /* v3.331: «Сини
 .sync-status[data-st="local"] { min-width: 0; }
 #fleet-tbody tr.lo-row-O td:first-child { box-shadow: inset 4px 0 0 #E3B62E; }
 #fleet-tbody tr:not(.lo-row-L):not(.lo-row-O):hover td, #fleet-tbody tr:not(.lo-row-L):not(.lo-row-O).row-work td { background: #E3E7EF; }
+/* v3.402: «в работе» (активный трип) темнее наведения (27.11: у OB-3279 и OS-2429 цвета были одинаковые) */
+#fleet-tbody tr.lo-row-L.row-work td:not(.status-cell) { background: #A9C8EF; }
+#fleet-tbody tr.lo-row-O.row-work td:not(.status-cell) { background: #EBD36E; }
+#fleet-tbody tr:not(.lo-row-L):not(.lo-row-O).row-work td, #fleet-tbody tr:not(.lo-row-L):not(.lo-row-O).row-work .status-cell { background: #CBD2E0; }
 /* статус — одна строка, без цветной заливки */
 #fleet-tbody tr:not(.lo-row-L):not(.lo-row-O) .status-cell.status-driving,
 #fleet-tbody tr:not(.lo-row-L):not(.lo-row-O) .status-cell.status-standing { background: transparent; }
