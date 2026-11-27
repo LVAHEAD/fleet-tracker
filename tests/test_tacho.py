@@ -206,12 +206,13 @@ def test_shift_mapon_not_cut_by_night_rule():
 
 
 def test_weekly_short_pause_not_glued():
-    """v3.391: пауза 58 мин — не склейка, отдых непрерывный (Nizomov 08.11): второй отдых не недельный, опоздание видно"""
+    """v3.391: пауза 58 мин — не склейка, отдых непрерывный (Nizomov 08.11): второй сокращённый отдых не недельный, опоздание видно.
+    (v3.400: полный отдых от 45 ч — недельный и при коротком промежутке, см. test_full_45h_after_short_gap_is_weekly)"""
     from fetat.domain.tacho import designate_weekly, weekly_late
     H = 3600
     d = 86400
     r1 = {"start": 1 * d, "end": 1 * d + 166 * H}
-    r2 = {"start": r1["end"] + 1 * H, "end": r1["end"] + 59 * H}
+    r2 = {"start": r1["end"] + 1 * H, "end": r1["end"] + 33 * H}
     r3 = {"start": r2["end"] + 5 * d + 23 * H, "end": r2["end"] + 5 * d + 47 * H}
     des = designate_weekly([r1, r2, r3], t0=0)
     assert r2 not in des and r1 in des
@@ -272,3 +273,14 @@ def test_base_idle_resets_chain_before_departure():
     r1 = {"start": 26 * d, "end": 27 * d + 12 * H}
     des = designate_weekly([r0, idle, r1], t0=0, idle=[idle])
     assert des == [r1]
+
+
+def test_full_45h_after_short_gap_is_weekly():
+    """v3.400: OI-3572 — 45ка до 30.10 07:20, через 5 ч ещё 45 ч (30.10–01.11): недельный; 24 ч 07.11 вовремя, нарушения нет"""
+    from fetat.domain.tacho import designate_weekly, weekly_late
+    H, d = 3600, 86400
+    r1 = {"start": 0, "end": 2 * d}
+    r2 = {"start": r1["end"] + 5 * H, "end": r1["end"] + 5 * H + 45 * H}
+    r3 = {"start": r2["end"] + 5 * d + 14 * H, "end": r2["end"] + 5 * d + 38 * H}
+    des = designate_weekly([r1, r2, r3], t0=-d)
+    assert des == [r1, r2, r3] and not any(weekly_late(des))

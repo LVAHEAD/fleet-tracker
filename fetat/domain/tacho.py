@@ -201,7 +201,10 @@ def designate_weekly(rests, t0=0, idle=()):
     out = [first]
     while True:
         e = chain_end(out[-1])
-        nxt = [r for r in cand if r["start"] >= e + WEEKLY_MIN_GAP_SEC]
+        # v3.400: полный отдых от 45 ч — недельный и при коротком промежутке (OI-3572: 45ка до 30.10 07:20, через 5 ч ещё 45 ч — 30.10–01.11);
+        # 12 ч промежутка нужны только для сокращённых (24–45 ч), иначе это «тот же отдых»
+        nxt = [r for r in cand if r["start"] >= e + (0 if r["end"] - r["start"] >= WEEKLY_FULL_SEC else WEEKLY_MIN_GAP_SEC)
+               and r is not out[-1]]
         if not nxt:
             return out
         win = [r for r in nxt if r["start"] <= e + WEEKLY_PERIOD_SEC]
