@@ -1889,18 +1889,19 @@ async function calcRow(id, why, pre) {
         const multi = row.extra && row.extra.length;
         const label = data.target_is_truck ? `${row.unit} → ${data.target_unit}` : row.unit;
         updateTargetMarker(id, data.target_lat, data.target_lng, label, markerKind(row), multi ? 1 : null,
-          mtKm != null ? fmtKm(mtKm) : data.dist_km != null ? fmtKm(data.dist_km) : "", data.target_is_truck ? "" : tgtLine(row.target));
+          mtKm != null ? fmtKm(mtKm) : data.dist_km != null ? fmtKm(data.dist_km) : "", data.target_is_truck ? "" : tgtLine(row.target), !!late);   // v3.406: late — точка ① опаздывает
       } else {
         removeTargetMarker(id);
       }
       // v1.64: флажки следующих точек
       removeExtraTargets(id);
+      const ptLate = extraLateFlags(row, lastCalcText[id]);   // v3.406: опаздывающие точки ②③… — плашка на карте моргает
       (data.extra || []).forEach((x, i) => {
         if (x.lat == null || x.lng == null) return;
         const ex = (row.extra || [])[i] || {};
         const kind = ex.lo || (x.target_address && ["port", "customs", "misc"].includes(x.target_address.type) ? x.target_address.type : "");
         updateTargetMarker(id + "_" + (i + 1), x.lat, x.lng, row.unit, kind, i + 2,
-          x.leg_km != null ? fmtKm(x.leg_km) : "", tgtLine(ex.target));   // v1.78: без "+"; v3.102: таргет точки
+          x.leg_km != null ? fmtKm(x.leg_km) : "", tgtLine(ex.target), !!ptLate[i]);   // v1.78: без "+"; v3.102: таргет точки
       });
     }
   } catch (e) {
@@ -2063,6 +2064,16 @@ function fixRollHtml(inner, v) {
   return v ? `<span class="fx-roll fx-${v.kind}"><span class="fx-a">${inner}</span><span class="fx-b">${escapeHtml(v.short)}</span></span>` : inner;
 }
 
+// v3.406: какие из точек ②③… опаздывают — тот же расчёт, что у подсветки «sl-late» в ячейке ETA (c — кеш расчёта строки)
+function extraLateFlags(row, c) {
+  const nbAt = c && c.nbAt != null ? c.nbAt : null;
+  return (row.extra || []).map((x, i) => {
+    const ce = c && c.extra && c.extra[i];
+    if (!ce || ce.done || ce.error) return false;
+    const chk = slotCheck(x.delivery, (nbAt === i && c.onArr) || ce.eta_tacho || ce.eta_local, nbAt === i && c.onArr ? null : ce.tacho_left);
+    return !!(chk.late || (nbAt === i && c.actShort));
+  });
+}
 function extraCalc(data) {
   return (data.extra || []).map((x) => ({
     tacho_left: x.tacho_left || null, wait_sec: x.wait_sec || null,   // v3.229

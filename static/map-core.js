@@ -670,7 +670,7 @@ function targetLabel(label, lo) {
 const targetBadges = {}; // rowId -> BadgeOverlay
 // v1.74: "⬇️ OB-3280 [5]" — ⬇️ погрузка, ⬆️ выгрузка, ⏺️ другое; номер точки — кружок
 // v1.77: + км — у ① от машины, у ②③… плечо от предыдущей точки ("+165 км")
-function targetBadgeParts(label, lo, n, km, tgt) {
+function targetBadgeParts(label, lo, n, km, tgt, late) {
   const c = targetColors(lo);
   const tgtTxt = tgt ? `<span class="mk-tgt">${escapeHtml(tgt)}</span>` : "";   // v3.102: таргет точки — вторая строка
   const kmHtml = km ? ` <span class="tb-km">${escapeHtml(km)}</span>` : "";   // v1.78: без "·"
@@ -678,13 +678,13 @@ function targetBadgeParts(label, lo, n, km, tgt) {
   const chip = n ? ` <span class="pn-chip" style="background:${c.stroke}">${n}</span>` : "";
   return {
     html: `<span style="color:${c.label}"><span class="tb-ic">${icon}</span> ${escapeHtml(label || "")}${chip}${kmHtml}</span>${tgtTxt}`,
-    cls: "mk-tbadge",
+    cls: late ? "mk-tbadge mk-late" : "mk-tbadge",   // v3.406: опоздун — плашка точки моргает красной рамкой
     border: c.fill,
   };
 }
 
-function setTargetBadge(rowId, lat, lng, label, lo, n, km, tgt) {
-  const t = targetBadgeParts(label, lo, n, km, tgt);
+function setTargetBadge(rowId, lat, lng, label, lo, n, km, tgt, late) {
+  const t = targetBadgeParts(label, lo, n, km, tgt, late);
   if (targetBadges[rowId]) targetBadges[rowId].update(new google.maps.LatLng(lat, lng), t.html, t.cls);
   else targetBadges[rowId] = makeBadge(lat, lng, t.html, t.cls, 34, null);
   const b = targetBadges[rowId];
@@ -695,7 +695,7 @@ function setTargetBadge(rowId, lat, lng, label, lo, n, km, tgt) {
   setTimeout(applyBorder, 0); // div создаётся в onAdd — после setMap
 }
 
-function updateTargetMarker(rowId, lat, lng, label, lo, n, km, tgt) {
+function updateTargetMarker(rowId, lat, lng, label, lo, n, km, tgt, late) {
   if (lat == null || lng == null) return;
   if (!map) return; // таргет-маркер не критичен при ранней загрузке, пропускаем
   const pos = { lat, lng };
@@ -714,7 +714,8 @@ function updateTargetMarker(rowId, lat, lng, label, lo, n, km, tgt) {
   targetMarkers[rowId]._n = n;
   targetMarkers[rowId]._km = km;
   targetMarkers[rowId]._tgt = tgt;
-  setTargetBadge(rowId, lat, lng, label, lo, n, km, tgt);
+  targetMarkers[rowId]._late = !!late;
+  setTargetBadge(rowId, lat, lng, label, lo, n, km, tgt, late);
   applyTargetVisibility(rowId);
 }
 
@@ -724,7 +725,7 @@ function recolorTargetMarker(rowId, label, lo) {
   if (!m) return;
   m.setIcon(flagIcon(lo));
   const p = m.getPosition();
-  setTargetBadge(rowId, p.lat(), p.lng(), m._label || label, lo, m._n, m._km, m._tgt);
+  setTargetBadge(rowId, p.lat(), p.lng(), m._label || label, lo, m._n, m._km, m._tgt, m._late);
 }
 
 function removeTargetMarker(rowId) {
