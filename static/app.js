@@ -1292,7 +1292,7 @@ function etaCellHtml(row, c, composed) {
     if (ce && ce.done) {
       inner = doneEtaHtml(ce);
       tip = ce.done_by != null ? `Точка пройдена: пройдена следующая ${STOP_NUM[ce.done_by + 1]}`
-        : ce.done_auto ? `Точка пройдена: трак стоял ${ce.done_zone ? "в зоне «" + ce.done_zone + "»" : "здесь"}${ce.done_arr ? " с " + ce.done_arr : ""}, уехал ${ce.done_at}`
+        : ce.done_auto ? `Точка пройдена: ${ce.done_by_trailer ? "прицеп" : "трак"} стоял ${ce.done_zone ? "в зоне «" + ce.done_zone + "»" : "здесь"}${ce.done_arr ? " с " + ce.done_arr : ""}, уехал ${ce.done_at}`
         : (ce.done_msrc && ce.done_at ? `Отмечена пройденной вручную, время ${ce.done_at} (${ce.done_msrc === "mapon" ? "отъезд со стоянки Mapon" : "момент нажатия"})` : "Отмечена пройденной вручную");
     } else if (ce && ce.error) {
       inner = `<span class="eta-x-err">${escapeHtml(ce.error)}</span>`;
@@ -2064,7 +2064,7 @@ function extraCalc(data) {
     tacho_left: x.tacho_left || null, wait_sec: x.wait_sec || null,   // v3.229
     error: x.error || null,
     done: !!x.done, done_at: x.done_at || null, done_arr: x.done_arr || null, done_tz: x.done_tz || null, eta_tz: x.eta_tz || null, done_auto: !!x.done_auto, from_truck: !!x.from_truck,
-    done_by: x.done_by != null ? x.done_by : null, done_zone: x.done_zone || null,
+    done_by: x.done_by != null ? x.done_by : null, done_zone: x.done_zone || null, done_by_trailer: x.done_by_trailer || null,
     dist_km: x.dist_km, leg_km: x.leg_km,
     done_leg_km: x.done_leg_km != null ? x.done_leg_km : null,   // v3.226: км пройденной точки (из кеша плеч) — до ячейки не доходили
     chain_geo: !!x.chain_geo,                                    // v3.226: точка в NO / в 200 км от Стокгольма — для яркой «C»
