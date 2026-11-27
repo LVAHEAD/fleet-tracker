@@ -21,7 +21,7 @@ class BadgeTargetTest(unittest.TestCase):
 
     def test_target_point_plates_get_second_line(self):
         js = _read("static/map-core.js")
-        self.assertIn("function targetBadgeParts(label, lo, n, km, tgt)", js)
+        self.assertIn("function targetBadgeParts(label, lo, n, km, tgt, late)", js)
         self.assertIn("${tgtTxt}`,", js)
         self.assertIn("updateTargetMarker(id + \"_\" + (i + 1), x.lat, x.lng, row.unit, kind, i + 2,", _read("static/app.js"))
         self.assertIn("tgtLine(ex.target)", _read("static/app.js"))
