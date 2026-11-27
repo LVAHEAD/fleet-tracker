@@ -1789,7 +1789,7 @@ async function calcRow(id, why, pre) {
                          fixSig: JSON.stringify(fixAtList(row)),   // v3.229: по чему считали ожидание у фикс-точек
                          crew: crewOf(data), weekly: data.weekly_rest || null, hold: data.done_hint ? { open: data.done_hint.open, later: data.done_hint.later } : null,
                          doneFlags: (data.points_done || []).map((x) => ({ done: !!x.done, auto: !!x.auto, at: x.at || null, manual: x.manual,
-                           by: x.by != null ? x.by : null, zone: x.zone || null })),
+                           by: x.by != null ? x.by : null, zone: x.zone || null, by_trailer: x.by_trailer || null })),
                          allDone: !!data.all_done, hereIdx: otMulti ? otIdx : null, fuelLow: fuelLowOf(data),
                          rfAlerts: reeferAlertsOf(data, row),      // v3.34: тревоги рефа (без задержки)
                          // v3.31: для ⏱ калькулятора — км до первой непройденной точки, её номер, данные тахографа

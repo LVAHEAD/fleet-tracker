@@ -138,7 +138,7 @@ function applyDoneClasses(tr, row, c) {
     if (chip) {
       const m = row.done && (row.done[k] === true || row.done[k] === false) ? row.done[k] : null;
       chip.title = (f && f.done ? (f.by != null ? `Пройдена (по следующей точке ${STOP_NUM[f.by + 1]})`
-        : f.auto ? `Пройдена (авто: стоял ${f.zone ? "в зоне «" + f.zone + "»" : "здесь"}, уехал ${f.at})` : "Пройдена (вручную)")
+        : f.auto ? `Пройдена (авто: ${f.by_trailer ? "стоял прицеп" : "стоял"} ${f.zone ? "в зоне «" + f.zone + "»" : "здесь"}, уехал ${f.at})` : "Пройдена (вручную)")
         : (m === false ? "Не пройдена (вручную)" : "Не пройдена"))
         + (m != null && row.doneBy && row.doneBy[k] ? `\n${m === true ? "Пройдена" : "Не пройдена"} вручную · ${row.doneBy[k].who} · ${row.doneBy[k].at}` : "")
         + "\nКлик — выбрать: пройдена / не пройдена / авто";
