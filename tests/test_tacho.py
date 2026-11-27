@@ -262,12 +262,13 @@ def test_base_idle_needs_66h_and_base(monkeypatch):
     assert M._base_idle(1, {"start": 4000, "end": 4000 + 70 * H}) is False      # нет данных — не простой
 
 
-def test_base_idle_inside_running_chain_is_weekly():
-    """v3.399: простой на Базе после уже идущей цепочки — обычный недельный (OM-8218, 122 ч 17–22.11); цепочку начинать он не может"""
+def test_base_idle_resets_chain_before_departure():
+    """v3.399: всё до конца простоя на Базе — вне цепочки; цепочка с первого отдыха после него (OM-8218: выехали 22.11)"""
     from fetat.domain.tacho import designate_weekly
     H, d = 3600, 86400
-    idle0 = {"start": 1 * d, "end": 8 * d}                      # простой до выезда — не первый
-    r1 = {"start": 8 * d + 14 * H, "end": 11 * d + 1 * H}       # первый недельный после выезда
-    idle1 = {"start": 16 * d + 23 * H, "end": 22 * d}           # простой внутри цепочки (до 6 суток от конца r1)
-    des = designate_weekly([idle0, r1, idle1], t0=0, idle=[idle0, idle1])
-    assert des[0] is r1 and des[1] is idle1
+    r0 = {"start": 9 * d, "end": 11 * d}                       # 45ка до простоя
+    idle = {"start": 16 * d + 23 * H, "end": 22 * d}           # простой 122 ч
+    assert designate_weekly([r0, idle], t0=0, idle=[idle]) == []     # после простоя отдыхов нет — цепочка пуста
+    r1 = {"start": 26 * d, "end": 27 * d + 12 * H}
+    des = designate_weekly([r0, idle, r1], t0=0, idle=[idle])
+    assert des == [r1]

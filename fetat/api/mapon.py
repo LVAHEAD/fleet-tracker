@@ -403,6 +403,12 @@ def api_truck_info():
                     for d, lt in zip(desig, late):
                         if lt and d["start"] - 60 <= src["start"] and src["end"] <= d["end"] + 60:
                             x["late"] = _hm(lt)
+                if not desig and idle and not w.get("ongoing"):
+                    # v3.399: выехали с Базы после простоя, недельного после него ещё нет — срок 6 суток от конца простоя (как у Мапон)
+                    import time
+                    dl = max(r["end"] for r in idle) + WEEKLY_PERIOD_SEC
+                    row["deadline"], row["deadline_in"] = _lv(dl), _hm(dl - time.time())
+                    row["need"] = "24 ч (можно сокращённый)"
                 if desig and not w.get("ongoing"):
                     import time
                     last = desig[-1]

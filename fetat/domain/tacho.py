@@ -182,18 +182,22 @@ def designate_weekly(rests, t0=0, idle=()):
                    if r["end"] - r["start"] >= WEEKLY_MIN_SEC
                    and not (r["start"] <= t0 + 60 and r["end"] - r["start"] < WEEKLY_FULL_SEC)),
                   key=lambda r: r["start"])
-    if not cand:
+    if not cand and not idle:
         return []
+    # v3.399 (правило Владимира 27.11): каденция недельных начинается с выезда с Базы. Простой на Базе (idle, ≥66 ч) и всё, что
+    # было до его конца, в цепочку не входит (OM-8211: простой 166 ч до 08.11; OM-8218: 122 ч до 22.11, выехали 22.11 — до выезда
+    # нарушений нет). Цепочка — с первого отдыха после конца последнего простоя; Мапон считает срок от конца простоя (OM-8218: 28.11).
+    idle_end = max((r["end"] for r in idle), default=None)
+    if idle_end is not None:
+        cand = [r for r in cand if r["start"] >= idle_end - 60 and id(r) not in {id(x) for x in idle}]
+        if not cand:
+            return []
     longest = lambda xs: max(xs, key=lambda r: r["end"] - r["start"])
     def chain_end(r):
         # v3.391: склейки пауз нет (правило Владимира 25.11: отдых только непрерывный; исключение — паромы, пока не сделано)
         r["chain_end"] = r["end"]
         return r["end"]
-    # v3.399: простой на Базе (idle) каденцию НЕ начинает (Nizomov 11.11), но когда цепочка уже идёт — это обычный недельный
-    # отдых (OM-8218: 122 ч на Базе 17–22.11 сразу после 45ки 11.11 — Мапон считает его недельным)
-    ids = {id(r) for r in idle}
-    cand0 = [r for r in cand if id(r) not in ids] or cand
-    first = longest([r for r in cand0 if r["start"] <= cand0[0]["start"] + WEEKLY_PERIOD_SEC])
+    first = longest([r for r in cand if r["start"] <= cand[0]["start"] + WEEKLY_PERIOD_SEC])
     out = [first]
     while True:
         e = chain_end(out[-1])
