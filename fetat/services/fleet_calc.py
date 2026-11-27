@@ -324,13 +324,16 @@ def _merge_trailer(result, payload, pts_all, manual, units, dn):
     Нет свежего GPS / ошибка — ✓ по тягачу. result["trailer_merged"] — индексы закрытых по прицепу (для подсказки)."""
     lt = result.get("linked_trailer")
     tno = str(payload.get("trailer") or "").strip()
-    if not lt or lt.get("error") or not tno or any(x.get("kept") for x in dn):
+    if not lt or lt.get("error") or not tno:
         return dn
     try:
         tu = find_unit_exact(units, tno)
         if gps_state(tu) != "ok":
             return dn
-        new, merged = merge_trailer_done(dn, points_done(pts_all, manual, tu, units), tno)
+        # точки, уже пройденные тягачом (в т.ч. запомненные ✓ раньше окна истории), для прицепа — «пройдено»: открывают следующие
+        # (иначе точка ⑤ у прицепа «закрыта» запретом OS-2602 — в его истории нет ④). OC-3156 27.11
+        tman = [True if (x.get("done") and m is None) else m for x, m in zip(dn, manual + [None] * (len(dn) - len(manual)))]
+        new, merged = merge_trailer_done(dn, points_done(pts_all, tman, tu, units), tno)
         if merged:
             result["trailer_merged"] = merged
         return new
